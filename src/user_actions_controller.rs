@@ -67,6 +67,14 @@ fn project(app: &AppWindow, settings: &Settings) {
     ui.set_editor_available(!settings.external_editor_command.trim().is_empty());
 }
 
+/// At most this many checked messages are acted on in one go.
+const MAX_ACTION_MESSAGES: usize = 100;
+
+enum ActionRun {
+    One(rustmail_core::actions::ActionOutcome),
+    Many { total: usize, failures: Vec<String> },
+}
+
 fn current_actions(app: &AppWindow) -> Vec<MessageAction> {
     app.global::<UserActions>()
         .get_rows()
@@ -201,27 +209,44 @@ pub(super) fn register(
     let (weak, state_run, runtime_run) = (app.as_weak(), state.clone(), runtime.clone());
     ui.on_run(move |action_id| {
         let Some(app) = weak.upgrade() else { return };
-        // The message shown in the reader: the open conversation's selected
-        // message when it has loaded, otherwise the conversation's newest.
-        let target = {
+        // Checked messages when there are any (one run per conversation's
+        // newest message); otherwise the message shown in the reader: the
+        // open conversation's selected message when it has loaded, otherwise
+        // the conversation's newest.
+        let targets: Vec<(Option<i64>, Option<i64>)> = {
             let state = state_run.borrow();
-            state.selected_id.and_then(|selected| {
-                let shown = state
-                    .conversation_messages
-                    .get(state.conversation_selected_index)
-                    .filter(|_| state.conversation_owner_id == Some(selected));
-                match shown.map(|m| m.message_id).filter(|id| *id > 0) {
-                    Some(message_id) => Some((Some(message_id), None)),
-                    None => state
-                        .messages
-                        .iter()
-                        .find(|m| m.id == selected)
-                        .and_then(|m| m.thread_id)
-                        .map(|thread| (None, Some(thread))),
-                }
-            })
+            let checked: Vec<_> = state
+                .messages
+                .iter()
+                .filter(|m| state.checked_ids.contains(&m.id))
+                .filter_map(|m| m.thread_id)
+                .map(|thread| (None, Some(thread)))
+                .collect();
+            if !checked.is_empty() {
+                checked
+            } else {
+                state
+                    .selected_id
+                    .and_then(|selected| {
+                        let shown = state
+                            .conversation_messages
+                            .get(state.conversation_selected_index)
+                            .filter(|_| state.conversation_owner_id == Some(selected));
+                        match shown.map(|m| m.message_id).filter(|id| *id > 0) {
+                            Some(message_id) => Some((Some(message_id), None)),
+                            None => state
+                                .messages
+                                .iter()
+                                .find(|m| m.id == selected)
+                                .and_then(|m| m.thread_id)
+                                .map(|thread| (None, Some(thread))),
+                        }
+                    })
+                    .into_iter()
+                    .collect()
+            }
         };
-        let (Some(core), Some((message_id, thread_id))) = (core(&state_run), target) else {
+        let (Some(core), false) = (core(&state_run), targets.is_empty()) else {
             app.set_toast(UiMessage::plain("Select a message first."));
             return;
         };
@@ -232,31 +257,65 @@ pub(super) fn register(
             .unwrap_or_default();
         app.set_toast(UiMessage::detail("Running action “{}”…", &name));
         let id = action_id.to_string();
+        let targets: Vec<_> = targets.into_iter().take(MAX_ACTION_MESSAGES).collect();
         spawn(
             &app,
             &runtime_run,
             async move {
-                let message_id = match (message_id, thread_id) {
-                    (Some(id), _) => id,
-                    (None, Some(thread)) => core
-                        .latest_message_in_thread(thread)
-                        .await
-                        .map_err(|e| e.to_string())?,
-                    (None, None) => return Err("no message is selected".to_owned()),
-                };
-                core.run_message_action(message_id, id)
-                    .await
-                    .map_err(|e| e.to_string())
+                let mut outcomes = Vec::new();
+                for (message_id, thread_id) in &targets {
+                    let message_id = match (message_id, thread_id) {
+                        (Some(id), _) => *id,
+                        (None, Some(thread)) => core
+                            .latest_message_in_thread(*thread)
+                            .await
+                            .map_err(|e| e.to_string())?,
+                        (None, None) => return Err("no message is selected".to_owned()),
+                    };
+                    outcomes.push(
+                        core.run_message_action(message_id, id.clone())
+                            .await
+                            .map_err(|e| e.to_string()),
+                    );
+                }
+                if outcomes.len() == 1 {
+                    return outcomes.remove(0).map(ActionRun::One);
+                }
+                let failures: Vec<String> = outcomes
+                    .iter()
+                    .filter_map(|o| match o {
+                        Ok(outcome) if outcome.success => None,
+                        Ok(outcome) => Some(outcome.output.clone()),
+                        Err(error) => Some(error.clone()),
+                    })
+                    .collect();
+                Ok(ActionRun::Many {
+                    total: outcomes.len(),
+                    failures,
+                })
             },
             move |app, result| {
                 let message = match result {
-                    Ok(outcome) if outcome.success && outcome.output.is_empty() => {
+                    Ok(ActionRun::Many { total, failures }) => {
+                        let summary = if failures.is_empty() {
+                            "all finished".to_owned()
+                        } else {
+                            format!("{} failed: {}", failures.len(), failures[0])
+                        };
+                        UiMessage::three_arguments(
+                            "Action “{}” ran on {} messages: {}",
+                            &name,
+                            total,
+                            summary,
+                        )
+                    }
+                    Ok(ActionRun::One(outcome)) if outcome.success && outcome.output.is_empty() => {
                         UiMessage::detail("Action “{}” finished.", &name)
                     }
-                    Ok(outcome) if outcome.success => {
+                    Ok(ActionRun::One(outcome)) if outcome.success => {
                         UiMessage::arguments("Action “{}” finished: {}", &name, outcome.output)
                     }
-                    Ok(outcome) => match outcome.code {
+                    Ok(ActionRun::One(outcome)) => match outcome.code {
                         Some(code) => UiMessage::three_arguments(
                             "Action “{}” failed (exit {}): {}",
                             &name,

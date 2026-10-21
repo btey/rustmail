@@ -1586,6 +1586,17 @@ pub enum FilterField {
     HasAttachment,
     /// Whether it carries mailing-list headers; use `Yes` or `No`.
     ListMail,
+    /// Any header, named by `FilterCondition::name`; text comparisons. Needs
+    /// the original message.
+    Header,
+    /// The plain-text body; text comparisons.
+    Body,
+    /// Days since the message's date; use `Greater` (older) or `Less` (newer).
+    Age,
+    /// Whether the message is read; use `Yes` or `No`.
+    Read,
+    /// Whether the message is starred; use `Yes` or `No`.
+    Starred,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1610,10 +1621,16 @@ pub struct FilterCondition {
     pub op: FilterOp,
     #[serde(default)]
     pub value: String,
+    /// The header looked at by a `Header` condition (without the colon).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub name: String,
 }
 
 /// `kind` is one of `mark_read`, `mark_unread`, `star`, `archive`, `spam`,
-/// `trash`, `move` (value: a folder name) or `add_label` (value: a label name).
+/// `trash`, `move` (value: a folder name), `add_label` (value: a label name),
+/// `copy` (value: a folder name; IMAP accounts), `forward` (value: an address;
+/// the message goes along as an attachment) or `run_command` (value: a shell
+/// command, with `%f` the path of a temporary copy of the message).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FilterAction {

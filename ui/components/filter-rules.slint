@@ -11,6 +11,20 @@ export struct FilterRuleRow {
     enabled: bool,
 }
 
+// One row of the rule editor. `field`, `op` and `kind` are positions in the
+// lists of the same names in src/filter_rules_controller.rs.
+export struct FilterConditionEdit {
+    field: int,
+    op: int,
+    name: string,
+    value: string,
+}
+
+export struct FilterActionEdit {
+    kind: int,
+    value: string,
+}
+
 // Filter rules (conditions and actions applied to incoming mail). The Rust
 // side keeps these in step with the saved settings.
 export global FilterRules {
@@ -19,40 +33,34 @@ export global FilterRules {
     // Result of the last "run now", shown next to its button.
     in-out property <string> run-status;
     in-out property <bool> busy: false;
-    // The rule being written. A condition or action row with no field/kind is
-    // left out; field, op and kind hold the stored identifiers.
+    // The rule being written.
     in-out property <string> edit-name;
     in-out property <bool> edit-match-all: true;
     in-out property <bool> edit-stop: false;
-    in-out property <string> c1-field;
-    in-out property <string> c1-op;
-    in-out property <string> c1-value;
-    in-out property <string> c2-field;
-    in-out property <string> c2-op;
-    in-out property <string> c2-value;
-    in-out property <string> c3-field;
-    in-out property <string> c3-op;
-    in-out property <string> c3-value;
-    in-out property <string> a1-kind;
-    in-out property <string> a1-value;
-    in-out property <string> a2-kind;
-    in-out property <string> a2-value;
+    in-out property <[FilterConditionEdit]> edit-conditions: [{ field: 0, op: 0, name: "", value: "" }];
+    in-out property <[FilterActionEdit]> edit-actions: [{ kind: 0, value: "" }];
     callback context-changed();
     callback add-rule();
     callback delete-rule(string);
     callback toggle-rule(string);
     callback move-rule(string, int);
     callback run-now();
+    callback add-condition();
+    callback remove-condition(int);
+    callback update-condition(int, FilterConditionEdit);
+    callback add-action();
+    callback remove-action(int);
+    callback update-action(int, FilterActionEdit);
 }
 
 component ConditionRow inherits HorizontalBox {
-    in-out property <string> field;
-    in-out property <string> op;
-    in-out property <string> value;
+    in property <FilterConditionEdit> data;
     in property <bool> enabled: true;
-    private property <[string]> field-ids: ["", "from", "to", "cc", "subject", "size", "has_attachment", "list_mail"];
-    private property <[string]> text-ops: ["contains", "not_contains", "equals", "starts_with", "ends_with", "regex"];
-    private property <string> kind: root.field == "size" ? "size" : (root.field == "has_attachment" || root.field == "list_mail") ? "flag" : "text";
+    in property <bool> can-remove: true;
+    callback changed(FilterConditionEdit);
+    callback remove();
+    // 0 text, 1 header, 2 number (age, size), 3 yes/no
+    private property <int> kind: root.data.field == 4 ? 1 : root.data.field <= 5 ? 0 : root.data.field <= 7 ? 2 : 3;
     padding: 0px;
     spacing: 8px;
     height: 36px;
@@ -60,47 +68,73 @@ component ConditionRow inherits HorizontalBox {
     ComboBox {
         width: 150px;
         enabled: root.enabled;
-        model: [@tr("(not used)"), @tr("From"), @tr("To"), @tr("Cc"), @tr("Subject"), @tr("Size"), @tr("Has attachment"), @tr("Mailing list")];
-        current-index: root.field == "from" ? 1 : root.field == "to" ? 2 : root.field == "cc" ? 3 : root.field == "subject" ? 4 : root.field == "size" ? 5 : root.field == "has_attachment" ? 6 : root.field == "list_mail" ? 7 : 0;
+        model: [@tr("From"), @tr("To"), @tr("Cc"), @tr("Subject"), @tr("Header"), @tr("Body"), @tr("Age"), @tr("Size"), @tr("Is read"), @tr("Is starred"), @tr("Has attachment"), @tr("Mailing list")];
+        current-index: root.data.field;
         selected(value) => {
-            root.field = root.field-ids[self.current-index];
-            root.op = root.kind == "size" ? "greater" : root.kind == "flag" ? "yes" : "contains";
+            root.changed({ field: self.current-index, op: 0, name: root.data.name, value: "" });
         }
     }
-    if root.field != "" && root.kind == "text" : ComboBox {
+    if root.kind <= 1 : ComboBox {
         width: 170px;
         enabled: root.enabled;
         model: [@tr("contains"), @tr("does not contain"), @tr("is exactly"), @tr("starts with"), @tr("ends with"), @tr("matches regex")];
-        current-index: root.op == "not_contains" ? 1 : root.op == "equals" ? 2 : root.op == "starts_with" ? 3 : root.op == "ends_with" ? 4 : root.op == "regex" ? 5 : 0;
-        selected(value) => { root.op = root.text-ops[self.current-index]; }
+        current-index: root.data.op;
+        selected(value) => {
+            root.changed({ field: root.data.field, op: self.current-index, name: root.data.name, value: root.data.value });
+        }
     }
-    if root.field != "" && root.kind == "size" : ComboBox {
+    if root.kind == 2 : ComboBox {
         width: 170px;
         enabled: root.enabled;
-        model: [@tr("larger than (KB)"), @tr("smaller than (KB)")];
-        current-index: root.op == "less" ? 1 : 0;
-        selected(value) => { root.op = self.current-index == 1 ? "less" : "greater"; }
+        model: root.data.field == 6 ? [@tr("older than (days)"), @tr("newer than (days)")] : [@tr("larger than (KB)"), @tr("smaller than (KB)")];
+        current-index: root.data.op;
+        selected(value) => {
+            root.changed({ field: root.data.field, op: self.current-index, name: root.data.name, value: root.data.value });
+        }
     }
-    if root.field != "" && root.kind == "flag" : ComboBox {
+    if root.kind == 3 : ComboBox {
         width: 170px;
         enabled: root.enabled;
         model: [@tr("yes"), @tr("no")];
-        current-index: root.op == "no" ? 1 : 0;
-        selected(value) => { root.op = self.current-index == 1 ? "no" : "yes"; }
+        current-index: root.data.op;
+        selected(value) => {
+            root.changed({ field: root.data.field, op: self.current-index, name: root.data.name, value: root.data.value });
+        }
     }
-    if root.field != "" && root.kind != "flag" : LineEdit {
+    if root.kind == 1 : LineEdit {
+        width: 150px;
+        enabled: root.enabled;
+        text: root.data.name;
+        input-label: @tr("Header name");
+        placeholder-text: @tr("Header, e.g. X-Spam-Flag");
+        edited(text) => {
+            root.changed({ field: root.data.field, op: root.data.op, name: text, value: root.data.value });
+        }
+    }
+    if root.kind != 3 : LineEdit {
         horizontal-stretch: 1;
         enabled: root.enabled;
-        text <=> root.value;
-        placeholder-text: root.kind == "size" ? @tr("Size in KB") : root.op == "regex" ? @tr("Regular expression") : @tr("Text to look for");
+        text: root.data.value;
+        input-label: @tr("Condition value");
+        placeholder-text: root.kind == 2 ? (root.data.field == 6 ? @tr("Number of days") : @tr("Size in KB")) : root.data.op == 5 ? @tr("Regular expression") : @tr("Text to look for");
+        edited(text) => {
+            root.changed({ field: root.data.field, op: root.data.op, name: root.data.name, value: text });
+        }
+    }
+    Button {
+        width: 36px;
+        text: "×";
+        enabled: root.enabled && root.can-remove;
+        clicked => { root.remove(); }
     }
 }
 
 component ActionRow inherits HorizontalBox {
-    in-out property <string> kind;
-    in-out property <string> value;
+    in property <FilterActionEdit> data;
     in property <bool> enabled: true;
-    private property <[string]> kind-ids: ["", "mark_read", "mark_unread", "star", "archive", "spam", "trash", "move", "add_label"];
+    in property <bool> can-remove: true;
+    callback changed(FilterActionEdit);
+    callback remove();
     padding: 0px;
     spacing: 8px;
     height: 36px;
@@ -108,18 +142,27 @@ component ActionRow inherits HorizontalBox {
     ComboBox {
         width: 230px;
         enabled: root.enabled;
-        model: [@tr("(no action)"), @tr("Mark as read"), @tr("Mark as unread"), @tr("Star"), @tr("Archive"), @tr("Mark as spam"), @tr("Move to trash"), @tr("Move to folder"), @tr("Add label")];
-        current-index: root.kind == "mark_read" ? 1 : root.kind == "mark_unread" ? 2 : root.kind == "star" ? 3 : root.kind == "archive" ? 4 : root.kind == "spam" ? 5 : root.kind == "trash" ? 6 : root.kind == "move" ? 7 : root.kind == "add_label" ? 8 : 0;
+        model: [@tr("Mark as read"), @tr("Mark as unread"), @tr("Star"), @tr("Archive"), @tr("Mark as spam"), @tr("Move to trash"), @tr("Move to folder"), @tr("Add label"), @tr("Copy to folder"), @tr("Forward to address"), @tr("Run command")];
+        current-index: root.data.kind;
         selected(value) => {
-            root.kind = root.kind-ids[self.current-index];
-            root.value = "";
+            root.changed({ kind: self.current-index, value: "" });
         }
     }
-    if root.kind == "move" || root.kind == "add_label" : LineEdit {
+    if root.data.kind >= 6 : LineEdit {
         horizontal-stretch: 1;
         enabled: root.enabled;
-        text <=> root.value;
-        placeholder-text: root.kind == "move" ? @tr("Folder name, for example Receipts") : @tr("Label name");
+        text: root.data.value;
+        input-label: @tr("Action value");
+        placeholder-text: root.data.kind == 6 || root.data.kind == 8 ? @tr("Folder name, for example Receipts") : root.data.kind == 7 ? @tr("Label name") : root.data.kind == 9 ? @tr("Address, for example me@example.org") : @tr("Command; %f is the message file");
+        edited(text) => {
+            root.changed({ kind: root.data.kind, value: text });
+        }
+    }
+    Button {
+        width: 36px;
+        text: "×";
+        enabled: root.enabled && root.can-remove;
+        clicked => { root.remove(); }
     }
 }
 
@@ -139,7 +182,7 @@ export component FilterRulesSettings inherits VerticalBox {
         font-weight: 600;
     }
     Text {
-        text: @tr("Filters run on new mail that arrives in an Inbox, in the order shown. A filter acts on the whole conversation. Mail already in your account is not changed unless you run the filters by hand.");
+        text: @tr("Filters run on new mail that arrives in an Inbox, in the order shown. Move, label and flag actions apply to the whole conversation; copy, forward and run-command act on the message itself. Mail already in your account is not changed unless you run the filters by hand.");
         color: root.secondary-text;
         font-size: TypeScale.caption;
         wrap: word-wrap;
@@ -224,17 +267,48 @@ export component FilterRulesSettings inherits VerticalBox {
         }
         Text { text: @tr("of these match:"); color: root.secondary-text; font-size: TypeScale.caption; vertical-alignment: center; }
     }
-    ConditionRow { enabled: !FilterRules.busy; field <=> FilterRules.c1-field; op <=> FilterRules.c1-op; value <=> FilterRules.c1-value; }
-    ConditionRow { enabled: !FilterRules.busy; field <=> FilterRules.c2-field; op <=> FilterRules.c2-op; value <=> FilterRules.c2-value; }
-    ConditionRow { enabled: !FilterRules.busy; field <=> FilterRules.c3-field; op <=> FilterRules.c3-op; value <=> FilterRules.c3-value; }
+    for condition[index] in FilterRules.edit-conditions : ConditionRow {
+        data: condition;
+        enabled: !FilterRules.busy;
+        can-remove: FilterRules.edit-conditions.length > 1;
+        changed(edited) => { FilterRules.update-condition(index, edited); }
+        remove => { FilterRules.remove-condition(index); }
+    }
+    HorizontalBox {
+        padding: 0px;
+        height: 34px;
+        alignment: start;
+        Button {
+            width: max(120px, self.content-width + 28px);
+            text: @tr("Add condition");
+            enabled: !FilterRules.busy && FilterRules.edit-conditions.length < 8;
+            clicked => { FilterRules.add-condition(); }
+        }
+    }
     Text {
         height: max(20px, self.preferred-height);
         text: @tr("Then:");
         color: root.secondary-text;
         font-size: TypeScale.caption;
     }
-    ActionRow { enabled: !FilterRules.busy; kind <=> FilterRules.a1-kind; value <=> FilterRules.a1-value; }
-    ActionRow { enabled: !FilterRules.busy; kind <=> FilterRules.a2-kind; value <=> FilterRules.a2-value; }
+    for action[index] in FilterRules.edit-actions : ActionRow {
+        data: action;
+        enabled: !FilterRules.busy;
+        can-remove: FilterRules.edit-actions.length > 1;
+        changed(edited) => { FilterRules.update-action(index, edited); }
+        remove => { FilterRules.remove-action(index); }
+    }
+    HorizontalBox {
+        padding: 0px;
+        height: 34px;
+        alignment: start;
+        Button {
+            width: max(120px, self.content-width + 28px);
+            text: @tr("Add action");
+            enabled: !FilterRules.busy && FilterRules.edit-actions.length < 6;
+            clicked => { FilterRules.add-action(); }
+        }
+    }
     CheckBox {
         text: @tr("Stop: skip the filters below when this one matches");
         enabled: !FilterRules.busy;

@@ -14,6 +14,7 @@ fn rule(name: &str, from: &str, actions: &[(&str, &str)], stop: bool) -> FilterR
             field: FilterField::From,
             op: FilterOp::Contains,
             value: from.into(),
+            name: String::new(),
         }],
         actions: actions
             .iter()
@@ -149,4 +150,84 @@ async fn invalid_rule_lists_are_rejected_without_changing_the_saved_ones() {
     let settings = core.get_settings().await.unwrap();
     assert_eq!(settings.filter_rules.len(), 1);
     assert_eq!(settings.filter_rules[0].name, "Keep");
+}
+
+fn condition(field: FilterField, op: FilterOp, name: &str, value: &str) -> FilterCondition {
+    FilterCondition {
+        field,
+        op,
+        value: value.into(),
+        name: name.into(),
+    }
+}
+
+#[tokio::test]
+async fn header_body_age_and_flag_conditions_with_a_command_action() {
+    let (temp, core) = setup(Vec::new()).await;
+    let eml = temp.path().join("one.eml");
+    std::fs::write(
+        &eml,
+        "From: eve@example.net\r\nSubject: Hello\r\nX-Test: Yes\r\n\r\nthe quick brown fox\r\n",
+    )
+    .unwrap();
+    let eml_text = eml.to_string_lossy().into_owned();
+    core.db
+        .write(move |conn| {
+            conn.execute(
+                "UPDATE messages SET raw_path = ?1 WHERE id = 1",
+                rusqlite::params![eml_text],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let out = temp.path().join("copied.eml");
+    let mut r = rule(
+        "Everything",
+        "eve@",
+        &[
+            ("run_command", &format!("cp %f '{}'", out.display())),
+            ("star", ""),
+        ],
+        false,
+    );
+    r.conditions = vec![
+        condition(FilterField::Header, FilterOp::Equals, "x-test", "yes"),
+        condition(FilterField::Body, FilterOp::Contains, "", "brown fox"),
+        condition(FilterField::Age, FilterOp::Greater, "", "30"),
+        condition(FilterField::Read, FilterOp::No, "", ""),
+        condition(FilterField::Starred, FilterOp::No, "", ""),
+    ];
+    core.save_filter_rules(vec![r]).await.unwrap();
+    let summary = core.run_filters_now(1).await.unwrap();
+    assert_eq!((summary.examined, summary.matched), (2, 1));
+    let copied = std::fs::read_to_string(&out).expect("the command ran on a copy of the message");
+    assert!(copied.contains("the quick brown fox"));
+    let flags = read_flags(&core).await;
+    assert!(flags[0].2, "the thread action ran too");
+    assert!(!flags[1].2, "message 2 has no original, so it cannot match");
+}
+
+#[tokio::test]
+async fn copy_and_forward_are_refused_safely() {
+    let (_temp, core) = setup(Vec::new()).await;
+    let mut r = rule(
+        "Copy",
+        "eve@",
+        &[("copy", "INBOX"), ("forward", "alice@example.org")],
+        false,
+    );
+    r.conditions[0].value = "eve@".into();
+    core.save_filter_rules(vec![r]).await.unwrap();
+    // The account has no stored original and no server: both actions fail,
+    // the failure is logged, and the run still finishes.
+    let summary = core.run_filters_now(1).await.unwrap();
+    assert_eq!(summary.matched, 1);
+    let mut bad = rule("Bad", "x", &[("forward", "not an address")], false);
+    assert!(core.save_filter_rules(vec![bad.clone()]).await.is_err());
+    bad.actions = vec![FilterAction {
+        kind: "copy".into(),
+        value: String::new(),
+    }];
+    assert!(core.save_filter_rules(vec![bad]).await.is_err());
 }

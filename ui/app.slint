@@ -1,6 +1,6 @@
 export { AccountMailPreferences, SignatureChoice } from "components/account-mail-preferences.slint";
 export { UserActions, UserActionRow } from "components/user-actions.slint";
-export { FilterRules, FilterRuleRow } from "components/filter-rules.slint";
+export { FilterRules, FilterRuleRow, FilterConditionEdit, FilterActionEdit } from "components/filter-rules.slint";
 import { OpenPgpReader } from "components/account-mail-preferences.slint";
 import { MailAttachments } from "models.slint";
 import { AttachmentPreviewDialog } from "dialogs/attachment-preview-dialog.slint";
@@ -407,6 +407,7 @@ export global I18n {
         if (key == "Action “{}” finished: {}") { return @tr("Action “{}” finished: {}", argument, second-argument); }
         if (key == "Action “{}” failed: {}") { return @tr("Action “{}” failed: {}", argument, second-argument); }
         if (key == "Action “{}” failed (exit {}): {}") { return @tr("Action “{}” failed (exit {}): {}", argument, second-argument, third-argument); }
+        if (key == "Action “{}” ran on {} messages: {}") { return @tr("Action “{}” ran on {} messages: {}", argument, second-argument, third-argument); }
         if (key == "Action “{}” could not run: {}") { return @tr("Action “{}” could not run: {}", argument, second-argument); }
         if (key == "Editing in your external editor. Save and close it to bring the text back.") { return @tr("Editing in your external editor. Save and close it to bring the text back."); }
         if (key == "Text updated from your editor.") { return @tr("Text updated from your editor."); }

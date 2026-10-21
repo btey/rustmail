@@ -367,6 +367,20 @@ impl Core {
                 Ok((action, detail.subject, detail.from.email))
             })
             .await?;
+        self.run_command_on_message(message_id, &action.command, &subject, &from)
+            .await
+    }
+
+    /// Run `command` (`%f` = a private temporary copy of the original) with
+    /// the subject and sender in the environment. Used by saved actions and by
+    /// filters.
+    pub(crate) async fn run_command_on_message(
+        &self,
+        message_id: i64,
+        command: &str,
+        subject: &str,
+        from: &str,
+    ) -> Result<ActionOutcome> {
         let original = self.original_message(message_id).await?;
         let dir = tempfile::Builder::new()
             .prefix("rustmail-action-")
@@ -376,14 +390,14 @@ impl Core {
         tokio::fs::write(&file, &original)
             .await
             .map_err(|e| CoreError::Other(format!("could not save the message: {e}")))?;
-        let command = expand_command(&action.command, &file);
+        let command = expand_command(command, &file);
         let file_text = file.to_string_lossy().into_owned();
         run_shell(
             &command,
             &[
                 ("RUSTMAIL_MESSAGE_FILE", file_text.as_str()),
-                ("RUSTMAIL_SUBJECT", subject.as_str()),
-                ("RUSTMAIL_FROM", from.as_str()),
+                ("RUSTMAIL_SUBJECT", subject),
+                ("RUSTMAIL_FROM", from),
             ],
             ACTION_TIMEOUT,
         )

@@ -24,7 +24,15 @@ const PENDING_BATCH: i64 = 100;
 const MANUAL_LIMIT: i64 = 5000;
 const REGEX_SIZE_LIMIT: usize = 256 * 1024;
 
-pub const ACTION_KINDS: [&str; 8] = [
+/// Forwarded copies sent per filter pass: a guard against mail loops.
+const MAX_FORWARDS_PER_PASS: usize = 50;
+const MAX_COMMAND_BYTES: usize = 2048;
+/// Largest header block and body text a condition looks at.
+const MAX_HEADER_BYTES: usize = 64 * 1024;
+const MAX_BODY_BYTES: usize = 1024 * 1024;
+const MAX_PARSED_BYTES: usize = 4 * 1024 * 1024;
+
+pub const ACTION_KINDS: [&str; 11] = [
     "mark_read",
     "mark_unread",
     "star",
@@ -33,7 +41,15 @@ pub const ACTION_KINDS: [&str; 8] = [
     "trash",
     "move",
     "add_label",
+    "copy",
+    "forward",
+    "run_command",
 ];
+
+/// Actions that work on the matched message, not on its whole conversation.
+fn is_message_action(kind: &str) -> bool {
+    matches!(kind, "copy" | "forward" | "run_command")
+}
 
 /// What the conditions can see of one message.
 #[derive(Debug, Clone, Default)]
@@ -45,6 +61,14 @@ pub struct Facts {
     pub size_bytes: i64,
     pub has_attachments: bool,
     pub list_mail: bool,
+    pub is_read: bool,
+    pub is_starred: bool,
+    pub age_days: i64,
+    /// Headers of the original message (decoded where possible); `None` when
+    /// they were not loaded, in which case header conditions never match.
+    pub headers: Option<Vec<(String, String)>>,
+    /// Plain-text body; `None` when not loaded (body conditions never match).
+    pub body: Option<String>,
 }
 
 fn people(json: &str) -> String {
@@ -79,36 +103,53 @@ fn text_matches(op: FilterOp, haystack: &str, needle: &str) -> bool {
 }
 
 pub fn condition_matches(condition: &FilterCondition, facts: &Facts) -> bool {
-    let text = match condition.field {
-        FilterField::From => &facts.from,
-        FilterField::To => &facts.to,
-        FilterField::Cc => &facts.cc,
-        FilterField::Subject => &facts.subject,
-        FilterField::Size => {
-            let Ok(limit_kb) = condition.value.trim().parse::<i64>() else {
-                return false;
-            };
-            let kilobytes = facts.size_bytes / 1024;
-            return match condition.op {
-                FilterOp::Greater => kilobytes > limit_kb,
-                FilterOp::Less => kilobytes < limit_kb,
-                _ => false,
-            };
-        }
-        FilterField::HasAttachment | FilterField::ListMail => {
-            let present = if condition.field == FilterField::HasAttachment {
-                facts.has_attachments
-            } else {
-                facts.list_mail
-            };
-            return match condition.op {
-                FilterOp::Yes => present,
-                FilterOp::No => !present,
-                _ => false,
-            };
+    let flag = |present: bool| match condition.op {
+        FilterOp::Yes => present,
+        FilterOp::No => !present,
+        _ => false,
+    };
+    let number = |actual: i64| {
+        let Ok(limit) = condition.value.trim().parse::<i64>() else {
+            return false;
+        };
+        match condition.op {
+            FilterOp::Greater => actual > limit,
+            FilterOp::Less => actual < limit,
+            _ => false,
         }
     };
-    text_matches(condition.op, text, &condition.value)
+    match condition.field {
+        FilterField::From => text_matches(condition.op, &facts.from, &condition.value),
+        FilterField::To => text_matches(condition.op, &facts.to, &condition.value),
+        FilterField::Cc => text_matches(condition.op, &facts.cc, &condition.value),
+        FilterField::Subject => text_matches(condition.op, &facts.subject, &condition.value),
+        FilterField::Body => facts
+            .body
+            .as_deref()
+            .is_some_and(|body| text_matches(condition.op, body, &condition.value)),
+        FilterField::Header => {
+            let Some(headers) = &facts.headers else {
+                return false;
+            };
+            let name = condition.name.trim();
+            let mut values = headers
+                .iter()
+                .filter(|(header, _)| header.eq_ignore_ascii_case(name))
+                .map(|(_, value)| value.as_str());
+            if condition.op == FilterOp::NotContains {
+                // A header that is absent does not contain the text.
+                values.all(|value| text_matches(condition.op, value, &condition.value))
+            } else {
+                values.any(|value| text_matches(condition.op, value, &condition.value))
+            }
+        }
+        FilterField::Size => number(facts.size_bytes / 1024),
+        FilterField::Age => number(facts.age_days),
+        FilterField::HasAttachment => flag(facts.has_attachments),
+        FilterField::ListMail => flag(facts.list_mail),
+        FilterField::Read => flag(facts.is_read),
+        FilterField::Starred => flag(facts.is_starred),
+    }
 }
 
 pub fn rule_matches(rule: &FilterRule, facts: &Facts) -> bool {
@@ -118,6 +159,21 @@ pub fn rule_matches(rule: &FilterRule, facts: &Facts) -> bool {
             rule.conditions.iter().all(|c| condition_matches(c, facts))
         } else {
             rule.conditions.iter().any(|c| condition_matches(c, facts))
+        }
+}
+
+/// Whether `rule` could match once header and body text are known: those
+/// conditions count as possibly true.
+fn might_match(rule: &FilterRule, facts: &Facts) -> bool {
+    let possible = |c: &FilterCondition| {
+        matches!(c.field, FilterField::Header | FilterField::Body) || condition_matches(c, facts)
+    };
+    rule.enabled
+        && !rule.conditions.is_empty()
+        && if rule.match_all {
+            rule.conditions.iter().all(possible)
+        } else {
+            rule.conditions.iter().any(possible)
         }
 }
 
@@ -138,21 +194,42 @@ pub fn actions_for(rules: &[FilterRule], facts: &Facts) -> Vec<FilterAction> {
     actions
 }
 
-fn validate_condition(condition: &FilterCondition) -> Result<()> {
+fn validate_condition(condition: &mut FilterCondition) -> Result<()> {
     use FilterOp::*;
     let bad = |msg: &str| Err(CoreError::Other(msg.to_owned()));
     if condition.value.len() > MAX_VALUE_BYTES {
         return bad("A condition value can have at most 500 bytes");
     }
+    condition.name = condition.name.trim().to_owned();
+    if condition.field != FilterField::Header {
+        condition.name.clear();
+    }
     match condition.field {
-        FilterField::From | FilterField::To | FilterField::Cc | FilterField::Subject => {
+        FilterField::From
+        | FilterField::To
+        | FilterField::Cc
+        | FilterField::Subject
+        | FilterField::Body
+        | FilterField::Header => {
             if !matches!(
                 condition.op,
                 Contains | NotContains | Equals | StartsWith | EndsWith | Regex
             ) {
                 return bad("Choose a text comparison for this condition");
             }
-            if condition.value.is_empty() {
+            if condition.field == FilterField::Header {
+                let name = &condition.name;
+                if name.is_empty()
+                    || name.len() > 100
+                    || !name.bytes().all(|b| b.is_ascii_graphic() && b != b':')
+                {
+                    return bad("Enter a header name such as X-Spam-Flag (no spaces or colon)");
+                }
+                // An empty value with "contains" asks only whether the header exists.
+                if condition.value.is_empty() && condition.op != Contains {
+                    return bad("Enter the text to look for");
+                }
+            } else if condition.value.is_empty() {
                 return bad("Enter the text to look for");
             }
             if condition.op == Regex
@@ -164,20 +241,39 @@ fn validate_condition(condition: &FilterCondition) -> Result<()> {
                 return bad("The regular expression is not valid");
             }
         }
-        FilterField::Size => {
+        FilterField::Size | FilterField::Age => {
             if !matches!(condition.op, Greater | Less)
                 || condition.value.trim().parse::<u32>().is_err()
             {
-                return bad("Size conditions need “larger/smaller than” and a number of KB");
+                return bad(
+                    "Size and age conditions need “larger/older” or “smaller/newer” and a number",
+                );
             }
         }
-        FilterField::HasAttachment | FilterField::ListMail => {
+        FilterField::HasAttachment
+        | FilterField::ListMail
+        | FilterField::Read
+        | FilterField::Starred => {
             if !matches!(condition.op, Yes | No) {
                 return bad("Choose yes or no for this condition");
             }
         }
     }
     Ok(())
+}
+
+/// A plain address: one `@`, no spaces, separators or control characters.
+fn valid_forward_address(address: &str) -> bool {
+    let mut parts = address.split('@');
+    let (Some(local), Some(domain), None) = (parts.next(), parts.next(), parts.next()) else {
+        return false;
+    };
+    !local.is_empty()
+        && domain.contains('.')
+        && address.len() <= 254
+        && address
+            .chars()
+            .all(|c| c.is_ascii_graphic() && !matches!(c, ',' | ';' | '<' | '>' | '(' | ')' | '"'))
 }
 
 fn validate_rule(rule: &mut FilterRule) -> Result<()> {
@@ -200,11 +296,30 @@ fn validate_rule(rule: &mut FilterRule) -> Result<()> {
         if !ACTION_KINDS.contains(&action.kind.as_str()) {
             return Err(CoreError::Other("Choose a supported action".into()));
         }
-        let needs_value = matches!(action.kind.as_str(), "move" | "add_label");
-        if needs_value != !action.value.is_empty() || action.value.len() > MAX_VALUE_BYTES {
+        let needs_value = !matches!(
+            action.kind.as_str(),
+            "mark_read" | "mark_unread" | "star" | "archive" | "spam" | "trash"
+        );
+        let max = if action.kind == "run_command" {
+            MAX_COMMAND_BYTES
+        } else {
+            MAX_VALUE_BYTES
+        };
+        if needs_value != !action.value.is_empty() || action.value.len() > max {
             return Err(CoreError::Other(
-                "Move and label actions need a folder or label name; other actions take none"
+                "Move, copy, label, forward and command actions need a folder, label, address \
+                 or command; other actions take none"
                     .into(),
+            ));
+        }
+        if action.kind == "forward" && !valid_forward_address(&action.value) {
+            return Err(CoreError::Other(
+                "Forward needs one plain address such as name@example.org".into(),
+            ));
+        }
+        if action.value.contains('\0') {
+            return Err(CoreError::Other(
+                "An action value cannot contain NUL".into(),
             ));
         }
     }
@@ -279,12 +394,66 @@ fn facts_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<(i64, Option<i64>, 
             size_bytes: r.get::<_, Option<i64>>("size")?.unwrap_or(0),
             has_attachments: r.get::<_, i64>("has_attachments")? != 0,
             list_mail: r.get::<_, Option<String>>("list_unsubscribe")?.is_some(),
+            is_read: r.get::<_, i64>("is_read")? != 0,
+            is_starred: r.get::<_, i64>("is_starred")? != 0,
+            age_days: (crate::models::now_ms() - r.get::<_, i64>("date")?).max(0)
+                / (24 * 60 * 60 * 1000),
+            headers: None,
+            body: None,
         },
     ))
 }
 
 const FACT_COLUMNS: &str = "id, thread_id, account_id, from_name, from_addr, to_json, cc_json,
-     subject, size, has_attachments, list_unsubscribe";
+     subject, size, has_attachments, list_unsubscribe, is_read, is_starred, date";
+
+type Pending = (i64, Option<i64>, i64, Facts);
+/// A message, its conversation and account, its facts and the actions to run.
+type Plan = (i64, Option<i64>, i64, Facts, Vec<FilterAction>);
+
+/// The header block of `raw` as (name, value) pairs, unfolded and decoded.
+fn parse_headers(raw: &[u8]) -> Vec<(String, String)> {
+    let end = raw
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .into_iter()
+        .chain(raw.windows(2).position(|w| w == b"\n\n"))
+        .min()
+        .unwrap_or(raw.len());
+    let head = &raw[..end.min(MAX_HEADER_BYTES)];
+    let Some(message) = mail_parser::MessageParser::default().parse_headers(head) else {
+        return Vec::new();
+    };
+    message
+        .headers()
+        .iter()
+        .map(|header| {
+            let text = match header.value().as_text() {
+                Some(text) => text.to_owned(),
+                None => head
+                    .get(header.offset_start as usize..header.offset_end as usize)
+                    .map(|v| String::from_utf8_lossy(v).into_owned())
+                    .unwrap_or_default(),
+            };
+            let value = text.split_whitespace().collect::<Vec<_>>().join(" ");
+            (header.name().to_owned(), value)
+        })
+        .collect()
+}
+
+fn parse_body(raw: &[u8]) -> Option<String> {
+    let message =
+        mail_parser::MessageParser::default().parse(&raw[..raw.len().min(MAX_PARSED_BYTES)])?;
+    let mut text = message.body_text(0)?.into_owned();
+    text.truncate(text.floor_char_boundary(MAX_BODY_BYTES));
+    Some(text)
+}
+
+fn needs(rules: &[FilterRule], field: FilterField) -> bool {
+    rules
+        .iter()
+        .any(|r| r.conditions.iter().any(|c| c.field == field))
+}
 
 /// How many messages a manual run looked at and how many matched a rule.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -408,32 +577,111 @@ impl Core {
         Ok(total)
     }
 
-    async fn run_rules(
-        &self,
-        rules: &[FilterRule],
-        batch: Vec<(i64, Option<i64>, i64, Facts)>,
-    ) -> Result<usize> {
+    /// Read the original of every message that a rule with a header or body
+    /// condition could still match, so those conditions have text to look at.
+    /// Messages that cannot match anyway are never fetched (an IMAP original
+    /// costs a server round trip).
+    async fn load_message_facts(&self, rules: &[FilterRule], batch: &mut [Pending]) {
+        let want_headers = needs(rules, FilterField::Header);
+        let want_body = needs(rules, FilterField::Body);
+        if !want_headers && !want_body {
+            return;
+        }
+        let mut failed = 0usize;
+        for (message_id, _, _, facts) in batch.iter_mut() {
+            if !rules.iter().any(|rule| might_match(rule, facts)) {
+                continue;
+            }
+            let id = *message_id;
+            if want_body {
+                facts.body = self
+                    .db
+                    .read(move |conn| {
+                        Ok(conn
+                            .query_row(
+                                "SELECT text_body FROM message_bodies WHERE message_id = ?1",
+                                params![id],
+                                |r| r.get::<_, Option<String>>(0),
+                            )
+                            .ok()
+                            .flatten()
+                            .filter(|text| !text.is_empty()))
+                    })
+                    .await
+                    .unwrap_or(None)
+                    .map(|mut text| {
+                        text.truncate(text.floor_char_boundary(MAX_BODY_BYTES));
+                        text
+                    });
+            }
+            if !want_headers && facts.body.is_some() {
+                continue;
+            }
+            match self.original_message(id).await {
+                Ok(raw) => {
+                    if want_headers {
+                        facts.headers = Some(parse_headers(&raw));
+                    }
+                    if want_body && facts.body.is_none() {
+                        facts.body = parse_body(&raw);
+                    }
+                }
+                Err(_) => failed += 1,
+            }
+        }
+        if failed > 0 {
+            tracing::warn!(
+                "filters: {failed} messages could not be read for header or body conditions"
+            );
+        }
+    }
+
+    async fn run_rules(&self, rules: &[FilterRule], mut batch: Vec<Pending>) -> Result<usize> {
+        self.load_message_facts(rules, &mut batch).await;
         // One conversation can hold several matching messages; act once each.
         let mut seen: HashSet<(i64, String, String)> = HashSet::new();
-        let mut plans: Vec<(i64, i64, Vec<FilterAction>)> = Vec::new();
+        let mut plans: Vec<Plan> = Vec::new();
         let mut matched = 0;
-        for (_, thread, account, facts) in &batch {
-            let actions = actions_for(rules, facts);
-            let Some(thread) = thread else { continue };
+        for (message, thread, account, facts) in batch {
+            let actions = actions_for(rules, &facts);
             if actions.is_empty() {
                 continue;
             }
             matched += 1;
             let fresh: Vec<FilterAction> = actions
                 .into_iter()
-                .filter(|a| seen.insert((*thread, a.kind.clone(), a.value.clone())))
+                .filter(|a| {
+                    is_message_action(&a.kind)
+                        || thread.is_some_and(|t| seen.insert((t, a.kind.clone(), a.value.clone())))
+                })
                 .collect();
             if !fresh.is_empty() {
-                plans.push((*thread, *account, fresh));
+                plans.push((message, thread, account, facts, fresh));
             }
         }
-        for (thread_id, account_id, actions) in plans {
+        let mut forwards = 0usize;
+        for (message_id, thread_id, account_id, facts, actions) in plans {
             for action in actions {
+                if is_message_action(&action.kind) {
+                    if action.kind == "forward" {
+                        forwards += 1;
+                        if forwards > MAX_FORWARDS_PER_PASS {
+                            tracing::warn!("filter forward skipped: too many forwards in one pass");
+                            continue;
+                        }
+                    }
+                    if let Err(error) = self
+                        .run_message_filter_action(message_id, account_id, &facts, &action)
+                        .await
+                    {
+                        tracing::warn!(
+                            "filter action {} failed for message {message_id}: {error}",
+                            action.kind
+                        );
+                    }
+                    continue;
+                }
+                let Some(thread_id) = thread_id else { continue };
                 let Some((kind, params)) = self.resolve_filter_action(account_id, &action).await?
                 else {
                     tracing::warn!(
@@ -459,6 +707,154 @@ impl Core {
             }
         }
         Ok(matched)
+    }
+
+    /// Copy, forward and run-command act on the matched message itself.
+    async fn run_message_filter_action(
+        &self,
+        message_id: i64,
+        account_id: i64,
+        facts: &Facts,
+        action: &FilterAction,
+    ) -> Result<()> {
+        match action.kind.as_str() {
+            "run_command" => {
+                let outcome = self
+                    .run_command_on_message(message_id, &action.value, &facts.subject, &facts.from)
+                    .await?;
+                if !outcome.success {
+                    tracing::warn!(
+                        "filter command failed for message {message_id} ({:?}): {}",
+                        outcome.code,
+                        outcome.output
+                    );
+                }
+                Ok(())
+            }
+            "forward" => {
+                self.forward_original(account_id, message_id, &action.value, &facts.subject)
+                    .await
+            }
+            "copy" => {
+                self.copy_original(account_id, message_id, &action.value, facts.is_read)
+                    .await
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// Send the original to `to` as an attached message. Sent directly with the
+    /// account's own SMTP settings; no Sent copy is kept.
+    async fn forward_original(
+        &self,
+        account_id: i64,
+        message_id: i64,
+        to: &str,
+        subject: &str,
+    ) -> Result<()> {
+        use crate::accounts::secrets;
+        use crate::models::AuthKind;
+        let cfg = self
+            .db
+            .read(move |conn| repo::accounts::get_config(conn, account_id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound(format!("account {account_id}")))?;
+        if to.eq_ignore_ascii_case(&cfg.email) {
+            return Err(CoreError::Other(
+                "a filter will not forward mail to the account it came from".into(),
+            ));
+        }
+        let original = self.original_message(message_id).await?;
+        let domain = cfg
+            .email
+            .split('@')
+            .nth(1)
+            .unwrap_or("localhost")
+            .to_owned();
+        let recipients = [Address {
+            name: None,
+            email: to.to_owned(),
+        }];
+        let subject = format!("Fwd: {}", subject.replace(['\r', '\n'], " "));
+        let out = crate::mime::OutgoingMessage {
+            from: Address {
+                name: cfg.display_name.clone(),
+                email: cfg.email.clone(),
+            },
+            reply_to: None,
+            to: &recipients,
+            cc: &[],
+            bcc: &[],
+            subject: &subject,
+            body_text: "Forwarded automatically by a Rustmail filter. The original message is attached.",
+            body_html: None,
+            in_reply_to: None,
+            references: &[],
+            message_id: None,
+            message_id_domain: &domain,
+            attachments: vec![crate::mime::OutgoingAttachment {
+                filename: "forwarded-message.eml".into(),
+                mime_type: "message/rfc822".into(),
+                bytes: original,
+            }],
+        };
+        let (_id, raw) = crate::mime::build_message_owned(out)?;
+        let raw = crate::mail_security::Gpg::default()
+            .protect(&raw, &cfg.settings.security, &cfg.email, &recipients)
+            .await?;
+        let auth = match cfg.auth_kind {
+            AuthKind::Password => crate::smtp::SmtpAuth::Password(
+                secrets::load_smtp_password_async(self.credentials.clone(), cfg.id).await?,
+            ),
+            AuthKind::Oauth2 => crate::smtp::SmtpAuth::XOAuth2(
+                self.tokens.access_token(cfg.id, cfg.provider).await?,
+            ),
+        };
+        let cfg = secrets::hydrate_account(&self.credentials, &cfg).await;
+        crate::smtp::send_raw(&cfg, &auth, &cfg.email, &[to.to_owned()], &raw).await
+    }
+
+    /// Append a copy of the original to another folder of an IMAP account.
+    /// Copies into an Inbox are refused: they would be filtered again.
+    async fn copy_original(
+        &self,
+        account_id: i64,
+        message_id: i64,
+        folder_name: &str,
+        is_read: bool,
+    ) -> Result<()> {
+        let name = folder_name.to_owned();
+        let (config, folder) = self
+            .db
+            .read(move |conn| {
+                let config = repo::accounts::get_config(conn, account_id)?;
+                let folder = match find_folder(conn, account_id, &name)? {
+                    Some(id) => repo::folders::get(conn, id)?,
+                    None => None,
+                };
+                Ok((config, folder))
+            })
+            .await?;
+        let config = config.ok_or_else(|| CoreError::NotFound(format!("account {account_id}")))?;
+        let folder =
+            folder.ok_or_else(|| CoreError::NotFound(format!("folder {folder_name:?}")))?;
+        if folder.role.as_deref() == Some("inbox") {
+            return Err(CoreError::Other(
+                "a filter will not copy mail into an Inbox".into(),
+            ));
+        }
+        if config.provider != crate::models::Provider::Imap
+            || config.mail_protocol != crate::models::MailProtocol::Imap
+            || config.settings.connection.is_local()
+        {
+            return Err(CoreError::Other("copy works on IMAP accounts only".into()));
+        }
+        let original = self.original_message(message_id).await?;
+        let mut session = self.connect_folder_imap(&config).await?;
+        let appended =
+            crate::imap::append(&mut session, &folder.imap_name, &original, is_read).await;
+        crate::imap::logout(session).await;
+        appended
     }
 
     async fn resolve_filter_action(
@@ -549,6 +945,7 @@ mod tests {
             field,
             op,
             value: value.into(),
+            name: String::new(),
         }
     }
 
@@ -561,6 +958,15 @@ mod tests {
             size_bytes: 300 * 1024,
             has_attachments: true,
             list_mail: false,
+            is_read: false,
+            is_starred: true,
+            age_days: 10,
+            headers: Some(vec![
+                ("X-Spam-Flag".into(), "YES".into()),
+                ("Received".into(), "from a.example".into()),
+                ("Received".into(), "from b.example".into()),
+            ]),
+            body: Some("Please pay the attached invoice by Friday.".into()),
         }
     }
 
@@ -614,6 +1020,62 @@ mod tests {
         assert!(condition_matches(&cond(HasAttachment, Yes, ""), &f));
         assert!(condition_matches(&cond(ListMail, No, ""), &f));
         assert!(!condition_matches(&cond(ListMail, Yes, ""), &f));
+    }
+
+    #[test]
+    fn header_body_age_and_flag_conditions() {
+        let f = facts();
+        use FilterField::*;
+        use FilterOp::*;
+        let header = |op, name: &str, value: &str| FilterCondition {
+            field: Header,
+            op,
+            value: value.into(),
+            name: name.into(),
+        };
+        assert!(condition_matches(&header(Equals, "x-spam-flag", "yes"), &f));
+        assert!(condition_matches(&header(Contains, "X-Spam-Flag", ""), &f));
+        assert!(!condition_matches(&header(Contains, "X-Missing", ""), &f));
+        assert!(
+            condition_matches(&header(Contains, "received", "b.example"), &f),
+            "any of several headers of that name"
+        );
+        assert!(condition_matches(
+            &header(NotContains, "X-Missing", "x"),
+            &f
+        ));
+        assert!(!condition_matches(
+            &header(NotContains, "received", "b.example"),
+            &f
+        ));
+        let mut unloaded = facts();
+        unloaded.headers = None;
+        unloaded.body = None;
+        assert!(!condition_matches(
+            &header(NotContains, "X-Missing", "x"),
+            &unloaded
+        ));
+        assert!(!condition_matches(
+            &cond(Body, Contains, "invoice"),
+            &unloaded
+        ));
+        assert!(condition_matches(&cond(Body, Contains, "INVOICE"), &f));
+        assert!(condition_matches(&cond(Age, Greater, "7"), &f));
+        assert!(!condition_matches(&cond(Age, Less, "7"), &f));
+        assert!(condition_matches(&cond(Read, No, ""), &f));
+        assert!(condition_matches(&cond(Starred, Yes, ""), &f));
+    }
+
+    #[test]
+    fn parses_headers_and_body_from_a_message() {
+        let raw = b"Subject: =?utf-8?q?caf=C3=A9?=\r\nX-Long: one\r\n two\r\n\r\nHello body\r\n";
+        let headers = parse_headers(raw);
+        assert!(headers.contains(&("Subject".into(), "café".into())));
+        assert!(headers.contains(&("X-Long".into(), "one two".into())));
+        assert_eq!(
+            parse_body(raw).as_deref().map(str::trim),
+            Some("Hello body")
+        );
     }
 
     #[test]
@@ -687,6 +1149,42 @@ mod tests {
             check(&|r| r.actions[0].value = "Archive".into()),
             "star takes no value"
         );
+        assert!(check(&|r| {
+            r.conditions[0].field = FilterField::Header;
+            r.conditions[0].name = "bad name".into();
+        }));
+        assert!(check(&|r| {
+            r.conditions[0].field = FilterField::Age;
+            r.conditions[0].op = FilterOp::Contains;
+        }));
+        assert!(check(&|r| r.actions[0] = FilterAction {
+            kind: "forward".into(),
+            value: "a@b.c, d@e.f".into()
+        }));
+        assert!(check(&|r| r.actions[0] = FilterAction {
+            kind: "run_command".into(),
+            value: String::new()
+        }));
+        let mut ok = good();
+        ok.conditions[0].field = FilterField::Header;
+        ok.conditions[0].op = FilterOp::Contains;
+        ok.conditions[0].name = "X-Spam-Flag".into();
+        ok.conditions[0].value.clear();
+        ok.actions = vec![
+            FilterAction {
+                kind: "forward".into(),
+                value: "me@example.org".into(),
+            },
+            FilterAction {
+                kind: "copy".into(),
+                value: "Archive".into(),
+            },
+            FilterAction {
+                kind: "run_command".into(),
+                value: "cat %f".into(),
+            },
+        ];
+        validate_rule(&mut ok).unwrap();
         assert!(check(&|r| r.conditions = (0..9)
             .map(|_| cond(FilterField::From, FilterOp::Contains, "x"))
             .collect()));

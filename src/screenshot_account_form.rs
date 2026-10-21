@@ -66,14 +66,35 @@ fn account_form_screenshots() {
             },
         ])));
         ui.set_edit_name("Newsletters".into());
-        ui.set_c1_field("list_mail".into());
-        ui.set_c1_op("yes".into());
-        ui.set_c2_field("subject".into());
-        ui.set_c2_op("regex".into());
-        ui.set_c2_value("weekly|digest".into());
-        ui.set_a1_kind("move".into());
-        ui.set_a1_value("Newsletters".into());
-        ui.set_a2_kind("mark_read".into());
+        ui.set_edit_conditions(ModelRc::new(VecModel::from(vec![
+            FilterConditionEdit {
+                field: 11,
+                op: 0,
+                ..Default::default()
+            },
+            FilterConditionEdit {
+                field: 3,
+                op: 5,
+                value: "weekly|digest".into(),
+                ..Default::default()
+            },
+            FilterConditionEdit {
+                field: 4,
+                op: 0,
+                name: "X-Spam-Flag".into(),
+                ..Default::default()
+            },
+        ])));
+        ui.set_edit_actions(ModelRc::new(VecModel::from(vec![
+            FilterActionEdit {
+                kind: 6,
+                value: "Newsletters".into(),
+            },
+            FilterActionEdit {
+                kind: 0,
+                ..Default::default()
+            },
+        ])));
     }
     app.set_toast(UiMessage::arguments(
         "Action “{}” finished: {}",

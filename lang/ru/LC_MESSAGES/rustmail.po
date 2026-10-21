@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-21 19:33+0000\n"
+"POT-Creation-Date: 2026-10-21 20:20+0000\n"
 "PO-Revision-Date: 2026-10-08 15:11+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Russian <ru@li.org>\n"
@@ -188,7 +188,7 @@ msgstr "История переписки доступна"
 msgid "New address-book entry"
 msgstr "Новая запись в адресной книге"
 
-#: ui/app.slint:124 ui/app.slint:889 ui/components/composer-fields.slint:66
+#: ui/app.slint:124 ui/app.slint:890 ui/components/composer-fields.slint:66
 #: ui/dialogs/compose-dialog.slint:37
 msgid "No connected account"
 msgstr "Нет подключённой учётной записи"
@@ -1041,187 +1041,191 @@ msgid "Action “{}” failed (exit {}): {}"
 msgstr ""
 
 #: ui/app.slint:410
-msgid "Action “{}” could not run: {}"
+msgid "Action “{}” ran on {} messages: {}"
 msgstr ""
 
 #: ui/app.slint:411
+msgid "Action “{}” could not run: {}"
+msgstr ""
+
+#: ui/app.slint:412
 msgid ""
 "Editing in your external editor. Save and close it to bring the text back."
 msgstr ""
 
-#: ui/app.slint:412
+#: ui/app.slint:413
 msgid "Text updated from your editor."
 msgstr ""
 
-#: ui/app.slint:413
+#: ui/app.slint:414
 msgid "External editor: {}"
 msgstr ""
 
-#: ui/app.slint:414
+#: ui/app.slint:415
 msgid "Connection timeout must be between 1 and 600 seconds."
 msgstr ""
 
-#: ui/app.slint:415
+#: ui/app.slint:416
 msgid "Maximum connections must be between 1 and 20."
 msgstr ""
 
-#: ui/app.slint:416
+#: ui/app.slint:417
 msgid "Proxy port must be between 1 and 65535."
 msgstr ""
 
-#: ui/app.slint:417
+#: ui/app.slint:418
 msgid "Enter the proxy host and port, or set the proxy to None."
 msgstr ""
 
-#: ui/app.slint:422
+#: ui/app.slint:423
 msgid "Message action completed."
 msgstr "Действие с сообщением выполнено."
 
-#: ui/app.slint:423
+#: ui/app.slint:424
 msgid ""
 "Permanent deletion queued. Mail will disappear after the server confirms."
 msgstr ""
 "Безвозвратное удаление запланировано. Письма исчезнут после подтверждения "
 "сервера."
 
-#: ui/app.slint:424
+#: ui/app.slint:425
 msgid "Message action failed: {}"
 msgstr "Действие с сообщением не удалось: {}"
 
-#: ui/app.slint:425
+#: ui/app.slint:426
 msgid "Message action failed: message is no longer available"
 msgstr "Действие с сообщением не удалось: сообщение больше недоступно"
 
-#: ui/app.slint:426
+#: ui/app.slint:427
 msgid "Label added."
 msgstr "Метка добавлена."
 
-#: ui/app.slint:427
+#: ui/app.slint:428
 msgid "Label removed."
 msgstr "Метка удалена."
 
-#: ui/app.slint:428
+#: ui/app.slint:429
 msgid "Label created and added."
 msgstr "Метка создана и добавлена."
 
-#: ui/app.slint:429
+#: ui/app.slint:430
 msgid "Label created."
 msgstr "Метка создана."
 
-#: ui/app.slint:430
+#: ui/app.slint:431
 msgid "Label updated."
 msgstr "Метка обновлена."
 
-#: ui/app.slint:431
+#: ui/app.slint:432
 msgid "Label deleted."
 msgstr "Метка удалена."
 
-#: ui/app.slint:432
+#: ui/app.slint:433
 msgid "Could not update label: {}"
 msgstr "Не удалось обновить метку: {}"
 
-#: ui/app.slint:433
+#: ui/app.slint:434
 msgid "Could not save label: {}"
 msgstr "Не удалось сохранить метку: {}"
 
-#: ui/app.slint:434
+#: ui/app.slint:435
 msgid "Could not delete label: {}"
 msgstr "Не удалось удалить метку: {}"
 
-#: ui/app.slint:435
+#: ui/app.slint:436
 msgid "Folder created."
 msgstr "Папка создана."
 
-#: ui/app.slint:436
+#: ui/app.slint:437
 msgid "Folder renamed."
 msgstr "Папка переименована."
 
-#: ui/app.slint:437
+#: ui/app.slint:438
 msgid "Folder deleted."
 msgstr "Папка удалена."
 
-#: ui/app.slint:438
+#: ui/app.slint:439
 msgid "Could not create folder: {}"
 msgstr "Не удалось создать папку: {}"
 
-#: ui/app.slint:439
+#: ui/app.slint:440
 msgid "Could not rename folder: {}"
 msgstr "Не удалось переименовать папку: {}"
 
-#: ui/app.slint:440
+#: ui/app.slint:441
 msgid "Could not delete folder: {}"
 msgstr "Не удалось удалить папку: {}"
 
-#: ui/app.slint:441
+#: ui/app.slint:442
 msgid "Could not close preview: {}"
 msgstr "Не удалось закрыть предпросмотр: {}"
 
-#: ui/app.slint:442
+#: ui/app.slint:443
 msgid "Opened the system print view."
 msgstr "Открыт системный просмотр печати."
 
-#: ui/app.slint:443
+#: ui/app.slint:444
 msgid "Could not print message: {}"
 msgstr "Не удалось напечатать сообщение: {}"
 
-#: ui/app.slint:444
+#: ui/app.slint:445
 msgid "Opened the message in your browser."
 msgstr "Сообщение открыто в браузере."
 
-#: ui/app.slint:445
+#: ui/app.slint:446
 msgid "Could not open message in browser: {}"
 msgstr "Не удалось открыть сообщение в браузере: {}"
 
-#: ui/app.slint:446
+#: ui/app.slint:447
 msgid "Connect an account before replying or forwarding."
 msgstr "Подключите учётную запись перед ответом или пересылкой."
 
-#: ui/app.slint:447
+#: ui/app.slint:448
 msgid "Choose a message first."
 msgstr "Сначала выберите сообщение."
 
-#: ui/app.slint:448
+#: ui/app.slint:449
 msgid "Only drafts can be reopened for editing."
 msgstr "Только черновики можно снова открыть для редактирования."
 
-#: ui/app.slint:449
+#: ui/app.slint:450
 msgid "Could not open draft: {}"
 msgstr "Не удалось открыть черновик: {}"
 
-#: ui/app.slint:450
+#: ui/app.slint:451
 msgid "Could not open draft: invalid account identifier"
 msgstr "Не удалось открыть черновик: неверный идентификатор учётной записи"
 
-#: ui/app.slint:451
+#: ui/app.slint:452
 msgid "Connected account"
 msgstr "Подключённая учётная запись"
 
-#: ui/app.slint:452
+#: ui/app.slint:453
 msgid "Could not open composer: {}"
 msgstr "Не удалось открыть редактор письма: {}"
 
-#: ui/app.slint:453
+#: ui/app.slint:454
 msgid "Could not open composer: invalid account identifier"
 msgstr ""
 "Не удалось открыть редактор письма: неверный идентификатор учётной записи"
 
-#: ui/app.slint:458
+#: ui/app.slint:459
 msgid "Attach files to this email"
 msgstr "Прикрепить файлы к этому письму"
 
-#: ui/app.slint:459
+#: ui/app.slint:460
 msgid "Could not add attachments: {}"
 msgstr "Не удалось добавить вложения: {}"
 
-#: ui/app.slint:460
+#: ui/app.slint:461
 msgid "Added 1 attachment."
 msgstr "Добавлено одно вложение."
 
-#: ui/app.slint:461
+#: ui/app.slint:462
 msgid "Added {} attachments."
 msgstr "Добавлено вложений: {}."
 
-#: ui/app.slint:462
+#: ui/app.slint:463
 msgid ""
 "Attachments added: {}. Skipped: {} (duplicate, unreadable, or over the 25 MB "
 "total limit)."
@@ -1229,120 +1233,120 @@ msgstr ""
 "Добавлено вложений: {}. Пропущено: {} (дубликаты, недоступные для чтения или "
 "превышающие общий лимит 25 МБ)."
 
-#: ui/app.slint:463
+#: ui/app.slint:464
 msgid "Attachment removed."
 msgstr "Вложение удалено."
 
-#: ui/app.slint:464
+#: ui/app.slint:465
 msgid "Choose the account this message should be sent from."
 msgstr "Выберите учётную запись, с которой нужно отправить это сообщение."
 
-#: ui/app.slint:465
+#: ui/app.slint:466
 msgid "Choose a verified sender identity for this message."
 msgstr "Выберите подтверждённые данные отправителя для этого письма."
 
-#: ui/app.slint:466
+#: ui/app.slint:467
 msgid "Connect an account before saving or sending mail."
 msgstr "Подключите учётную запись перед сохранением или отправкой почты."
 
-#: ui/app.slint:467
+#: ui/app.slint:468
 msgid "Message queued for delivery (action {})."
 msgstr "Сообщение поставлено в очередь на отправку (действие {})."
 
-#: ui/app.slint:468
+#: ui/app.slint:469
 msgid "Sending message…"
 msgstr "Отправка сообщения…"
 
-#: ui/app.slint:469
+#: ui/app.slint:470
 msgid "Message sent."
 msgstr "Сообщение отправлено."
 
-#: ui/app.slint:470
+#: ui/app.slint:471
 msgid "Message was not sent: {} Your draft is preserved."
 msgstr "Сообщение не отправлено: {} Ваш черновик сохранён."
 
-#: ui/app.slint:471
+#: ui/app.slint:472
 msgid "Draft saved locally (#{})."
 msgstr "Черновик сохранён локально (#{})."
 
-#: ui/app.slint:472
+#: ui/app.slint:473
 msgid "Compose failed: {}"
 msgstr "Создание письма не удалось: {}"
 
-#: ui/app.slint:473
+#: ui/app.slint:474
 msgid "Connect an account before managing email templates."
 msgstr "Подключите учётную запись перед управлением шаблонами писем."
 
-#: ui/app.slint:474
+#: ui/app.slint:475
 msgid "Could not load email templates: {}"
 msgstr "Не удалось загрузить шаблоны писем: {}"
 
-#: ui/app.slint:475
+#: ui/app.slint:476
 msgid "Enter a template name."
 msgstr "Введите имя шаблона."
 
-#: ui/app.slint:476
+#: ui/app.slint:477
 msgid "Add a subject or message to the template."
 msgstr "Добавьте тему или сообщение в шаблон."
 
-#: ui/app.slint:477
+#: ui/app.slint:478
 msgid "Email template saved."
 msgstr "Шаблон письма сохранён."
 
-#: ui/app.slint:478
+#: ui/app.slint:479
 msgid "Could not save email template: {}"
 msgstr "Не удалось сохранить шаблон письма: {}"
 
-#: ui/app.slint:479
+#: ui/app.slint:480
 msgid "Email template deleted."
 msgstr "Шаблон письма удалён."
 
-#: ui/app.slint:480
+#: ui/app.slint:481
 msgid "Could not delete email template: {}"
 msgstr "Не удалось удалить шаблон письма: {}"
 
-#: ui/app.slint:481
+#: ui/app.slint:482
 msgid "Email template is no longer available."
 msgstr "Шаблон письма больше недоступен."
 
-#: ui/app.slint:482
+#: ui/app.slint:483
 msgid "Email template inserted."
 msgstr "Шаблон письма вставлен."
 
-#: ui/app.slint:483
+#: ui/app.slint:484
 msgid "Email template inserted, but its usage could not be saved: {}"
 msgstr ""
 "Шаблон письма вставлен, но сведения о его использовании не сохранены: {}"
 
-#: ui/app.slint:484
+#: ui/app.slint:485
 msgid "IMAP port must be between 1 and 65535."
 msgstr "Порт IMAP должен быть в диапазоне от 1 до 65535."
 
-#: ui/app.slint:485
+#: ui/app.slint:486
 msgid "News server port must be between 1 and 65535."
 msgstr ""
 
-#: ui/app.slint:486
+#: ui/app.slint:487
 msgid "SMTP port must be between 1 and 65535."
 msgstr "Порт SMTP должен быть в диапазоне от 1 до 65535."
 
-#: ui/app.slint:487
+#: ui/app.slint:488
 msgid "Local mail data is unavailable. Retry startup."
 msgstr "Локальные данные почты недоступны. Повторите запуск."
 
-#: ui/app.slint:488
+#: ui/app.slint:489
 msgid "Discovering JMAP and checking capabilities…"
 msgstr "Обнаружение JMAP и проверка возможностей…"
 
-#: ui/app.slint:489
+#: ui/app.slint:490
 msgid "Certificate imported. Connect to verify the server."
 msgstr "Сертификат импортирован. Подключитесь для проверки сервера."
 
-#: ui/app.slint:490
+#: ui/app.slint:491
 msgid "Could not load account preferences: {}"
 msgstr "Не удалось загрузить настройки учётной записи: {}"
 
-#: ui/app.slint:491
+#: ui/app.slint:492
 msgid ""
 "Your edited signature was preserved. Choose No signature to keep it as "
 "message text before inserting another."
@@ -1350,27 +1354,27 @@ msgstr ""
 "Ваша изменённая подпись сохранена. Выберите «Без подписи», чтобы оставить её "
 "как текст сообщения перед вставкой другой."
 
-#: ui/app.slint:492
+#: ui/app.slint:493
 msgid "Certificate import failed: {}"
 msgstr "Импорт сертификата не удался: {}"
 
-#: ui/app.slint:493
+#: ui/app.slint:494
 msgid "Paste the PEM certificate into the certificate field."
 msgstr "Вставьте сертификат PEM в поле сертификата."
 
-#: ui/app.slint:494
+#: ui/app.slint:495
 msgid "Testing IMAP and SMTP connections…"
 msgstr "Проверка подключений IMAP и SMTP…"
 
-#: ui/app.slint:495
+#: ui/app.slint:496
 msgid "Checking the mail folder…"
 msgstr ""
 
-#: ui/app.slint:496
+#: ui/app.slint:497
 msgid "Connecting to the news server…"
 msgstr ""
 
-#: ui/app.slint:501
+#: ui/app.slint:502
 msgid ""
 "Another browser authorization is already in progress; finish it or choose "
 "Cancel."
@@ -1378,152 +1382,152 @@ msgstr ""
 "Другая авторизация в браузере уже выполняется; завершите её или выберите "
 "«Отмена»."
 
-#: ui/app.slint:502 ui/dialogs/settings-dialog.slint:1568
+#: ui/app.slint:503 ui/dialogs/settings-dialog.slint:1568
 #: ui/dialogs/settings-dialog.slint:1611 ui/views/onboarding-view.slint:163
 msgid "Add app keys in Sign-in settings to enable this provider."
 msgstr ""
 "Добавьте ключи приложения в настройках входа, чтобы включить этого "
 "провайдера."
 
-#: ui/app.slint:503
+#: ui/app.slint:504
 msgid "Choose Gmail or Outlook OAuth."
 msgstr "Выберите OAuth Gmail или Outlook."
 
-#: ui/app.slint:504
+#: ui/app.slint:505
 msgid "Complete sign-in in your browser, or choose Cancel here."
 msgstr "Завершите вход в браузере или выберите «Отмена» здесь."
 
-#: ui/app.slint:505
+#: ui/app.slint:506
 msgid "Cancelling browser sign-in…"
 msgstr "Отмена входа через браузер…"
 
-#: ui/app.slint:506
+#: ui/app.slint:507
 msgid "Finishing browser sign-in…"
 msgstr "Завершение входа через браузер…"
 
-#: ui/app.slint:507
+#: ui/app.slint:508
 msgid "Could not use that browser address: {}"
 msgstr "Не удалось использовать этот адрес браузера: {}"
 
-#: ui/app.slint:508
+#: ui/app.slint:509
 msgid "Calendar core is unavailable."
 msgstr "Ядро календаря недоступно."
 
-#: ui/app.slint:509
+#: ui/app.slint:510
 msgid "Account no longer exists."
 msgstr "Учётная запись больше не существует."
 
-#: ui/app.slint:510
+#: ui/app.slint:511
 msgid "Authorize calendar access in your browser."
 msgstr "Авторизуйте доступ к календарю в браузере."
 
-#: ui/app.slint:511
+#: ui/app.slint:512
 msgid "OAuth app keys saved."
 msgstr "Ключи приложения OAuth сохранены."
 
-#: ui/app.slint:512
+#: ui/app.slint:513
 msgid "{} OAuth settings saved."
 msgstr "Настройки OAuth {} сохранены."
 
-#: ui/app.slint:513
+#: ui/app.slint:514
 msgid "OAuth settings failed: {}"
 msgstr "Настройки OAuth не удались: {}"
 
-#: ui/app.slint:514
+#: ui/app.slint:515
 msgid "Mail refresh failed: {}"
 msgstr "Обновление почты не удалось: {}"
 
-#: ui/app.slint:515
+#: ui/app.slint:516
 msgid "Mail filter failed: {}"
 msgstr "Фильтрация почты не удалась: {}"
 
-#: ui/app.slint:516
+#: ui/app.slint:517
 msgid "Mail pagination failed: {}"
 msgstr "Постраничная навигация по почте не удалась: {}"
 
-#: ui/app.slint:517
+#: ui/app.slint:518
 msgid "Could not mark message as read: {}"
 msgstr "Не удалось отметить сообщение как прочитанное: {}"
 
-#: ui/app.slint:518 ui/views/mail-reading-pane.slint:236
+#: ui/app.slint:519 ui/views/mail-reading-pane.slint:236
 #: ui/views/mail-reading-pane.slint:1272
 msgid "Loading message…"
 msgstr "Загрузка сообщения…"
 
-#: ui/app.slint:524 ui/components/workspace-navigation.slint:553
+#: ui/app.slint:525 ui/components/workspace-navigation.slint:553
 #: ui/dialogs/settings-dialog.slint:2176 ui/tray.slint:13
 #: ui/views/onboarding-view.slint:129
 msgid "Rustmail"
 msgstr "Rustmail"
 
-#: ui/app.slint:1109 ui/app.slint:1122
+#: ui/app.slint:1110 ui/app.slint:1123
 msgid "Global Labels (local only)"
 msgstr "Глобальные метки (только локально)"
 
-#: ui/app.slint:1988
+#: ui/app.slint:1989
 msgid "Empty Trash?"
 msgstr "Очистить корзину?"
 
-#: ui/app.slint:1988 ui/views/files-view.slint:539
+#: ui/app.slint:1989 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr "Удалить безвозвратно?"
 
-#: ui/app.slint:1992
+#: ui/app.slint:1993
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 "Безвозвратно удалить все письма из корзины во всех подключённых учётных "
 "записях?"
 
-#: ui/app.slint:1993
+#: ui/app.slint:1994
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr "Безвозвратно удалить все письма из корзины этой учётной записи?"
 
-#: ui/app.slint:1995
+#: ui/app.slint:1996
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr "Безвозвратно удалить выбранные переписки из корзины?"
 
-#: ui/app.slint:1996
+#: ui/app.slint:1997
 msgid "Permanently delete this conversation from Trash?"
 msgstr "Безвозвратно удалить эту переписку из корзины?"
 
-#: ui/app.slint:1997 ui/components/calendar.slint:937
+#: ui/app.slint:1998 ui/components/calendar.slint:937
 msgid "This action cannot be undone."
 msgstr "Это действие нельзя отменить."
 
-#: ui/app.slint:1998
+#: ui/app.slint:1999
 msgid "Empty Trash"
 msgstr "Очистить корзину"
 
-#: ui/app.slint:1998 ui/views/files-view.slint:621
+#: ui/app.slint:1999 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr "Удалить безвозвратно"
 
-#: ui/app.slint:2164
+#: ui/app.slint:2165
 msgid "Mailbox startup failed"
 msgstr "Запуск почтового ящика не удался"
 
-#: ui/app.slint:2170
+#: ui/app.slint:2171
 msgid "Rustmail could not open local storage"
 msgstr "Rustmail не смог открыть локальное хранилище"
 
-#: ui/app.slint:2183
+#: ui/app.slint:2184
 msgid "Diagnostic ID: {}"
 msgstr "Идентификатор диагностики: {}"
 
-#: ui/app.slint:2186
+#: ui/app.slint:2187
 msgid "Diagnostic ID {}"
 msgstr "Идентификатор диагностики {}"
 
-#: ui/app.slint:2191
+#: ui/app.slint:2192
 msgid "Retry"
 msgstr "Повторить"
 
-#: ui/app.slint:2199 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2200 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr "Копировать диагностику"
 
-#: ui/app.slint:2265 ui/views/files-view.slint:694
+#: ui/app.slint:2266 ui/views/files-view.slint:694
 msgid "Dismiss"
 msgstr "Убрать"
 
@@ -1779,7 +1783,7 @@ msgid "Save signature"
 msgstr "Сохранить подпись"
 
 #: ui/components/account-mail-preferences.slint:206
-#: ui/components/filter-rules.slint:175 ui/views/contacts-view.slint:586
+#: ui/components/filter-rules.slint:218 ui/views/contacts-view.slint:586
 msgid "Delete"
 msgstr "Удалить"
 
@@ -2536,7 +2540,7 @@ msgstr "Редактировать черновик"
 msgid "New message"
 msgstr "Новое сообщение"
 
-#: ui/components/composer-fields.slint:334 ui/components/filter-rules.slint:63
+#: ui/components/composer-fields.slint:334 ui/components/filter-rules.slint:71
 msgid "To"
 msgstr "Кому"
 
@@ -2544,7 +2548,7 @@ msgstr "Кому"
 msgid "name@example.com · separate with commas"
 msgstr "name@example.com · разделяйте запятыми"
 
-#: ui/components/composer-fields.slint:369 ui/components/filter-rules.slint:63
+#: ui/components/composer-fields.slint:369 ui/components/filter-rules.slint:71
 msgid "Cc"
 msgstr "Копия"
 
@@ -2560,7 +2564,7 @@ msgstr "Копия"
 msgid "Blind carbon copy"
 msgstr "Скрытая копия"
 
-#: ui/components/composer-fields.slint:466 ui/components/filter-rules.slint:63
+#: ui/components/composer-fields.slint:466 ui/components/filter-rules.slint:71
 msgid "Subject"
 msgstr "Тема"
 
@@ -2600,7 +2604,7 @@ msgstr "Страница {} из {}"
 msgid "Next page"
 msgstr "Следующая страница"
 
-#: ui/components/email-composer.slint:244 ui/components/filter-rules.slint:63
+#: ui/components/email-composer.slint:244 ui/components/filter-rules.slint:71
 msgid "From"
 msgstr "От кого"
 
@@ -2688,187 +2692,256 @@ msgstr "Удалить шаблон письма?"
 msgid "Delete this template from this device?"
 msgstr "Удалить этот шаблон с этого устройства?"
 
-#: ui/components/filter-rules.slint:63
-msgid "(not used)"
+#: ui/components/filter-rules.slint:71
+msgid "Header"
 msgstr ""
 
-#: ui/components/filter-rules.slint:63 ui/views/files-view.slint:543
+#: ui/components/filter-rules.slint:71
+msgid "Body"
+msgstr ""
+
+#: ui/components/filter-rules.slint:71
+msgid "Age"
+msgstr ""
+
+#: ui/components/filter-rules.slint:71 ui/views/files-view.slint:543
 msgid "Size"
 msgstr "Размер"
 
-#: ui/components/filter-rules.slint:63
+#: ui/components/filter-rules.slint:71
+msgid "Is read"
+msgstr ""
+
+#: ui/components/filter-rules.slint:71
+msgid "Is starred"
+msgstr ""
+
+#: ui/components/filter-rules.slint:71
 msgid "Has attachment"
 msgstr ""
 
-#: ui/components/filter-rules.slint:63
+#: ui/components/filter-rules.slint:71
 msgid "Mailing list"
 msgstr ""
 
-#: ui/components/filter-rules.slint:73
+#: ui/components/filter-rules.slint:80
 msgid "contains"
 msgstr ""
 
-#: ui/components/filter-rules.slint:73
+#: ui/components/filter-rules.slint:80
 msgid "does not contain"
 msgstr ""
 
-#: ui/components/filter-rules.slint:73
+#: ui/components/filter-rules.slint:80
 msgid "is exactly"
 msgstr ""
 
-#: ui/components/filter-rules.slint:73
+#: ui/components/filter-rules.slint:80
 msgid "starts with"
 msgstr ""
 
-#: ui/components/filter-rules.slint:73
+#: ui/components/filter-rules.slint:80
 msgid "ends with"
 msgstr ""
 
-#: ui/components/filter-rules.slint:73
+#: ui/components/filter-rules.slint:80
 msgid "matches regex"
 msgstr ""
 
-#: ui/components/filter-rules.slint:80
+#: ui/components/filter-rules.slint:89
+msgid "older than (days)"
+msgstr ""
+
+#: ui/components/filter-rules.slint:89
+msgid "newer than (days)"
+msgstr ""
+
+#: ui/components/filter-rules.slint:89
 msgid "larger than (KB)"
 msgstr ""
 
-#: ui/components/filter-rules.slint:80
+#: ui/components/filter-rules.slint:89
 msgid "smaller than (KB)"
 msgstr ""
 
-#: ui/components/filter-rules.slint:87
+#: ui/components/filter-rules.slint:98
 msgid "yes"
 msgstr ""
 
-#: ui/components/filter-rules.slint:87
+#: ui/components/filter-rules.slint:98
 msgid "no"
 msgstr ""
 
-#: ui/components/filter-rules.slint:95
+#: ui/components/filter-rules.slint:108
+msgid "Header name"
+msgstr ""
+
+#: ui/components/filter-rules.slint:109
+msgid "Header, e.g. X-Spam-Flag"
+msgstr ""
+
+#: ui/components/filter-rules.slint:118
+msgid "Condition value"
+msgstr ""
+
+#: ui/components/filter-rules.slint:119
+msgid "Number of days"
+msgstr ""
+
+#: ui/components/filter-rules.slint:119
 msgid "Size in KB"
 msgstr ""
 
-#: ui/components/filter-rules.slint:95
+#: ui/components/filter-rules.slint:119
 msgid "Regular expression"
 msgstr ""
 
-#: ui/components/filter-rules.slint:95
+#: ui/components/filter-rules.slint:119
 msgid "Text to look for"
 msgstr ""
 
-#: ui/components/filter-rules.slint:111
-msgid "(no action)"
-msgstr ""
-
-#: ui/components/filter-rules.slint:111 ui/views/mail-list-pane.slint:476
+#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:476
 #: ui/views/mail-reading-pane.slint:385 ui/views/mail-reading-pane.slint:771
 msgid "Mark as read"
 msgstr "Отметить как прочитанное"
 
-#: ui/components/filter-rules.slint:111 ui/views/mail-list-pane.slint:477
+#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:477
 #: ui/views/mail-reading-pane.slint:385 ui/views/mail-reading-pane.slint:771
 msgid "Mark as unread"
 msgstr "Отметить как непрочитанное"
 
-#: ui/components/filter-rules.slint:111
+#: ui/components/filter-rules.slint:145
 msgid "Star"
 msgstr ""
 
-#: ui/components/filter-rules.slint:111 ui/views/mail-list-pane.slint:936
+#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:936
 #: ui/views/mail-reading-pane.slint:403
 msgid "Archive"
 msgstr "Архивировать"
 
-#: ui/components/filter-rules.slint:111 ui/dialogs/settings-dialog.slint:2086
+#: ui/components/filter-rules.slint:145 ui/dialogs/settings-dialog.slint:2086
 msgid "Mark as spam"
 msgstr "Отметить как спам"
 
-#: ui/components/filter-rules.slint:111 ui/dialogs/settings-dialog.slint:2087
+#: ui/components/filter-rules.slint:145 ui/dialogs/settings-dialog.slint:2087
 #: ui/views/mail-list-pane.slint:938 ui/views/mail-reading-pane.slint:388
 #: ui/views/mail-reading-pane.slint:790
 msgid "Move to trash"
 msgstr "Переместить в корзину"
 
-#: ui/components/filter-rules.slint:111 ui/views/files-view.slint:539
+#: ui/components/filter-rules.slint:145 ui/views/files-view.slint:539
 msgid "Move to folder"
 msgstr "Переместить в папку"
 
-#: ui/components/filter-rules.slint:111
+#: ui/components/filter-rules.slint:145
 msgid "Add label"
 msgstr ""
 
-#: ui/components/filter-rules.slint:122
+#: ui/components/filter-rules.slint:145 ui/views/files-view.slint:539
+msgid "Copy to folder"
+msgstr "Копировать в папку"
+
+#: ui/components/filter-rules.slint:145
+msgid "Forward to address"
+msgstr ""
+
+#: ui/components/filter-rules.slint:145
+msgid "Run command"
+msgstr ""
+
+#: ui/components/filter-rules.slint:155
+msgid "Action value"
+msgstr ""
+
+#: ui/components/filter-rules.slint:156
 msgid "Folder name, for example Receipts"
 msgstr ""
 
-#: ui/components/filter-rules.slint:122 ui/views/mail-reading-pane.slint:1970
+#: ui/components/filter-rules.slint:156 ui/views/mail-reading-pane.slint:1970
 msgid "Label name"
 msgstr "Название метки"
 
-#: ui/components/filter-rules.slint:136
+#: ui/components/filter-rules.slint:156
+msgid "Address, for example me@example.org"
+msgstr ""
+
+#: ui/components/filter-rules.slint:156
+msgid "Command; %f is the message file"
+msgstr ""
+
+#: ui/components/filter-rules.slint:179
 msgid "Your filters"
 msgstr ""
 
-#: ui/components/filter-rules.slint:142
+#: ui/components/filter-rules.slint:185
 msgid ""
-"Filters run on new mail that arrives in an Inbox, in the order shown. A "
-"filter acts on the whole conversation. Mail already in your account is not "
+"Filters run on new mail that arrives in an Inbox, in the order shown. Move, "
+"label and flag actions apply to the whole conversation; copy, forward and "
+"run-command act on the message itself. Mail already in your account is not "
 "changed unless you run the filters by hand."
 msgstr ""
 
-#: ui/components/filter-rules.slint:150
+#: ui/components/filter-rules.slint:193
 msgid "No filters yet."
 msgstr ""
 
-#: ui/components/filter-rules.slint:174
+#: ui/components/filter-rules.slint:217
 msgid "Turn off"
 msgstr ""
 
-#: ui/components/filter-rules.slint:174
+#: ui/components/filter-rules.slint:217
 msgid "Turn on"
 msgstr ""
 
-#: ui/components/filter-rules.slint:184
+#: ui/components/filter-rules.slint:227
 msgid "Run filters on the Inboxes now"
 msgstr ""
 
-#: ui/components/filter-rules.slint:200
+#: ui/components/filter-rules.slint:243
 msgid "New filter"
 msgstr ""
 
-#: ui/components/filter-rules.slint:209
+#: ui/components/filter-rules.slint:252
 msgid "Filter name"
 msgstr ""
 
-#: ui/components/filter-rules.slint:210
+#: ui/components/filter-rules.slint:253
 msgid "Name, for example Receipts"
 msgstr ""
 
-#: ui/components/filter-rules.slint:217
+#: ui/components/filter-rules.slint:260
 msgid "Apply when"
 msgstr ""
 
-#: ui/components/filter-rules.slint:221
+#: ui/components/filter-rules.slint:264
 msgid "all"
 msgstr ""
 
-#: ui/components/filter-rules.slint:221
+#: ui/components/filter-rules.slint:264
 msgid "any"
 msgstr ""
 
-#: ui/components/filter-rules.slint:225
+#: ui/components/filter-rules.slint:268
 msgid "of these match:"
 msgstr ""
 
-#: ui/components/filter-rules.slint:232
+#: ui/components/filter-rules.slint:283
+msgid "Add condition"
+msgstr ""
+
+#: ui/components/filter-rules.slint:290
 msgid "Then:"
 msgstr ""
 
-#: ui/components/filter-rules.slint:239
+#: ui/components/filter-rules.slint:307 ui/components/user-actions.slint:147
+msgid "Add action"
+msgstr ""
+
+#: ui/components/filter-rules.slint:313
 msgid "Stop: skip the filters below when this one matches"
 msgstr ""
 
-#: ui/components/filter-rules.slint:251
+#: ui/components/filter-rules.slint:325
 msgid "Add filter"
 msgstr ""
 
@@ -3451,10 +3524,6 @@ msgstr ""
 
 #: ui/components/user-actions.slint:138
 msgid "thunderbird -file %f"
-msgstr ""
-
-#: ui/components/user-actions.slint:147
-msgid "Add action"
 msgstr ""
 
 #: ui/components/workspace-navigation.slint:104
@@ -5418,10 +5487,6 @@ msgstr "Открыть общий доступ к файлу или папке"
 #: ui/views/files-view.slint:539 ui/views/files-view.slint:553
 msgid "Rename"
 msgstr "Переименовать"
-
-#: ui/views/files-view.slint:539
-msgid "Copy to folder"
-msgstr "Копировать в папку"
 
 #: ui/views/files-view.slint:539
 msgid "File properties"

@@ -4,10 +4,61 @@ use crate::user_actions_controller::{core, spawn};
 use rustmail_core::models::{
     FilterAction, FilterCondition, FilterField, FilterOp, FilterRule, Settings,
 };
-use slint::SharedString;
+use slint::{Model, ModelRc, SharedString, VecModel};
 
-fn parse<T: serde::de::DeserializeOwned>(text: &str) -> Option<T> {
-    serde_json::from_value(serde_json::Value::String(text.to_owned())).ok()
+/// Condition fields in the order of the editor's list.
+const FIELDS: [FilterField; 12] = [
+    FilterField::From,
+    FilterField::To,
+    FilterField::Cc,
+    FilterField::Subject,
+    FilterField::Header,
+    FilterField::Body,
+    FilterField::Age,
+    FilterField::Size,
+    FilterField::Read,
+    FilterField::Starred,
+    FilterField::HasAttachment,
+    FilterField::ListMail,
+];
+const TEXT_OPS: [FilterOp; 6] = [
+    FilterOp::Contains,
+    FilterOp::NotContains,
+    FilterOp::Equals,
+    FilterOp::StartsWith,
+    FilterOp::EndsWith,
+    FilterOp::Regex,
+];
+const NUMBER_OPS: [FilterOp; 2] = [FilterOp::Greater, FilterOp::Less];
+const FLAG_OPS: [FilterOp; 2] = [FilterOp::Yes, FilterOp::No];
+/// Action kinds in the order of the editor's list.
+const ACTION_KINDS: [&str; 11] = [
+    "mark_read",
+    "mark_unread",
+    "star",
+    "archive",
+    "spam",
+    "trash",
+    "move",
+    "add_label",
+    "copy",
+    "forward",
+    "run_command",
+];
+/// The first action kind that takes a value.
+const FIRST_VALUE_KIND: i32 = 6;
+const MAX_CONDITIONS: usize = 8;
+const MAX_ACTIONS: usize = 6;
+
+fn ops_for(field: FilterField) -> &'static [FilterOp] {
+    match field {
+        FilterField::Age | FilterField::Size => &NUMBER_OPS,
+        FilterField::Read
+        | FilterField::Starred
+        | FilterField::HasAttachment
+        | FilterField::ListMail => &FLAG_OPS,
+        _ => &TEXT_OPS,
+    }
 }
 
 fn field_label(field: FilterField) -> &'static str {
@@ -19,6 +70,11 @@ fn field_label(field: FilterField) -> &'static str {
         FilterField::Size => "Size",
         FilterField::HasAttachment => "Attachment",
         FilterField::ListMail => "Mailing list",
+        FilterField::Header => "Header",
+        FilterField::Body => "Body",
+        FilterField::Age => "Age",
+        FilterField::Read => "Read",
+        FilterField::Starred => "Starred",
     }
 }
 
@@ -47,6 +103,9 @@ fn action_label(action: &FilterAction) -> String {
         "trash" => "trash".into(),
         "move" => format!("move to {}", action.value),
         "add_label" => format!("label {}", action.value),
+        "copy" => format!("copy to {}", action.value),
+        "forward" => format!("forward to {}", action.value),
+        "run_command" => format!("run {}", action.value),
         other => other.into(),
     }
 }
@@ -59,9 +118,24 @@ fn describe(rule: &FilterRule) -> String {
         .iter()
         .map(|c| match c.field {
             FilterField::Size => format!("{} {} {c_value} KB", field_label(c.field), op_label(c.op), c_value = c.value),
-            FilterField::HasAttachment | FilterField::ListMail => {
+            FilterField::Age => format!(
+                "{} {} {} days",
+                field_label(c.field),
+                if c.op == FilterOp::Greater { "over" } else { "under" },
+                c.value
+            ),
+            FilterField::HasAttachment
+            | FilterField::ListMail
+            | FilterField::Read
+            | FilterField::Starred => {
                 format!("{}: {}", field_label(c.field), op_label(c.op))
             }
+            FilterField::Header => format!(
+                "Header {} {} “{}”",
+                c.name,
+                op_label(c.op),
+                c.value
+            ),
             _ => format!("{} {} “{}”", field_label(c.field), op_label(c.op), c.value),
         })
         .collect::<Vec<_>>()
@@ -94,35 +168,37 @@ fn project(app: &AppWindow, rules: &Rc<RefCell<Vec<FilterRule>>>, settings: &Set
     )));
 }
 
-/// The rule written in the editor; unused condition and action rows are left out.
+/// The rule written in the editor.
 fn edited_rule(app: &AppWindow) -> Result<FilterRule, String> {
     let ui = app.global::<FilterRules>();
     let mut conditions = Vec::new();
-    for (field, op, value) in [
-        (ui.get_c1_field(), ui.get_c1_op(), ui.get_c1_value()),
-        (ui.get_c2_field(), ui.get_c2_op(), ui.get_c2_value()),
-        (ui.get_c3_field(), ui.get_c3_op(), ui.get_c3_value()),
-    ] {
-        if field.is_empty() {
-            continue;
-        }
+    for row in ui.get_edit_conditions().iter() {
+        let field = *FIELDS
+            .get(row.field as usize)
+            .ok_or("Choose what a condition looks at")?;
+        let op = *ops_for(field)
+            .get(row.op as usize)
+            .ok_or("Choose how a condition compares")?;
         conditions.push(FilterCondition {
-            field: parse(field.as_str()).ok_or("Choose what a condition looks at")?,
-            op: parse(op.as_str()).ok_or("Choose how a condition compares")?,
-            value: value.to_string(),
+            field,
+            op,
+            value: row.value.to_string(),
+            name: row.name.to_string(),
         });
     }
     let mut actions = Vec::new();
-    for (kind, value) in [
-        (ui.get_a1_kind(), ui.get_a1_value()),
-        (ui.get_a2_kind(), ui.get_a2_value()),
-    ] {
-        if !kind.is_empty() {
-            actions.push(FilterAction {
-                kind: kind.to_string(),
-                value: value.to_string(),
-            });
-        }
+    for row in ui.get_edit_actions().iter() {
+        let kind = ACTION_KINDS
+            .get(row.kind as usize)
+            .ok_or("Choose an action")?;
+        actions.push(FilterAction {
+            kind: (*kind).to_owned(),
+            value: if row.kind >= FIRST_VALUE_KIND {
+                row.value.to_string()
+            } else {
+                String::new()
+            },
+        });
     }
     Ok(FilterRule {
         id: String::new(),
@@ -135,25 +211,21 @@ fn edited_rule(app: &AppWindow) -> Result<FilterRule, String> {
     })
 }
 
+fn default_condition() -> FilterConditionEdit {
+    FilterConditionEdit::default()
+}
+
+fn default_action() -> FilterActionEdit {
+    FilterActionEdit::default()
+}
+
 fn clear_editor(app: &AppWindow) {
     let ui = app.global::<FilterRules>();
-    let empty = SharedString::default();
-    ui.set_edit_name(empty.clone());
+    ui.set_edit_name(SharedString::default());
     ui.set_edit_match_all(true);
     ui.set_edit_stop(false);
-    ui.set_c1_field(empty.clone());
-    ui.set_c1_op(empty.clone());
-    ui.set_c1_value(empty.clone());
-    ui.set_c2_field(empty.clone());
-    ui.set_c2_op(empty.clone());
-    ui.set_c2_value(empty.clone());
-    ui.set_c3_field(empty.clone());
-    ui.set_c3_op(empty.clone());
-    ui.set_c3_value(empty.clone());
-    ui.set_a1_kind(empty.clone());
-    ui.set_a1_value(empty.clone());
-    ui.set_a2_kind(empty.clone());
-    ui.set_a2_value(empty);
+    ui.set_edit_conditions(ModelRc::new(VecModel::from(vec![default_condition()])));
+    ui.set_edit_actions(ModelRc::new(VecModel::from(vec![default_action()])));
 }
 
 fn save(
@@ -262,6 +334,63 @@ pub(super) fn register(
                 list.swap(from, to as usize);
                 save(&app, &st, &rt, &rl, list, "Order saved.", false);
             }
+        }
+    });
+
+    let weak = app.as_weak();
+    ui.on_add_condition(move || {
+        let Some(app) = weak.upgrade() else { return };
+        let ui = app.global::<FilterRules>();
+        let mut list: Vec<_> = ui.get_edit_conditions().iter().collect();
+        if list.len() < MAX_CONDITIONS {
+            list.push(default_condition());
+            ui.set_edit_conditions(ModelRc::new(VecModel::from(list)));
+        }
+    });
+    let weak = app.as_weak();
+    ui.on_remove_condition(move |index| {
+        let Some(app) = weak.upgrade() else { return };
+        let ui = app.global::<FilterRules>();
+        let mut list: Vec<_> = ui.get_edit_conditions().iter().collect();
+        if list.len() > 1 && (index as usize) < list.len() {
+            list.remove(index as usize);
+            ui.set_edit_conditions(ModelRc::new(VecModel::from(list)));
+        }
+    });
+    let weak = app.as_weak();
+    ui.on_update_condition(move |index, row| {
+        let Some(app) = weak.upgrade() else { return };
+        let model = app.global::<FilterRules>().get_edit_conditions();
+        if (index as usize) < model.row_count() {
+            model.set_row_data(index as usize, row);
+        }
+    });
+    let weak = app.as_weak();
+    ui.on_add_action(move || {
+        let Some(app) = weak.upgrade() else { return };
+        let ui = app.global::<FilterRules>();
+        let mut list: Vec<_> = ui.get_edit_actions().iter().collect();
+        if list.len() < MAX_ACTIONS {
+            list.push(default_action());
+            ui.set_edit_actions(ModelRc::new(VecModel::from(list)));
+        }
+    });
+    let weak = app.as_weak();
+    ui.on_remove_action(move |index| {
+        let Some(app) = weak.upgrade() else { return };
+        let ui = app.global::<FilterRules>();
+        let mut list: Vec<_> = ui.get_edit_actions().iter().collect();
+        if list.len() > 1 && (index as usize) < list.len() {
+            list.remove(index as usize);
+            ui.set_edit_actions(ModelRc::new(VecModel::from(list)));
+        }
+    });
+    let weak = app.as_weak();
+    ui.on_update_action(move |index, row| {
+        let Some(app) = weak.upgrade() else { return };
+        let model = app.global::<FilterRules>().get_edit_actions();
+        if (index as usize) < model.row_count() {
+            model.set_row_data(index as usize, row);
         }
     });
 
