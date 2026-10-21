@@ -367,6 +367,7 @@ jobs:
           Copy-Item README.md target/package/windows/
           Copy-Item LICENSE target/package/windows/
           Copy-Item LICENSES/* target/package/windows/LICENSES/ -Recurse -Force
+          Copy-Item NOTICE.md target/package/windows/
           Copy-Item THIRD_PARTY_NOTICES.md target/package/windows/
           Copy-Item resources/fonts/google-sans-flex/OFL.txt "target/package/windows/LICENSES/Google Sans Flex/"
           Copy-Item resources/fonts/google-sans-flex/README.md "target/package/windows/LICENSES/Google Sans Flex/"
