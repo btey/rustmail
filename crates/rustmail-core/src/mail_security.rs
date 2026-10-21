@@ -1,5 +1,6 @@
-//! OpenPGP/MIME via the installed GnuPG 2.x engine. Private keys and passphrases
-//! stay with gpg-agent; account settings contain only public fingerprints.
+//! OpenPGP/MIME via the installed GnuPG 2.x engine, and S/MIME via its `gpgsm`
+//! (see `smime`). Private keys and passphrases stay with gpg-agent; account
+//! settings contain only public fingerprints.
 use crate::{
     Core,
     db::{Db, repo},
@@ -9,6 +10,9 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::PathBuf, process::Stdio, time::Duration};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+mod smime;
+pub use smime::Smime;
 
 const MAX_CRYPTO_BYTES: usize = 100 * 1024 * 1024;
 const MAX_STATUS_BYTES: usize = 1024 * 1024;
@@ -21,6 +25,9 @@ pub struct MailSecurity {
     pub require_encryption: bool,
     /// Send PGP inline (armored text in a plain-text body) instead of PGP/MIME.
     pub inline: bool,
+    /// Use S/MIME certificates (`gpgsm`) instead of OpenPGP keys. The
+    /// fingerprints below are then certificate SHA-1 fingerprints.
+    pub smime: bool,
     /// Explicitly verified email -> full primary fingerprint bindings.
     pub recipient_keys: BTreeMap<String, String>,
 }
@@ -265,6 +272,13 @@ impl Gpg {
         sender: &str,
         recipients: &[Address],
     ) -> Result<()> {
+        if policy.smime {
+            return Smime {
+                home: self.home.clone(),
+            }
+            .preflight(policy, sender, recipients)
+            .await;
+        }
         let mut checked = policy.clone();
         checked.validate()?;
         if !checked.enabled() {
@@ -305,6 +319,13 @@ impl Gpg {
     ) -> Result<Vec<u8>> {
         if !policy.enabled() {
             return Ok(raw.to_vec());
+        }
+        if policy.smime {
+            return Smime {
+                home: self.home.clone(),
+            }
+            .protect(raw, policy, sender, recipients)
+            .await;
         }
         let mut normalized = policy.clone();
         normalized.validate()?;
@@ -709,6 +730,13 @@ impl Gpg {
         use mail_parser::MimeHeaders;
         if raw.len() > MAX_CRYPTO_BYTES {
             return Err(error("Message exceeds the 100 MiB OpenPGP limit"));
+        }
+        if smime::is_smime(raw) {
+            return Smime {
+                home: self.home.clone(),
+            }
+            .open_message(raw, expected_fingerprint)
+            .await;
         }
         let mut entity = raw.to_vec();
         let mut encrypted = false;
@@ -1189,6 +1217,7 @@ mod tests {
             sign_by_default: true,
             require_encryption: true,
             inline: false,
+            smime: false,
             recipient_keys: BTreeMap::from([("bob@example.org".into(), bob.clone())]),
         };
         let protected = gpg
@@ -1323,6 +1352,7 @@ mod tests {
             sign_by_default: true,
             require_encryption: false,
             inline: true,
+            smime: false,
             recipient_keys: BTreeMap::from([("bob@example.org".into(), bob)]),
         };
         // Signed only: clearsigned, still readable on the wire.

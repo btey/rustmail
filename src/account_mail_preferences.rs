@@ -399,6 +399,7 @@ pub(super) fn register(
                             ui.set_sign(p.sign_by_default);
                             ui.set_encrypt(p.require_encryption);
                             ui.set_inline_pgp(p.inline);
+                            ui.set_use_smime(p.smime);
                             ui.set_recipient_keys(
                                 p.recipient_keys
                                     .iter()
@@ -754,6 +755,7 @@ pub(super) fn register(
             sign_by_default: ui.get_sign(),
             require_encryption: ui.get_encrypt(),
             inline: ui.get_inline_pgp(),
+            smime: ui.get_use_smime(),
             ..Default::default()
         };
         for line in ui
@@ -783,7 +785,7 @@ pub(super) fn register(
                     .await
                     .map_err(|e| e.to_string())
             },
-            |app, result| status(&app, result, "OpenPGP settings saved."),
+            |app, result| status(&app, result, "Privacy settings saved."),
         );
     });
     register_keys_and_reader(app, state, &tasks);
@@ -811,10 +813,11 @@ fn register_keys_and_reader(app: &AppWindow, state: &Rc<RefCell<InboxState>>, ta
         if ui.get_busy() || ui.get_account_id() < 0 { return; }
         let key = ui.get_fingerprint().to_string();
         let email = ui.get_account_label().to_string();
+        let smime = ui.get_use_smime();
         let opened = opened.clone();
         let generation = generation.clone();
         let expected = generation.get();
-        work.spawn(&app, true, async move { key_action(action.as_str(), &key, &email).await }, move |app, result| {
+        work.spawn(&app, true, async move { key_action(action.as_str(), &key, &email, smime).await }, move |app, result| {
             let ui = app.global::<AccountMailPreferences>();
             match result {
                 Ok(KeyResult::Generated(key)) => { ui.set_fingerprint(key.into()); ui.set_status("Key created. Back up your private key and revocation certificate in GnuPG, then save OpenPGP settings.".into()); }
@@ -927,8 +930,16 @@ enum KeyResult {
     Done(String),
 }
 #[cfg(desktop)]
-async fn key_action(action: &str, fingerprint: &str, email: &str) -> Result<KeyResult, String> {
+async fn key_action(
+    action: &str,
+    fingerprint: &str,
+    email: &str,
+    smime: bool,
+) -> Result<KeyResult, String> {
     let gpg = rustmail_core::mail_security::Gpg::default();
+    if smime && action != "open" {
+        return smime_key_action(action, fingerprint).await;
+    }
     match action {
         "generate" => gpg
             .generate_key(email)
@@ -1016,6 +1027,54 @@ async fn key_action(action: &str, fingerprint: &str, email: &str) -> Result<KeyR
             {
                 file.write(&data).await.map_err(|e| e.to_string())?;
                 Ok(KeyResult::Done("Public key exported.".into()))
+            } else {
+                Ok(KeyResult::Done("Cancelled.".into()))
+            }
+        }
+        _ => Err("Unknown key action.".into()),
+    }
+}
+/// Certificates live in gpgsm's keybox. Opening a message needs no switch:
+/// the reader detects S/MIME itself.
+#[cfg(desktop)]
+async fn smime_key_action(action: &str, fingerprint: &str) -> Result<KeyResult, String> {
+    let smime = rustmail_core::mail_security::Smime::default();
+    match action {
+        "generate" => Err("S/MIME certificates come from a certificate authority. Import yours (.p12 or .pem), then enter its fingerprint.".into()),
+        "list" => smime
+            .inventory()
+            .await
+            .map(KeyResult::Inventory)
+            .map_err(|e| e.to_string()),
+        "import" => {
+            let Some(file) = rfd::AsyncFileDialog::new()
+                .set_title("Import S/MIME certificate")
+                .pick_file()
+                .await
+            else {
+                return Ok(KeyResult::Done("Cancelled.".into()));
+            };
+            let data = file.read().await;
+            if data.len() > 1024 * 1024 {
+                return Err("File exceeds the size limit.".into());
+            }
+            smime.import_key(&data).await.map_err(|e| e.to_string())?;
+            Ok(KeyResult::Done(
+                "Certificate imported. GnuPG may ask you to trust its root; check the fingerprint first.".into(),
+            ))
+        }
+        "export" => {
+            let data = smime
+                .export_certificate(fingerprint)
+                .await
+                .map_err(|e| e.to_string())?;
+            if let Some(file) = rfd::AsyncFileDialog::new()
+                .set_file_name("certificate.pem")
+                .save_file()
+                .await
+            {
+                file.write(&data).await.map_err(|e| e.to_string())?;
+                Ok(KeyResult::Done("Certificate exported.".into()))
             } else {
                 Ok(KeyResult::Done("Cancelled.".into()))
             }
@@ -1176,17 +1235,18 @@ fn register_composer(
                         ui.set_composer_signature_names(ModelRc::new(VecModel::from(names)));
                         *list.borrow_mut() = signatures.clone();
                         let p = &config.settings.security;
+                        let system = if p.smime { "S/MIME" } else { "OpenPGP" };
                         ui.set_composer_security(
                             if p.require_encryption {
                                 if p.sign_by_default {
-                                    "OpenPGP: encryption required · digitally signed"
+                                    format!("{system}: encryption required · digitally signed")
                                 } else {
-                                    "OpenPGP: encryption required"
+                                    format!("{system}: encryption required")
                                 }
                             } else if p.sign_by_default {
-                                "OpenPGP: digitally signed · not encrypted"
+                                format!("{system}: digitally signed · not encrypted")
                             } else {
-                                "Message is not end-to-end encrypted"
+                                "Message is not end-to-end encrypted".to_owned()
                             }
                             .into(),
                         );

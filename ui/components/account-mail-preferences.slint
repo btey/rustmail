@@ -40,6 +40,7 @@ export global AccountMailPreferences {
     in-out property <bool> sign: false;
     in-out property <bool> encrypt: false;
     in-out property <bool> inline-pgp: false;
+    in-out property <bool> use-smime: false;
     in-out property <string> recipient-keys;
     in-out property <string> key-inventory;
     in-out property <string> status;
@@ -242,6 +243,11 @@ export component AccountMailPreferencesPanel inherits OnScreenSurface {
                     compact: root.compact; checked: AccountMailPreferences.inline-pgp; enabled: !AccountMailPreferences.busy && AccountMailPreferences.desktop-supported; toggled(value) => { AccountMailPreferences.inline-pgp = value; }
                     title-color: AppTheme.heading; description-color: AppTheme.secondary;
                 }
+                SettingsSwitchRow {
+                    title: @tr("Use S/MIME"); description: @tr("Uses certificates in GnuPG's gpgsm keybox instead of OpenPGP keys. Enter certificate fingerprints below. Certificate revocation is not checked.");
+                    compact: root.compact; checked: AccountMailPreferences.use-smime; enabled: !AccountMailPreferences.busy && AccountMailPreferences.desktop-supported; toggled(value) => { AccountMailPreferences.use-smime = value; }
+                    title-color: AppTheme.heading; description-color: AppTheme.secondary;
+                }
                 Text { min-height: self.preferred-height; vertical-stretch: 0; text: @tr("Verified recipient keys"); color: AppTheme.heading; font-weight: 600; }
                 Text { min-height: self.preferred-height; vertical-stretch: 0; text: @tr("Compare fingerprints with recipients through a separate trusted channel, then enter one email=fingerprint per line. Importing a key alone does not verify it."); color: AppTheme.secondary; wrap: word-wrap; }
                 TextEdit { wrap: word-wrap; height: 130px; text <=> AccountMailPreferences.recipient-keys; placeholder-text: @tr("person@example.org=FULL_FINGERPRINT"); enabled: !AccountMailPreferences.busy; }
@@ -260,7 +266,7 @@ export component AccountMailPreferencesPanel inherits OnScreenSurface {
                 Button { text: @tr("Open message file (.eml)"); enabled: !AccountMailPreferences.busy && AccountMailPreferences.desktop-supported; clicked => { AccountMailPreferences.key-action("open"); } }
                 if AccountMailPreferences.key-inventory != "" : TextEdit { wrap: word-wrap; height: 150px; read-only: true; text: AccountMailPreferences.key-inventory; }
                 Text { min-height: self.preferred-height; vertical-stretch: 0; text: @tr("Manage expiry, revocation and private-key backups in GnuPG. Only public keys are exported here."); color: AppTheme.secondary; wrap: word-wrap; }
-                Text { min-height: self.preferred-height; vertical-stretch: 0; text: @tr("Subjects and addresses remain visible. Protected drafts stay on this device. Existing server drafts are not retroactively protected. S/MIME certificates are not supported."); color: AppTheme.secondary; wrap: word-wrap; }
+                Text { min-height: self.preferred-height; vertical-stretch: 0; text: @tr("Subjects and addresses remain visible. Protected drafts stay on this device. Existing server drafts are not retroactively protected."); color: AppTheme.secondary; wrap: word-wrap; }
             }
             if AccountMailPreferences.busy || AccountMailPreferences.status != "" : Text {
                 text: AccountMailPreferences.busy ? @tr("Working…") : AccountMailPreferences.status;

@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-21 20:53+0000\n"
+"POT-Creation-Date: 2026-10-21 21:58+0000\n"
 "PO-Revision-Date: 2026-09-24 11:59+0000\n"
 "Last-Translator: 6uu1 <translate.rustmail.org@696988.xyz>\n"
 "Language-Team: Chinese (Simplified Han script) <https://"
@@ -1500,197 +1500,197 @@ msgstr "复制诊断信息"
 msgid "Dismiss"
 msgstr "忽略"
 
-#: ui/components/account-mail-preferences.slint:105
+#: ui/components/account-mail-preferences.slint:106
 msgid "Server allows any address at this domain"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:108
+#: ui/components/account-mail-preferences.slint:109
 msgid "Awaiting verification by the provider; cannot be selected yet"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:111
+#: ui/components/account-mail-preferences.slint:112
 msgid "The server refused the last message from this address: {}"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:111
+#: ui/components/account-mail-preferences.slint:112
 msgid "The server refused the last message from this address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:114
+#: ui/components/account-mail-preferences.slint:115
 msgid "Sign-in address · replies go to {}"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:114
+#: ui/components/account-mail-preferences.slint:115
 msgid "Sign-in address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:118
+#: ui/components/account-mail-preferences.slint:119
 msgid "Added by you · accepted by the server · replies go to {}"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:118
+#: ui/components/account-mail-preferences.slint:119
 msgid "Added by you · accepted by the server"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:120
+#: ui/components/account-mail-preferences.slint:121
 msgid "Added by you · not used yet · replies go to {}"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:120
+#: ui/components/account-mail-preferences.slint:121
 msgid "Added by you · not used yet"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:122
+#: ui/components/account-mail-preferences.slint:123
 msgid "Provided by the server · replies go to {}"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:122
+#: ui/components/account-mail-preferences.slint:123
 msgid "Provided by the server"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:126
+#: ui/components/account-mail-preferences.slint:127
 msgid "Sender identities, signatures & OpenPGP"
 msgstr "发件人身份、签名与 OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:127
+#: ui/components/account-mail-preferences.slint:128
 msgid ""
 "Choose an account to manage its sender identity, signature, and message "
 "protection."
 msgstr "选择要管理发件人身份、签名和邮件保护的账户。"
 
-#: ui/components/account-mail-preferences.slint:138
+#: ui/components/account-mail-preferences.slint:139
 msgid "Signatures"
 msgstr "签名"
 
-#: ui/components/account-mail-preferences.slint:139
+#: ui/components/account-mail-preferences.slint:140
 msgid "OpenPGP"
 msgstr "OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:144
+#: ui/components/account-mail-preferences.slint:145
 msgid "Default sender identity"
 msgstr "默认发件人身份"
 
-#: ui/components/account-mail-preferences.slint:144
+#: ui/components/account-mail-preferences.slint:145
 msgid "Preselected for new messages. Your sign-in address is unchanged."
 msgstr "撰写新邮件时默认选用。您的登录地址保持不变。"
 
-#: ui/components/account-mail-preferences.slint:150
+#: ui/components/account-mail-preferences.slint:151
 msgid "Save sender default"
 msgstr "保存发件人默认设置"
 
-#: ui/components/account-mail-preferences.slint:151
+#: ui/components/account-mail-preferences.slint:152
 msgid "Refresh sender identities"
 msgstr "刷新发件人身份"
 
-#: ui/components/account-mail-preferences.slint:161
+#: ui/components/account-mail-preferences.slint:162
 msgid "Edit"
 msgstr "编辑"
 
-#: ui/components/account-mail-preferences.slint:162
+#: ui/components/account-mail-preferences.slint:163
 #: ui/views/contacts-view.slint:586
 msgid "Remove"
 msgstr "移除"
 
-#: ui/components/account-mail-preferences.slint:165
+#: ui/components/account-mail-preferences.slint:166
 msgid ""
 "Gmail decides which addresses you can send from. Add an address in Gmail "
 "settings under Accounts › Send mail as, then refresh sender identities."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:168
+#: ui/components/account-mail-preferences.slint:169
 msgid "Edit sender address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:168
+#: ui/components/account-mail-preferences.slint:169
 msgid "Add a sender address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:172
+#: ui/components/account-mail-preferences.slint:173
 msgid ""
 "Your server lets you send from any address at the domains shown as "
 "wildcards. Add the addresses you want to choose from."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:173
+#: ui/components/account-mail-preferences.slint:174
 msgid ""
 "Add an alias or another address your mail server lets you send from. The "
 "server decides when you send; Rustmail shows whether it accepted the last "
 "message."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:175
+#: ui/components/account-mail-preferences.slint:176
 msgid "Email address"
 msgstr "电子邮件地址"
 
-#: ui/components/account-mail-preferences.slint:175
+#: ui/components/account-mail-preferences.slint:176
 msgid "alias@example.com"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:176
+#: ui/components/account-mail-preferences.slint:177
 msgid "Sender name"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:176
+#: ui/components/account-mail-preferences.slint:177
 msgid "Name shown to recipients (optional)"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:177
+#: ui/components/account-mail-preferences.slint:178
 msgid "Reply-to address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:177
+#: ui/components/account-mail-preferences.slint:178
 msgid "Where replies should go (optional)"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:181
+#: ui/components/account-mail-preferences.slint:182
 msgid "Save sender address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:181
+#: ui/components/account-mail-preferences.slint:182
 msgid "Add sender address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:182
+#: ui/components/account-mail-preferences.slint:183
 #: ui/dialogs/folder-dialog.slint:128 ui/dialogs/settings-dialog.slint:1876
 #: ui/dialogs/settings-dialog.slint:2555 ui/dialogs/settings-dialog.slint:2790
 #: ui/views/files-view.slint:426 ui/views/mail-reading-pane.slint:2009
 msgid "Cancel"
 msgstr "取消"
 
-#: ui/components/account-mail-preferences.slint:187
+#: ui/components/account-mail-preferences.slint:188
 msgid "Edit signature"
 msgstr "编辑签名"
 
-#: ui/components/account-mail-preferences.slint:187
+#: ui/components/account-mail-preferences.slint:188
 msgid "Saved separately for each account."
 msgstr "为每个账户分别保存。"
 
-#: ui/components/account-mail-preferences.slint:192
+#: ui/components/account-mail-preferences.slint:193
 msgid "New signature"
 msgstr "新建签名"
 
-#: ui/components/account-mail-preferences.slint:193
+#: ui/components/account-mail-preferences.slint:194
 msgid "Signature name"
 msgstr "签名名称"
 
-#: ui/components/account-mail-preferences.slint:193
+#: ui/components/account-mail-preferences.slint:194
 msgid "Signature name, for example Work"
 msgstr "签名名称，例如“工作”"
 
-#: ui/components/account-mail-preferences.slint:197
+#: ui/components/account-mail-preferences.slint:198
 #: ui/components/theme-editor.slint:714
 msgid "Text"
 msgstr "文字"
 
-#: ui/components/account-mail-preferences.slint:197
+#: ui/components/account-mail-preferences.slint:198
 msgid "Text file"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:197
+#: ui/components/account-mail-preferences.slint:198
 msgid "Command output"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:201
+#: ui/components/account-mail-preferences.slint:202
 msgid ""
 "Your name\n"
 "Role · Company\n"
@@ -1700,35 +1700,35 @@ msgstr ""
 "职位 · 公司\n"
 "电话 · 网站"
 
-#: ui/components/account-mail-preferences.slint:202
+#: ui/components/account-mail-preferences.slint:203
 msgid "File path"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:202
+#: ui/components/account-mail-preferences.slint:203
 msgid "Command"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:202
+#: ui/components/account-mail-preferences.slint:203
 msgid "~/.signature"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:202
+#: ui/components/account-mail-preferences.slint:203
 msgid "fortune -s"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:203
+#: ui/components/account-mail-preferences.slint:204
 msgid ""
 "The file is read again each time you write a message. Use plain text up to "
 "32 KiB."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:203
+#: ui/components/account-mail-preferences.slint:204
 msgid ""
 "The command runs through your shell each time you write a message, with no "
 "input and a 3 second limit. Only enter commands you trust."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:204
+#: ui/components/account-mail-preferences.slint:205
 msgid ""
 "Plain text works in every email client. You can format the inserted "
 "signature in the composer."
@@ -1736,49 +1736,49 @@ msgstr ""
 "纯文本可在所有邮件客户端中正常显示。插入签名后，您可以在邮件编辑器中设置其格"
 "式。"
 
-#: ui/components/account-mail-preferences.slint:206
+#: ui/components/account-mail-preferences.slint:207
 msgid "Save signature"
 msgstr "保存签名"
 
-#: ui/components/account-mail-preferences.slint:207
+#: ui/components/account-mail-preferences.slint:208
 #: ui/components/filter-rules.slint:218 ui/views/contacts-view.slint:586
 msgid "Delete"
 msgstr "删除"
 
-#: ui/components/account-mail-preferences.slint:210
+#: ui/components/account-mail-preferences.slint:211
 msgid "New messages"
 msgstr "新邮件"
 
-#: ui/components/account-mail-preferences.slint:210
+#: ui/components/account-mail-preferences.slint:211
 msgid "Signature inserted when you start a message."
 msgstr "开始撰写邮件时自动插入的签名。"
 
-#: ui/components/account-mail-preferences.slint:216
+#: ui/components/account-mail-preferences.slint:217
 msgid "Replies & forwards"
 msgstr "回复与转发"
 
-#: ui/components/account-mail-preferences.slint:216
+#: ui/components/account-mail-preferences.slint:217
 msgid "Placed above the quoted message."
 msgstr "置于引用内容之上。"
 
-#: ui/components/account-mail-preferences.slint:221
+#: ui/components/account-mail-preferences.slint:222
 msgid "Save signature defaults"
 msgstr "保存签名默认设置"
 
-#: ui/components/account-mail-preferences.slint:225
+#: ui/components/account-mail-preferences.slint:226
 msgid ""
 "OpenPGP protects message bodies and attachments. Digital signatures let "
 "recipients check who signed a message."
 msgstr "OpenPGP 用于保护邮件正文和附件。数字签名可让收件人核实邮件的签署者。"
 
-#: ui/components/account-mail-preferences.slint:226
+#: ui/components/account-mail-preferences.slint:227
 msgid ""
 "Uses installed GnuPG 2.x and its secure key storage. Passphrases are entered "
 "in GnuPG's unlock dialog."
 msgstr ""
 "使用已安装的 GnuPG 2.x 及其安全密钥存储。口令在 GnuPG 的解锁对话框中输入。"
 
-#: ui/components/account-mail-preferences.slint:226
+#: ui/components/account-mail-preferences.slint:227
 msgid ""
 "OpenPGP is unavailable on this mobile build. Protected accounts cannot send "
 "without a supported encryption engine."
@@ -1786,55 +1786,65 @@ msgstr ""
 "此移动版本不支持 OpenPGP。在不支持加密引擎的情况下，受保护的账户无法发送邮"
 "件。"
 
-#: ui/components/account-mail-preferences.slint:227
+#: ui/components/account-mail-preferences.slint:228
 msgid "Create a new key"
 msgstr "新建密钥"
 
-#: ui/components/account-mail-preferences.slint:228
+#: ui/components/account-mail-preferences.slint:229
 msgid ""
 "New keys expire in two years. GnuPG asks you to protect the private key with "
 "a passphrase."
 msgstr "新密钥将在两年后过期。GnuPG 会要求您用口令保护私钥。"
 
-#: ui/components/account-mail-preferences.slint:229
+#: ui/components/account-mail-preferences.slint:230
 msgid "Your full OpenPGP fingerprint"
 msgstr "您的完整 OpenPGP 指纹"
 
-#: ui/components/account-mail-preferences.slint:229
+#: ui/components/account-mail-preferences.slint:230
 msgid "Your full OpenPGP key fingerprint"
 msgstr "您的完整 OpenPGP 密钥指纹"
 
-#: ui/components/account-mail-preferences.slint:231
+#: ui/components/account-mail-preferences.slint:232
 msgid "Digitally sign messages"
 msgstr "对邮件进行数字签名"
 
-#: ui/components/account-mail-preferences.slint:231
+#: ui/components/account-mail-preferences.slint:232
 msgid "Proves possession of your private key; does not encrypt the message."
 msgstr "用于证明您持有私钥，但不会加密邮件。"
 
-#: ui/components/account-mail-preferences.slint:236
+#: ui/components/account-mail-preferences.slint:237
 msgid "Require encryption"
 msgstr "强制加密"
 
-#: ui/components/account-mail-preferences.slint:236
+#: ui/components/account-mail-preferences.slint:237
 msgid "Blocks sending unless every recipient has a verified, usable key."
 msgstr "除非每位收件人都拥有已验证且可用的密钥，否则阻止发送。"
 
-#: ui/components/account-mail-preferences.slint:241
+#: ui/components/account-mail-preferences.slint:242
 msgid "Use inline PGP"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:241
+#: ui/components/account-mail-preferences.slint:242
 msgid ""
 "Puts the signature or ciphertext in the text body. Attachments and HTML are "
 "not supported."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:245
+#: ui/components/account-mail-preferences.slint:247
+msgid "Use S/MIME"
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:247
+msgid ""
+"Uses certificates in GnuPG's gpgsm keybox instead of OpenPGP keys. Enter "
+"certificate fingerprints below. Certificate revocation is not checked."
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:251
 msgid "Verified recipient keys"
 msgstr "已验证的收件人密钥"
 
-#: ui/components/account-mail-preferences.slint:246
+#: ui/components/account-mail-preferences.slint:252
 msgid ""
 "Compare fingerprints with recipients through a separate trusted channel, "
 "then enter one email=fingerprint per line. Importing a key alone does not "
@@ -1843,54 +1853,51 @@ msgstr ""
 "请通过其他可信渠道与收件人核对指纹，然后按每行一条 email=指纹 的格式填写。仅"
 "导入密钥并不会完成验证。"
 
-#: ui/components/account-mail-preferences.slint:247
+#: ui/components/account-mail-preferences.slint:253
 msgid "person@example.org=FULL_FINGERPRINT"
 msgstr "person@example.org=FULL_FINGERPRINT"
 
-#: ui/components/account-mail-preferences.slint:248
+#: ui/components/account-mail-preferences.slint:254
 msgid "Save OpenPGP settings"
 msgstr "保存 OpenPGP 设置"
 
-#: ui/components/account-mail-preferences.slint:250
+#: ui/components/account-mail-preferences.slint:256
 msgid "Import key"
 msgstr "导入密钥"
 
-#: ui/components/account-mail-preferences.slint:251
+#: ui/components/account-mail-preferences.slint:257
 msgid "Export public key"
 msgstr "导出公钥"
 
-#: ui/components/account-mail-preferences.slint:252
+#: ui/components/account-mail-preferences.slint:258
 msgid "Show keys"
 msgstr "查看密钥"
 
-#: ui/components/account-mail-preferences.slint:260
+#: ui/components/account-mail-preferences.slint:266
 msgid "Open message file (.eml)"
 msgstr "打开邮件文件（.eml）"
 
-#: ui/components/account-mail-preferences.slint:262
+#: ui/components/account-mail-preferences.slint:268
 msgid ""
 "Manage expiry, revocation and private-key backups in GnuPG. Only public keys "
 "are exported here."
 msgstr "请在 GnuPG 中管理有效期、吊销和私钥备份。此处仅导出公钥。"
 
-#: ui/components/account-mail-preferences.slint:263
+#: ui/components/account-mail-preferences.slint:269
 msgid ""
 "Subjects and addresses remain visible. Protected drafts stay on this device. "
-"Existing server drafts are not retroactively protected. S/MIME certificates "
-"are not supported."
+"Existing server drafts are not retroactively protected."
 msgstr ""
-"主题和地址仍然可见。受保护的草稿仅保存在本设备上。服务器上已有的草稿不会被追"
-"溯保护。不支持 S/MIME 证书。"
 
-#: ui/components/account-mail-preferences.slint:266
+#: ui/components/account-mail-preferences.slint:272
 msgid "Working…"
 msgstr "正在处理…"
 
-#: ui/components/account-mail-preferences.slint:278
+#: ui/components/account-mail-preferences.slint:284
 msgid "OpenPGP message"
 msgstr "OpenPGP 邮件"
 
-#: ui/components/account-mail-preferences.slint:281
+#: ui/components/account-mail-preferences.slint:287
 msgid ""
 "Decrypted content is shown as text, without remote content. It is not added "
 "to search or saved to the mail database."
@@ -1898,11 +1905,11 @@ msgstr ""
 "解密后的内容以纯文本显示，且不加载远程内容。该内容不会加入搜索索引，也不会保"
 "存到邮件数据库。"
 
-#: ui/components/account-mail-preferences.slint:282
+#: ui/components/account-mail-preferences.slint:288
 msgid "Export decrypted message"
 msgstr "导出解密后的邮件"
 
-#: ui/components/account-mail-preferences.slint:283
+#: ui/components/account-mail-preferences.slint:289
 #: ui/dialogs/settings-dialog.slint:2501 ui/views/files-view.slint:455
 #: ui/views/files-view.slint:656 ui/window-chrome.slint:201
 msgid "Close"
@@ -6057,6 +6064,14 @@ msgstr "还原"
 #: ui/window-chrome.slint:202 ui/window-chrome.slint:239
 msgid "Maximize"
 msgstr "最大化"
+
+#~ msgid ""
+#~ "Subjects and addresses remain visible. Protected drafts stay on this "
+#~ "device. Existing server drafts are not retroactively protected. S/MIME "
+#~ "certificates are not supported."
+#~ msgstr ""
+#~ "主题和地址仍然可见。受保护的草稿仅保存在本设备上。服务器上已有的草稿不会被"
+#~ "追溯保护。不支持 S/MIME 证书。"
 
 #~ msgid "IMAP + SMTP"
 #~ msgstr "IMAP + SMTP"
