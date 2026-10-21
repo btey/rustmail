@@ -129,20 +129,6 @@ pub fn find_by_email(conn: &Connection, email: &str) -> Result<Option<Account>> 
         .optional()?)
 }
 
-/// mbox accounts are read-only: their files are never modified.
-pub fn thread_is_read_only(conn: &Connection, thread_id: i64) -> Result<bool> {
-    Ok(conn
-        .query_row(
-            "SELECT COALESCE(json_extract(a.settings_json, '$.connection.localFormat') = 'mbox'
-                    AND json_extract(a.settings_json, '$.connection.localPath') <> '', 0)
-             FROM threads t JOIN accounts a ON a.id = t.account_id WHERE t.id = ?1",
-            params![thread_id],
-            |row| row.get::<_, bool>(0),
-        )
-        .optional()?
-        .unwrap_or(false))
-}
-
 pub fn credential_setup_ids(conn: &Connection) -> Result<Vec<i64>> {
     let mut statement =
         conn.prepare("SELECT id FROM accounts WHERE sync_state = ?1 ORDER BY id")?;

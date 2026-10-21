@@ -423,7 +423,7 @@ pub enum LocalFormat {
     /// Maildir / Maildir++ (read and write).
     #[default]
     Maildir,
-    /// mbox files (read only: the files are never modified).
+    /// mbox files (read and write; a change rewrites the whole file).
     Mbox,
     /// MH folders (numbered message files; read and write).
     Mh,

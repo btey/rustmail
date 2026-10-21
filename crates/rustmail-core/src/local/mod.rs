@@ -1,9 +1,10 @@
-//! Local mail accounts: Maildir and MH (read/write) and mbox (read only) folders on
-//! this computer, with optional SMTP for sending.
+//! Local mail accounts: Maildir, MH and mbox folders on this computer, with
+//! optional SMTP for sending.
 //!
 //! The mail files stay the source of truth. Sync mirrors them into the same
 //! database tables the network backends use; user actions are written back to
-//! the files (Maildir only) by a durable queue, exactly like IMAP/JMAP.
+//! the files by a durable queue, exactly like IMAP/JMAP. An mbox write
+//! rewrites the whole file (see `mbox`).
 
 pub mod maildir;
 pub mod mbox;
@@ -213,8 +214,18 @@ fn io_error(error: std::io::Error) -> CoreError {
     CoreError::Other(format!("mail folder: {error}"))
 }
 
-fn read_only(config: &AccountConfig) -> bool {
+fn is_mbox(config: &AccountConfig) -> bool {
     config.settings.connection.local_format == LocalFormat::Mbox
+}
+
+/// The mbox file a folder row points at. A single-file account stores an
+/// empty relative path (the root is the file).
+fn mbox_file(root: &Path, rel: &Path) -> PathBuf {
+    if rel.as_os_str().is_empty() {
+        root.to_path_buf()
+    } else {
+        root.join(rel)
+    }
 }
 
 async fn execute(
@@ -223,9 +234,8 @@ async fn execute(
     root: &Path,
     action: &repo::actions::PendingAction,
 ) -> Result<()> {
-    // mbox files are never written; flag/label changes stay in the app only.
-    if read_only(config) {
-        return Ok(());
+    if is_mbox(config) {
+        return execute_mbox(ctx, config, root, action).await;
     }
     match action.kind.as_str() {
         "mark_read" | "mark_unread" | "star" | "unstar" => {
@@ -510,6 +520,321 @@ async fn file_sent_copy(
         .await
 }
 
+/// Where the mbox file of a folder is and which key the message has in it.
+async fn mbox_ref(
+    ctx: &SyncCtx,
+    root: &Path,
+    message_id: i64,
+) -> Result<Option<(FileRef, PathBuf)>> {
+    let root = root.to_path_buf();
+    ctx.db
+        .read(move |conn| {
+            let Some(reference) = file_ref(conn, message_id)? else {
+                return Ok(None);
+            };
+            let dir = folder_location(conn, &root, reference.folder_id)?;
+            let rel = dir.strip_prefix(&root).unwrap_or(&dir).to_path_buf();
+            Ok(Some((reference, mbox_file(&root, &rel))))
+        })
+        .await
+}
+
+fn blocking<T>(
+    result: std::result::Result<std::io::Result<T>, tokio::task::JoinError>,
+) -> Result<T> {
+    result
+        .map_err(|error| CoreError::Other(error.to_string()))?
+        .map_err(io_error)
+}
+
+/// Point the stored keys of one mbox folder at their new values after a
+/// rewrite shifted the offsets. Two steps because (folder, key) is unique.
+fn apply_remap(
+    tx: &rusqlite::Transaction,
+    folder_id: i64,
+    remap: &[(String, String)],
+) -> Result<()> {
+    let mut moves = Vec::new();
+    for (old, new) in remap {
+        let found: Option<i64> = tx
+            .query_row(
+                "SELECT message_id FROM local_messages WHERE folder_id=?1 AND unique_key=?2",
+                params![folder_id, old],
+                |row| row.get(0),
+            )
+            .ok();
+        if let Some(message_id) = found {
+            moves.push((message_id, new));
+        }
+    }
+    for (message_id, _) in &moves {
+        tx.execute(
+            "UPDATE local_messages SET unique_key='~'||message_id WHERE message_id=?1",
+            params![message_id],
+        )?;
+    }
+    for (message_id, new) in moves {
+        let offset = new
+            .split(':')
+            .next()
+            .and_then(|offset| offset.parse::<i64>().ok());
+        tx.execute(
+            "UPDATE local_messages SET unique_key=?2, mbox_offset=?3 WHERE message_id=?1",
+            params![message_id, new, offset],
+        )?;
+    }
+    Ok(())
+}
+
+async fn execute_mbox(
+    ctx: &SyncCtx,
+    config: &AccountConfig,
+    root: &Path,
+    action: &repo::actions::PendingAction,
+) -> Result<()> {
+    if action.kind == "empty_trash" {
+        let snapshot = crate::sync::snapshot_trash_ids(ctx, config.id).await?;
+        let ids: Vec<i64> = snapshot.iter().copied().collect();
+        mbox_remove(ctx, root, &ids).await?;
+        return crate::sync::finish_empty_trash(ctx, config.id, snapshot).await;
+    }
+    let Some(message_id) = action.message_id else {
+        return Ok(());
+    };
+    match action.kind.as_str() {
+        "mark_read" => mbox_set(ctx, root, message_id, Some(true), None).await,
+        "mark_unread" => mbox_set(ctx, root, message_id, Some(false), None).await,
+        "star" => mbox_set(ctx, root, message_id, None, Some(true)).await,
+        "unstar" => mbox_set(ctx, root, message_id, None, Some(false)).await,
+        "archive" | "unarchive" | "trash" | "spam" | "not_spam" | "move" => {
+            mbox_relocate(ctx, root, message_id).await
+        }
+        "delete_permanently" => {
+            mbox_remove(ctx, root, &[message_id]).await?;
+            crate::sync::finish_permanent_delete(ctx, Some(message_id)).await
+        }
+        "append_sent" => mbox_file_sent_copy(ctx, config, root, message_id).await,
+        // Labels, snoozes and similar are kept in the app's database.
+        _ => Ok(()),
+    }
+}
+
+async fn mbox_set(
+    ctx: &SyncCtx,
+    root: &Path,
+    message_id: i64,
+    seen: Option<bool>,
+    flagged: Option<bool>,
+) -> Result<()> {
+    let Some((reference, path)) = mbox_ref(ctx, root, message_id).await? else {
+        return Ok(()); // the message vanished; the next scan reconciles
+    };
+    let edits = std::collections::HashMap::from([(
+        reference.key.clone(),
+        mbox::Edit::Set { seen, flagged },
+    )]);
+    let outcome = blocking(tokio::task::spawn_blocking(move || mbox::edit(&path, &edits)).await)?;
+    let folder_id = reference.folder_id;
+    ctx.db
+        .write(move |conn| {
+            let tx = conn.transaction()?;
+            apply_remap(&tx, folder_id, &outcome.remap)?;
+            // The stored flags are "<seen><flagged><draft><trashed>" as 0/1.
+            if let Some(seen) = seen {
+                tx.execute(
+                    "UPDATE local_messages SET flags=?2||substr(flags,2) WHERE message_id=?1",
+                    params![message_id, u8::from(seen).to_string()],
+                )?;
+            }
+            if let Some(flagged) = flagged {
+                tx.execute(
+                    "UPDATE local_messages SET flags=substr(flags,1,1)||?2||substr(flags,3) WHERE message_id=?1",
+                    params![message_id, u8::from(flagged).to_string()],
+                )?;
+            }
+            tx.commit()?;
+            Ok(())
+        })
+        .await
+}
+
+/// Cut messages out of their mbox files (one rewrite per file). Their
+/// database rows are the caller's to delete.
+async fn mbox_remove(ctx: &SyncCtx, root: &Path, message_ids: &[i64]) -> Result<()> {
+    let mut by_file: std::collections::HashMap<PathBuf, (i64, Vec<String>)> = Default::default();
+    for message_id in message_ids {
+        if let Some((reference, path)) = mbox_ref(ctx, root, *message_id).await? {
+            by_file
+                .entry(path)
+                .or_insert_with(|| (reference.folder_id, Vec::new()))
+                .1
+                .push(reference.key);
+        }
+    }
+    for (path, (folder_id, keys)) in by_file {
+        let edits = keys
+            .into_iter()
+            .map(|key| (key, mbox::Edit::Remove))
+            .collect::<std::collections::HashMap<_, _>>();
+        let outcome =
+            blocking(tokio::task::spawn_blocking(move || mbox::edit(&path, &edits)).await)?;
+        ctx.db
+            .write(move |conn| {
+                let tx = conn.transaction()?;
+                apply_remap(&tx, folder_id, &outcome.remap)?;
+                tx.commit()?;
+                Ok(())
+            })
+            .await?;
+    }
+    Ok(())
+}
+
+/// Move the message to the mbox file of the folder it now belongs to in the
+/// app: append there first, then cut it from the old file, so a failure in
+/// between leaves a duplicate rather than losing the message.
+async fn mbox_relocate(ctx: &SyncCtx, root: &Path, message_id: i64) -> Result<()> {
+    let Some((reference, source)) = mbox_ref(ctx, root, message_id).await? else {
+        return Ok(());
+    };
+    let root_owned = root.to_path_buf();
+    let source_folder = reference.folder_id;
+    let target = ctx
+        .db
+        .read(move |conn| {
+            let folder_id: Option<i64> = conn.query_row(
+                "SELECT folder_id FROM messages WHERE id=?1",
+                params![message_id],
+                |row| row.get(0),
+            )?;
+            let Some(folder_id) = folder_id else {
+                return Ok(None);
+            };
+            if folder_id == source_folder {
+                return Ok(None);
+            }
+            let dir = folder_location(conn, &root_owned, folder_id)?;
+            let rel = dir.strip_prefix(&root_owned).unwrap_or(&dir).to_path_buf();
+            Ok(Some((folder_id, mbox_file(&root_owned, &rel))))
+        })
+        .await?;
+    let Some((target_folder, target_path)) = target else {
+        return Ok(());
+    };
+    let key = reference.key.clone();
+    let rel = target_path
+        .strip_prefix(root)
+        .unwrap_or(&target_path)
+        .to_string_lossy()
+        .into_owned();
+    let moved = tokio::task::spawn_blocking(
+        move || -> std::io::Result<Option<(String, mbox::Outcome)>> {
+            let Some(piece) = mbox::extract(&source, &key)? else {
+                return Ok(None);
+            };
+            let new_key = mbox::append(&target_path, &piece)?;
+            let edits = std::collections::HashMap::from([(key, mbox::Edit::Remove)]);
+            Ok(Some((new_key, mbox::edit(&source, &edits)?)))
+        },
+    )
+    .await;
+    let Some((new_key, outcome)) = blocking(moved)? else {
+        return Ok(());
+    };
+    ctx.db
+        .write(move |conn| {
+            let tx = conn.transaction()?;
+            apply_remap(&tx, source_folder, &outcome.remap)?;
+            let offset = new_key
+                .split(':')
+                .next()
+                .and_then(|offset| offset.parse::<i64>().ok());
+            tx.execute(
+                "UPDATE local_messages SET folder_id=?2, unique_key=?3, rel_path=?4, mbox_offset=?5
+                 WHERE message_id=?1",
+                params![message_id, target_folder, new_key, rel, offset],
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+        .await
+}
+
+/// File the just-sent message in the Sent mbox.
+async fn mbox_file_sent_copy(
+    ctx: &SyncCtx,
+    config: &AccountConfig,
+    root: &Path,
+    message_id: i64,
+) -> Result<()> {
+    let account_id = config.id;
+    let root_owned = root.to_path_buf();
+    let job = ctx
+        .db
+        .read(move |conn| {
+            if file_ref(conn, message_id)?.is_some() {
+                return Ok(None);
+            }
+            let Some(row) = repo::messages::get_row(conn, message_id)? else {
+                return Ok(None);
+            };
+            let Some(raw_path) = row.raw_path else {
+                return Ok(None);
+            };
+            let Some(folder) = repo::folders::by_role(conn, account_id, roles::SENT)? else {
+                return Ok(None);
+            };
+            let dir = folder_location(conn, &root_owned, folder.id)?;
+            let rel = dir.strip_prefix(&root_owned).unwrap_or(&dir).to_path_buf();
+            Ok(Some((raw_path, folder.id, mbox_file(&root_owned, &rel))))
+        })
+        .await?;
+    let Some((raw_path, folder_id, path)) = job else {
+        return Ok(());
+    };
+    let raw = tokio::fs::read(&raw_path).await?;
+    let size = raw.len() as i64;
+    let rel = path
+        .strip_prefix(root)
+        .unwrap_or(&path)
+        .to_string_lossy()
+        .into_owned();
+    let target = path.clone();
+    let key = blocking(
+        tokio::task::spawn_blocking(move || {
+            let flags = mbox::Flags {
+                seen: true,
+                ..Default::default()
+            };
+            mbox::deliver(&target, &raw, &flags)
+        })
+        .await,
+    )?;
+    let flags = scan::FlagSet {
+        seen: true,
+        ..Default::default()
+    };
+    ctx.db
+        .write(move |conn| {
+            let tx = conn.transaction()?;
+            scan::register_file(
+                &tx,
+                account_id,
+                message_id,
+                &scan::FileLocation {
+                    folder_id,
+                    key: &key,
+                    rel_path: &rel,
+                    size,
+                    flags,
+                },
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+        .await
+}
+
 async fn body_actor(ctx: SyncCtx, config: AccountConfig, mut rx: mpsc::Receiver<PriorityFetchCmd>) {
     while let Some(command) = rx.recv().await {
         match command {
@@ -584,6 +909,11 @@ pub async fn source_bytes(
             }
         })
         .await?;
+    let dir = if mbox_format {
+        mbox_file(&root, dir.strip_prefix(&root).unwrap_or(&dir))
+    } else {
+        dir
+    };
     tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
         if mbox_format {
             let bytes = mbox::read_file(&dir).map_err(io_error)?;

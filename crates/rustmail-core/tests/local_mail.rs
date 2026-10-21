@@ -320,8 +320,45 @@ async fn rescans_pick_up_new_removed_and_externally_changed_mail() {
     );
 }
 
+fn mbox_text(entries: &[(&str, &str, &str)]) -> String {
+    entries
+        .iter()
+        .map(|(subject, id, body)| {
+            format!(
+                "From a@example.org Mon Jan  1 10:00:00 2024\n{}\n",
+                message(subject, id, body).replace("\r\n", "\n").trim_end()
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+async fn act(core: &Core, kind: ActionKind, thread_id: i64) {
+    core.perform_action(PerformActionArgs {
+        kind,
+        thread_ids: vec![thread_id],
+        params: None,
+    })
+    .await
+    .unwrap();
+}
+
+fn mbox_subjects(path: &Path) -> Vec<String> {
+    let bytes = std::fs::read(path).unwrap();
+    rustmail_core::local::mbox::parse(&bytes)
+        .iter()
+        .map(|m| {
+            String::from_utf8_lossy(&m.raw)
+                .lines()
+                .find_map(|l| l.strip_prefix("Subject: "))
+                .unwrap_or("")
+                .to_owned()
+        })
+        .collect()
+}
+
 #[tokio::test]
-async fn mbox_import_unescapes_from_lines_and_is_read_only() {
+async fn mbox_import_unescapes_from_lines() {
     let temp = tempfile::tempdir().unwrap();
     let file = temp.path().join("inbox.mbox");
     let mbox = format!(
@@ -334,8 +371,6 @@ async fn mbox_import_unescapes_from_lines_and_is_read_only() {
             .trim_end(),
     );
     std::fs::write(&file, &mbox).unwrap();
-    let before = std::fs::read(&file).unwrap();
-
     let core = start(temp.path()).await;
     let account = core
         .add_account_password(args(&file, LocalFormat::Mbox))
@@ -353,35 +388,114 @@ async fn mbox_import_unescapes_from_lines_and_is_read_only() {
             .contains("From the quoted line")
     );
     assert_eq!(first.folder, "INBOX");
+}
 
-    // Destructive actions are refused and the file is never modified.
+#[tokio::test]
+async fn mbox_flags_are_written_to_the_file() {
+    let temp = tempfile::tempdir().unwrap();
+    let file = temp.path().join("inbox.mbox");
+    std::fs::write(
+        &file,
+        mbox_text(&[
+            ("One", "m1", "first"),
+            ("Two", "m2", "second"),
+            ("Three", "m3", "third"),
+        ]),
+    )
+    .unwrap();
+    let core = start(temp.path()).await;
+    let account = core
+        .add_account_password(args(&file, LocalFormat::Mbox))
+        .await
+        .unwrap();
+    settle(&core, account.id).await;
+    let find =
+        |all: &[Row], subject: &str| all.iter().find(|r| r.subject == subject).cloned().unwrap();
+    let all = rows(&core).await;
+
+    // Changing the first message shifts every later offset; later actions
+    // must still find their messages.
+    act(&core, ActionKind::MarkRead, find(&all, "One").thread_id).await;
+    act(&core, ActionKind::Star, find(&all, "Two").thread_id).await;
+    act(&core, ActionKind::MarkRead, find(&all, "Three").thread_id).await;
+    settle(&core, account.id).await;
+
+    let bytes = std::fs::read(&file).unwrap();
+    let parsed = rustmail_core::local::mbox::parse(&bytes);
+    assert_eq!(parsed.len(), 3);
+    assert!(parsed[0].flags.seen && !parsed[0].flags.flagged);
+    assert!(!parsed[1].flags.seen && parsed[1].flags.flagged);
+    assert!(parsed[2].flags.seen);
+    let after = rows(&core).await;
+    assert_eq!(after.len(), 3);
+    assert!(find(&after, "One").is_read && find(&after, "Two").is_starred);
+
+    act(&core, ActionKind::MarkUnread, find(&all, "One").thread_id).await;
+    act(&core, ActionKind::Unstar, find(&all, "Two").thread_id).await;
+    settle(&core, account.id).await;
+    let parsed = rustmail_core::local::mbox::parse(&std::fs::read(&file).unwrap());
+    assert!(!parsed[0].flags.seen && !parsed[1].flags.flagged);
+
+    // A single file has no Trash folder to move into, and only mail in
+    // Trash can be deleted, so nothing leaves the file.
     let error = core
         .perform_action(PerformActionArgs {
             kind: ActionKind::Trash,
-            thread_ids: vec![first.thread_id],
+            thread_ids: vec![find(&all, "Two").thread_id],
             params: None,
         })
         .await
         .unwrap_err();
-    assert!(error.to_string().contains("read-only"), "{error}");
-    // Local state changes (read/star) are allowed but stay in the app.
-    core.perform_action(PerformActionArgs {
-        kind: ActionKind::MarkRead,
-        thread_ids: vec![first.thread_id],
-        params: None,
-    })
-    .await
+    assert!(error.to_string().contains("trash"), "{error}");
+    assert_eq!(mbox_subjects(&file), ["One", "Two", "Three"]);
+    assert_eq!(rows(&core).await.len(), 3);
+}
+
+#[tokio::test]
+async fn mbox_trash_moves_between_files_and_delete_removes() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("mail");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join("inbox"),
+        mbox_text(&[
+            ("One", "m1", "first"),
+            ("Two", "m2", "second"),
+            ("Three", "m3", "third"),
+        ]),
+    )
     .unwrap();
+    let core = start(temp.path()).await;
+    let account = core
+        .add_account_password(args(&root, LocalFormat::Mbox))
+        .await
+        .unwrap();
     settle(&core, account.id).await;
-    assert_eq!(std::fs::read(&file).unwrap(), before);
-    assert!(
-        rows(&core)
-            .await
-            .iter()
-            .find(|r| r.subject == "First")
-            .unwrap()
-            .is_read
+    // Standard folders are created as empty mbox files.
+    assert!(root.join("Trash").is_file());
+    let all = rows(&core).await;
+    assert_eq!(all.len(), 3);
+    let thread = |subject: &str| all.iter().find(|r| r.subject == subject).unwrap().thread_id;
+
+    act(&core, ActionKind::Trash, thread("One")).await;
+    settle(&core, account.id).await;
+    assert_eq!(mbox_subjects(&root.join("inbox")), ["Two", "Three"]);
+    assert_eq!(mbox_subjects(&root.join("Trash")), ["One"]);
+    let after = rows(&core).await;
+    assert_eq!(after.len(), 3, "a rescan must not duplicate or drop mail");
+    assert_eq!(
+        after.iter().find(|r| r.subject == "One").unwrap().folder,
+        "Trash"
     );
+
+    act(&core, ActionKind::MarkRead, thread("Three")).await;
+    act(&core, ActionKind::DeletePermanently, thread("One")).await;
+    settle(&core, account.id).await;
+    assert!(mbox_subjects(&root.join("Trash")).is_empty());
+    assert_eq!(mbox_subjects(&root.join("inbox")), ["Two", "Three"]);
+    let parsed = rustmail_core::local::mbox::parse(&std::fs::read(root.join("inbox")).unwrap());
+    assert!(!parsed[0].flags.seen && parsed[1].flags.seen);
+    assert_eq!(rows(&core).await.len(), 2);
 }
 
 #[tokio::test]

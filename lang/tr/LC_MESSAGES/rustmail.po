@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-21 15:37+0000\n"
+"POT-Creation-Date: 2026-10-21 19:33+0000\n"
 "PO-Revision-Date: 2026-09-15 12:00+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Turkish\n"
@@ -2025,13 +2025,13 @@ msgid "MH"
 msgstr ""
 
 #: ui/components/account-setup-form.slint:195
-msgid "mbox (read only)"
+msgid "mbox"
 msgstr ""
 
 #: ui/components/account-setup-form.slint:198
 msgid ""
-"mbox files are only read, never changed. Moving or deleting messages is not "
-"available; read and starred marks stay in Rustmail."
+"mbox files. Read and starred marks, moves and deletions rewrite the whole "
+"file, so close other mail programs that use it first."
 msgstr ""
 
 #: ui/components/account-setup-form.slint:198

@@ -3812,35 +3812,6 @@ impl Core {
         let mut action_ids: Vec<i64> = Vec::new();
         let mut touched_accounts: Vec<i64> = Vec::new();
 
-        if matches!(
-            args.kind,
-            ActionKind::Archive
-                | ActionKind::Unarchive
-                | ActionKind::Trash
-                | ActionKind::DeletePermanently
-                | ActionKind::Spam
-                | ActionKind::NotSpam
-                | ActionKind::Move
-        ) {
-            let thread_ids = args.thread_ids.clone();
-            let read_only = self
-                .db
-                .read(move |conn| {
-                    for thread_id in thread_ids {
-                        if repo::accounts::thread_is_read_only(conn, thread_id)? {
-                            return Ok(true);
-                        }
-                    }
-                    Ok(false)
-                })
-                .await?;
-            if read_only {
-                return Err(CoreError::Other(
-                    "mbox accounts are read-only; messages cannot be moved or deleted there".into(),
-                ));
-            }
-        }
-
         for thread_id in args.thread_ids.clone() {
             let kind = args.kind;
             let params = args.params.clone();
@@ -3875,10 +3846,7 @@ impl Core {
                 let tx = conn.transaction()?;
                 let mut stmt = tx.prepare(
                     "SELECT account_id, id FROM folders WHERE role = 'trash'
-                 AND (?1 IS NULL OR account_id = ?1)
-                 AND NOT EXISTS (SELECT 1 FROM accounts a WHERE a.id = folders.account_id
-                   AND json_extract(a.settings_json, '$.connection.localFormat') = 'mbox'
-                   AND json_extract(a.settings_json, '$.connection.localPath') <> '')",
+                 AND (?1 IS NULL OR account_id = ?1)",
                 )?;
                 let folders = stmt
                     .query_map(rusqlite::params![account_id], |row| {

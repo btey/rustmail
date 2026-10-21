@@ -72,7 +72,7 @@ fn discover_sources(root: &Path, format: LocalFormat) -> std::io::Result<Vec<(St
 }
 
 /// Make sure Trash, Sent and Drafts exist so moves and sent copies have a
-/// destination. Only Maildir accounts get folders created; mbox is read-only.
+/// destination. Single-file mbox accounts have no tree to create them in.
 fn ensure_standard_maildirs(
     root: &Path,
     found: &[(String, Source)],
@@ -92,7 +92,15 @@ fn ensure_standard_maildirs(
             continue;
         }
         let name = settings.folder_override(role).unwrap_or(default_name);
-        if format == LocalFormat::Mh {
+        if format == LocalFormat::Mbox {
+            // An empty mbox file; `AlreadyExists` means a role folder with a
+            // name the role lookup does not recognise.
+            match mbox::create_folder(root, name) {
+                Ok(()) => created = true,
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(error),
+            }
+        } else if format == LocalFormat::Mh {
             if let Some(dir) = mh::dir_for_new_folder(root, name) {
                 mh::create_folder(root, &dir)?;
                 created = true;
@@ -116,9 +124,11 @@ pub(super) async fn sync_folders(
     let root_owned = root.to_path_buf();
     let found = tokio::task::spawn_blocking(move || -> std::io::Result<Vec<(String, Source)>> {
         let mut found = discover_sources(&root_owned, format)?;
-        if format != LocalFormat::Mbox
-            && ensure_standard_maildirs(&root_owned, &found, &settings, format)?
-        {
+        let tree = format != LocalFormat::Mbox
+            || std::fs::symlink_metadata(&root_owned)
+                .map(|meta| meta.is_dir())
+                .unwrap_or(false);
+        if tree && ensure_standard_maildirs(&root_owned, &found, &settings, format)? {
             found = discover_sources(&root_owned, format)?;
         }
         Ok(found)

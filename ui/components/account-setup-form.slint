@@ -192,10 +192,10 @@ export component AccountSetupForm inherits Rectangle {
                             spacing: 8px;
                             Button { horizontal-stretch: 1; height: 40px; text: @tr("Maildir"); enabled: root.enabled; primary: root.advanced.local-format != "mbox" && root.advanced.local-format != "mh"; clicked => { root.advanced.local-format = "maildir"; } }
                             Button { horizontal-stretch: 1; height: 40px; text: @tr("MH"); enabled: root.enabled; primary: root.advanced.local-format == "mh"; clicked => { root.advanced.local-format = "mh"; } }
-                            Button { horizontal-stretch: 1; height: 40px; text: @tr("mbox (read only)"); enabled: root.enabled; primary: root.advanced.local-format == "mbox"; clicked => { root.advanced.local-format = "mbox"; } }
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("mbox"); enabled: root.enabled; primary: root.advanced.local-format == "mbox"; clicked => { root.advanced.local-format = "mbox"; } }
                         }
                         if root.local : Text {
-                            text: root.advanced.local-format == "mbox" ? @tr("mbox files are only read, never changed. Moving or deleting messages is not available; read and starred marks stay in Rustmail.") : root.advanced.local-format == "mh" ? @tr("MH folders with numbered message files. Moves and deletions are written to the files; read and starred marks go in each folder's .mh_sequences file.") : @tr("Maildir or Maildir++ folders. Flags, moves and deletions are written back to the files, so other mail programs stay in sync.");
+                            text: root.advanced.local-format == "mbox" ? @tr("mbox files. Read and starred marks, moves and deletions rewrite the whole file, so close other mail programs that use it first.") : root.advanced.local-format == "mh" ? @tr("MH folders with numbered message files. Moves and deletions are written to the files; read and starred marks go in each folder's .mh_sequences file.") : @tr("Maildir or Maildir++ folders. Flags, moves and deletions are written back to the files, so other mail programs stay in sync.");
                             color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
                         }
                         if root.local : Text {
