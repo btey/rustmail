@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-21 20:20+0000\n"
+"POT-Creation-Date: 2026-10-21 20:53+0000\n"
 "PO-Revision-Date: 2026-10-08 15:11+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Russian <ru@li.org>\n"
@@ -1531,59 +1531,59 @@ msgstr "Копировать диагностику"
 msgid "Dismiss"
 msgstr "Убрать"
 
-#: ui/components/account-mail-preferences.slint:104
+#: ui/components/account-mail-preferences.slint:105
 msgid "Server allows any address at this domain"
 msgstr "Сервер разрешает любой адрес в этом домене"
 
-#: ui/components/account-mail-preferences.slint:107
+#: ui/components/account-mail-preferences.slint:108
 msgid "Awaiting verification by the provider; cannot be selected yet"
 msgstr "Ожидает проверки провайдером; пока нельзя выбрать"
 
-#: ui/components/account-mail-preferences.slint:110
+#: ui/components/account-mail-preferences.slint:111
 msgid "The server refused the last message from this address: {}"
 msgstr "Сервер отклонил последнее сообщение с этого адреса: {}"
 
-#: ui/components/account-mail-preferences.slint:110
+#: ui/components/account-mail-preferences.slint:111
 msgid "The server refused the last message from this address"
 msgstr "Сервер отклонил последнее сообщение с этого адреса"
 
-#: ui/components/account-mail-preferences.slint:113
+#: ui/components/account-mail-preferences.slint:114
 msgid "Sign-in address · replies go to {}"
 msgstr "Адрес для входа · ответы поступают на {}"
 
-#: ui/components/account-mail-preferences.slint:113
+#: ui/components/account-mail-preferences.slint:114
 msgid "Sign-in address"
 msgstr "Адрес для входа"
 
-#: ui/components/account-mail-preferences.slint:117
+#: ui/components/account-mail-preferences.slint:118
 msgid "Added by you · accepted by the server · replies go to {}"
 msgstr "Добавлен вами · принят сервером · ответы поступают на {}"
 
-#: ui/components/account-mail-preferences.slint:117
+#: ui/components/account-mail-preferences.slint:118
 msgid "Added by you · accepted by the server"
 msgstr "Добавлен вами · принят сервером"
 
-#: ui/components/account-mail-preferences.slint:119
+#: ui/components/account-mail-preferences.slint:120
 msgid "Added by you · not used yet · replies go to {}"
 msgstr "Добавлен вами · ещё не использовался · ответы поступают на {}"
 
-#: ui/components/account-mail-preferences.slint:119
+#: ui/components/account-mail-preferences.slint:120
 msgid "Added by you · not used yet"
 msgstr "Добавлен вами · ещё не использовался"
 
-#: ui/components/account-mail-preferences.slint:121
+#: ui/components/account-mail-preferences.slint:122
 msgid "Provided by the server · replies go to {}"
 msgstr "Предоставлен сервером · ответы поступают на {}"
 
-#: ui/components/account-mail-preferences.slint:121
+#: ui/components/account-mail-preferences.slint:122
 msgid "Provided by the server"
 msgstr "Предоставлен сервером"
 
-#: ui/components/account-mail-preferences.slint:125
+#: ui/components/account-mail-preferences.slint:126
 msgid "Sender identities, signatures & OpenPGP"
 msgstr "Данные отправителей, подписи и OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:126
+#: ui/components/account-mail-preferences.slint:127
 msgid ""
 "Choose an account to manage its sender identity, signature, and message "
 "protection."
@@ -1591,41 +1591,41 @@ msgstr ""
 "Выберите учётную запись для настройки данных отправителя, подписи и защиты "
 "писем."
 
-#: ui/components/account-mail-preferences.slint:137
+#: ui/components/account-mail-preferences.slint:138
 msgid "Signatures"
 msgstr "Подписи"
 
-#: ui/components/account-mail-preferences.slint:138
+#: ui/components/account-mail-preferences.slint:139
 msgid "OpenPGP"
 msgstr "OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:143
+#: ui/components/account-mail-preferences.slint:144
 msgid "Default sender identity"
 msgstr "Отправитель по умолчанию"
 
-#: ui/components/account-mail-preferences.slint:143
+#: ui/components/account-mail-preferences.slint:144
 msgid "Preselected for new messages. Your sign-in address is unchanged."
 msgstr ""
 "Предварительно выбрано для новых сообщений. Ваш адрес для входа не изменён."
 
-#: ui/components/account-mail-preferences.slint:149
+#: ui/components/account-mail-preferences.slint:150
 msgid "Save sender default"
 msgstr "Сохранить отправителя по умолчанию"
 
-#: ui/components/account-mail-preferences.slint:150
+#: ui/components/account-mail-preferences.slint:151
 msgid "Refresh sender identities"
 msgstr "Обновить данные отправителей"
 
-#: ui/components/account-mail-preferences.slint:160
+#: ui/components/account-mail-preferences.slint:161
 msgid "Edit"
 msgstr "Изменить"
 
-#: ui/components/account-mail-preferences.slint:161
+#: ui/components/account-mail-preferences.slint:162
 #: ui/views/contacts-view.slint:586
 msgid "Remove"
 msgstr "Убрать"
 
-#: ui/components/account-mail-preferences.slint:164
+#: ui/components/account-mail-preferences.slint:165
 msgid ""
 "Gmail decides which addresses you can send from. Add an address in Gmail "
 "settings under Accounts › Send mail as, then refresh sender identities."
@@ -1634,15 +1634,15 @@ msgstr ""
 "настройках Gmail в разделе «Аккаунты › Отправлять письма как», затем "
 "обновите данные отправителей."
 
-#: ui/components/account-mail-preferences.slint:167
+#: ui/components/account-mail-preferences.slint:168
 msgid "Edit sender address"
 msgstr "Изменить адрес отправителя"
 
-#: ui/components/account-mail-preferences.slint:167
+#: ui/components/account-mail-preferences.slint:168
 msgid "Add a sender address"
 msgstr "Добавить адрес отправителя"
 
-#: ui/components/account-mail-preferences.slint:171
+#: ui/components/account-mail-preferences.slint:172
 msgid ""
 "Your server lets you send from any address at the domains shown as "
 "wildcards. Add the addresses you want to choose from."
@@ -1650,7 +1650,7 @@ msgstr ""
 "Ваш сервер разрешает отправку с любого адреса в доменах, отмеченных "
 "подстановочными знаками. Добавьте адреса, которые хотите выбирать."
 
-#: ui/components/account-mail-preferences.slint:172
+#: ui/components/account-mail-preferences.slint:173
 msgid ""
 "Add an alias or another address your mail server lets you send from. The "
 "server decides when you send; Rustmail shows whether it accepted the last "
@@ -1660,79 +1660,79 @@ msgstr ""
 "разрешает отправку. Решение принимает сервер при отправке; Rustmail "
 "показывает, принял ли он последнее сообщение."
 
-#: ui/components/account-mail-preferences.slint:174
+#: ui/components/account-mail-preferences.slint:175
 msgid "Email address"
 msgstr "Адрес электронной почты"
 
-#: ui/components/account-mail-preferences.slint:174
+#: ui/components/account-mail-preferences.slint:175
 msgid "alias@example.com"
 msgstr "alias@example.com"
 
-#: ui/components/account-mail-preferences.slint:175
+#: ui/components/account-mail-preferences.slint:176
 msgid "Sender name"
 msgstr "Имя отправителя"
 
-#: ui/components/account-mail-preferences.slint:175
+#: ui/components/account-mail-preferences.slint:176
 msgid "Name shown to recipients (optional)"
 msgstr "Имя, которое увидят получатели (необязательно)"
 
-#: ui/components/account-mail-preferences.slint:176
+#: ui/components/account-mail-preferences.slint:177
 msgid "Reply-to address"
 msgstr "Адрес для ответов"
 
-#: ui/components/account-mail-preferences.slint:176
+#: ui/components/account-mail-preferences.slint:177
 msgid "Where replies should go (optional)"
 msgstr "Куда отправлять ответы (необязательно)"
 
-#: ui/components/account-mail-preferences.slint:180
+#: ui/components/account-mail-preferences.slint:181
 msgid "Save sender address"
 msgstr "Сохранить адрес отправителя"
 
-#: ui/components/account-mail-preferences.slint:180
+#: ui/components/account-mail-preferences.slint:181
 msgid "Add sender address"
 msgstr "Добавить адрес отправителя"
 
-#: ui/components/account-mail-preferences.slint:181
+#: ui/components/account-mail-preferences.slint:182
 #: ui/dialogs/folder-dialog.slint:128 ui/dialogs/settings-dialog.slint:1876
 #: ui/dialogs/settings-dialog.slint:2555 ui/dialogs/settings-dialog.slint:2790
 #: ui/views/files-view.slint:426 ui/views/mail-reading-pane.slint:2009
 msgid "Cancel"
 msgstr "Отмена"
 
-#: ui/components/account-mail-preferences.slint:186
+#: ui/components/account-mail-preferences.slint:187
 msgid "Edit signature"
 msgstr "Редактировать подпись"
 
-#: ui/components/account-mail-preferences.slint:186
+#: ui/components/account-mail-preferences.slint:187
 msgid "Saved separately for each account."
 msgstr "Сохраняется отдельно для каждой учётной записи."
 
-#: ui/components/account-mail-preferences.slint:191
+#: ui/components/account-mail-preferences.slint:192
 msgid "New signature"
 msgstr "Новая подпись"
 
-#: ui/components/account-mail-preferences.slint:192
+#: ui/components/account-mail-preferences.slint:193
 msgid "Signature name"
 msgstr "Название подписи"
 
-#: ui/components/account-mail-preferences.slint:192
+#: ui/components/account-mail-preferences.slint:193
 msgid "Signature name, for example Work"
 msgstr "Название подписи, например «Работа»"
 
-#: ui/components/account-mail-preferences.slint:196
+#: ui/components/account-mail-preferences.slint:197
 #: ui/components/theme-editor.slint:714
 msgid "Text"
 msgstr "Текст"
 
-#: ui/components/account-mail-preferences.slint:196
+#: ui/components/account-mail-preferences.slint:197
 msgid "Text file"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:196
+#: ui/components/account-mail-preferences.slint:197
 msgid "Command output"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:200
+#: ui/components/account-mail-preferences.slint:201
 msgid ""
 "Your name\n"
 "Role · Company\n"
@@ -1742,35 +1742,35 @@ msgstr ""
 "Должность · Компания\n"
 "Телефон · Сайт"
 
-#: ui/components/account-mail-preferences.slint:201
+#: ui/components/account-mail-preferences.slint:202
 msgid "File path"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:201
+#: ui/components/account-mail-preferences.slint:202
 msgid "Command"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:201
+#: ui/components/account-mail-preferences.slint:202
 msgid "~/.signature"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:201
+#: ui/components/account-mail-preferences.slint:202
 msgid "fortune -s"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:202
+#: ui/components/account-mail-preferences.slint:203
 msgid ""
 "The file is read again each time you write a message. Use plain text up to "
 "32 KiB."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:202
+#: ui/components/account-mail-preferences.slint:203
 msgid ""
 "The command runs through your shell each time you write a message, with no "
 "input and a 3 second limit. Only enter commands you trust."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:203
+#: ui/components/account-mail-preferences.slint:204
 msgid ""
 "Plain text works in every email client. You can format the inserted "
 "signature in the composer."
@@ -1778,36 +1778,36 @@ msgstr ""
 "Обычный текст работает в любом почтовом клиенте. Вы можете отформатировать "
 "вставленную подпись в редакторе письма."
 
-#: ui/components/account-mail-preferences.slint:205
+#: ui/components/account-mail-preferences.slint:206
 msgid "Save signature"
 msgstr "Сохранить подпись"
 
-#: ui/components/account-mail-preferences.slint:206
+#: ui/components/account-mail-preferences.slint:207
 #: ui/components/filter-rules.slint:218 ui/views/contacts-view.slint:586
 msgid "Delete"
 msgstr "Удалить"
 
-#: ui/components/account-mail-preferences.slint:209
+#: ui/components/account-mail-preferences.slint:210
 msgid "New messages"
 msgstr "Новые сообщения"
 
-#: ui/components/account-mail-preferences.slint:209
+#: ui/components/account-mail-preferences.slint:210
 msgid "Signature inserted when you start a message."
 msgstr "Подпись вставляется при создании нового сообщения."
 
-#: ui/components/account-mail-preferences.slint:215
+#: ui/components/account-mail-preferences.slint:216
 msgid "Replies & forwards"
 msgstr "Ответы и пересылки"
 
-#: ui/components/account-mail-preferences.slint:215
+#: ui/components/account-mail-preferences.slint:216
 msgid "Placed above the quoted message."
 msgstr "Размещается над цитируемым сообщением."
 
-#: ui/components/account-mail-preferences.slint:220
+#: ui/components/account-mail-preferences.slint:221
 msgid "Save signature defaults"
 msgstr "Сохранить настройки подписи по умолчанию"
 
-#: ui/components/account-mail-preferences.slint:224
+#: ui/components/account-mail-preferences.slint:225
 msgid ""
 "OpenPGP protects message bodies and attachments. Digital signatures let "
 "recipients check who signed a message."
@@ -1815,7 +1815,7 @@ msgstr ""
 "OpenPGP защищает тела сообщений и вложения. Цифровые подписи позволяют "
 "получателям проверить, кто подписал сообщение."
 
-#: ui/components/account-mail-preferences.slint:225
+#: ui/components/account-mail-preferences.slint:226
 msgid ""
 "Uses installed GnuPG 2.x and its secure key storage. Passphrases are entered "
 "in GnuPG's unlock dialog."
@@ -1823,7 +1823,7 @@ msgstr ""
 "Использует установленный GnuPG 2.x и его защищённое хранилище ключей. "
 "Парольные фразы вводятся в диалоге разблокировки GnuPG."
 
-#: ui/components/account-mail-preferences.slint:225
+#: ui/components/account-mail-preferences.slint:226
 msgid ""
 "OpenPGP is unavailable on this mobile build. Protected accounts cannot send "
 "without a supported encryption engine."
@@ -1831,11 +1831,11 @@ msgstr ""
 "OpenPGP недоступен в этой мобильной сборке. Защищённые учётные записи не "
 "могут отправлять без поддерживаемого движка шифрования."
 
-#: ui/components/account-mail-preferences.slint:226
+#: ui/components/account-mail-preferences.slint:227
 msgid "Create a new key"
 msgstr "Создать новый ключ"
 
-#: ui/components/account-mail-preferences.slint:227
+#: ui/components/account-mail-preferences.slint:228
 msgid ""
 "New keys expire in two years. GnuPG asks you to protect the private key with "
 "a passphrase."
@@ -1843,37 +1843,47 @@ msgstr ""
 "Срок действия новых ключей — два года. GnuPG предложит защитить закрытый "
 "ключ парольной фразой."
 
-#: ui/components/account-mail-preferences.slint:228
+#: ui/components/account-mail-preferences.slint:229
 msgid "Your full OpenPGP fingerprint"
 msgstr "Ваш полный отпечаток OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:228
+#: ui/components/account-mail-preferences.slint:229
 msgid "Your full OpenPGP key fingerprint"
 msgstr "Полный отпечаток вашего ключа OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:230
+#: ui/components/account-mail-preferences.slint:231
 msgid "Digitally sign messages"
 msgstr "Подписывать сообщения цифровой подписью"
 
-#: ui/components/account-mail-preferences.slint:230
+#: ui/components/account-mail-preferences.slint:231
 msgid "Proves possession of your private key; does not encrypt the message."
 msgstr "Доказывает владение закрытым ключом; сообщение не шифруется."
 
-#: ui/components/account-mail-preferences.slint:235
+#: ui/components/account-mail-preferences.slint:236
 msgid "Require encryption"
 msgstr "Требовать шифрование"
 
-#: ui/components/account-mail-preferences.slint:235
+#: ui/components/account-mail-preferences.slint:236
 msgid "Blocks sending unless every recipient has a verified, usable key."
 msgstr ""
 "Блокирует отправку, если у каждого получателя нет проверенного, пригодного "
 "ключа."
 
-#: ui/components/account-mail-preferences.slint:239
+#: ui/components/account-mail-preferences.slint:241
+msgid "Use inline PGP"
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:241
+msgid ""
+"Puts the signature or ciphertext in the text body. Attachments and HTML are "
+"not supported."
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:245
 msgid "Verified recipient keys"
 msgstr "Проверенные ключи получателей"
 
-#: ui/components/account-mail-preferences.slint:240
+#: ui/components/account-mail-preferences.slint:246
 msgid ""
 "Compare fingerprints with recipients through a separate trusted channel, "
 "then enter one email=fingerprint per line. Importing a key alone does not "
@@ -1883,31 +1893,31 @@ msgstr ""
 "вводите по одной строке email=отпечаток. Простой импорт ключа его не "
 "проверяет."
 
-#: ui/components/account-mail-preferences.slint:241
+#: ui/components/account-mail-preferences.slint:247
 msgid "person@example.org=FULL_FINGERPRINT"
 msgstr "person@example.org=FULL_FINGERPRINT"
 
-#: ui/components/account-mail-preferences.slint:242
+#: ui/components/account-mail-preferences.slint:248
 msgid "Save OpenPGP settings"
 msgstr "Сохранить настройки OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:244
+#: ui/components/account-mail-preferences.slint:250
 msgid "Import key"
 msgstr "Импортировать ключ"
 
-#: ui/components/account-mail-preferences.slint:245
+#: ui/components/account-mail-preferences.slint:251
 msgid "Export public key"
 msgstr "Экспортировать открытый ключ"
 
-#: ui/components/account-mail-preferences.slint:246
+#: ui/components/account-mail-preferences.slint:252
 msgid "Show keys"
 msgstr "Показать ключи"
 
-#: ui/components/account-mail-preferences.slint:254
+#: ui/components/account-mail-preferences.slint:260
 msgid "Open message file (.eml)"
 msgstr "Открыть файл сообщения (.eml)"
 
-#: ui/components/account-mail-preferences.slint:256
+#: ui/components/account-mail-preferences.slint:262
 msgid ""
 "Manage expiry, revocation and private-key backups in GnuPG. Only public keys "
 "are exported here."
@@ -1915,7 +1925,7 @@ msgstr ""
 "Управляйте сроком действия, отзывом и резервными копиями закрытых ключей в "
 "GnuPG. Здесь экспортируются только открытые ключи."
 
-#: ui/components/account-mail-preferences.slint:257
+#: ui/components/account-mail-preferences.slint:263
 msgid ""
 "Subjects and addresses remain visible. Protected drafts stay on this device. "
 "Existing server drafts are not retroactively protected. S/MIME certificates "
@@ -1925,15 +1935,15 @@ msgstr ""
 "устройстве. Существующие черновики на сервере не защищаются задним числом. "
 "Сертификаты S/MIME не поддерживаются."
 
-#: ui/components/account-mail-preferences.slint:260
+#: ui/components/account-mail-preferences.slint:266
 msgid "Working…"
 msgstr "Работа…"
 
-#: ui/components/account-mail-preferences.slint:272
+#: ui/components/account-mail-preferences.slint:278
 msgid "OpenPGP message"
 msgstr "Сообщение OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:275
+#: ui/components/account-mail-preferences.slint:281
 msgid ""
 "Decrypted content is shown as text, without remote content. It is not added "
 "to search or saved to the mail database."
@@ -1941,11 +1951,11 @@ msgstr ""
 "Расшифрованное содержимое отображается как текст без удалённого содержимого. "
 "Оно не добавляется в поиск и не сохраняется в базе данных почты."
 
-#: ui/components/account-mail-preferences.slint:276
+#: ui/components/account-mail-preferences.slint:282
 msgid "Export decrypted message"
 msgstr "Экспортировать расшифрованное сообщение"
 
-#: ui/components/account-mail-preferences.slint:277
+#: ui/components/account-mail-preferences.slint:283
 #: ui/dialogs/settings-dialog.slint:2501 ui/views/files-view.slint:455
 #: ui/views/files-view.slint:656 ui/window-chrome.slint:201
 msgid "Close"

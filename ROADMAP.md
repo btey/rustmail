@@ -63,7 +63,7 @@ automations (`AiAutomationRule`). Signatures were stored text only.
 
 ## Phase 4: privacy — todo
 - [ ] S/MIME sign, encrypt, verify, decrypt
-- [ ] PGP inline
+- [x] PGP inline: per-account "Use inline PGP" switch; clearsign, encrypt, or sign+encrypt into the plain-text body (quoted-printable), and inline blocks are decrypted/verified in the OpenPGP reader. Limits: messages with attachments or HTML-only bodies are refused when inline is on; only the first armored block is read; no automatic decrypt on open (use "Decrypt / verify OpenPGP")
 - [ ] Default privacy system per account; sign/encrypt on reply
 
 ## Phase 5: other backends — optional

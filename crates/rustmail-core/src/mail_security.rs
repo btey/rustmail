@@ -19,6 +19,8 @@ pub struct MailSecurity {
     pub signing_fingerprint: String,
     pub sign_by_default: bool,
     pub require_encryption: bool,
+    /// Send PGP inline (armored text in a plain-text body) instead of PGP/MIME.
+    pub inline: bool,
     /// Explicitly verified email -> full primary fingerprint bindings.
     pub recipient_keys: BTreeMap<String, String>,
 }
@@ -309,6 +311,9 @@ impl Gpg {
         let policy = &normalized;
         self.preflight(policy, sender, recipients).await?;
         let (headers, mut entity) = split_entity(raw)?;
+        if policy.inline {
+            return self.protect_inline(headers, raw, policy, recipients).await;
+        }
         if policy.sign_by_default {
             let (signature, status) = self
                 .run(
@@ -330,21 +335,7 @@ impl Gpg {
                 &format!("Content-Type: application/pgp-signature; name=\"signature.asc\"\r\nContent-Disposition: attachment; filename=\"signature.asc\"\r\n\r\n{}", String::from_utf8_lossy(&signature)).into_bytes());
         }
         if policy.require_encryption {
-            // Trust is explicit in our email/fingerprint bindings, never inferred
-            // from a matching UID. Hidden recipients prevent Bcc key-id leaks.
-            let mut args = vec![
-                "--armor".into(),
-                "--trust-model".into(),
-                "always".into(),
-                "--throw-keyids".into(),
-                "--recipient".into(),
-                policy.signing_fingerprint.clone(),
-            ];
-            for recipient in recipients {
-                if let Some(key) = policy.recipient_keys.get(&recipient.email.to_lowercase()) {
-                    args.extend(["--recipient".into(), key.clone()]);
-                }
-            }
+            let mut args = encrypt_args(policy, recipients);
             args.push("--encrypt".into());
             let (ciphertext, status) = self.run(&args, Some(&entity)).await?;
             if !status.contains("[GNUPG:] END_ENCRYPTION") {
@@ -356,6 +347,146 @@ impl Gpg {
         }
         Ok([headers, entity].concat())
     }
+}
+
+fn encrypt_args(policy: &MailSecurity, recipients: &[Address]) -> Vec<String> {
+    // Trust is explicit in our email/fingerprint bindings, never inferred
+    // from a matching UID. Hidden recipients prevent Bcc key-id leaks.
+    let mut args = vec![
+        "--armor".into(),
+        "--trust-model".into(),
+        "always".into(),
+        "--throw-keyids".into(),
+        "--recipient".into(),
+        policy.signing_fingerprint.clone(),
+    ];
+    for recipient in recipients {
+        if let Some(key) = policy.recipient_keys.get(&recipient.email.to_lowercase()) {
+            args.extend(["--recipient".into(), key.clone()]);
+        }
+    }
+    args
+}
+
+impl Gpg {
+    /// Inline PGP: the armored block is the plain-text body. Attachments and
+    /// HTML cannot be protected this way, so they are refused, never dropped.
+    async fn protect_inline(
+        &self,
+        headers: Vec<u8>,
+        raw: &[u8],
+        policy: &MailSecurity,
+        recipients: &[Address],
+    ) -> Result<Vec<u8>> {
+        let parsed = mail_parser::MessageParser::default()
+            .parse(raw)
+            .ok_or_else(|| error("Malformed message"))?;
+        if parsed.attachments().next().is_some() {
+            return Err(error(
+                "Inline PGP cannot protect attachments. Remove them or turn off inline PGP",
+            ));
+        }
+        if parsed.html_body_count() > 0 && parsed.text_body_count() == 0 {
+            return Err(error("Inline PGP needs a plain-text message body"));
+        }
+        let text = parsed
+            .body_text(0)
+            .ok_or_else(|| error("Inline PGP needs a plain-text message body"))?;
+        let mut body = text.replace("\r\n", "\n").replace('\n', "\r\n");
+        if !body.ends_with("\r\n") {
+            body.push_str("\r\n");
+        }
+        let sign = policy.sign_by_default;
+        let mut args: Vec<String> = Vec::new();
+        if policy.require_encryption {
+            args.extend(encrypt_args(policy, recipients));
+            args.push("--encrypt".into());
+            if sign {
+                args.push("--sign".into());
+            }
+        } else {
+            args.push("--armor".into());
+            args.push("--clearsign".into());
+        }
+        if sign {
+            args.extend([
+                "--digest-algo".into(),
+                "SHA256".into(),
+                "--local-user".into(),
+                policy.signing_fingerprint.clone(),
+            ]);
+        }
+        let (out, status) = self.run(&args, Some(body.as_bytes())).await?;
+        if sign && !status.contains("[GNUPG:] SIG_CREATED ") {
+            return Err(error("GnuPG did not confirm the signature"));
+        }
+        if policy.require_encryption && !status.contains("[GNUPG:] END_ENCRYPTION") {
+            return Err(error("GnuPG did not confirm encryption"));
+        }
+        let mut message = headers;
+        message.extend(
+            b"Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n",
+        );
+        message.extend(quoted_printable(&out));
+        Ok(message)
+    }
+}
+
+/// RFC 2045 quoted-printable for CRLF text; armor stays readable.
+fn quoted_printable(data: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(data.len() + data.len() / 8);
+    for line in data.split_inclusive(|&b| b == b'\n') {
+        let (text, eol) = match line
+            .strip_suffix(b"\r\n")
+            .or_else(|| line.strip_suffix(b"\n"))
+        {
+            Some(text) => (text, true),
+            None => (line, false),
+        };
+        let mut column = 0;
+        for (i, &b) in text.iter().enumerate() {
+            let trailing_space = matches!(b, b' ' | b'\t') && i + 1 == text.len();
+            let token = if b == b'=' || b > 126 || (b < 32 && b != b'\t') || trailing_space {
+                format!("={b:02X}").into_bytes()
+            } else {
+                vec![b]
+            };
+            if column + token.len() > 75 {
+                out.extend(b"=\r\n");
+                column = 0;
+            }
+            column += token.len();
+            out.extend(token);
+        }
+        if eol {
+            out.extend(b"\r\n");
+        }
+    }
+    out
+}
+
+/// The first armored OpenPGP block of a plain-text body, if any.
+fn inline_block(text: &str) -> Option<Vec<u8>> {
+    let text = text.replace("\r\n", "\n");
+    let (start, end) = [
+        ("-----BEGIN PGP MESSAGE-----", "-----END PGP MESSAGE-----"),
+        (
+            "-----BEGIN PGP SIGNED MESSAGE-----",
+            "-----END PGP SIGNATURE-----",
+        ),
+    ]
+    .iter()
+    .filter_map(|(b, e)| {
+        let at = text
+            .find(b)
+            .filter(|&at| at == 0 || text.as_bytes()[at - 1] == b'\n')?;
+        let stop = at + text[at..].find(e)? + e.len();
+        Some((at, stop))
+    })
+    .min_by_key(|(at, _)| *at)?;
+    let mut block = text[start..end].to_owned();
+    block.push('\n');
+    Some(block.into_bytes())
 }
 
 fn validate_listing(listing: &str, key: &str, email: &str, capability: char) -> Result<()> {
@@ -658,11 +789,31 @@ impl Gpg {
                 entity = data.to_vec();
                 break;
             }
+            // Inline PGP: an armored block inside the plain-text body.
+            if let Some(block) = parsed.body_text(0).and_then(|t| inline_block(&t)) {
+                let (data, status) = self.run(&["--decrypt".into()], Some(&block)).await?;
+                let sealed = block.starts_with(b"-----BEGIN PGP MESSAGE-----");
+                if sealed && !authenticated_decryption(&status) {
+                    return Err(error(
+                        "Message integrity could not be verified; legacy unauthenticated encryption is not accepted",
+                    ));
+                }
+                signature = valid_signature(&status);
+                if !sealed && signature.is_none() {
+                    return Err(error("The digital signature could not be verified"));
+                }
+                encrypted = sealed;
+                entity = [
+                    b"Content-Type: text/plain; charset=utf-8\r\n\r\n".as_slice(),
+                    &data,
+                ]
+                .concat();
+            }
             break;
         }
         if !encrypted && signature.is_none() {
             return Err(error(
-                "No supported OpenPGP/MIME content found. For signed mail, download the original .eml and open it from OpenPGP settings",
+                "No supported OpenPGP content found. For signed mail, download the original .eml and open it from OpenPGP settings",
             ));
         }
         let parsed = mail_parser::MessageParser::default()
@@ -1037,6 +1188,7 @@ mod tests {
             signing_fingerprint: alice.clone(),
             sign_by_default: true,
             require_encryption: true,
+            inline: false,
             recipient_keys: BTreeMap::from([("bob@example.org".into(), bob.clone())]),
         };
         let protected = gpg
@@ -1125,6 +1277,95 @@ mod tests {
                 .is_err()
         );
         assert!(gpg.open_message(&raw, None).await.is_err());
+    }
+
+    #[test]
+    fn quoted_printable_escapes_and_wraps() {
+        assert_eq!(
+            quoted_printable(b"a=b caf\xc3\xa9 \r\nx\r\n"),
+            b"a=3Db caf=C3=A9=20\r\nx\r\n"
+        );
+        let long = quoted_printable(&[b'a'; 200]);
+        assert!(long.split(|&b| b == b'\n').all(|l| l.len() <= 77));
+    }
+
+    #[test]
+    fn finds_inline_block_only_at_line_start() {
+        let text = "hi\r\n-----BEGIN PGP MESSAGE-----\r\nabc\r\n-----END PGP MESSAGE-----\r\nbye";
+        assert_eq!(
+            inline_block(text).unwrap(),
+            b"-----BEGIN PGP MESSAGE-----\nabc\n-----END PGP MESSAGE-----\n"
+        );
+        assert!(inline_block("x -----BEGIN PGP MESSAGE-----\n-----END PGP MESSAGE-----").is_none());
+    }
+
+    #[tokio::test]
+    async fn inline_pgp_roundtrip_and_tampering() {
+        let home = tempfile::tempdir().unwrap();
+        let gpg = Gpg {
+            home: Some(home.path().to_owned()),
+        };
+        let alice = generate(&gpg, "Alice <alice@example.org>").await;
+        let bob = generate(&gpg, "Bob <bob@example.org>").await;
+        let recipients = vec![Address {
+            name: None,
+            email: "bob@example.org".into(),
+        }];
+        let raw = mail_builder::MessageBuilder::new()
+            .from("alice@example.org")
+            .to("bob@example.org")
+            .subject("Visible subject")
+            .text_body("Private message: café\n- dash line")
+            .write_to_vec()
+            .unwrap();
+        let mut policy = MailSecurity {
+            signing_fingerprint: alice.clone(),
+            sign_by_default: true,
+            require_encryption: false,
+            inline: true,
+            recipient_keys: BTreeMap::from([("bob@example.org".into(), bob)]),
+        };
+        // Signed only: clearsigned, still readable on the wire.
+        let signed = gpg
+            .protect(&raw, &policy, "alice@example.org", &recipients)
+            .await
+            .unwrap();
+        let wire = String::from_utf8_lossy(&signed);
+        assert!(!wire.contains("multipart"));
+        assert!(wire.contains("BEGIN PGP SIGNED MESSAGE"));
+        let opened = gpg.open_message(&signed, Some(&alice)).await.unwrap();
+        assert!(opened.text.contains("café") && opened.text.contains("- dash line"));
+        assert!(opened.status.contains("verified key"));
+        let tampered = wire.replace("Private message", "Altered message");
+        assert!(
+            gpg.open_message(tampered.as_bytes(), Some(&alice))
+                .await
+                .is_err()
+        );
+        // Signed and encrypted.
+        policy.require_encryption = true;
+        let sealed = gpg
+            .protect(&raw, &policy, "alice@example.org", &recipients)
+            .await
+            .unwrap();
+        let wire = String::from_utf8_lossy(&sealed);
+        assert!(wire.contains("BEGIN PGP MESSAGE") && !wire.contains("Private message"));
+        let opened = gpg.open_message(&sealed, Some(&alice)).await.unwrap();
+        assert!(opened.text.contains("café"));
+        assert!(opened.status.contains("Decrypted") && opened.status.contains("verified key"));
+        // Attachments cannot be protected inline.
+        let with_file = mail_builder::MessageBuilder::new()
+            .from("alice@example.org")
+            .to("bob@example.org")
+            .text_body("x")
+            .attachment("text/plain", "a.txt", b"a".to_vec())
+            .write_to_vec()
+            .unwrap();
+        assert!(
+            gpg.protect(&with_file, &policy, "alice@example.org", &recipients)
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]

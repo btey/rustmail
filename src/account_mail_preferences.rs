@@ -398,6 +398,7 @@ pub(super) fn register(
                             ui.set_fingerprint(p.signing_fingerprint.clone().into());
                             ui.set_sign(p.sign_by_default);
                             ui.set_encrypt(p.require_encryption);
+                            ui.set_inline_pgp(p.inline);
                             ui.set_recipient_keys(
                                 p.recipient_keys
                                     .iter()
@@ -752,6 +753,7 @@ pub(super) fn register(
             signing_fingerprint: ui.get_fingerprint().to_string(),
             sign_by_default: ui.get_sign(),
             require_encryption: ui.get_encrypt(),
+            inline: ui.get_inline_pgp(),
             ..Default::default()
         };
         for line in ui
