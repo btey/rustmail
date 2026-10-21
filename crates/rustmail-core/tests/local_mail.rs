@@ -524,3 +524,120 @@ async fn editing_a_local_account_keeps_its_mail_and_updates_settings() {
     assert_eq!(config.smtp_host, "smtp.example.org");
     assert_eq!(config.mail_protocol, MailProtocol::Local);
 }
+
+#[tokio::test]
+async fn labels_and_snoozes_survive_a_message_moved_by_another_program() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = maildir_fixture(temp.path());
+    let core = start(temp.path()).await;
+    let account = core
+        .add_account_password(args(&root, LocalFormat::Maildir))
+        .await
+        .unwrap();
+    settle(&core, account.id).await;
+
+    let wake = rustmail_core::models::now_ms() + 3_600_000;
+    core.db
+        .write(move |conn| {
+            let (message, thread): (i64, i64) = conn.query_row(
+                "SELECT id, thread_id FROM messages WHERE subject='Fresh one'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?;
+            let label =
+                rustmail_core::db::repo::labels::save(conn, None, "Keep", "#123456", 1, None)?;
+            rustmail_core::db::repo::labels::add_to_message(conn, message, label.id)?;
+            rustmail_core::db::repo::snoozes::set(conn, thread, 1, wake, None)?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+    // Another program moves the message into a Maildir++ sub-folder.
+    make_maildir(&root.join(".Elsewhere"));
+    std::fs::rename(
+        root.join("new/1700000002.M2P1.host"),
+        root.join(".Elsewhere/cur/1700000002.M2P1.host:2,"),
+    )
+    .unwrap();
+    settle(&core, account.id).await;
+
+    let (labels, snoozed): (i64, Option<i64>) = core
+        .db
+        .read(|conn| {
+            let labels = conn.query_row(
+                "SELECT COUNT(*) FROM messages m JOIN message_labels ml ON ml.message_id=m.id
+                 JOIN labels l ON l.id=ml.label_id
+                 WHERE m.subject='Fresh one' AND l.name='Keep'",
+                [],
+                |r| r.get(0),
+            )?;
+            let snoozed = conn
+                .query_row(
+                    "SELECT s.wake_at FROM snoozes s JOIN messages m ON m.thread_id=s.thread_id
+                     WHERE m.subject='Fresh one'",
+                    [],
+                    |r| r.get(0),
+                )
+                .ok();
+            Ok((labels, snoozed))
+        })
+        .await
+        .unwrap();
+    assert_eq!(labels, 1);
+    assert_eq!(snoozed, Some(wake));
+}
+
+#[tokio::test]
+async fn new_local_mail_notifies_and_sent_mail_teaches_contacts() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = maildir_fixture(temp.path());
+    let core = start(temp.path()).await;
+    let account = core
+        .add_account_password(args(&root, LocalFormat::Maildir))
+        .await
+        .unwrap();
+    settle(&core, account.id).await;
+
+    let count = |sql: &'static str| {
+        let core = core.clone();
+        async move {
+            core.db
+                .read(move |conn| Ok(conn.query_row(sql, [], |r| r.get::<_, i64>(0))?))
+                .await
+                .unwrap()
+        }
+    };
+    // The catch-up import of existing mail stays silent.
+    assert_eq!(count("SELECT COUNT(*) FROM notification_outbox").await, 0);
+
+    // Mail delivered later notifies once; already-read and Sent mail do not.
+    std::fs::write(
+        root.join("new/1700000010.M10P1.host"),
+        message("Just arrived", "n1", "hello"),
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("cur/1700000011.M11P1.host:2,S"),
+        message("Read on arrival", "n2", "seen"),
+    )
+    .unwrap();
+    let sent = root.join(".Sent");
+    assert!(sent.join("cur").is_dir());
+    std::fs::write(
+        sent.join("cur/1700000012.M12P1.host:2,S"),
+        "From: me@example.org\r\nTo: Bob <bob@example.net>\r\nSubject: Outbound\r\nMessage-ID: <o1@example.org>\r\nDate: Mon, 01 Jan 2024 10:00:00 +0000\r\n\r\nhi\r\n",
+    )
+    .unwrap();
+    settle(&core, account.id).await;
+
+    assert_eq!(count("SELECT COUNT(*) FROM notification_outbox").await, 1);
+    assert_eq!(
+        count("SELECT COUNT(*) FROM notification_outbox n JOIN messages m ON m.id=n.message_id WHERE m.subject='Just arrived'").await,
+        1
+    );
+    assert_eq!(
+        count("SELECT COUNT(*) FROM contacts WHERE email='bob@example.net'").await,
+        1
+    );
+}

@@ -7,7 +7,7 @@ use crate::events::CoreEvent;
 use crate::imap::RemoteFolder;
 use crate::mime::ParsedBody;
 use crate::models::{AccountConfig, LocalFormat, MailConnectionSettings, now_ms, roles};
-use crate::sync::engine::SyncCtx;
+use crate::sync::engine::{SyncCtx, arrival_eligible, chime_worthy};
 use rusqlite::{Transaction, params};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -350,6 +350,8 @@ pub(super) async fn sync_one_folder(
         return Ok(Vec::new());
     }
 
+    // The first scan of a folder is a catch-up import: it never notifies.
+    let live = !stored.is_empty();
     let known: Vec<Known> = ctx
         .db
         .read(move |conn| {
@@ -437,7 +439,7 @@ pub(super) async fn sync_one_folder(
                 })
                 .await
                 .map_err(|error| CoreError::Other(error.to_string()))?;
-                changed_threads.extend(store_batch(ctx, config, folder, prepared).await?);
+                changed_threads.extend(store_batch(ctx, config, folder, prepared, live).await?);
             }
         }
         Source::Mbox(path) => {
@@ -479,7 +481,7 @@ pub(super) async fn sync_one_folder(
                 })
                 .await
                 .map_err(|error| CoreError::Other(error.to_string()))?;
-                changed_threads.extend(store_batch(ctx, config, folder, prepared).await?);
+                changed_threads.extend(store_batch(ctx, config, folder, prepared, live).await?);
             }
         }
     }
@@ -497,6 +499,7 @@ pub(super) async fn sync_one_folder(
         .write(move |conn| {
             let tx = conn.transaction()?;
             let mut threads: HashSet<i64> = HashSet::new();
+            prune_kept_meta(&tx)?;
             if !is_mbox {
                 for (message_id, rel, flags) in &flag_updates {
                     // A queued action owns the message's flags until it runs.
@@ -542,6 +545,7 @@ pub(super) async fn sync_one_folder(
                     )
                     .ok()
                     .flatten();
+                keep_meta(&tx, account_id, known.message_id)?;
                 repo::messages::delete(&tx, known.message_id)?;
                 if let Some(path) = raw_path {
                     let _ = std::fs::remove_file(path);
@@ -556,7 +560,7 @@ pub(super) async fn sync_one_folder(
                 params![folder_id, current],
             )?;
             tx.commit()?;
-            let _ = (account_id, &paths);
+            let _ = &paths;
             Ok(threads)
         })
         .await?;
@@ -589,6 +593,7 @@ async fn store_batch(
     config: &AccountConfig,
     folder: &FolderState,
     batch: Vec<Prepared>,
+    live: bool,
 ) -> Result<Vec<i64>> {
     if batch.is_empty() {
         return Ok(Vec::new());
@@ -597,14 +602,21 @@ async fn store_batch(
     let folder_id = folder.id;
     let role = folder.role.clone();
     let cache_dir = ctx.paths.mail_dir(account_id);
-    let threads = ctx
+    let notify_folder = live && role.as_deref() == Some(roles::INBOX);
+    let (threads, fresh) = ctx
         .db
         .write(move |conn| {
             let tx = conn.transaction()?;
             std::fs::create_dir_all(&cache_dir)?;
+            let settings = repo::settings::get(&tx)?;
+            let (outgoing_since, incoming_since) =
+                repo::contacts::learning_boundaries(&tx, account_id, now_ms())?;
+            let own_addresses = repo::sender_identities::own_addresses(&tx, account_id)?;
             let mut threads = HashSet::new();
+            let mut enqueued: HashSet<i64> = HashSet::new();
+            let mut fresh: Vec<i64> = Vec::new();
             for prepared in &batch {
-                let (_, thread_id) = insert_prepared(
+                let (message_id, thread_id) = insert_prepared(
                     &tx,
                     account_id,
                     folder_id,
@@ -613,17 +625,71 @@ async fn store_batch(
                     prepared,
                 )?;
                 threads.insert(thread_id);
+                let headers = &prepared.parsed.headers;
+                let is_outgoing = role.as_deref() == Some(roles::SENT);
+                let when = headers.date_ms.unwrap_or(prepared.fallback_ms);
+                // Same rules as IMAP: outgoing recipients by default, incoming
+                // senders only on opt-in and never from automated or junk mail.
+                if is_outgoing {
+                    if settings.collect_outgoing_contacts && when >= outgoing_since {
+                        let mut seen = HashSet::new();
+                        for address in headers
+                            .to
+                            .iter()
+                            .chain(headers.cc.iter())
+                            .chain(headers.bcc.iter())
+                        {
+                            let email = address.email.to_ascii_lowercase();
+                            if !own_addresses.contains(&email) && seen.insert(email) {
+                                repo::contacts::harvest(&tx, account_id, address, true, when)?;
+                            }
+                        }
+                    }
+                } else if settings.collect_incoming_contacts
+                    && when >= incoming_since
+                    && !headers.is_automated
+                    && !matches!(role.as_deref(), Some(roles::SPAM) | Some(roles::TRASH))
+                    && let Some(from) = &headers.from
+                    && !crate::mime::robot_sender(&from.email)
+                {
+                    repo::contacts::harvest(&tx, account_id, from, false, when)?;
+                }
+                // `live` stands in for the IMAP UID baseline: files that
+                // appear after the folder's first scan are new arrivals.
+                if notify_folder
+                    && arrival_eligible(
+                        Some(0),
+                        0,
+                        prepared.flags.seen,
+                        is_outgoing,
+                        prepared.fallback_ms,
+                        now_ms(),
+                    )
+                    && enqueued.insert(thread_id)
+                {
+                    repo::notifications::enqueue(&tx, message_id)?;
+                    let from_email = headers.from.as_ref().map_or("", |from| from.email.as_str());
+                    if chime_worthy(headers.is_automated, from_email) {
+                        fresh.push(thread_id);
+                    }
+                }
             }
             for thread_id in &threads {
                 repo::threads::recompute(&tx, *thread_id)?;
             }
             tx.commit()?;
-            Ok(threads.into_iter().collect::<Vec<_>>())
+            Ok((threads.into_iter().collect::<Vec<_>>(), fresh))
         })
         .await?;
     ctx.bus.emit(CoreEvent::MailUpdated {
         thread_ids: threads.clone(),
     });
+    if !fresh.is_empty() {
+        ctx.bus.emit(CoreEvent::MailNew {
+            account_id,
+            thread_ids: fresh,
+        });
+    }
     Ok(threads)
 }
 
@@ -663,7 +729,121 @@ fn insert_prepared(
             prepared.flags.encode(),
         ],
     )?;
+    restore_meta(tx, account_id, message_id)?;
     Ok((message_id, thread_id))
+}
+
+/// Kept labels and snoozes are dropped after this long without the message
+/// coming back.
+const KEPT_META_TTL_MS: i64 = 30 * 24 * 3600 * 1000;
+
+fn prune_kept_meta(tx: &Transaction) -> Result<()> {
+    let cutoff = now_ms() - KEPT_META_TTL_MS;
+    tx.execute(
+        "DELETE FROM local_kept_labels WHERE kept_at < ?1",
+        params![cutoff],
+    )?;
+    tx.execute(
+        "DELETE FROM local_kept_snoozes WHERE kept_at < ?1",
+        params![cutoff],
+    )?;
+    Ok(())
+}
+
+/// Remember the labels and snooze of a message about to be forgotten because
+/// its file vanished, so they survive if the message reappears (moved by
+/// another program). If a copy with the same Message-ID is already imported,
+/// it receives them right away.
+fn keep_meta(tx: &Transaction, account_id: i64, message_id: i64) -> Result<()> {
+    let header: Option<String> = tx
+        .query_row(
+            "SELECT message_id FROM messages WHERE id=?1",
+            params![message_id],
+            |row| row.get(0),
+        )
+        .ok()
+        .flatten();
+    let Some(header) = header.filter(|header| !header.is_empty()) else {
+        return Ok(());
+    };
+    let now = now_ms();
+    tx.execute(
+        "INSERT OR IGNORE INTO local_kept_labels(account_id, header_id, label_id, kept_at)
+         SELECT ?1, ?2, label_id, ?3 FROM message_labels WHERE message_id=?4",
+        params![account_id, header, now, message_id],
+    )?;
+    tx.execute(
+        "INSERT OR REPLACE INTO local_kept_snoozes(account_id, header_id, wake_at, kept_at)
+         SELECT ?1, ?2, s.wake_at, ?3 FROM snoozes s
+         JOIN messages m ON m.thread_id = s.thread_id WHERE m.id=?4",
+        params![account_id, header, now, message_id],
+    )?;
+    let twin: Option<i64> = tx
+        .query_row(
+            "SELECT m.id FROM messages m JOIN local_messages l ON l.message_id = m.id
+             WHERE m.account_id=?1 AND m.message_id=?2 AND m.id<>?3 LIMIT 1",
+            params![account_id, header, message_id],
+            |row| row.get(0),
+        )
+        .ok();
+    if let Some(twin) = twin {
+        restore_meta(tx, account_id, twin)?;
+    }
+    Ok(())
+}
+
+/// Re-apply (and consume) labels and snooze kept for this message's header.
+fn restore_meta(tx: &Transaction, account_id: i64, message_id: i64) -> Result<()> {
+    let row: Option<(Option<String>, Option<i64>)> = tx
+        .query_row(
+            "SELECT message_id, thread_id FROM messages WHERE id=?1",
+            params![message_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .ok();
+    let Some((Some(header), thread_id)) = row else {
+        return Ok(());
+    };
+    tx.execute(
+        "INSERT OR IGNORE INTO message_labels(message_id, label_id)
+         SELECT ?1, label_id FROM local_kept_labels WHERE account_id=?2 AND header_id=?3",
+        params![message_id, account_id, header],
+    )?;
+    tx.execute(
+        "DELETE FROM local_kept_labels WHERE account_id=?1 AND header_id=?2",
+        params![account_id, header],
+    )?;
+    let wake: Option<i64> = tx
+        .query_row(
+            "SELECT wake_at FROM local_kept_snoozes WHERE account_id=?1 AND header_id=?2",
+            params![account_id, header],
+            |row| row.get(0),
+        )
+        .ok();
+    if let (Some(wake), Some(thread_id)) = (wake, thread_id) {
+        let already: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM snoozes WHERE thread_id=?1)",
+                params![thread_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+        if !already {
+            let folder: Option<i64> = tx
+                .query_row(
+                    "SELECT folder_id FROM messages WHERE id=?1",
+                    params![message_id],
+                    |row| row.get(0),
+                )
+                .ok();
+            repo::snoozes::set(tx, thread_id, account_id, wake, folder)?;
+        }
+    }
+    tx.execute(
+        "DELETE FROM local_kept_snoozes WHERE account_id=?1 AND header_id=?2",
+        params![account_id, header],
+    )?;
+    Ok(())
 }
 
 /// A parsed message ready to be stored as a cached mail row.

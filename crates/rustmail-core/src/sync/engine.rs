@@ -2078,7 +2078,7 @@ const CHIME_RECENT_MS: i64 = 24 * 60 * 60 * 1000;
 /// agnostic on purpose - the *desktop-notification* scope (Important / all /
 /// specific tabs) is applied later by the host dispatcher, which can see the
 /// thread's resolved tab. Bulk/robot filtering lives in [`chime_worthy`].
-fn arrival_eligible(
+pub(crate) fn arrival_eligible(
     notify_min_uid: Option<u32>,
     uid: u32,
     is_read: bool,
@@ -2095,7 +2095,7 @@ fn arrival_eligible(
 /// Whether a fresh arrival should ring the audible new-mail chime. The chime
 /// stays human-only regardless of the desktop-notification scope, so a
 /// newsletter/monitoring flood never rings the bell every minute.
-fn chime_worthy(is_automated: bool, from_email: &str) -> bool {
+pub(crate) fn chime_worthy(is_automated: bool, from_email: &str) -> bool {
     !is_automated && !crate::mime::robot_sender(from_email)
 }
 

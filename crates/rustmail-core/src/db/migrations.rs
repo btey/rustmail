@@ -18,6 +18,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/013_filter_state.sql"),
     include_str!("migrations/014_local_mail.sql"),
     include_str!("migrations/015_nntp.sql"),
+    include_str!("migrations/016_local_kept_meta.sql"),
 ];
 pub const LATEST_VERSION: i64 = MIGRATIONS.len() as i64;
 
@@ -129,6 +130,8 @@ mod tests {
             "jmap_sync_state",
             "labels",
             "local_folders",
+            "local_kept_labels",
+            "local_kept_snoozes",
             "local_messages",
             "message_bodies",
             "message_embeddings",
