@@ -12,13 +12,13 @@
   </div>
   <p>
     <a href="https://rustmail.org">Website</a> ·
-    <a href="https://github.com/rustmail/rustmail/issues">Report an issue</a> ·
+    <a href="https://github.com/btey/rustmail/issues">Report an issue</a> ·
     <a href="CONTRIBUTING.md">Contribute</a>
   </p>
   <p>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/rustmail/rustmail?style=flat&label=license&color=2563eb" alt="License: AGPL-3.0"></a>
-    <a href="https://github.com/rustmail/rustmail/releases"><img src="https://img.shields.io/github/downloads/rustmail/rustmail/total?style=flat&label=downloads&color=16a34a" alt="Downloads across all releases"></a>
-    <a href="https://github.com/rustmail/rustmail/releases"><img src="https://img.shields.io/github/v/release/rustmail/rustmail?display_name=tag&include_prereleases&sort=semver&style=flat&label=release&color=0ea5e9" alt="Latest release"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/btey/rustmail?style=flat&label=license&color=2563eb" alt="License: AGPL-3.0"></a>
+    <a href="https://github.com/btey/rustmail/releases"><img src="https://img.shields.io/github/downloads/btey/rustmail/total?style=flat&label=downloads&color=16a34a" alt="Downloads across all releases"></a>
+    <a href="https://github.com/btey/rustmail/releases"><img src="https://img.shields.io/github/v/release/btey/rustmail?display_name=tag&include_prereleases&sort=semver&style=flat&label=release&color=0ea5e9" alt="Latest release"></a>
     <a href="https://translate.rustmail.org/engage/rustmail/"><img src="https://translate.rustmail.org/widget/rustmail/svg-badge.svg" alt="Translation status"></a>
   </p>
   <p>
@@ -103,7 +103,7 @@ carry several patches on top of Blitz and hope to upstream as much of that work
 as possible over time.
 
 If you find an email that renders incorrectly, please
-[report it](https://github.com/rustmail/rustmail/issues). This approach is still
+[report it](https://github.com/btey/rustmail/issues). This approach is still
 experimental, but it is also a major reason Rustmail can remain so
 lightweight compared with WebView-based clients built with frameworks such as
 Tauri or Wails.
@@ -389,7 +389,7 @@ client ID restores the defaults when available. Each provider enables separately
 once its configuration is saved.
 
 When preview builds are published, download them from
-[GitHub Releases](https://github.com/rustmail/rustmail/releases) and look for the
+[GitHub Releases](https://github.com/btey/rustmail/releases) and look for the
 **Pre-release** badge:
 
 - **Linux x64:** AppImage, Debian/Ubuntu `.deb`, Fedora 43/44 `.rpm`, or a
@@ -425,7 +425,7 @@ while waiting for an RPM release built with the compatibility checks above.
 
 Each GitHub release includes `SHA256SUMS` and signed build-provenance
 attestations. With GitHub CLI installed, verify a download with
-`gh attestation verify <download> --repo rustmail/rustmail`.
+`gh attestation verify <download> --repo btey/rustmail`.
 
 You can also build Rustmail from source with the
 [Rust toolchain](https://rustup.rs/):

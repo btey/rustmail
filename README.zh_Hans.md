@@ -12,13 +12,13 @@
   </div>
   <p>
     <a href="https://rustmail.org">官网</a> ·
-    <a href="https://github.com/rustmail/rustmail/issues">报告问题</a> ·
+    <a href="https://github.com/btey/rustmail/issues">报告问题</a> ·
     <a href="CONTRIBUTING.md">参与贡献</a>
   </p>
   <p>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/rustmail/rustmail?style=flat&label=license&color=2563eb" alt="许可证：AGPL-3.0"></a>
-    <a href="https://github.com/rustmail/rustmail/releases"><img src="https://img.shields.io/github/downloads/rustmail/rustmail/total?style=flat&label=downloads&color=16a34a" alt="各版本累计下载量"></a>
-    <a href="https://github.com/rustmail/rustmail/releases"><img src="https://img.shields.io/github/v/release/rustmail/rustmail?display_name=tag&include_prereleases&sort=semver&style=flat&label=release&color=0ea5e9" alt="最新版本"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/btey/rustmail?style=flat&label=license&color=2563eb" alt="许可证：AGPL-3.0"></a>
+    <a href="https://github.com/btey/rustmail/releases"><img src="https://img.shields.io/github/downloads/btey/rustmail/total?style=flat&label=downloads&color=16a34a" alt="各版本累计下载量"></a>
+    <a href="https://github.com/btey/rustmail/releases"><img src="https://img.shields.io/github/v/release/btey/rustmail?display_name=tag&include_prereleases&sort=semver&style=flat&label=release&color=0ea5e9" alt="最新版本"></a>
     <a href="https://translate.rustmail.org/engage/rustmail/"><img src="https://translate.rustmail.org/widget/rustmail/svg-badge.svg" alt="翻译进度"></a>
   </p>
   <p>
@@ -69,7 +69,7 @@ Rustmail 是一个轻量、原生的客户端，用来承载你的邮件、日�
 
 据我们所知，Rustmail 是最早把 Blitz 用于真实场景中任意邮件 HTML 的项目之一。邮件标记中含有大量非常规的 HTML 与 CSS，这会把渲染器推向要求极高的领域。目前我们在 Blitz 之上维护了若干补丁，并希望随时间推移尽可能多地把这些工作回流上游。
 
-如果你发现某封邮件渲染有误，请[提交问题](https://github.com/rustmail/rustmail/issues)。这一方案仍处于实验阶段，但它也是 Rustmail 相比基于 Tauri、Wails 等框架构建的 WebView 客户端能够如此轻量的重要原因。
+如果你发现某封邮件渲染有误，请[提交问题](https://github.com/btey/rustmail/issues)。这一方案仍处于实验阶段，但它也是 Rustmail 相比基于 Tauri、Wails 等框架构建的 WebView 客户端能够如此轻量的重要原因。
 
 ## 🎨 随心定制
 
@@ -298,7 +298,7 @@ Rustmail 目前仍在开发中，尚未稳定。
 
 未内置 OAuth 应用密钥的构建版本会禁用 Gmail 和 Outlook 登录。可使用欢迎界面上的**登录设置**齿轮，保存你自己的 Google 或 Microsoft 应用注册信息，或连接 IMAP/JMAP 账户。自定义密钥与「设置」共用，并优先于内置密钥；清除自定义客户端 ID 后，在可用的情况下会恢复默认值。保存配置后，各服务商会分别启用。
 
-预览构建发布后，请从 [GitHub Releases](https://github.com/rustmail/rustmail/releases) 下载，并留意 **Pre-release** 标记：
+预览构建发布后，请从 [GitHub Releases](https://github.com/btey/rustmail/releases) 下载，并留意 **Pre-release** 标记：
 
 - **Linux x64：** AppImage、Debian/Ubuntu `.deb`、Fedora 43/44 `.rpm`，或手动侧载（sideload）的 Flatpak 预览包
 - **Windows x64：** 安装程序 `.exe` 或便携版 ZIP
@@ -315,7 +315,7 @@ RPM 支持 x86_64 架构的 Fedora 43 和 44。发布构建以 Fedora 43 为兼�
 
 旧版 `0.1.0-alpha.7` RPM 在 Fedora 44 上构建，依赖 glibc 2.43，因此无法在 Fedora 43 上安装。在等待通过上述兼容性检查的新 RPM 发布期间，可以使用该版本的 Flatpak 包。
 
-每个 GitHub 发布版本都包含 `SHA256SUMS` 和已签名的构建来源证明。安装 GitHub CLI 后，可用 `gh attestation verify <download> --repo rustmail/rustmail` 校验下载内容。
+每个 GitHub 发布版本都包含 `SHA256SUMS` 和已签名的构建来源证明。安装 GitHub CLI 后，可用 `gh attestation verify <download> --repo btey/rustmail` 校验下载内容。
 
 Android APK 更新需要使用相同的签名密钥；未使用固定测试密钥的构建版本可能需要先卸载旧版应用，而卸载会删除本地应用数据。
 

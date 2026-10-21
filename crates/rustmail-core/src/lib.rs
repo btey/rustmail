@@ -4595,7 +4595,7 @@ impl Core {
 
     pub async fn queue_send(&self, args: QueueSendArgs) -> Result<QueueSendResult> {
         let draft_id = args.draft_id;
-        let (policy, sender, recipients) = self
+        let (policy, sender, recipients, parent_path) = self
             .db
             .read(move |conn| {
                 let detail = repo::messages::detail(conn, draft_id)?;
@@ -4623,9 +4623,41 @@ impl Core {
                         "{sender} is not an authorized sender identity for this account"
                     )));
                 }
-                Ok((config.settings.security, sender, recipients))
+                let security = &config.settings.security;
+                let parent_path = if security.sign_replies || security.encrypt_replies {
+                    use rusqlite::OptionalExtension;
+                    let parent: Option<(String, Option<i64>)> = conn
+                        .query_row(
+                            "SELECT mode, in_reply_to_message_id FROM drafts_meta WHERE message_id=?1",
+                            [draft_id],
+                            |r| Ok((r.get(0)?, r.get(1)?)),
+                        )
+                        .optional()?;
+                    match parent {
+                        Some((mode, Some(parent))) if mode.starts_with("reply") => {
+                            repo::messages::get_row(conn, parent)?.and_then(|r| r.raw_path)
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
+                };
+                Ok((config.settings.security, sender, recipients, parent_path))
             })
             .await?;
+        let policy = match parent_path {
+            Some(path) => {
+                // Replying to mail whose original is unavailable keeps the account defaults.
+                match crate::file_io::read(path, 8 * 1024 * 1024, "Original message").await {
+                    Ok(raw) => {
+                        let (signed, encrypted) = crate::mail_security::classify_protection(&raw);
+                        policy.for_reply(signed, encrypted)
+                    }
+                    Err(_) => policy,
+                }
+            }
+            None => policy,
+        };
         crate::mail_security::Gpg::default()
             .preflight(&policy, &sender, &recipients)
             .await?;

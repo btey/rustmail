@@ -143,7 +143,7 @@ class ReleaseTests(unittest.TestCase):
             paths = (
                 "scripts/build-deb.sh", "scripts/build-appimage.sh",
                 "scripts/stage-linux-metadata.py", "resources/AppRun",
-                "LICENSE", "THIRD_PARTY_NOTICES.md",
+                "LICENSE", "NOTICE.md", "THIRD_PARTY_NOTICES.md",
                 "resources/org.rustmail.mail.desktop", "resources/org.rustmail.mail.metainfo.xml",
                 "resources/app-icon/rustmail-masked-512.png",
                 "resources/app-icon/rustmail-masked.svg",

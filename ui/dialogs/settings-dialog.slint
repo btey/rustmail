@@ -2163,7 +2163,7 @@ export component SettingsDialog inherits Rectangle {
                             Rectangle {
                                 height: credits-links.y + credits-links.height + (root.compact ? 10px : 0px);
                                 vertical-stretch: 0;
-                                credits-card := SettingsCard { title: @tr("Credits"); description: @tr("Built by Rustmail with help from the open-source community."); surface: root.surface; card-border-color: root.border-subtle; heading: root.heading; secondary-text: root.faint-text; }
+                                credits-card := SettingsCard { title: @tr("Credits"); description: @tr("A modified version of Flectar Mail, copyright © Flectar and contributors. Changes by Rustmail contributors."); surface: root.surface; card-border-color: root.border-subtle; heading: root.heading; secondary-text: root.faint-text; }
                                 // The last link's hover surface ends at the card edge.
                                 credits-links := VerticalBox {
                                     x: 20px;
@@ -2174,14 +2174,24 @@ export component SettingsDialog inherits Rectangle {
                                     spacing: 0px;
                                     SettingsLinkRow {
                                         text: @tr("Rustmail");
-                                        description: @tr("Company website");
+                                        description: @tr("Source code of this version");
                                         icon: @image-url("../../resources/app-icon/rustmail-masked.svg");
                                         colorize-icon: false;
                                         accent: root.accent;
                                         body-text: root.body-text;
                                         muted-text: root.faint-text;
                                         hover-background: root.accent-soft;
-                                        clicked => { root.open-link("https://rustmail.org"); }
+                                        clicked => { root.open-link("https://github.com/btey/rustmail"); }
+                                    }
+                                    SettingsLinkRow {
+                                        text: @tr("Flectar Mail");
+                                        description: @tr("Original project, © Flectar and contributors");
+                                        icon: @image-url("../icons/lucide/outline/people.svg");
+                                        accent: root.accent;
+                                        body-text: root.body-text;
+                                        muted-text: root.faint-text;
+                                        hover-background: root.accent-soft;
+                                        clicked => { root.open-link("https://github.com/flectar/mail"); }
                                     }
                                     SettingsLinkRow {
                                         text: @tr("Open-source contributors");
@@ -2191,7 +2201,7 @@ export component SettingsDialog inherits Rectangle {
                                         body-text: root.body-text;
                                         muted-text: root.faint-text;
                                         hover-background: root.accent-soft;
-                                        clicked => { root.open-link("https://github.com/rustmail/rustmail/graphs/contributors"); }
+                                        clicked => { root.open-link("https://github.com/btey/rustmail/graphs/contributors"); }
                                     }
                                 }
                             }
@@ -2204,7 +2214,7 @@ export component SettingsDialog inherits Rectangle {
                                     y: license-card.content-y + 18px;
                                     width: parent.width - 40px;
                                     height: max(root.compact ? 38px : 18px, self.preferred-height);
-                                    text: @tr("Third-party components retain their own licenses and notices.");
+                                    text: @tr("This program comes with ABSOLUTELY NO WARRANTY. Third-party components retain their own licenses and notices.");
                                     color: root.secondary-text;
                                     font-size: TypeScale.caption;
                                     vertical-alignment: center;

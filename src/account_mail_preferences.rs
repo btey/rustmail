@@ -398,8 +398,15 @@ pub(super) fn register(
                             ui.set_fingerprint(p.signing_fingerprint.clone().into());
                             ui.set_sign(p.sign_by_default);
                             ui.set_encrypt(p.require_encryption);
-                            ui.set_inline_pgp(p.inline);
-                            ui.set_use_smime(p.smime);
+                            ui.set_privacy_system(if p.smime {
+                                2
+                            } else if p.inline {
+                                1
+                            } else {
+                                0
+                            });
+                            ui.set_sign_replies(p.sign_replies);
+                            ui.set_encrypt_replies(p.encrypt_replies);
                             ui.set_recipient_keys(
                                 p.recipient_keys
                                     .iter()
@@ -754,8 +761,10 @@ pub(super) fn register(
             signing_fingerprint: ui.get_fingerprint().to_string(),
             sign_by_default: ui.get_sign(),
             require_encryption: ui.get_encrypt(),
-            inline: ui.get_inline_pgp(),
-            smime: ui.get_use_smime(),
+            inline: ui.get_privacy_system() == 1,
+            smime: ui.get_privacy_system() == 2,
+            sign_replies: ui.get_sign_replies(),
+            encrypt_replies: ui.get_encrypt_replies(),
             ..Default::default()
         };
         for line in ui
@@ -813,7 +822,7 @@ fn register_keys_and_reader(app: &AppWindow, state: &Rc<RefCell<InboxState>>, ta
         if ui.get_busy() || ui.get_account_id() < 0 { return; }
         let key = ui.get_fingerprint().to_string();
         let email = ui.get_account_label().to_string();
-        let smime = ui.get_use_smime();
+        let smime = ui.get_privacy_system() == 2;
         let opened = opened.clone();
         let generation = generation.clone();
         let expected = generation.get();

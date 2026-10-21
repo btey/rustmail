@@ -67,6 +67,8 @@ rm -rf "$iconset_dir"
 
 cp "$project_dir/LICENSE" "$app_dir/Contents/Resources/Licenses/Rustmail/LICENSE"
 cp -R "$project_dir/LICENSES" "$app_dir/Contents/Resources/Licenses/Rustmail/LICENSES"
+cp "$project_dir/NOTICE.md" \
+  "$app_dir/Contents/Resources/Licenses/Rustmail/NOTICE.md"
 cp "$project_dir/THIRD_PARTY_NOTICES.md" \
   "$app_dir/Contents/Resources/Licenses/Rustmail/THIRD_PARTY_NOTICES.md"
 cp "$project_dir/resources/fonts/google-sans-flex/OFL.txt" \

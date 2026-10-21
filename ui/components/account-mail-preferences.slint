@@ -39,8 +39,9 @@ export global AccountMailPreferences {
     in-out property <string> fingerprint;
     in-out property <bool> sign: false;
     in-out property <bool> encrypt: false;
-    in-out property <bool> inline-pgp: false;
-    in-out property <bool> use-smime: false;
+    in-out property <int> privacy-system: 0;
+    in-out property <bool> sign-replies: false;
+    in-out property <bool> encrypt-replies: false;
     in-out property <string> recipient-keys;
     in-out property <string> key-inventory;
     in-out property <string> status;
@@ -238,14 +239,20 @@ export component AccountMailPreferencesPanel inherits OnScreenSurface {
                     compact: root.compact; checked: AccountMailPreferences.encrypt; enabled: !AccountMailPreferences.busy && AccountMailPreferences.desktop-supported; toggled(value) => { AccountMailPreferences.encrypt = value; }
                     title-color: AppTheme.heading; description-color: AppTheme.secondary;
                 }
+                SettingsSelectRow {
+                    compact: root.compact; title: @tr("Privacy system"); description: @tr("Default for this account. Inline PGP puts the signature or ciphertext in the text body (no attachments or HTML). S/MIME uses certificates in GnuPG's gpgsm keybox; enter certificate fingerprints below. Revocation is not checked.");
+                    choices: [@tr("OpenPGP (PGP/MIME)"), @tr("OpenPGP (inline)"), @tr("S/MIME")]; selected-index <=> AccountMailPreferences.privacy-system;
+                    title-color: AppTheme.heading; description-color: AppTheme.secondary;
+                    selected(index, value) => { AccountMailPreferences.privacy-system = index; }
+                }
                 SettingsSwitchRow {
-                    title: @tr("Use inline PGP"); description: @tr("Puts the signature or ciphertext in the text body. Attachments and HTML are not supported.");
-                    compact: root.compact; checked: AccountMailPreferences.inline-pgp; enabled: !AccountMailPreferences.busy && AccountMailPreferences.desktop-supported; toggled(value) => { AccountMailPreferences.inline-pgp = value; }
+                    title: @tr("Sign replies to signed mail"); description: @tr("Replies to a signed or encrypted message are signed.");
+                    compact: root.compact; checked: AccountMailPreferences.sign-replies; enabled: !AccountMailPreferences.busy && AccountMailPreferences.desktop-supported; toggled(value) => { AccountMailPreferences.sign-replies = value; }
                     title-color: AppTheme.heading; description-color: AppTheme.secondary;
                 }
                 SettingsSwitchRow {
-                    title: @tr("Use S/MIME"); description: @tr("Uses certificates in GnuPG's gpgsm keybox instead of OpenPGP keys. Enter certificate fingerprints below. Certificate revocation is not checked.");
-                    compact: root.compact; checked: AccountMailPreferences.use-smime; enabled: !AccountMailPreferences.busy && AccountMailPreferences.desktop-supported; toggled(value) => { AccountMailPreferences.use-smime = value; }
+                    title: @tr("Encrypt replies to encrypted mail"); description: @tr("Blocks sending unless every recipient has a verified, usable key.");
+                    compact: root.compact; checked: AccountMailPreferences.encrypt-replies; enabled: !AccountMailPreferences.busy && AccountMailPreferences.desktop-supported; toggled(value) => { AccountMailPreferences.encrypt-replies = value; }
                     title-color: AppTheme.heading; description-color: AppTheme.secondary;
                 }
                 Text { min-height: self.preferred-height; vertical-stretch: 0; text: @tr("Verified recipient keys"); color: AppTheme.heading; font-weight: 600; }

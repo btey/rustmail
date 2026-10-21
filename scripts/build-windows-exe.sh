@@ -55,7 +55,7 @@ fi
 rm -rf "$package_dir"
 mkdir -p "$package_dir/LICENSES/Google Sans Flex" "$package_dir/LICENSES/Noto Emoji"
 python3 "$project_dir/scripts/stage-pdfium.py" win-x64 "$package_dir" --cache "$build_dir/pdfium-cache"
-cp "$executable" "$project_dir"/{README.md,LICENSE,THIRD_PARTY_NOTICES.md} "$package_dir/"
+cp "$executable" "$project_dir"/{README.md,LICENSE,NOTICE.md,THIRD_PARTY_NOTICES.md} "$package_dir/"
 cp -R "$project_dir"/LICENSES/. "$package_dir/LICENSES/"
 cp "$project_dir"/resources/fonts/google-sans-flex/{OFL.txt,README.md} "$package_dir/LICENSES/Google Sans Flex/"
 cp "$project_dir"/resources/fonts/noto-emoji/{OFL.txt,README.md} "$package_dir/LICENSES/Noto Emoji/"

@@ -109,6 +109,7 @@ class PackagingTests(unittest.TestCase):
                 "platform/macos/Info.plist.in",
                 "platform/macos/org.rustmail.mail.login.plist",
                 "LICENSE",
+                "NOTICE.md",
                 "THIRD_PARTY_NOTICES.md",
                 "resources/fonts/google-sans-flex/OFL.txt",
                 "resources/fonts/google-sans-flex/README.md",

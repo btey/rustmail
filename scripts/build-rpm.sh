@@ -47,6 +47,7 @@ install -m0644 "$project_dir/resources/app-icon/rustmail-masked-512.png" "$sourc
 install -m0644 "$project_dir/resources/app-icon/rustmail-masked.svg" "$source_dir/org.rustmail.mail.svg"
 install -m0644 "$project_dir/LICENSE" "$source_dir/LICENSE"
 tar -C "$project_dir/LICENSES" -czf "$source_dir/LICENSES.tar.gz" .
+install -m0644 "$project_dir/NOTICE.md" "$source_dir/NOTICE.md"
 install -m0644 "$project_dir/THIRD_PARTY_NOTICES.md" "$source_dir/THIRD_PARTY_NOTICES.md"
 install -m0644 "$project_dir/resources/fonts/google-sans-flex/OFL.txt" "$source_dir/google-sans-flex-OFL.txt"
 install -m0644 "$project_dir/resources/fonts/google-sans-flex/README.md" "$source_dir/google-sans-flex-README.md"

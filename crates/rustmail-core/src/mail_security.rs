@@ -28,6 +28,10 @@ pub struct MailSecurity {
     /// Use S/MIME certificates (`gpgsm`) instead of OpenPGP keys. The
     /// fingerprints below are then certificate SHA-1 fingerprints.
     pub smime: bool,
+    /// When replying to a signed message, sign the reply.
+    pub sign_replies: bool,
+    /// When replying to an encrypted message, encrypt the reply.
+    pub encrypt_replies: bool,
     /// Explicitly verified email -> full primary fingerprint bindings.
     pub recipient_keys: BTreeMap<String, String>,
 }
@@ -35,8 +39,21 @@ impl MailSecurity {
     pub fn enabled(&self) -> bool {
         self.sign_by_default || self.require_encryption
     }
+    /// The policy for a reply to a message that was `signed` and/or
+    /// `encrypted`: the account defaults, raised by the reply rules.
+    pub fn for_reply(&self, signed: bool, encrypted: bool) -> MailSecurity {
+        let mut policy = self.clone();
+        if self.encrypt_replies && encrypted {
+            policy.require_encryption = true;
+        }
+        if self.sign_replies && (signed || encrypted) {
+            policy.sign_by_default = true;
+        }
+        policy
+    }
     pub fn validate(&mut self) -> Result<()> {
-        self.signing_fingerprint = fingerprint(&self.signing_fingerprint, !self.enabled())?;
+        let needs_key = self.enabled() || self.sign_replies || self.encrypt_replies;
+        self.signing_fingerprint = fingerprint(&self.signing_fingerprint, !needs_key)?;
         if self.recipient_keys.len() > 500 {
             return Err(error("Too many recipient keys"));
         }
@@ -484,6 +501,47 @@ fn quoted_printable(data: &[u8]) -> Vec<u8> {
         }
     }
     out
+}
+
+/// What the top level of a received message says about its protection, without
+/// decrypting or verifying anything: `(signed, encrypted)`.
+pub fn classify_protection(raw: &[u8]) -> (bool, bool) {
+    use mail_parser::MimeHeaders;
+    let head = &raw[..raw.len().min(4 * 1024 * 1024)];
+    let Some(parsed) = mail_parser::MessageParser::default().parse(head) else {
+        return (false, false);
+    };
+    let Some(root) = parsed.parts.first() else {
+        return (false, false);
+    };
+    if let Some(ct) = root.content_type() {
+        let kind = format!(
+            "{}/{}",
+            ct.ctype().to_ascii_lowercase(),
+            ct.subtype().unwrap_or_default().to_ascii_lowercase()
+        );
+        match kind.as_str() {
+            "multipart/encrypted" => return (false, true),
+            "multipart/signed" => return (true, false),
+            "application/pkcs7-mime" | "application/x-pkcs7-mime" => {
+                // An opaque signed-data blob is a signature; anything else is sealed.
+                let signed = ct
+                    .attribute("smime-type")
+                    .is_some_and(|t| t.eq_ignore_ascii_case("signed-data"));
+                return (signed, !signed);
+            }
+            _ => {}
+        }
+    }
+    let body = parsed
+        .body_text(0)
+        .map(|t| t.into_owned())
+        .unwrap_or_default();
+    let body = body.trim_start();
+    (
+        body.starts_with("-----BEGIN PGP SIGNED MESSAGE-----"),
+        body.starts_with("-----BEGIN PGP MESSAGE-----"),
+    )
 }
 
 /// The first armored OpenPGP block of a plain-text body, if any.
@@ -1193,6 +1251,79 @@ mod tests {
 
     /// Requires GnuPG, and never touches the developer's normal keyring.
     #[tokio::test]
+    async fn reply_rules_follow_the_original() {
+        let off = MailSecurity::default();
+        assert!(!off.for_reply(true, true).enabled());
+        let on = MailSecurity {
+            sign_replies: true,
+            encrypt_replies: true,
+            ..Default::default()
+        };
+        let plain = on.for_reply(false, false);
+        assert!(!plain.sign_by_default && !plain.require_encryption);
+        let signed = on.for_reply(true, false);
+        assert!(signed.sign_by_default && !signed.require_encryption);
+        let sealed = on.for_reply(false, true);
+        assert!(sealed.sign_by_default && sealed.require_encryption);
+        let only_encrypt = MailSecurity {
+            encrypt_replies: true,
+            ..Default::default()
+        };
+        let reply = only_encrypt.for_reply(true, true);
+        assert!(reply.require_encryption && !reply.sign_by_default);
+    }
+
+    #[test]
+    fn classifies_received_protection() {
+        let mime = |ct: &str, body: &str| {
+            format!("From: a@b.c\r\nContent-Type: {ct}\r\n\r\n{body}").into_bytes()
+        };
+        assert_eq!(
+            classify_protection(&mime("text/plain", "hi")),
+            (false, false)
+        );
+        assert_eq!(
+            classify_protection(&mime(
+                "multipart/encrypted; protocol=\"application/pgp-encrypted\"; boundary=x",
+                "--x--"
+            )),
+            (false, true)
+        );
+        assert_eq!(
+            classify_protection(&mime(
+                "multipart/signed; protocol=\"application/pgp-signature\"; boundary=x",
+                "--x--"
+            )),
+            (true, false)
+        );
+        assert_eq!(
+            classify_protection(&mime(
+                "application/pkcs7-mime; smime-type=enveloped-data",
+                "AAAA"
+            )),
+            (false, true)
+        );
+        assert_eq!(
+            classify_protection(&mime(
+                "application/pkcs7-mime; smime-type=signed-data",
+                "AAAA"
+            )),
+            (true, false)
+        );
+        assert_eq!(
+            classify_protection(&mime("text/plain", "-----BEGIN PGP MESSAGE-----\r\nabc")),
+            (false, true)
+        );
+        assert_eq!(
+            classify_protection(&mime(
+                "text/plain",
+                "-----BEGIN PGP SIGNED MESSAGE-----\r\nabc"
+            )),
+            (true, false)
+        );
+    }
+
+    #[tokio::test]
     async fn openpgp_mime_roundtrip_and_tampering() {
         let home = tempfile::tempdir().unwrap();
         let gpg = Gpg {
@@ -1219,6 +1350,7 @@ mod tests {
             inline: false,
             smime: false,
             recipient_keys: BTreeMap::from([("bob@example.org".into(), bob.clone())]),
+            ..Default::default()
         };
         let protected = gpg
             .protect(&raw, &policy, "alice@example.org", &recipients)
@@ -1354,6 +1486,7 @@ mod tests {
             inline: true,
             smime: false,
             recipient_keys: BTreeMap::from([("bob@example.org".into(), bob)]),
+            ..Default::default()
         };
         // Signed only: clearsigned, still readable on the wire.
         let signed = gpg

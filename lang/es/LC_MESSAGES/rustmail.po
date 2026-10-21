@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-21 21:58+0000\n"
+"POT-Creation-Date: 2026-10-21 23:05+0000\n"
 "PO-Revision-Date: 2026-09-20 23:21+0000\n"
 "Last-Translator: Admin <admin@rustmail.org>\n"
 "Language-Team: Spanish <https://translate.rustmail.org/projects/rustmail/"
@@ -1547,61 +1547,61 @@ msgstr "Copiar datos de diagnóstico"
 msgid "Dismiss"
 msgstr "Descartar"
 
-#: ui/components/account-mail-preferences.slint:106
+#: ui/components/account-mail-preferences.slint:107
 msgid "Server allows any address at this domain"
 msgstr "El servidor permite cualquier dirección de este dominio"
 
-#: ui/components/account-mail-preferences.slint:109
+#: ui/components/account-mail-preferences.slint:110
 msgid "Awaiting verification by the provider; cannot be selected yet"
 msgstr ""
 "Pendiente de verificación por el proveedor; todavía no se puede seleccionar"
 
-#: ui/components/account-mail-preferences.slint:112
+#: ui/components/account-mail-preferences.slint:113
 msgid "The server refused the last message from this address: {}"
 msgstr "El servidor rechazó el último mensaje enviado desde esta dirección: {}"
 
-#: ui/components/account-mail-preferences.slint:112
+#: ui/components/account-mail-preferences.slint:113
 msgid "The server refused the last message from this address"
 msgstr "El servidor rechazó el último mensaje enviado desde esta dirección"
 
-#: ui/components/account-mail-preferences.slint:115
+#: ui/components/account-mail-preferences.slint:116
 msgid "Sign-in address · replies go to {}"
 msgstr "Dirección de inicio de sesión · las respuestas se envían a {}"
 
-#: ui/components/account-mail-preferences.slint:115
+#: ui/components/account-mail-preferences.slint:116
 msgid "Sign-in address"
 msgstr "Dirección de inicio de sesión"
 
-#: ui/components/account-mail-preferences.slint:119
+#: ui/components/account-mail-preferences.slint:120
 msgid "Added by you · accepted by the server · replies go to {}"
 msgstr ""
 "Añadida por ti · aceptada por el servidor · las respuestas se envían a {}"
 
-#: ui/components/account-mail-preferences.slint:119
+#: ui/components/account-mail-preferences.slint:120
 msgid "Added by you · accepted by the server"
 msgstr "Añadida por ti · aceptada por el servidor"
 
-#: ui/components/account-mail-preferences.slint:121
+#: ui/components/account-mail-preferences.slint:122
 msgid "Added by you · not used yet · replies go to {}"
 msgstr "Añadida por ti · aún sin usar · las respuestas se envían a {}"
 
-#: ui/components/account-mail-preferences.slint:121
+#: ui/components/account-mail-preferences.slint:122
 msgid "Added by you · not used yet"
 msgstr "Añadida por ti · aún sin usar"
 
-#: ui/components/account-mail-preferences.slint:123
+#: ui/components/account-mail-preferences.slint:124
 msgid "Provided by the server · replies go to {}"
 msgstr "Proporcionada por el servidor · las respuestas se envían a {}"
 
-#: ui/components/account-mail-preferences.slint:123
+#: ui/components/account-mail-preferences.slint:124
 msgid "Provided by the server"
 msgstr "Proporcionada por el servidor"
 
-#: ui/components/account-mail-preferences.slint:127
+#: ui/components/account-mail-preferences.slint:128
 msgid "Sender identities, signatures & OpenPGP"
 msgstr "Identidades de remitente, firmas y OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:128
+#: ui/components/account-mail-preferences.slint:129
 msgid ""
 "Choose an account to manage its sender identity, signature, and message "
 "protection."
@@ -1609,42 +1609,42 @@ msgstr ""
 "Elige una cuenta para gestionar su identidad de remitente, firma y "
 "protección de mensajes."
 
-#: ui/components/account-mail-preferences.slint:139
+#: ui/components/account-mail-preferences.slint:140
 msgid "Signatures"
 msgstr "Firmas"
 
-#: ui/components/account-mail-preferences.slint:140
+#: ui/components/account-mail-preferences.slint:141
 msgid "OpenPGP"
 msgstr "OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:145
+#: ui/components/account-mail-preferences.slint:146
 msgid "Default sender identity"
 msgstr "Identidad de remitente predeterminada"
 
-#: ui/components/account-mail-preferences.slint:145
+#: ui/components/account-mail-preferences.slint:146
 msgid "Preselected for new messages. Your sign-in address is unchanged."
 msgstr ""
 "Preseleccionada para mensajes nuevos. Tu dirección de inicio de sesión no "
 "cambia."
 
-#: ui/components/account-mail-preferences.slint:151
+#: ui/components/account-mail-preferences.slint:152
 msgid "Save sender default"
 msgstr "Guardar remitente predeterminado"
 
-#: ui/components/account-mail-preferences.slint:152
+#: ui/components/account-mail-preferences.slint:153
 msgid "Refresh sender identities"
 msgstr "Actualizar identidades de remitente"
 
-#: ui/components/account-mail-preferences.slint:162
+#: ui/components/account-mail-preferences.slint:163
 msgid "Edit"
 msgstr "Editar"
 
-#: ui/components/account-mail-preferences.slint:163
+#: ui/components/account-mail-preferences.slint:164
 #: ui/views/contacts-view.slint:586
 msgid "Remove"
 msgstr "Eliminar"
 
-#: ui/components/account-mail-preferences.slint:166
+#: ui/components/account-mail-preferences.slint:167
 msgid ""
 "Gmail decides which addresses you can send from. Add an address in Gmail "
 "settings under Accounts › Send mail as, then refresh sender identities."
@@ -1653,15 +1653,15 @@ msgstr ""
 "configuración de Gmail, en Cuentas › Enviar como, y actualiza las "
 "identidades de remitente."
 
-#: ui/components/account-mail-preferences.slint:169
+#: ui/components/account-mail-preferences.slint:170
 msgid "Edit sender address"
 msgstr "Editar dirección de remitente"
 
-#: ui/components/account-mail-preferences.slint:169
+#: ui/components/account-mail-preferences.slint:170
 msgid "Add a sender address"
 msgstr "Añadir una dirección de remitente"
 
-#: ui/components/account-mail-preferences.slint:173
+#: ui/components/account-mail-preferences.slint:174
 msgid ""
 "Your server lets you send from any address at the domains shown as "
 "wildcards. Add the addresses you want to choose from."
@@ -1669,7 +1669,7 @@ msgstr ""
 "Tu servidor permite enviar desde cualquier dirección de los dominios "
 "indicados con comodines. Añade las direcciones que quieras poder seleccionar."
 
-#: ui/components/account-mail-preferences.slint:174
+#: ui/components/account-mail-preferences.slint:175
 msgid ""
 "Add an alias or another address your mail server lets you send from. The "
 "server decides when you send; Rustmail shows whether it accepted the last "
@@ -1679,79 +1679,79 @@ msgstr ""
 "enviar. El servidor decide al enviar; Rustmail muestra si aceptó el último "
 "mensaje."
 
-#: ui/components/account-mail-preferences.slint:176
+#: ui/components/account-mail-preferences.slint:177
 msgid "Email address"
 msgstr "Dirección de correo"
 
-#: ui/components/account-mail-preferences.slint:176
+#: ui/components/account-mail-preferences.slint:177
 msgid "alias@example.com"
 msgstr "alias@example.com"
 
-#: ui/components/account-mail-preferences.slint:177
+#: ui/components/account-mail-preferences.slint:178
 msgid "Sender name"
 msgstr "Nombre del remitente"
 
-#: ui/components/account-mail-preferences.slint:177
+#: ui/components/account-mail-preferences.slint:178
 msgid "Name shown to recipients (optional)"
 msgstr "Nombre que verán los destinatarios (opcional)"
 
-#: ui/components/account-mail-preferences.slint:178
+#: ui/components/account-mail-preferences.slint:179
 msgid "Reply-to address"
 msgstr "Dirección de respuesta"
 
-#: ui/components/account-mail-preferences.slint:178
+#: ui/components/account-mail-preferences.slint:179
 msgid "Where replies should go (optional)"
 msgstr "Dónde recibir las respuestas (opcional)"
 
-#: ui/components/account-mail-preferences.slint:182
+#: ui/components/account-mail-preferences.slint:183
 msgid "Save sender address"
 msgstr "Guardar dirección de remitente"
 
-#: ui/components/account-mail-preferences.slint:182
+#: ui/components/account-mail-preferences.slint:183
 msgid "Add sender address"
 msgstr "Añadir dirección de remitente"
 
-#: ui/components/account-mail-preferences.slint:183
+#: ui/components/account-mail-preferences.slint:184
 #: ui/dialogs/folder-dialog.slint:128 ui/dialogs/settings-dialog.slint:1876
-#: ui/dialogs/settings-dialog.slint:2555 ui/dialogs/settings-dialog.slint:2790
+#: ui/dialogs/settings-dialog.slint:2565 ui/dialogs/settings-dialog.slint:2800
 #: ui/views/files-view.slint:426 ui/views/mail-reading-pane.slint:2009
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: ui/components/account-mail-preferences.slint:188
+#: ui/components/account-mail-preferences.slint:189
 msgid "Edit signature"
 msgstr "Editar firma"
 
-#: ui/components/account-mail-preferences.slint:188
+#: ui/components/account-mail-preferences.slint:189
 msgid "Saved separately for each account."
 msgstr "Se guarda por separado para cada cuenta."
 
-#: ui/components/account-mail-preferences.slint:193
+#: ui/components/account-mail-preferences.slint:194
 msgid "New signature"
 msgstr "Nueva firma"
 
-#: ui/components/account-mail-preferences.slint:194
+#: ui/components/account-mail-preferences.slint:195
 msgid "Signature name"
 msgstr "Nombre de la firma"
 
-#: ui/components/account-mail-preferences.slint:194
+#: ui/components/account-mail-preferences.slint:195
 msgid "Signature name, for example Work"
 msgstr "Nombre de la firma, por ejemplo Trabajo"
 
-#: ui/components/account-mail-preferences.slint:198
+#: ui/components/account-mail-preferences.slint:199
 #: ui/components/theme-editor.slint:714
 msgid "Text"
 msgstr "Texto"
 
-#: ui/components/account-mail-preferences.slint:198
+#: ui/components/account-mail-preferences.slint:199
 msgid "Text file"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:198
+#: ui/components/account-mail-preferences.slint:199
 msgid "Command output"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:202
+#: ui/components/account-mail-preferences.slint:203
 msgid ""
 "Your name\n"
 "Role · Company\n"
@@ -1761,35 +1761,35 @@ msgstr ""
 "Cargo · Empresa\n"
 "Teléfono · Sitio web"
 
-#: ui/components/account-mail-preferences.slint:203
+#: ui/components/account-mail-preferences.slint:204
 msgid "File path"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:203
+#: ui/components/account-mail-preferences.slint:204
 msgid "Command"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:203
+#: ui/components/account-mail-preferences.slint:204
 msgid "~/.signature"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:203
+#: ui/components/account-mail-preferences.slint:204
 msgid "fortune -s"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:204
+#: ui/components/account-mail-preferences.slint:205
 msgid ""
 "The file is read again each time you write a message. Use plain text up to "
 "32 KiB."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:204
+#: ui/components/account-mail-preferences.slint:205
 msgid ""
 "The command runs through your shell each time you write a message, with no "
 "input and a 3 second limit. Only enter commands you trust."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:205
+#: ui/components/account-mail-preferences.slint:206
 msgid ""
 "Plain text works in every email client. You can format the inserted "
 "signature in the composer."
@@ -1797,36 +1797,36 @@ msgstr ""
 "El texto sin formato funciona en todos los clientes de correo. Puedes dar "
 "formato a la firma insertada en el editor."
 
-#: ui/components/account-mail-preferences.slint:207
+#: ui/components/account-mail-preferences.slint:208
 msgid "Save signature"
 msgstr "Guardar firma"
 
-#: ui/components/account-mail-preferences.slint:208
+#: ui/components/account-mail-preferences.slint:209
 #: ui/components/filter-rules.slint:218 ui/views/contacts-view.slint:586
 msgid "Delete"
 msgstr "Eliminar"
 
-#: ui/components/account-mail-preferences.slint:211
+#: ui/components/account-mail-preferences.slint:212
 msgid "New messages"
 msgstr "Mensajes nuevos"
 
-#: ui/components/account-mail-preferences.slint:211
+#: ui/components/account-mail-preferences.slint:212
 msgid "Signature inserted when you start a message."
 msgstr "Firma que se inserta al comenzar un mensaje."
 
-#: ui/components/account-mail-preferences.slint:217
+#: ui/components/account-mail-preferences.slint:218
 msgid "Replies & forwards"
 msgstr "Respuestas y reenvíos"
 
-#: ui/components/account-mail-preferences.slint:217
+#: ui/components/account-mail-preferences.slint:218
 msgid "Placed above the quoted message."
 msgstr "Se coloca encima del mensaje citado."
 
-#: ui/components/account-mail-preferences.slint:222
+#: ui/components/account-mail-preferences.slint:223
 msgid "Save signature defaults"
 msgstr "Guardar firmas predeterminadas"
 
-#: ui/components/account-mail-preferences.slint:226
+#: ui/components/account-mail-preferences.slint:227
 msgid ""
 "OpenPGP protects message bodies and attachments. Digital signatures let "
 "recipients check who signed a message."
@@ -1834,7 +1834,7 @@ msgstr ""
 "OpenPGP protege el contenido de los mensajes y los archivos adjuntos. Las "
 "firmas digitales permiten comprobar quién firmó un mensaje."
 
-#: ui/components/account-mail-preferences.slint:227
+#: ui/components/account-mail-preferences.slint:228
 msgid ""
 "Uses installed GnuPG 2.x and its secure key storage. Passphrases are entered "
 "in GnuPG's unlock dialog."
@@ -1842,7 +1842,7 @@ msgstr ""
 "Utiliza GnuPG 2.x instalado y su almacenamiento seguro de claves. Las frases "
 "de contraseña se introducen en el diálogo de desbloqueo de GnuPG."
 
-#: ui/components/account-mail-preferences.slint:227
+#: ui/components/account-mail-preferences.slint:228
 msgid ""
 "OpenPGP is unavailable on this mobile build. Protected accounts cannot send "
 "without a supported encryption engine."
@@ -1850,11 +1850,11 @@ msgstr ""
 "OpenPGP no está disponible en esta versión móvil. Las cuentas protegidas no "
 "pueden enviar mensajes sin un motor de cifrado compatible."
 
-#: ui/components/account-mail-preferences.slint:228
+#: ui/components/account-mail-preferences.slint:229
 msgid "Create a new key"
 msgstr "Crear una clave nueva"
 
-#: ui/components/account-mail-preferences.slint:229
+#: ui/components/account-mail-preferences.slint:230
 msgid ""
 "New keys expire in two years. GnuPG asks you to protect the private key with "
 "a passphrase."
@@ -1862,57 +1862,73 @@ msgstr ""
 "Las claves nuevas caducan en dos años. GnuPG te pide que protejas la clave "
 "privada con una frase de contraseña."
 
-#: ui/components/account-mail-preferences.slint:230
+#: ui/components/account-mail-preferences.slint:231
 msgid "Your full OpenPGP fingerprint"
 msgstr "Tu huella digital OpenPGP completa"
 
-#: ui/components/account-mail-preferences.slint:230
+#: ui/components/account-mail-preferences.slint:231
 msgid "Your full OpenPGP key fingerprint"
 msgstr "La huella digital completa de tu clave OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:232
+#: ui/components/account-mail-preferences.slint:233
 msgid "Digitally sign messages"
 msgstr "Firmar mensajes digitalmente"
 
-#: ui/components/account-mail-preferences.slint:232
+#: ui/components/account-mail-preferences.slint:233
 msgid "Proves possession of your private key; does not encrypt the message."
 msgstr "Demuestra la posesión de tu clave privada; no cifra el mensaje."
 
-#: ui/components/account-mail-preferences.slint:237
+#: ui/components/account-mail-preferences.slint:238
 msgid "Require encryption"
 msgstr "Exigir cifrado"
 
-#: ui/components/account-mail-preferences.slint:237
+#: ui/components/account-mail-preferences.slint:238
 msgid "Blocks sending unless every recipient has a verified, usable key."
 msgstr ""
 "Impide el envío si algún destinatario no tiene una clave verificada y "
 "utilizable."
 
-#: ui/components/account-mail-preferences.slint:242
-msgid "Use inline PGP"
+#: ui/components/account-mail-preferences.slint:243
+msgid "Privacy system"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:242
+#: ui/components/account-mail-preferences.slint:243
 msgid ""
-"Puts the signature or ciphertext in the text body. Attachments and HTML are "
-"not supported."
+"Default for this account. Inline PGP puts the signature or ciphertext in the "
+"text body (no attachments or HTML). S/MIME uses certificates in GnuPG's "
+"gpgsm keybox; enter certificate fingerprints below. Revocation is not "
+"checked."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:247
-msgid "Use S/MIME"
+#: ui/components/account-mail-preferences.slint:244
+msgid "OpenPGP (PGP/MIME)"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:247
-msgid ""
-"Uses certificates in GnuPG's gpgsm keybox instead of OpenPGP keys. Enter "
-"certificate fingerprints below. Certificate revocation is not checked."
+#: ui/components/account-mail-preferences.slint:244
+msgid "OpenPGP (inline)"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:251
+#: ui/components/account-mail-preferences.slint:244
+msgid "S/MIME"
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:249
+msgid "Sign replies to signed mail"
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:249
+msgid "Replies to a signed or encrypted message are signed."
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:254
+msgid "Encrypt replies to encrypted mail"
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:258
 msgid "Verified recipient keys"
 msgstr "Claves verificadas de los destinatarios"
 
-#: ui/components/account-mail-preferences.slint:252
+#: ui/components/account-mail-preferences.slint:259
 msgid ""
 "Compare fingerprints with recipients through a separate trusted channel, "
 "then enter one email=fingerprint per line. Importing a key alone does not "
@@ -1922,31 +1938,31 @@ msgstr ""
 "confianza y después introduce un correo=huella por línea. Importar una clave "
 "no basta para verificarla."
 
-#: ui/components/account-mail-preferences.slint:253
+#: ui/components/account-mail-preferences.slint:260
 msgid "person@example.org=FULL_FINGERPRINT"
 msgstr "persona@example.org=HUELLA_COMPLETA"
 
-#: ui/components/account-mail-preferences.slint:254
+#: ui/components/account-mail-preferences.slint:261
 msgid "Save OpenPGP settings"
 msgstr "Guardar ajustes de OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:256
+#: ui/components/account-mail-preferences.slint:263
 msgid "Import key"
 msgstr "Importar clave"
 
-#: ui/components/account-mail-preferences.slint:257
+#: ui/components/account-mail-preferences.slint:264
 msgid "Export public key"
 msgstr "Exportar clave pública"
 
-#: ui/components/account-mail-preferences.slint:258
+#: ui/components/account-mail-preferences.slint:265
 msgid "Show keys"
 msgstr "Mostrar claves"
 
-#: ui/components/account-mail-preferences.slint:266
+#: ui/components/account-mail-preferences.slint:273
 msgid "Open message file (.eml)"
 msgstr "Abrir archivo de mensaje (.eml)"
 
-#: ui/components/account-mail-preferences.slint:268
+#: ui/components/account-mail-preferences.slint:275
 msgid ""
 "Manage expiry, revocation and private-key backups in GnuPG. Only public keys "
 "are exported here."
@@ -1954,21 +1970,21 @@ msgstr ""
 "Gestiona la caducidad, la revocación y las copias de seguridad de claves "
 "privadas en GnuPG. Aquí solo se exportan claves públicas."
 
-#: ui/components/account-mail-preferences.slint:269
+#: ui/components/account-mail-preferences.slint:276
 msgid ""
 "Subjects and addresses remain visible. Protected drafts stay on this device. "
 "Existing server drafts are not retroactively protected."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:272
+#: ui/components/account-mail-preferences.slint:279
 msgid "Working…"
 msgstr "Procesando…"
 
-#: ui/components/account-mail-preferences.slint:284
+#: ui/components/account-mail-preferences.slint:291
 msgid "OpenPGP message"
 msgstr "Mensaje OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:287
+#: ui/components/account-mail-preferences.slint:294
 msgid ""
 "Decrypted content is shown as text, without remote content. It is not added "
 "to search or saved to the mail database."
@@ -1976,12 +1992,12 @@ msgstr ""
 "El contenido descifrado se muestra como texto, sin contenido remoto. No se "
 "añade a la búsqueda ni se guarda en la base de datos de correo."
 
-#: ui/components/account-mail-preferences.slint:288
+#: ui/components/account-mail-preferences.slint:295
 msgid "Export decrypted message"
 msgstr "Exportar mensaje descifrado"
 
-#: ui/components/account-mail-preferences.slint:289
-#: ui/dialogs/settings-dialog.slint:2501 ui/views/files-view.slint:455
+#: ui/components/account-mail-preferences.slint:296
+#: ui/dialogs/settings-dialog.slint:2511 ui/views/files-view.slint:455
 #: ui/views/files-view.slint:656 ui/window-chrome.slint:201
 msgid "Close"
 msgstr "Cerrar"
@@ -2015,7 +2031,7 @@ msgid "name@example.com"
 msgstr "nombre@ejemplo.com"
 
 #: ui/components/account-setup-form.slint:129
-#: ui/dialogs/settings-dialog.slint:2402
+#: ui/dialogs/settings-dialog.slint:2412
 msgid "Username"
 msgstr "Nombre de usuario"
 
@@ -3571,7 +3587,7 @@ msgid "Files"
 msgstr "Archivos"
 
 #: ui/components/workspace-navigation.slint:137
-#: ui/dialogs/settings-dialog.slint:1263 ui/dialogs/settings-dialog.slint:2227
+#: ui/dialogs/settings-dialog.slint:1263 ui/dialogs/settings-dialog.slint:2237
 #: ui/views/contacts-view.slint:236
 msgid "Contacts"
 msgstr "Contactos"
@@ -4164,50 +4180,50 @@ msgstr ""
 msgid "about version credits contributors license rustmail"
 msgstr "acerca de versión créditos colaboradores licencia rustmail"
 
-#: ui/dialogs/settings-dialog.slint:827 ui/dialogs/settings-dialog.slint:2294
+#: ui/dialogs/settings-dialog.slint:827 ui/dialogs/settings-dialog.slint:2304
 msgid "SETTINGS"
 msgstr "AJUSTES"
 
-#: ui/dialogs/settings-dialog.slint:830 ui/dialogs/settings-dialog.slint:2296
+#: ui/dialogs/settings-dialog.slint:830 ui/dialogs/settings-dialog.slint:2306
 msgid "No settings found"
 msgstr "No se encontraron ajustes"
 
 #: ui/dialogs/settings-dialog.slint:831 ui/dialogs/settings-dialog.slint:862
-#: ui/dialogs/settings-dialog.slint:2297
+#: ui/dialogs/settings-dialog.slint:2307
 msgid "General"
 msgstr "General"
 
 #: ui/dialogs/settings-dialog.slint:832 ui/dialogs/settings-dialog.slint:1413
-#: ui/dialogs/settings-dialog.slint:2298
+#: ui/dialogs/settings-dialog.slint:2308
 msgid "Accounts"
 msgstr "Cuentas"
 
 #: ui/dialogs/settings-dialog.slint:834 ui/dialogs/settings-dialog.slint:2030
-#: ui/dialogs/settings-dialog.slint:2300
+#: ui/dialogs/settings-dialog.slint:2310
 msgid "Notifications"
 msgstr "Notificaciones"
 
-#: ui/dialogs/settings-dialog.slint:835 ui/dialogs/settings-dialog.slint:2229
+#: ui/dialogs/settings-dialog.slint:835 ui/dialogs/settings-dialog.slint:2239
 msgid "Shortcuts"
 msgstr "Atajos"
 
 #: ui/dialogs/settings-dialog.slint:836 ui/dialogs/settings-dialog.slint:1895
-#: ui/dialogs/settings-dialog.slint:2302
+#: ui/dialogs/settings-dialog.slint:2312
 msgid "Filters"
 msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:837 ui/dialogs/settings-dialog.slint:1926
-#: ui/dialogs/settings-dialog.slint:2303
+#: ui/dialogs/settings-dialog.slint:2313
 msgid "Actions"
 msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:838 ui/dialogs/settings-dialog.slint:1958
-#: ui/dialogs/settings-dialog.slint:2304
+#: ui/dialogs/settings-dialog.slint:2314
 msgid "Storage"
 msgstr "Almacenamiento"
 
 #: ui/dialogs/settings-dialog.slint:839 ui/dialogs/settings-dialog.slint:2106
-#: ui/dialogs/settings-dialog.slint:2305
+#: ui/dialogs/settings-dialog.slint:2315
 msgid "About"
 msgstr "Acerca de"
 
@@ -4522,7 +4538,7 @@ msgstr ""
 "Gestiona los buzones conectados y añade proveedores. Arrastra una cuenta "
 "para cambiar su orden en todas partes."
 
-#: ui/dialogs/settings-dialog.slint:1431 ui/dialogs/settings-dialog.slint:2739
+#: ui/dialogs/settings-dialog.slint:1431 ui/dialogs/settings-dialog.slint:2749
 msgid "Profiles"
 msgstr "Perfiles"
 
@@ -4562,11 +4578,11 @@ msgstr "1 cuenta"
 msgid "{} accounts"
 msgstr "{} cuentas"
 
-#: ui/dialogs/settings-dialog.slint:1539 ui/dialogs/settings-dialog.slint:2579
+#: ui/dialogs/settings-dialog.slint:1539 ui/dialogs/settings-dialog.slint:2589
 msgid "Edit profile"
 msgstr "Editar perfil"
 
-#: ui/dialogs/settings-dialog.slint:1549 ui/dialogs/settings-dialog.slint:2839
+#: ui/dialogs/settings-dialog.slint:1549 ui/dialogs/settings-dialog.slint:2849
 msgid "Delete profile"
 msgstr "Eliminar perfil"
 
@@ -4619,7 +4635,7 @@ msgid "Retry calendar"
 msgstr "Reintentar calendario"
 
 #: ui/dialogs/settings-dialog.slint:1724 ui/dialogs/settings-dialog.slint:1847
-#: ui/dialogs/settings-dialog.slint:2367
+#: ui/dialogs/settings-dialog.slint:2377
 msgid "Set up CalDAV"
 msgstr "Configurar CalDAV"
 
@@ -4700,7 +4716,7 @@ msgstr "Usa un color generado para la cuenta"
 msgid "No profile"
 msgstr "Sin perfil"
 
-#: ui/dialogs/settings-dialog.slint:1847 ui/dialogs/settings-dialog.slint:2318
+#: ui/dialogs/settings-dialog.slint:1847 ui/dialogs/settings-dialog.slint:2328
 msgid "CalDAV settings"
 msgstr "Configuración de CalDAV"
 
@@ -4767,7 +4783,7 @@ msgstr ""
 msgid "https://contacts.example.com/"
 msgstr "https://contacts.example.com/"
 
-#: ui/dialogs/settings-dialog.slint:1875 ui/dialogs/settings-dialog.slint:2411
+#: ui/dialogs/settings-dialog.slint:1875 ui/dialogs/settings-dialog.slint:2421
 msgid "App password"
 msgstr "Contraseña de aplicación"
 
@@ -4775,7 +4791,7 @@ msgstr "Contraseña de aplicación"
 msgid "Disconnect"
 msgstr "Desconectar"
 
-#: ui/dialogs/settings-dialog.slint:1876 ui/dialogs/settings-dialog.slint:2431
+#: ui/dialogs/settings-dialog.slint:1876 ui/dialogs/settings-dialog.slint:2441
 msgid "Connect"
 msgstr "Conectar"
 
@@ -4866,7 +4882,7 @@ msgstr ""
 msgid "This does not delete anything from Gmail, Outlook, or your IMAP server."
 msgstr "Esto no elimina nada de Gmail, Outlook ni de tu servidor IMAP."
 
-#: ui/dialogs/settings-dialog.slint:2017 ui/dialogs/settings-dialog.slint:2801
+#: ui/dialogs/settings-dialog.slint:2017 ui/dialogs/settings-dialog.slint:2811
 msgid "Delete everything"
 msgstr "Eliminar todo"
 
@@ -4944,57 +4960,69 @@ msgid "Credits"
 msgstr "Créditos"
 
 #: ui/dialogs/settings-dialog.slint:2166
-msgid "Built by Rustmail with help from the open-source community."
-msgstr "Creado por Rustmail con la ayuda de la comunidad de código abierto."
+msgid ""
+"A modified version of Flectar Mail, copyright © Flectar and contributors. "
+"Changes by Rustmail contributors."
+msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:2177
-msgid "Company website"
-msgstr "Sitio web de la empresa"
+msgid "Source code of this version"
+msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:2187
+msgid "Flectar Mail"
+msgstr ""
+
+#: ui/dialogs/settings-dialog.slint:2188
+msgid "Original project, © Flectar and contributors"
+msgstr ""
+
+#: ui/dialogs/settings-dialog.slint:2197
 msgid "Open-source contributors"
 msgstr "Colaboradores de código abierto"
 
-#: ui/dialogs/settings-dialog.slint:2188
+#: ui/dialogs/settings-dialog.slint:2198
 msgid "Meet the people who have contributed on GitHub"
 msgstr "Conoce a las personas que han contribuido en GitHub"
 
-#: ui/dialogs/settings-dialog.slint:2201
+#: ui/dialogs/settings-dialog.slint:2211
 msgid "License"
 msgstr "Licencia"
 
-#: ui/dialogs/settings-dialog.slint:2201
+#: ui/dialogs/settings-dialog.slint:2211
 msgid "AGPL-3.0-only."
 msgstr "Solo AGPL-3.0."
 
-#: ui/dialogs/settings-dialog.slint:2201
+#: ui/dialogs/settings-dialog.slint:2211
 msgid ""
 "Rustmail is released under the GNU Affero General Public License v3.0 only."
 msgstr ""
 "Rustmail se publica únicamente bajo la GNU Affero General Public License "
 "v3.0."
 
-#: ui/dialogs/settings-dialog.slint:2207
-msgid "Third-party components retain their own licenses and notices."
-msgstr "Los componentes de terceros conservan sus propias licencias y avisos."
+#: ui/dialogs/settings-dialog.slint:2217
+msgid ""
+"This program comes with ABSOLUTELY NO WARRANTY. Third-party components "
+"retain their own licenses and notices."
+msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:2236
+#: ui/dialogs/settings-dialog.slint:2246
 msgid "Settings sections"
 msgstr "Secciones de ajustes"
 
-#: ui/dialogs/settings-dialog.slint:2247
+#: ui/dialogs/settings-dialog.slint:2257
 msgid "Close settings"
 msgstr "Cerrar ajustes"
 
-#: ui/dialogs/settings-dialog.slint:2269
+#: ui/dialogs/settings-dialog.slint:2279
 msgid "Close settings sections"
 msgstr "Cerrar secciones de ajustes"
 
-#: ui/dialogs/settings-dialog.slint:2368
+#: ui/dialogs/settings-dialog.slint:2378
 msgid "Discover new calendars."
 msgstr "Descubre calendarios nuevos."
 
-#: ui/dialogs/settings-dialog.slint:2368
+#: ui/dialogs/settings-dialog.slint:2378
 msgid ""
 "Works with iCloud, Fastmail, Nextcloud, and standards-compliant CalDAV "
 "servers."
@@ -5002,131 +5030,131 @@ msgstr ""
 "Funciona con iCloud, Fastmail, Nextcloud y servidores CalDAV compatibles con "
 "los estándares."
 
-#: ui/dialogs/settings-dialog.slint:2393
+#: ui/dialogs/settings-dialog.slint:2403
 msgid "Server address"
 msgstr "Dirección del servidor"
 
-#: ui/dialogs/settings-dialog.slint:2395
+#: ui/dialogs/settings-dialog.slint:2405
 msgid "https://calendar.example.com/"
 msgstr "https://calendario.ejemplo.com/"
 
-#: ui/dialogs/settings-dialog.slint:2411
+#: ui/dialogs/settings-dialog.slint:2421
 msgid "New app password · Optional"
 msgstr "Nueva contraseña de aplicación · Opcional"
 
-#: ui/dialogs/settings-dialog.slint:2413
+#: ui/dialogs/settings-dialog.slint:2423
 msgid "Leave blank to keep the current password"
 msgstr "Déjalo en blanco para conservar la contraseña actual"
 
-#: ui/dialogs/settings-dialog.slint:2413
+#: ui/dialogs/settings-dialog.slint:2423
 msgid "Stored securely in your system keyring"
 msgstr "Guardada de forma segura en el llavero del sistema"
 
-#: ui/dialogs/settings-dialog.slint:2431 ui/dialogs/settings-dialog.slint:2558
+#: ui/dialogs/settings-dialog.slint:2441 ui/dialogs/settings-dialog.slint:2568
 msgid "Connecting…"
 msgstr "Conectando…"
 
-#: ui/dialogs/settings-dialog.slint:2449
+#: ui/dialogs/settings-dialog.slint:2459
 msgid "Edit mail account"
 msgstr "Editar cuenta de correo"
 
-#: ui/dialogs/settings-dialog.slint:2449 ui/dialogs/settings-dialog.slint:2497
+#: ui/dialogs/settings-dialog.slint:2459 ui/dialogs/settings-dialog.slint:2507
 msgid "Connect a mail account"
 msgstr "Conectar una cuenta de correo"
 
-#: ui/dialogs/settings-dialog.slint:2497
+#: ui/dialogs/settings-dialog.slint:2507
 msgid "Edit {}"
 msgstr "Editar {}"
 
-#: ui/dialogs/settings-dialog.slint:2498
+#: ui/dialogs/settings-dialog.slint:2508
 msgid "Uses JMAP for mail sync and sending, with automatic discovery."
 msgstr "Usa JMAP para sincronizar y enviar correo, con detección automática."
 
-#: ui/dialogs/settings-dialog.slint:2498
+#: ui/dialogs/settings-dialog.slint:2508
 msgid ""
 "Reads mail stored on this computer. An SMTP server is only needed to send."
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:2498
+#: ui/dialogs/settings-dialog.slint:2508
 msgid "Uses separate IMAP and SMTP servers for mail sync and sending."
 msgstr "Usa servidores IMAP y SMTP separados para sincronizar y enviar correo."
 
-#: ui/dialogs/settings-dialog.slint:2558
+#: ui/dialogs/settings-dialog.slint:2568
 msgid "Save account"
 msgstr "Guardar cuenta"
 
-#: ui/dialogs/settings-dialog.slint:2558 ui/views/onboarding-view.slint:313
+#: ui/dialogs/settings-dialog.slint:2568 ui/views/onboarding-view.slint:313
 msgid "Connect account"
 msgstr "Conectar cuenta"
 
-#: ui/dialogs/settings-dialog.slint:2579 ui/dialogs/settings-dialog.slint:2632
+#: ui/dialogs/settings-dialog.slint:2589 ui/dialogs/settings-dialog.slint:2642
 msgid "Create profile"
 msgstr "Crear perfil"
 
-#: ui/dialogs/settings-dialog.slint:2633
+#: ui/dialogs/settings-dialog.slint:2643
 msgid "A local group for account colors and mail-list identification."
 msgstr ""
 "Un grupo local para los colores de las cuentas y su identificación en la "
 "lista de correo."
 
-#: ui/dialogs/settings-dialog.slint:2639
+#: ui/dialogs/settings-dialog.slint:2649
 msgid "Profile name"
 msgstr "Nombre del perfil"
 
-#: ui/dialogs/settings-dialog.slint:2641
+#: ui/dialogs/settings-dialog.slint:2651
 msgid "Personal or Work"
 msgstr "Personal o Trabajo"
 
-#: ui/dialogs/settings-dialog.slint:2645 ui/views/mail-reading-pane.slint:1978
+#: ui/dialogs/settings-dialog.slint:2655 ui/views/mail-reading-pane.slint:1978
 msgid "Color"
 msgstr "Color"
 
-#: ui/dialogs/settings-dialog.slint:2654
+#: ui/dialogs/settings-dialog.slint:2664
 msgid "Profile color {}"
 msgstr "Color de perfil {}"
 
-#: ui/dialogs/settings-dialog.slint:2663 ui/dialogs/settings-dialog.slint:2770
+#: ui/dialogs/settings-dialog.slint:2673 ui/dialogs/settings-dialog.slint:2780
 msgid "Custom color…"
 msgstr "Color personalizado…"
 
-#: ui/dialogs/settings-dialog.slint:2683
+#: ui/dialogs/settings-dialog.slint:2693
 msgid "Save profile"
 msgstr "Guardar perfil"
 
-#: ui/dialogs/settings-dialog.slint:2691
+#: ui/dialogs/settings-dialog.slint:2701
 msgid "Could not save this profile. Check the name and try again."
 msgstr ""
 "No se pudo guardar este perfil. Comprueba el nombre e inténtalo de nuevo."
 
-#: ui/dialogs/settings-dialog.slint:2709
+#: ui/dialogs/settings-dialog.slint:2719
 msgid "Choose a profile for {}"
 msgstr "Elegir un perfil para {}"
 
-#: ui/dialogs/settings-dialog.slint:2729
+#: ui/dialogs/settings-dialog.slint:2739
 msgid "Choose profile"
 msgstr "Elegir perfil"
 
-#: ui/dialogs/settings-dialog.slint:2746
+#: ui/dialogs/settings-dialog.slint:2756
 msgid "No profile · Account color"
 msgstr "Sin perfil · Color de la cuenta"
 
-#: ui/dialogs/settings-dialog.slint:2749
+#: ui/dialogs/settings-dialog.slint:2759
 msgid "Generated color"
 msgstr "Color generado"
 
-#: ui/dialogs/settings-dialog.slint:2764
+#: ui/dialogs/settings-dialog.slint:2774
 msgid "Account color {}"
 msgstr "Color de cuenta {}"
 
-#: ui/dialogs/settings-dialog.slint:2784
+#: ui/dialogs/settings-dialog.slint:2794
 msgid "Use custom color"
 msgstr "Usar color personalizado"
 
-#: ui/dialogs/settings-dialog.slint:2798
+#: ui/dialogs/settings-dialog.slint:2808
 msgid "Delete all local data?"
 msgstr "¿Eliminar todos los datos locales?"
 
-#: ui/dialogs/settings-dialog.slint:2799
+#: ui/dialogs/settings-dialog.slint:2809
 msgid ""
 "This removes every account, downloaded message, calendar, contact, "
 "preference, and credential stored by Rustmail on this device."
@@ -5135,42 +5163,42 @@ msgstr ""
 "contactos, preferencias y credenciales que Rustmail almacena en este "
 "dispositivo."
 
-#: ui/dialogs/settings-dialog.slint:2800
+#: ui/dialogs/settings-dialog.slint:2810
 msgid ""
 "Mail and events on Gmail, Outlook, and IMAP servers will not be deleted."
 msgstr ""
 "No se eliminarán el correo ni los eventos de Gmail, Outlook o los servidores "
 "IMAP."
 
-#: ui/dialogs/settings-dialog.slint:2802
+#: ui/dialogs/settings-dialog.slint:2812
 msgid "Keep my data"
 msgstr "Conservar mis datos"
 
-#: ui/dialogs/settings-dialog.slint:2816
+#: ui/dialogs/settings-dialog.slint:2826
 msgid "Remove account?"
 msgstr "¿Eliminar cuenta?"
 
-#: ui/dialogs/settings-dialog.slint:2818
+#: ui/dialogs/settings-dialog.slint:2828
 msgid "Remove this account and its downloaded mail from this device."
 msgstr "Elimina esta cuenta y su correo descargado de este dispositivo."
 
-#: ui/dialogs/settings-dialog.slint:2819
+#: ui/dialogs/settings-dialog.slint:2829
 msgid "Messages on the mail server will not be deleted."
 msgstr "Los mensajes del servidor de correo no se eliminarán."
 
-#: ui/dialogs/settings-dialog.slint:2820
+#: ui/dialogs/settings-dialog.slint:2830
 msgid "Remove account"
 msgstr "Eliminar cuenta"
 
-#: ui/dialogs/settings-dialog.slint:2821
+#: ui/dialogs/settings-dialog.slint:2831
 msgid "Keep account"
 msgstr "Conservar cuenta"
 
-#: ui/dialogs/settings-dialog.slint:2835
+#: ui/dialogs/settings-dialog.slint:2845
 msgid "Delete profile?"
 msgstr "¿Eliminar el perfil?"
 
-#: ui/dialogs/settings-dialog.slint:2837
+#: ui/dialogs/settings-dialog.slint:2847
 msgid ""
 "Accounts assigned to this profile will return to their individual or "
 "generated account colors."
@@ -5178,11 +5206,11 @@ msgstr ""
 "Las cuentas asignadas a este perfil volverán a sus colores de cuenta "
 "individuales o generados."
 
-#: ui/dialogs/settings-dialog.slint:2838
+#: ui/dialogs/settings-dialog.slint:2848
 msgid "Accounts and provider data are not changed."
 msgstr "Las cuentas y los datos del proveedor no se modifican."
 
-#: ui/dialogs/settings-dialog.slint:2840
+#: ui/dialogs/settings-dialog.slint:2850
 msgid "Keep profile"
 msgstr "Conservar perfil"
 
@@ -6251,6 +6279,16 @@ msgstr "Restaurar"
 #: ui/window-chrome.slint:202 ui/window-chrome.slint:239
 msgid "Maximize"
 msgstr "Maximizar"
+
+#~ msgid "Built by Rustmail with help from the open-source community."
+#~ msgstr "Creado por Rustmail con la ayuda de la comunidad de código abierto."
+
+#~ msgid "Company website"
+#~ msgstr "Sitio web de la empresa"
+
+#~ msgid "Third-party components retain their own licenses and notices."
+#~ msgstr ""
+#~ "Los componentes de terceros conservan sus propias licencias y avisos."
 
 #~ msgid ""
 #~ "Subjects and addresses remain visible. Protected drafts stay on this "

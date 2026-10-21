@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-21 21:58+0000\n"
+"POT-Creation-Date: 2026-10-21 23:05+0000\n"
 "PO-Revision-Date: 2026-09-15 12:00+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Turkish\n"
@@ -1512,59 +1512,59 @@ msgstr "Tanılama bilgilerini kopyala"
 msgid "Dismiss"
 msgstr "Yoksay"
 
-#: ui/components/account-mail-preferences.slint:106
+#: ui/components/account-mail-preferences.slint:107
 msgid "Server allows any address at this domain"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:109
+#: ui/components/account-mail-preferences.slint:110
 msgid "Awaiting verification by the provider; cannot be selected yet"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:112
+#: ui/components/account-mail-preferences.slint:113
 msgid "The server refused the last message from this address: {}"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:112
+#: ui/components/account-mail-preferences.slint:113
 msgid "The server refused the last message from this address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:115
+#: ui/components/account-mail-preferences.slint:116
 msgid "Sign-in address · replies go to {}"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:115
+#: ui/components/account-mail-preferences.slint:116
 msgid "Sign-in address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:119
+#: ui/components/account-mail-preferences.slint:120
 msgid "Added by you · accepted by the server · replies go to {}"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:119
+#: ui/components/account-mail-preferences.slint:120
 msgid "Added by you · accepted by the server"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:121
+#: ui/components/account-mail-preferences.slint:122
 msgid "Added by you · not used yet · replies go to {}"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:121
+#: ui/components/account-mail-preferences.slint:122
 msgid "Added by you · not used yet"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:123
+#: ui/components/account-mail-preferences.slint:124
 msgid "Provided by the server · replies go to {}"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:123
+#: ui/components/account-mail-preferences.slint:124
 msgid "Provided by the server"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:127
+#: ui/components/account-mail-preferences.slint:128
 msgid "Sender identities, signatures & OpenPGP"
 msgstr "Gönderen kimlikleri, imzalar ve OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:128
+#: ui/components/account-mail-preferences.slint:129
 msgid ""
 "Choose an account to manage its sender identity, signature, and message "
 "protection."
@@ -1572,139 +1572,139 @@ msgstr ""
 "Gönderen kimliğini, imzasını ve ileti korumasını yönetmek için bir hesap "
 "seçin."
 
-#: ui/components/account-mail-preferences.slint:139
+#: ui/components/account-mail-preferences.slint:140
 msgid "Signatures"
 msgstr "İmzalar"
 
-#: ui/components/account-mail-preferences.slint:140
+#: ui/components/account-mail-preferences.slint:141
 msgid "OpenPGP"
 msgstr "OpenPGP"
 
-#: ui/components/account-mail-preferences.slint:145
+#: ui/components/account-mail-preferences.slint:146
 msgid "Default sender identity"
 msgstr "Varsayılan gönderen kimliği"
 
-#: ui/components/account-mail-preferences.slint:145
+#: ui/components/account-mail-preferences.slint:146
 msgid "Preselected for new messages. Your sign-in address is unchanged."
 msgstr "Yeni iletiler için önceden seçilir. Oturum açma adresiniz değişmez."
 
-#: ui/components/account-mail-preferences.slint:151
+#: ui/components/account-mail-preferences.slint:152
 msgid "Save sender default"
 msgstr "Varsayılan göndereni kaydet"
 
-#: ui/components/account-mail-preferences.slint:152
+#: ui/components/account-mail-preferences.slint:153
 msgid "Refresh sender identities"
 msgstr "Gönderen kimliklerini yenile"
 
-#: ui/components/account-mail-preferences.slint:162
+#: ui/components/account-mail-preferences.slint:163
 msgid "Edit"
 msgstr "Düzenle"
 
-#: ui/components/account-mail-preferences.slint:163
+#: ui/components/account-mail-preferences.slint:164
 #: ui/views/contacts-view.slint:586
 msgid "Remove"
 msgstr "Kaldır"
 
-#: ui/components/account-mail-preferences.slint:166
+#: ui/components/account-mail-preferences.slint:167
 msgid ""
 "Gmail decides which addresses you can send from. Add an address in Gmail "
 "settings under Accounts › Send mail as, then refresh sender identities."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:169
+#: ui/components/account-mail-preferences.slint:170
 msgid "Edit sender address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:169
+#: ui/components/account-mail-preferences.slint:170
 msgid "Add a sender address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:173
+#: ui/components/account-mail-preferences.slint:174
 msgid ""
 "Your server lets you send from any address at the domains shown as "
 "wildcards. Add the addresses you want to choose from."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:174
+#: ui/components/account-mail-preferences.slint:175
 msgid ""
 "Add an alias or another address your mail server lets you send from. The "
 "server decides when you send; Rustmail shows whether it accepted the last "
 "message."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:176
+#: ui/components/account-mail-preferences.slint:177
 msgid "Email address"
 msgstr "E-posta adresi"
 
-#: ui/components/account-mail-preferences.slint:176
+#: ui/components/account-mail-preferences.slint:177
 msgid "alias@example.com"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:177
+#: ui/components/account-mail-preferences.slint:178
 msgid "Sender name"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:177
+#: ui/components/account-mail-preferences.slint:178
 msgid "Name shown to recipients (optional)"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:178
+#: ui/components/account-mail-preferences.slint:179
 msgid "Reply-to address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:178
+#: ui/components/account-mail-preferences.slint:179
 msgid "Where replies should go (optional)"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:182
+#: ui/components/account-mail-preferences.slint:183
 msgid "Save sender address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:182
+#: ui/components/account-mail-preferences.slint:183
 msgid "Add sender address"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:183
+#: ui/components/account-mail-preferences.slint:184
 #: ui/dialogs/folder-dialog.slint:128 ui/dialogs/settings-dialog.slint:1876
-#: ui/dialogs/settings-dialog.slint:2555 ui/dialogs/settings-dialog.slint:2790
+#: ui/dialogs/settings-dialog.slint:2565 ui/dialogs/settings-dialog.slint:2800
 #: ui/views/files-view.slint:426 ui/views/mail-reading-pane.slint:2009
 msgid "Cancel"
 msgstr "İptal"
 
-#: ui/components/account-mail-preferences.slint:188
+#: ui/components/account-mail-preferences.slint:189
 msgid "Edit signature"
 msgstr "İmzayı düzenle"
 
-#: ui/components/account-mail-preferences.slint:188
+#: ui/components/account-mail-preferences.slint:189
 msgid "Saved separately for each account."
 msgstr "Her hesap için ayrı kaydedilir."
 
-#: ui/components/account-mail-preferences.slint:193
+#: ui/components/account-mail-preferences.slint:194
 msgid "New signature"
 msgstr "Yeni imza"
 
-#: ui/components/account-mail-preferences.slint:194
+#: ui/components/account-mail-preferences.slint:195
 msgid "Signature name"
 msgstr "İmza adı"
 
-#: ui/components/account-mail-preferences.slint:194
+#: ui/components/account-mail-preferences.slint:195
 msgid "Signature name, for example Work"
 msgstr "İmza adı, örneğin İş"
 
-#: ui/components/account-mail-preferences.slint:198
+#: ui/components/account-mail-preferences.slint:199
 #: ui/components/theme-editor.slint:714
 msgid "Text"
 msgstr "Metin"
 
-#: ui/components/account-mail-preferences.slint:198
+#: ui/components/account-mail-preferences.slint:199
 msgid "Text file"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:198
+#: ui/components/account-mail-preferences.slint:199
 msgid "Command output"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:202
+#: ui/components/account-mail-preferences.slint:203
 msgid ""
 "Your name\n"
 "Role · Company\n"
@@ -1714,35 +1714,35 @@ msgstr ""
 "Rol · Şirket\n"
 "Telefon · Web sitesi"
 
-#: ui/components/account-mail-preferences.slint:203
+#: ui/components/account-mail-preferences.slint:204
 msgid "File path"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:203
+#: ui/components/account-mail-preferences.slint:204
 msgid "Command"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:203
+#: ui/components/account-mail-preferences.slint:204
 msgid "~/.signature"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:203
+#: ui/components/account-mail-preferences.slint:204
 msgid "fortune -s"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:204
+#: ui/components/account-mail-preferences.slint:205
 msgid ""
 "The file is read again each time you write a message. Use plain text up to "
 "32 KiB."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:204
+#: ui/components/account-mail-preferences.slint:205
 msgid ""
 "The command runs through your shell each time you write a message, with no "
 "input and a 3 second limit. Only enter commands you trust."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:205
+#: ui/components/account-mail-preferences.slint:206
 msgid ""
 "Plain text works in every email client. You can format the inserted "
 "signature in the composer."
@@ -1750,36 +1750,36 @@ msgstr ""
 "Düz metin her e-posta istemcisinde çalışır. Eklenen imzayı oluşturucuda "
 "biçimlendirebilirsiniz."
 
-#: ui/components/account-mail-preferences.slint:207
+#: ui/components/account-mail-preferences.slint:208
 msgid "Save signature"
 msgstr "İmzayı kaydet"
 
-#: ui/components/account-mail-preferences.slint:208
+#: ui/components/account-mail-preferences.slint:209
 #: ui/components/filter-rules.slint:218 ui/views/contacts-view.slint:586
 msgid "Delete"
 msgstr "Sil"
 
-#: ui/components/account-mail-preferences.slint:211
+#: ui/components/account-mail-preferences.slint:212
 msgid "New messages"
 msgstr "Yeni iletiler"
 
-#: ui/components/account-mail-preferences.slint:211
+#: ui/components/account-mail-preferences.slint:212
 msgid "Signature inserted when you start a message."
 msgstr "İleti yazmaya başladığınızda imza eklenir."
 
-#: ui/components/account-mail-preferences.slint:217
+#: ui/components/account-mail-preferences.slint:218
 msgid "Replies & forwards"
 msgstr "Yanıtlar ve iletmeler"
 
-#: ui/components/account-mail-preferences.slint:217
+#: ui/components/account-mail-preferences.slint:218
 msgid "Placed above the quoted message."
 msgstr "Alıntılanan iletinin üstüne eklenir."
 
-#: ui/components/account-mail-preferences.slint:222
+#: ui/components/account-mail-preferences.slint:223
 msgid "Save signature defaults"
 msgstr "Varsayılan imzaları kaydet"
 
-#: ui/components/account-mail-preferences.slint:226
+#: ui/components/account-mail-preferences.slint:227
 msgid ""
 "OpenPGP protects message bodies and attachments. Digital signatures let "
 "recipients check who signed a message."
@@ -1787,7 +1787,7 @@ msgstr ""
 "OpenPGP, ileti gövdelerini ve ekleri korur. Dijital imzalar alıcıların bir "
 "iletiyi kimin imzaladığını denetlemesini sağlar."
 
-#: ui/components/account-mail-preferences.slint:227
+#: ui/components/account-mail-preferences.slint:228
 msgid ""
 "Uses installed GnuPG 2.x and its secure key storage. Passphrases are entered "
 "in GnuPG's unlock dialog."
@@ -1795,7 +1795,7 @@ msgstr ""
 "Yüklü GnuPG 2.x'i ve onun güvenli anahtar deposunu kullanır. Parolalar "
 "GnuPG'nin kilit açma penceresinde girilir."
 
-#: ui/components/account-mail-preferences.slint:227
+#: ui/components/account-mail-preferences.slint:228
 msgid ""
 "OpenPGP is unavailable on this mobile build. Protected accounts cannot send "
 "without a supported encryption engine."
@@ -1803,11 +1803,11 @@ msgstr ""
 "OpenPGP bu mobil derlemede kullanılamıyor. Desteklenen bir şifreleme motoru "
 "olmadan korumalı hesaplar gönderim yapamaz."
 
-#: ui/components/account-mail-preferences.slint:228
+#: ui/components/account-mail-preferences.slint:229
 msgid "Create a new key"
 msgstr "Yeni anahtar oluştur"
 
-#: ui/components/account-mail-preferences.slint:229
+#: ui/components/account-mail-preferences.slint:230
 msgid ""
 "New keys expire in two years. GnuPG asks you to protect the private key with "
 "a passphrase."
@@ -1815,57 +1815,73 @@ msgstr ""
 "Yeni anahtarların süresi iki yılda dolar. GnuPG, özel anahtarı bir parolayla "
 "korumanızı ister."
 
-#: ui/components/account-mail-preferences.slint:230
+#: ui/components/account-mail-preferences.slint:231
 msgid "Your full OpenPGP fingerprint"
 msgstr "OpenPGP parmak izinizin tamamı"
 
-#: ui/components/account-mail-preferences.slint:230
+#: ui/components/account-mail-preferences.slint:231
 msgid "Your full OpenPGP key fingerprint"
 msgstr "OpenPGP anahtar parmak izinizin tamamı"
 
-#: ui/components/account-mail-preferences.slint:232
+#: ui/components/account-mail-preferences.slint:233
 msgid "Digitally sign messages"
 msgstr "İletileri dijital olarak imzala"
 
-#: ui/components/account-mail-preferences.slint:232
+#: ui/components/account-mail-preferences.slint:233
 msgid "Proves possession of your private key; does not encrypt the message."
 msgstr "Özel anahtarınıza sahip olduğunuzu kanıtlar; iletiyi şifrelemez."
 
-#: ui/components/account-mail-preferences.slint:237
+#: ui/components/account-mail-preferences.slint:238
 msgid "Require encryption"
 msgstr "Şifrelemeyi zorunlu kıl"
 
-#: ui/components/account-mail-preferences.slint:237
+#: ui/components/account-mail-preferences.slint:238
 msgid "Blocks sending unless every recipient has a verified, usable key."
 msgstr ""
 "Her alıcının doğrulanmış, kullanılabilir bir anahtarı olmadıkça gönderimi "
 "engeller."
 
-#: ui/components/account-mail-preferences.slint:242
-msgid "Use inline PGP"
+#: ui/components/account-mail-preferences.slint:243
+msgid "Privacy system"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:242
+#: ui/components/account-mail-preferences.slint:243
 msgid ""
-"Puts the signature or ciphertext in the text body. Attachments and HTML are "
-"not supported."
+"Default for this account. Inline PGP puts the signature or ciphertext in the "
+"text body (no attachments or HTML). S/MIME uses certificates in GnuPG's "
+"gpgsm keybox; enter certificate fingerprints below. Revocation is not "
+"checked."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:247
-msgid "Use S/MIME"
+#: ui/components/account-mail-preferences.slint:244
+msgid "OpenPGP (PGP/MIME)"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:247
-msgid ""
-"Uses certificates in GnuPG's gpgsm keybox instead of OpenPGP keys. Enter "
-"certificate fingerprints below. Certificate revocation is not checked."
+#: ui/components/account-mail-preferences.slint:244
+msgid "OpenPGP (inline)"
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:251
+#: ui/components/account-mail-preferences.slint:244
+msgid "S/MIME"
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:249
+msgid "Sign replies to signed mail"
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:249
+msgid "Replies to a signed or encrypted message are signed."
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:254
+msgid "Encrypt replies to encrypted mail"
+msgstr ""
+
+#: ui/components/account-mail-preferences.slint:258
 msgid "Verified recipient keys"
 msgstr "Doğrulanmış alıcı anahtarları"
 
-#: ui/components/account-mail-preferences.slint:252
+#: ui/components/account-mail-preferences.slint:259
 msgid ""
 "Compare fingerprints with recipients through a separate trusted channel, "
 "then enter one email=fingerprint per line. Importing a key alone does not "
@@ -1875,31 +1891,31 @@ msgstr ""
 "ardından her satıra bir tane olacak şekilde e-posta=parmak_izi girin. "
 "Yalnızca anahtar içe aktarmak onu doğrulamaz."
 
-#: ui/components/account-mail-preferences.slint:253
+#: ui/components/account-mail-preferences.slint:260
 msgid "person@example.org=FULL_FINGERPRINT"
 msgstr "kisi@ornek.org=TAM_PARMAK_İZİ"
 
-#: ui/components/account-mail-preferences.slint:254
+#: ui/components/account-mail-preferences.slint:261
 msgid "Save OpenPGP settings"
 msgstr "OpenPGP ayarlarını kaydet"
 
-#: ui/components/account-mail-preferences.slint:256
+#: ui/components/account-mail-preferences.slint:263
 msgid "Import key"
 msgstr "Anahtar içe aktar"
 
-#: ui/components/account-mail-preferences.slint:257
+#: ui/components/account-mail-preferences.slint:264
 msgid "Export public key"
 msgstr "Genel anahtarı dışa aktar"
 
-#: ui/components/account-mail-preferences.slint:258
+#: ui/components/account-mail-preferences.slint:265
 msgid "Show keys"
 msgstr "Anahtarları göster"
 
-#: ui/components/account-mail-preferences.slint:266
+#: ui/components/account-mail-preferences.slint:273
 msgid "Open message file (.eml)"
 msgstr "İleti dosyası aç (.eml)"
 
-#: ui/components/account-mail-preferences.slint:268
+#: ui/components/account-mail-preferences.slint:275
 msgid ""
 "Manage expiry, revocation and private-key backups in GnuPG. Only public keys "
 "are exported here."
@@ -1907,21 +1923,21 @@ msgstr ""
 "Süre sonu, iptal ve özel anahtar yedeklerini GnuPG'de yönetin. Burada "
 "yalnızca genel anahtarlar dışa aktarılır."
 
-#: ui/components/account-mail-preferences.slint:269
+#: ui/components/account-mail-preferences.slint:276
 msgid ""
 "Subjects and addresses remain visible. Protected drafts stay on this device. "
 "Existing server drafts are not retroactively protected."
 msgstr ""
 
-#: ui/components/account-mail-preferences.slint:272
+#: ui/components/account-mail-preferences.slint:279
 msgid "Working…"
 msgstr "Çalışıyor…"
 
-#: ui/components/account-mail-preferences.slint:284
+#: ui/components/account-mail-preferences.slint:291
 msgid "OpenPGP message"
 msgstr "OpenPGP iletisi"
 
-#: ui/components/account-mail-preferences.slint:287
+#: ui/components/account-mail-preferences.slint:294
 msgid ""
 "Decrypted content is shown as text, without remote content. It is not added "
 "to search or saved to the mail database."
@@ -1929,12 +1945,12 @@ msgstr ""
 "Şifresi çözülmüş içerik, uzak içerik olmadan metin olarak gösterilir. "
 "Aramaya eklenmez ve e-posta veritabanına kaydedilmez."
 
-#: ui/components/account-mail-preferences.slint:288
+#: ui/components/account-mail-preferences.slint:295
 msgid "Export decrypted message"
 msgstr "Şifresi çözülmüş iletiyi dışa aktar"
 
-#: ui/components/account-mail-preferences.slint:289
-#: ui/dialogs/settings-dialog.slint:2501 ui/views/files-view.slint:455
+#: ui/components/account-mail-preferences.slint:296
+#: ui/dialogs/settings-dialog.slint:2511 ui/views/files-view.slint:455
 #: ui/views/files-view.slint:656 ui/window-chrome.slint:201
 msgid "Close"
 msgstr "Kapat"
@@ -1968,7 +1984,7 @@ msgid "name@example.com"
 msgstr "ad@ornek.com"
 
 #: ui/components/account-setup-form.slint:129
-#: ui/dialogs/settings-dialog.slint:2402
+#: ui/dialogs/settings-dialog.slint:2412
 msgid "Username"
 msgstr "Kullanıcı adı"
 
@@ -3520,7 +3536,7 @@ msgid "Files"
 msgstr "Dosyalar"
 
 #: ui/components/workspace-navigation.slint:137
-#: ui/dialogs/settings-dialog.slint:1263 ui/dialogs/settings-dialog.slint:2227
+#: ui/dialogs/settings-dialog.slint:1263 ui/dialogs/settings-dialog.slint:2237
 #: ui/views/contacts-view.slint:236
 msgid "Contacts"
 msgstr "Kişiler"
@@ -4105,50 +4121,50 @@ msgstr ""
 msgid "about version credits contributors license rustmail"
 msgstr "hakkında sürüm emeği geçenler lisans rustmail"
 
-#: ui/dialogs/settings-dialog.slint:827 ui/dialogs/settings-dialog.slint:2294
+#: ui/dialogs/settings-dialog.slint:827 ui/dialogs/settings-dialog.slint:2304
 msgid "SETTINGS"
 msgstr "AYARLAR"
 
-#: ui/dialogs/settings-dialog.slint:830 ui/dialogs/settings-dialog.slint:2296
+#: ui/dialogs/settings-dialog.slint:830 ui/dialogs/settings-dialog.slint:2306
 msgid "No settings found"
 msgstr "Ayar bulunamadı"
 
 #: ui/dialogs/settings-dialog.slint:831 ui/dialogs/settings-dialog.slint:862
-#: ui/dialogs/settings-dialog.slint:2297
+#: ui/dialogs/settings-dialog.slint:2307
 msgid "General"
 msgstr "Genel"
 
 #: ui/dialogs/settings-dialog.slint:832 ui/dialogs/settings-dialog.slint:1413
-#: ui/dialogs/settings-dialog.slint:2298
+#: ui/dialogs/settings-dialog.slint:2308
 msgid "Accounts"
 msgstr "Hesaplar"
 
 #: ui/dialogs/settings-dialog.slint:834 ui/dialogs/settings-dialog.slint:2030
-#: ui/dialogs/settings-dialog.slint:2300
+#: ui/dialogs/settings-dialog.slint:2310
 msgid "Notifications"
 msgstr "Bildirimler"
 
-#: ui/dialogs/settings-dialog.slint:835 ui/dialogs/settings-dialog.slint:2229
+#: ui/dialogs/settings-dialog.slint:835 ui/dialogs/settings-dialog.slint:2239
 msgid "Shortcuts"
 msgstr "Kısayollar"
 
 #: ui/dialogs/settings-dialog.slint:836 ui/dialogs/settings-dialog.slint:1895
-#: ui/dialogs/settings-dialog.slint:2302
+#: ui/dialogs/settings-dialog.slint:2312
 msgid "Filters"
 msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:837 ui/dialogs/settings-dialog.slint:1926
-#: ui/dialogs/settings-dialog.slint:2303
+#: ui/dialogs/settings-dialog.slint:2313
 msgid "Actions"
 msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:838 ui/dialogs/settings-dialog.slint:1958
-#: ui/dialogs/settings-dialog.slint:2304
+#: ui/dialogs/settings-dialog.slint:2314
 msgid "Storage"
 msgstr "Depolama"
 
 #: ui/dialogs/settings-dialog.slint:839 ui/dialogs/settings-dialog.slint:2106
-#: ui/dialogs/settings-dialog.slint:2305
+#: ui/dialogs/settings-dialog.slint:2315
 msgid "About"
 msgstr "Hakkında"
 
@@ -4452,7 +4468,7 @@ msgstr ""
 "Bağlı posta kutularını yönetin ve sağlayıcı ekleyin. Bir hesabın sırasını "
 "her yerde değiştirmek için sürükleyin."
 
-#: ui/dialogs/settings-dialog.slint:1431 ui/dialogs/settings-dialog.slint:2739
+#: ui/dialogs/settings-dialog.slint:1431 ui/dialogs/settings-dialog.slint:2749
 msgid "Profiles"
 msgstr "Profiller"
 
@@ -4492,11 +4508,11 @@ msgstr "1 hesap"
 msgid "{} accounts"
 msgstr "{} hesap"
 
-#: ui/dialogs/settings-dialog.slint:1539 ui/dialogs/settings-dialog.slint:2579
+#: ui/dialogs/settings-dialog.slint:1539 ui/dialogs/settings-dialog.slint:2589
 msgid "Edit profile"
 msgstr "Profili düzenle"
 
-#: ui/dialogs/settings-dialog.slint:1549 ui/dialogs/settings-dialog.slint:2839
+#: ui/dialogs/settings-dialog.slint:1549 ui/dialogs/settings-dialog.slint:2849
 msgid "Delete profile"
 msgstr "Profili sil"
 
@@ -4549,7 +4565,7 @@ msgid "Retry calendar"
 msgstr "Takvimi yeniden dene"
 
 #: ui/dialogs/settings-dialog.slint:1724 ui/dialogs/settings-dialog.slint:1847
-#: ui/dialogs/settings-dialog.slint:2367
+#: ui/dialogs/settings-dialog.slint:2377
 msgid "Set up CalDAV"
 msgstr "CalDAV kur"
 
@@ -4629,7 +4645,7 @@ msgstr "Oluşturulan hesap rengini kullanır"
 msgid "No profile"
 msgstr "Profil yok"
 
-#: ui/dialogs/settings-dialog.slint:1847 ui/dialogs/settings-dialog.slint:2318
+#: ui/dialogs/settings-dialog.slint:1847 ui/dialogs/settings-dialog.slint:2328
 msgid "CalDAV settings"
 msgstr "CalDAV ayarları"
 
@@ -4693,7 +4709,7 @@ msgstr "Kişileri standartlara uygun bir CardDAV sunucusuyla eşitleyin."
 msgid "https://contacts.example.com/"
 msgstr "https://kisiler.ornek.com/"
 
-#: ui/dialogs/settings-dialog.slint:1875 ui/dialogs/settings-dialog.slint:2411
+#: ui/dialogs/settings-dialog.slint:1875 ui/dialogs/settings-dialog.slint:2421
 msgid "App password"
 msgstr "Uygulama parolası"
 
@@ -4701,7 +4717,7 @@ msgstr "Uygulama parolası"
 msgid "Disconnect"
 msgstr "Bağlantıyı kes"
 
-#: ui/dialogs/settings-dialog.slint:1876 ui/dialogs/settings-dialog.slint:2431
+#: ui/dialogs/settings-dialog.slint:1876 ui/dialogs/settings-dialog.slint:2441
 msgid "Connect"
 msgstr "Bağlan"
 
@@ -4791,7 +4807,7 @@ msgstr ""
 msgid "This does not delete anything from Gmail, Outlook, or your IMAP server."
 msgstr "Bu işlem Gmail, Outlook veya IMAP sunucunuzdaki hiçbir şeyi silmez."
 
-#: ui/dialogs/settings-dialog.slint:2017 ui/dialogs/settings-dialog.slint:2801
+#: ui/dialogs/settings-dialog.slint:2017 ui/dialogs/settings-dialog.slint:2811
 msgid "Delete everything"
 msgstr "Tümünü sil"
 
@@ -4868,56 +4884,68 @@ msgid "Credits"
 msgstr "Emeği geçenler"
 
 #: ui/dialogs/settings-dialog.slint:2166
-msgid "Built by Rustmail with help from the open-source community."
-msgstr "Rustmail tarafından açık kaynak topluluğunun yardımıyla geliştirildi."
+msgid ""
+"A modified version of Flectar Mail, copyright © Flectar and contributors. "
+"Changes by Rustmail contributors."
+msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:2177
-msgid "Company website"
-msgstr "Şirket web sitesi"
+msgid "Source code of this version"
+msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:2187
+msgid "Flectar Mail"
+msgstr ""
+
+#: ui/dialogs/settings-dialog.slint:2188
+msgid "Original project, © Flectar and contributors"
+msgstr ""
+
+#: ui/dialogs/settings-dialog.slint:2197
 msgid "Open-source contributors"
 msgstr "Açık kaynak katkıcıları"
 
-#: ui/dialogs/settings-dialog.slint:2188
+#: ui/dialogs/settings-dialog.slint:2198
 msgid "Meet the people who have contributed on GitHub"
 msgstr "GitHub'da katkıda bulunan kişilerle tanışın"
 
-#: ui/dialogs/settings-dialog.slint:2201
+#: ui/dialogs/settings-dialog.slint:2211
 msgid "License"
 msgstr "Lisans"
 
-#: ui/dialogs/settings-dialog.slint:2201
+#: ui/dialogs/settings-dialog.slint:2211
 msgid "AGPL-3.0-only."
 msgstr "Yalnızca AGPL-3.0."
 
-#: ui/dialogs/settings-dialog.slint:2201
+#: ui/dialogs/settings-dialog.slint:2211
 msgid ""
 "Rustmail is released under the GNU Affero General Public License v3.0 only."
 msgstr ""
 "Rustmail yalnızca GNU Affero Genel Kamu Lisansı v3.0 kapsamında yayımlanır."
 
-#: ui/dialogs/settings-dialog.slint:2207
-msgid "Third-party components retain their own licenses and notices."
-msgstr "Üçüncü taraf bileşenler kendi lisanslarını ve bildirimlerini korur."
+#: ui/dialogs/settings-dialog.slint:2217
+msgid ""
+"This program comes with ABSOLUTELY NO WARRANTY. Third-party components "
+"retain their own licenses and notices."
+msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:2236
+#: ui/dialogs/settings-dialog.slint:2246
 msgid "Settings sections"
 msgstr "Ayarlar bölümleri"
 
-#: ui/dialogs/settings-dialog.slint:2247
+#: ui/dialogs/settings-dialog.slint:2257
 msgid "Close settings"
 msgstr "Ayarları kapat"
 
-#: ui/dialogs/settings-dialog.slint:2269
+#: ui/dialogs/settings-dialog.slint:2279
 msgid "Close settings sections"
 msgstr "Ayarlar bölümlerini kapat"
 
-#: ui/dialogs/settings-dialog.slint:2368
+#: ui/dialogs/settings-dialog.slint:2378
 msgid "Discover new calendars."
 msgstr "Yeni takvimler keşfedin."
 
-#: ui/dialogs/settings-dialog.slint:2368
+#: ui/dialogs/settings-dialog.slint:2378
 msgid ""
 "Works with iCloud, Fastmail, Nextcloud, and standards-compliant CalDAV "
 "servers."
@@ -4925,128 +4953,128 @@ msgstr ""
 "iCloud, Fastmail, Nextcloud ve standartlara uygun CalDAV sunucularıyla "
 "çalışır."
 
-#: ui/dialogs/settings-dialog.slint:2393
+#: ui/dialogs/settings-dialog.slint:2403
 msgid "Server address"
 msgstr "Sunucu adresi"
 
-#: ui/dialogs/settings-dialog.slint:2395
+#: ui/dialogs/settings-dialog.slint:2405
 msgid "https://calendar.example.com/"
 msgstr "https://takvim.ornek.com/"
 
-#: ui/dialogs/settings-dialog.slint:2411
+#: ui/dialogs/settings-dialog.slint:2421
 msgid "New app password · Optional"
 msgstr "Yeni uygulama parolası · İsteğe bağlı"
 
-#: ui/dialogs/settings-dialog.slint:2413
+#: ui/dialogs/settings-dialog.slint:2423
 msgid "Leave blank to keep the current password"
 msgstr "Geçerli parolayı korumak için boş bırakın"
 
-#: ui/dialogs/settings-dialog.slint:2413
+#: ui/dialogs/settings-dialog.slint:2423
 msgid "Stored securely in your system keyring"
 msgstr "Sistem anahtarlığınızda güvenle saklanır"
 
-#: ui/dialogs/settings-dialog.slint:2431 ui/dialogs/settings-dialog.slint:2558
+#: ui/dialogs/settings-dialog.slint:2441 ui/dialogs/settings-dialog.slint:2568
 msgid "Connecting…"
 msgstr "Bağlanıyor…"
 
-#: ui/dialogs/settings-dialog.slint:2449
+#: ui/dialogs/settings-dialog.slint:2459
 msgid "Edit mail account"
 msgstr "E-posta hesabını düzenle"
 
-#: ui/dialogs/settings-dialog.slint:2449 ui/dialogs/settings-dialog.slint:2497
+#: ui/dialogs/settings-dialog.slint:2459 ui/dialogs/settings-dialog.slint:2507
 msgid "Connect a mail account"
 msgstr "E-posta hesabı bağla"
 
-#: ui/dialogs/settings-dialog.slint:2497
+#: ui/dialogs/settings-dialog.slint:2507
 msgid "Edit {}"
 msgstr "Düzenle: {}"
 
-#: ui/dialogs/settings-dialog.slint:2498
+#: ui/dialogs/settings-dialog.slint:2508
 msgid "Uses JMAP for mail sync and sending, with automatic discovery."
 msgstr "Otomatik keşifle eşitleme ve gönderme için JMAP kullanır."
 
-#: ui/dialogs/settings-dialog.slint:2498
+#: ui/dialogs/settings-dialog.slint:2508
 msgid ""
 "Reads mail stored on this computer. An SMTP server is only needed to send."
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:2498
+#: ui/dialogs/settings-dialog.slint:2508
 msgid "Uses separate IMAP and SMTP servers for mail sync and sending."
 msgstr "Eşitleme ve gönderme için ayrı IMAP ve SMTP sunucuları kullanır."
 
-#: ui/dialogs/settings-dialog.slint:2558
+#: ui/dialogs/settings-dialog.slint:2568
 msgid "Save account"
 msgstr "Hesabı kaydet"
 
-#: ui/dialogs/settings-dialog.slint:2558 ui/views/onboarding-view.slint:313
+#: ui/dialogs/settings-dialog.slint:2568 ui/views/onboarding-view.slint:313
 msgid "Connect account"
 msgstr "Hesabı bağla"
 
-#: ui/dialogs/settings-dialog.slint:2579 ui/dialogs/settings-dialog.slint:2632
+#: ui/dialogs/settings-dialog.slint:2589 ui/dialogs/settings-dialog.slint:2642
 msgid "Create profile"
 msgstr "Profil oluştur"
 
-#: ui/dialogs/settings-dialog.slint:2633
+#: ui/dialogs/settings-dialog.slint:2643
 msgid "A local group for account colors and mail-list identification."
 msgstr "Hesap renkleri ve posta listesinde tanımlama için yerel bir grup."
 
-#: ui/dialogs/settings-dialog.slint:2639
+#: ui/dialogs/settings-dialog.slint:2649
 msgid "Profile name"
 msgstr "Profil adı"
 
-#: ui/dialogs/settings-dialog.slint:2641
+#: ui/dialogs/settings-dialog.slint:2651
 msgid "Personal or Work"
 msgstr "Kişisel veya İş"
 
-#: ui/dialogs/settings-dialog.slint:2645 ui/views/mail-reading-pane.slint:1978
+#: ui/dialogs/settings-dialog.slint:2655 ui/views/mail-reading-pane.slint:1978
 msgid "Color"
 msgstr "Renk"
 
-#: ui/dialogs/settings-dialog.slint:2654
+#: ui/dialogs/settings-dialog.slint:2664
 msgid "Profile color {}"
 msgstr "Profil rengi {}"
 
-#: ui/dialogs/settings-dialog.slint:2663 ui/dialogs/settings-dialog.slint:2770
+#: ui/dialogs/settings-dialog.slint:2673 ui/dialogs/settings-dialog.slint:2780
 msgid "Custom color…"
 msgstr "Özel renk…"
 
-#: ui/dialogs/settings-dialog.slint:2683
+#: ui/dialogs/settings-dialog.slint:2693
 msgid "Save profile"
 msgstr "Profili kaydet"
 
-#: ui/dialogs/settings-dialog.slint:2691
+#: ui/dialogs/settings-dialog.slint:2701
 msgid "Could not save this profile. Check the name and try again."
 msgstr "Bu profil kaydedilemedi. Adı kontrol edip tekrar deneyin."
 
-#: ui/dialogs/settings-dialog.slint:2709
+#: ui/dialogs/settings-dialog.slint:2719
 msgid "Choose a profile for {}"
 msgstr "{} için bir profil seçin"
 
-#: ui/dialogs/settings-dialog.slint:2729
+#: ui/dialogs/settings-dialog.slint:2739
 msgid "Choose profile"
 msgstr "Profil seç"
 
-#: ui/dialogs/settings-dialog.slint:2746
+#: ui/dialogs/settings-dialog.slint:2756
 msgid "No profile · Account color"
 msgstr "Profil yok · Hesap rengi"
 
-#: ui/dialogs/settings-dialog.slint:2749
+#: ui/dialogs/settings-dialog.slint:2759
 msgid "Generated color"
 msgstr "Oluşturulan renk"
 
-#: ui/dialogs/settings-dialog.slint:2764
+#: ui/dialogs/settings-dialog.slint:2774
 msgid "Account color {}"
 msgstr "Hesap rengi {}"
 
-#: ui/dialogs/settings-dialog.slint:2784
+#: ui/dialogs/settings-dialog.slint:2794
 msgid "Use custom color"
 msgstr "Özel renk kullan"
 
-#: ui/dialogs/settings-dialog.slint:2798
+#: ui/dialogs/settings-dialog.slint:2808
 msgid "Delete all local data?"
 msgstr "Tüm yerel veriler silinsin mi?"
 
-#: ui/dialogs/settings-dialog.slint:2799
+#: ui/dialogs/settings-dialog.slint:2809
 msgid ""
 "This removes every account, downloaded message, calendar, contact, "
 "preference, and credential stored by Rustmail on this device."
@@ -5054,41 +5082,41 @@ msgstr ""
 "Bu işlem Rustmail'in bu cihazda depoladığı tüm hesapları, indirilen "
 "iletileri, takvimleri, kişileri, tercihleri ve kimlik bilgilerini kaldırır."
 
-#: ui/dialogs/settings-dialog.slint:2800
+#: ui/dialogs/settings-dialog.slint:2810
 msgid ""
 "Mail and events on Gmail, Outlook, and IMAP servers will not be deleted."
 msgstr ""
 "Gmail, Outlook ve IMAP sunucularındaki e-postalar ve etkinlikler silinmez."
 
-#: ui/dialogs/settings-dialog.slint:2802
+#: ui/dialogs/settings-dialog.slint:2812
 msgid "Keep my data"
 msgstr "Verilerimi koru"
 
-#: ui/dialogs/settings-dialog.slint:2816
+#: ui/dialogs/settings-dialog.slint:2826
 msgid "Remove account?"
 msgstr "Hesap kaldırılsın mı?"
 
-#: ui/dialogs/settings-dialog.slint:2818
+#: ui/dialogs/settings-dialog.slint:2828
 msgid "Remove this account and its downloaded mail from this device."
 msgstr "Bu hesabı ve indirilmiş e-postalarını bu cihazdan kaldırır."
 
-#: ui/dialogs/settings-dialog.slint:2819
+#: ui/dialogs/settings-dialog.slint:2829
 msgid "Messages on the mail server will not be deleted."
 msgstr "E-posta sunucusundaki iletiler silinmez."
 
-#: ui/dialogs/settings-dialog.slint:2820
+#: ui/dialogs/settings-dialog.slint:2830
 msgid "Remove account"
 msgstr "Hesabı kaldır"
 
-#: ui/dialogs/settings-dialog.slint:2821
+#: ui/dialogs/settings-dialog.slint:2831
 msgid "Keep account"
 msgstr "Hesabı koru"
 
-#: ui/dialogs/settings-dialog.slint:2835
+#: ui/dialogs/settings-dialog.slint:2845
 msgid "Delete profile?"
 msgstr "Profil silinsin mi?"
 
-#: ui/dialogs/settings-dialog.slint:2837
+#: ui/dialogs/settings-dialog.slint:2847
 msgid ""
 "Accounts assigned to this profile will return to their individual or "
 "generated account colors."
@@ -5096,11 +5124,11 @@ msgstr ""
 "Bu profile atanmış hesaplar kendi hesap renklerine veya oluşturulan renklere "
 "dönecek."
 
-#: ui/dialogs/settings-dialog.slint:2838
+#: ui/dialogs/settings-dialog.slint:2848
 msgid "Accounts and provider data are not changed."
 msgstr "Hesaplar ve sağlayıcı verileri değiştirilmez."
 
-#: ui/dialogs/settings-dialog.slint:2840
+#: ui/dialogs/settings-dialog.slint:2850
 msgid "Keep profile"
 msgstr "Profili koru"
 
@@ -6167,6 +6195,16 @@ msgstr "Önceki boyuta getir"
 #: ui/window-chrome.slint:202 ui/window-chrome.slint:239
 msgid "Maximize"
 msgstr "Ekranı kapla"
+
+#~ msgid "Built by Rustmail with help from the open-source community."
+#~ msgstr ""
+#~ "Rustmail tarafından açık kaynak topluluğunun yardımıyla geliştirildi."
+
+#~ msgid "Company website"
+#~ msgstr "Şirket web sitesi"
+
+#~ msgid "Third-party components retain their own licenses and notices."
+#~ msgstr "Üçüncü taraf bileşenler kendi lisanslarını ve bildirimlerini korur."
 
 #~ msgid ""
 #~ "Subjects and addresses remain visible. Protected drafts stay on this "

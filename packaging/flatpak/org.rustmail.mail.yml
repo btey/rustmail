@@ -47,6 +47,7 @@ modules:
       - install -Dm0644 resources/app-icon/rustmail-masked.svg /app/share/icons/hicolor/scalable/apps/org.rustmail.mail.svg
       - install -Dm0644 LICENSE /app/share/licenses/rustmail/LICENSE
       - cp -a LICENSES /app/share/licenses/rustmail/LICENSES
+      - install -Dm0644 NOTICE.md /app/share/doc/rustmail/NOTICE.md
       - install -Dm0644 THIRD_PARTY_NOTICES.md /app/share/doc/rustmail/THIRD_PARTY_NOTICES.md
       - install -Dm0644 resources/fonts/google-sans-flex/OFL.txt /app/share/licenses/rustmail/google-sans-flex/OFL.txt
       - install -Dm0644 resources/fonts/google-sans-flex/README.md /app/share/doc/rustmail/google-sans-flex/README.md

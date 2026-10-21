@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Copyright 2026 Rustmail -->
+<!-- Copyright 2026 Flectar (original work) -->
+<!-- Copyright 2026 Rustmail contributors (modifications) -->
 <component type="desktop-application">
   <id>org.rustmail.mail</id>
   <metadata_license>CC0-1.0</metadata_license>
@@ -20,34 +21,34 @@
   </content_rating>
   <launchable type="desktop-id">org.rustmail.mail.desktop</launchable>
   <url type="homepage">https://rustmail.org</url>
-  <url type="bugtracker">https://github.com/rustmail/rustmail/issues</url>
+  <url type="bugtracker">https://github.com/btey/rustmail/issues</url>
   <screenshots>
     <screenshot type="default">
-      <image type="source" width="2640" height="1600">https://raw.githubusercontent.com/rustmail/rustmail/main/resources/screenshots/desktop-light.png</image>
+      <image type="source" width="2640" height="1600">https://raw.githubusercontent.com/btey/rustmail/main/resources/screenshots/desktop-light.png</image>
       <caption>Unified inbox and message workspace in the light theme</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="2640" height="1600">https://raw.githubusercontent.com/rustmail/rustmail/main/resources/screenshots/desktop-dark.png</image>
+      <image type="source" width="2640" height="1600">https://raw.githubusercontent.com/btey/rustmail/main/resources/screenshots/desktop-dark.png</image>
       <caption>Unified inbox and message workspace in the dark theme</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="2640" height="1600">https://raw.githubusercontent.com/rustmail/rustmail/main/resources/screenshots/desktop-thread-light.png</image>
+      <image type="source" width="2640" height="1600">https://raw.githubusercontent.com/btey/rustmail/main/resources/screenshots/desktop-thread-light.png</image>
       <caption>Conversation with incoming and replied messages</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="2640" height="1600">https://raw.githubusercontent.com/rustmail/rustmail/main/resources/screenshots/desktop-minimal-light.png</image>
+      <image type="source" width="2640" height="1600">https://raw.githubusercontent.com/btey/rustmail/main/resources/screenshots/desktop-minimal-light.png</image>
       <caption>Minimal desktop inbox in the light theme</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="2640" height="1600">https://raw.githubusercontent.com/rustmail/rustmail/main/resources/screenshots/desktop-minimal-dark.png</image>
+      <image type="source" width="2640" height="1600">https://raw.githubusercontent.com/btey/rustmail/main/resources/screenshots/desktop-minimal-dark.png</image>
       <caption>Minimal desktop inbox in the dark theme</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="780" height="1688">https://raw.githubusercontent.com/rustmail/rustmail/main/resources/screenshots/mobile-light.png</image>
+      <image type="source" width="780" height="1688">https://raw.githubusercontent.com/btey/rustmail/main/resources/screenshots/mobile-light.png</image>
       <caption>Compact mobile inbox in the light theme</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="780" height="1688">https://raw.githubusercontent.com/rustmail/rustmail/main/resources/screenshots/mobile-dark.png</image>
+      <image type="source" width="780" height="1688">https://raw.githubusercontent.com/btey/rustmail/main/resources/screenshots/mobile-dark.png</image>
       <caption>Compact mobile inbox in the dark theme</caption>
     </screenshot>
   </screenshots>

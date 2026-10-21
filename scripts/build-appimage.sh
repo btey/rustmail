@@ -65,6 +65,7 @@ cp "$project_dir/resources/app-icon/rustmail-masked-512.png" "$app_dir/usr/share
 cp "$project_dir/resources/app-icon/rustmail-masked.svg" "$app_dir/usr/share/icons/hicolor/scalable/apps/org.rustmail.mail.svg"
 cp "$project_dir/LICENSE" "$app_dir/usr/share/doc/rustmail/LICENSE"
 cp -R "$project_dir/LICENSES" "$app_dir/usr/share/doc/rustmail/LICENSES"
+cp "$project_dir/NOTICE.md" "$app_dir/usr/share/doc/rustmail/NOTICE.md"
 cp "$project_dir/THIRD_PARTY_NOTICES.md" "$app_dir/usr/share/doc/rustmail/THIRD_PARTY_NOTICES.md"
 cp "$project_dir/resources/fonts/google-sans-flex/OFL.txt" \
   "$app_dir/usr/share/doc/rustmail/google-sans-flex/OFL.txt"

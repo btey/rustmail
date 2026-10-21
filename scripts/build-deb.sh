@@ -50,6 +50,8 @@ install -m644 "$project_dir/resources/app-icon/rustmail-masked.svg" \
 install -m644 "$project_dir/LICENSE" \
   "$package_root/usr/share/doc/rustmail/LICENSE"
 cp -R "$project_dir/LICENSES" "$package_root/usr/share/doc/rustmail/LICENSES"
+install -m644 "$project_dir/NOTICE.md" \
+  "$package_root/usr/share/doc/rustmail/NOTICE.md"
 install -m644 "$project_dir/THIRD_PARTY_NOTICES.md" \
   "$package_root/usr/share/doc/rustmail/THIRD_PARTY_NOTICES.md"
 install -m644 "$project_dir/resources/fonts/google-sans-flex/OFL.txt" \
