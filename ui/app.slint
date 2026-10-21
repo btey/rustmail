@@ -1,0 +1,2314 @@
+export { AccountMailPreferences, SignatureChoice } from "components/account-mail-preferences.slint";
+export { UserActions, UserActionRow } from "components/user-actions.slint";
+export { FilterRules, FilterRuleRow } from "components/filter-rules.slint";
+import { OpenPgpReader } from "components/account-mail-preferences.slint";
+import { MailAttachments } from "models.slint";
+import { AttachmentPreviewDialog } from "dialogs/attachment-preview-dialog.slint";
+export { MailAttachments, MailAttachment } from "models.slint";
+export { ZoomApi } from "components/zoom-controls.slint";
+export { RendererSettings } from "renderer-settings.slint";
+export { WindowChrome } from "window-chrome.slint";
+import { WindowChrome, WindowControls, WindowDragArea } from "window-chrome.slint";
+// Bundled once at compile time and used throughout the application chrome.
+// Rust registers the separate Noto Emoji face before constructing this window.
+import "../resources/fonts/google-sans-flex/GoogleSansFlex-VariableFont_GRAD,ROND,opsz,slnt,wdth,wght.ttf";
+
+import { Palette } from "std-widgets.slint";
+import { TypeScale } from "typography.slint";
+export { AppTheme, MotionSettings, ThemeUtilities } from "design-system.slint";
+import { AppTheme, LayoutMetrics } from "design-system.slint";
+import { Button } from "components/button.slint";
+import { LoadingSkeletonBlock } from "components/loading-skeleton.slint";
+import { AccountRow, AdvancedOptions, CalendarAgendaRow, CalendarAgendaFilterRow, CalendarDay, CalendarEventRow, CalendarSourceRow, CalendarWeekDay, ComposeAttachment, ComposeContact, ComposeEditorTile, ContactSidebarRow, ContactRow, EmailLink, EmailRow, EmailTemplateRow, EmailTile, LocalizedMessage, MailListEntry, MailProfileRow, SidebarRow, MailLabelRow, StorageUsageRow, ThreadMessageRow } from "models.slint";
+export { EmailReader, ReaderCaret, ReaderImage, ReaderItem, MailDragApi } from "models.slint";
+export { MailListNavigation, MailNavigationTarget } from "models.slint";
+export { ThreadMessageRow, StorageUsageRow } from "models.slint";
+export { CalendarAgendaNavigation } from "components/calendar-agenda.slint";
+import { FunctionalCalendarView } from "components/calendar.slint";
+import { CompactProductNav, ProductRail, WindowTopBar } from "components/workspace-navigation.slint";
+export { TabsUi, TabRow } from "components/workspace-navigation.slint";
+import { TabsUi } from "components/workspace-navigation.slint";
+import { WorkspaceFrame } from "components/workspace-layout.slint";
+import { CalendarEventDialog } from "dialogs/calendar-event-dialog.slint";
+import { ComposeDialog } from "dialogs/compose-dialog.slint";
+import { FolderDialog } from "dialogs/folder-dialog.slint";
+import { ConfirmationDialog } from "components/confirmation-dialog.slint";
+import { SettingsDialog } from "dialogs/settings-dialog.slint";
+import { MailView } from "views/mail-view.slint";
+export { MessageColors } from "message-colors.slint";
+export { FilesUi, FileRow, OperationRow } from "views/files-view.slint";
+import { FilesView, FilesUi } from "views/files-view.slint";
+import { ContactsView } from "views/contacts-view.slint";
+import { OnboardingView } from "views/onboarding-view.slint";
+
+// Rust view-models call this global for the small amount of date/status text
+// that must be materialized before it enters a Slint model. Keeping the
+// translations here makes those strings part of the same bundled catalog as
+// the declarative UI.
+export global I18n {
+    pure callback month-name(int, bool) -> string;
+    pure callback weekday-short(int) -> string;
+    pure callback weekday-name(int) -> string;
+    pure callback agenda-date-label(int, int, int) -> string;
+    pure callback calendar-all-day() -> string;
+    pure callback untitled-event() -> string;
+    pure callback no-contact-history() -> string;
+    pure callback contact-history-available() -> string;
+    pure callback new-contact-entry() -> string;
+    pure callback no-connected-account() -> string;
+    pure callback interaction-count(int) -> string;
+    pure callback last-contacted(int, int, int) -> string;
+    pure callback loading-local-data() -> string;
+    pure callback local-data-ready() -> string;
+    pure callback local-data-unavailable(string) -> string;
+    pure callback could-not-display-local-mail(string) -> string;
+    pure callback ui-message(string, string, string, string) -> string;
+    pure callback ui-message-settings(string, string, string, string) -> string;
+    pure callback ui-message-system(string, string, string, string) -> string;
+    pure callback ui-message-account(string, string, string, string) -> string;
+    pure callback ui-message-data(string, string, string, string) -> string;
+    pure callback ui-message-list(string, string, string, string) -> string;
+    pure callback ui-message-contacts(string, string, string, string) -> string;
+    pure callback ui-message-calendar(string, string, string, string) -> string;
+    pure callback ui-message-startup(string, string, string, string) -> string;
+    pure callback ui-message-sync(string, string, string, string) -> string;
+    pure callback ui-message-actions(string, string, string, string) -> string;
+    pure callback ui-message-compose(string, string, string, string) -> string;
+    pure callback ui-message-oauth(string, string, string, string) -> string;
+    pure callback ui-message-tools(string, string, string, string) -> string;
+
+    month-name(month, short) => {
+        if (month == 1) { return short ? @tr("Jan") : @tr("January"); }
+        if (month == 2) { return short ? @tr("Feb") : @tr("February"); }
+        if (month == 3) { return short ? @tr("Mar") : @tr("March"); }
+        if (month == 4) { return short ? @tr("Apr") : @tr("April"); }
+        if (month == 5) { return @tr("May"); }
+        if (month == 6) { return short ? @tr("Jun") : @tr("June"); }
+        if (month == 7) { return short ? @tr("Jul") : @tr("July"); }
+        if (month == 8) { return short ? @tr("Aug") : @tr("August"); }
+        if (month == 9) { return short ? @tr("Sep") : @tr("September"); }
+        if (month == 10) { return short ? @tr("Oct") : @tr("October"); }
+        if (month == 11) { return short ? @tr("Nov") : @tr("November"); }
+        if (month == 12) { return short ? @tr("Dec") : @tr("December"); }
+        return "";
+    }
+
+    weekday-short(day) => {
+        if (day == 0) { return @tr("Mon"); }
+        if (day == 1) { return @tr("Tue"); }
+        if (day == 2) { return @tr("Wed"); }
+        if (day == 3) { return @tr("Thu"); }
+        if (day == 4) { return @tr("Fri"); }
+        if (day == 5) { return @tr("Sat"); }
+        return @tr("Sun");
+    }
+
+    weekday-name(day) => {
+        if (day == 0) { return @tr("Monday"); }
+        if (day == 1) { return @tr("Tuesday"); }
+        if (day == 2) { return @tr("Wednesday"); }
+        if (day == 3) { return @tr("Thursday"); }
+        if (day == 4) { return @tr("Friday"); }
+        if (day == 5) { return @tr("Saturday"); }
+        return @tr("Sunday");
+    }
+    agenda-date-label(weekday, day, month) => {
+        return @tr("{} · {} {}", root.weekday-name(weekday), day, root.month-name(month, false));
+    }
+
+    calendar-all-day() => { return @tr("All day"); }
+    untitled-event() => { return @tr("(untitled event)"); }
+    no-contact-history() => { return @tr("No conversation history"); }
+    contact-history-available() => { return @tr("Conversation history available"); }
+    new-contact-entry() => { return @tr("New address-book entry"); }
+    no-connected-account() => { return @tr("No connected account"); }
+    interaction-count(count) => {
+        return @tr("{n} interaction" | "{n} interactions" % count);
+    }
+    last-contacted(month, day, year) => {
+        return @tr("Last contacted {} {}, {}", root.month-name(month, true), day, year);
+    }
+    loading-local-data() => { return @tr("Loading local data…"); }
+    local-data-ready() => { return @tr("Local data ready."); }
+    local-data-unavailable(error) => { return @tr("Local data is unavailable: {}", error); }
+    could-not-display-local-mail(error) => { return @tr("Could not display local mail: {}", error); }
+    ui-message(key, argument, second-argument, third-argument) => {
+        if (key == "") { return ""; }
+        // Every Rust-originated UI message is selected here from a stable key.
+        // Never translate `key` dynamically: explicit @tr expressions keep the
+        // complete source catalog available to extraction and translators. The
+        // bounded groups avoid a deeply recursive expression in the compiler.
+        let settings = root.ui-message-settings(key, argument, second-argument, third-argument);
+        if (settings != "") { return settings; }
+        let system = root.ui-message-system(key, argument, second-argument, third-argument);
+        if (system != "") { return system; }
+        let account = root.ui-message-account(key, argument, second-argument, third-argument);
+        if (account != "") { return account; }
+        let data = root.ui-message-data(key, argument, second-argument, third-argument);
+        if (data != "") { return data; }
+        let list = root.ui-message-list(key, argument, second-argument, third-argument);
+        if (list != "") { return list; }
+        let contacts = root.ui-message-contacts(key, argument, second-argument, third-argument);
+        if (contacts != "") { return contacts; }
+        let calendar = root.ui-message-calendar(key, argument, second-argument, third-argument);
+        if (calendar != "") { return calendar; }
+        let startup = root.ui-message-startup(key, argument, second-argument, third-argument);
+        if (startup != "") { return startup; }
+        let sync = root.ui-message-sync(key, argument, second-argument, third-argument);
+        if (sync != "") { return sync; }
+        let actions = root.ui-message-actions(key, argument, second-argument, third-argument);
+        if (actions != "") { return actions; }
+        let compose = root.ui-message-compose(key, argument, second-argument, third-argument);
+        if (compose != "") { return compose; }
+        let oauth = root.ui-message-oauth(key, argument, second-argument, third-argument);
+        if (oauth != "") { return oauth; }
+        let tools = root.ui-message-tools(key, argument, second-argument, third-argument);
+        if (tools != "") { return tools; }
+        return @tr("An unexpected interface message occurred.");
+    }
+
+    ui-message-settings(key, argument, second-argument, third-argument) => {
+        if (key == "Notification preferences are active for this session.") { return @tr("Notification preferences are active for this session."); }
+        if (key == "Notification preferences saved.") { return @tr("Notification preferences saved."); }
+        if (key == "Could not save notifications: {}") { return @tr("Could not save notifications: {}", argument); }
+        if (key == "Sync interval is active for this session.") { return @tr("Sync interval is active for this session."); }
+        if (key == "Sync interval set to {} minutes.") { return @tr("Sync interval set to {} minutes.", argument); }
+        if (key == "Could not save sync interval: {}") { return @tr("Could not save sync interval: {}", argument); }
+        if (key == "Message-opening preference updated for this session.") { return @tr("Message-opening preference updated for this session."); }
+        if (key == "Message-opening preference saved.") { return @tr("Message-opening preference saved."); }
+        if (key == "Could not save message-opening preference: {}") { return @tr("Could not save message-opening preference: {}", argument); }
+        if (key == "Contact suggestion preferences are active for this session.") { return @tr("Contact suggestion preferences are active for this session."); }
+        if (key == "Contact suggestion preferences saved.") { return @tr("Contact suggestion preferences saved."); }
+        if (key == "Could not save contact suggestion preferences: {}") { return @tr("Could not save contact suggestion preferences: {}", argument); }
+        if (key == "Contact storage is still starting. Try again shortly.") { return @tr("Contact storage is still starting. Try again shortly."); }
+        if (key == "Cleared {} suggested people.") { return @tr("Cleared {} suggested people.", argument); }
+        if (key == "Could not clear suggested people: {}") { return @tr("Could not clear suggested people: {}", argument); }
+        if (key == "Theme updated for this session.") { return @tr("Theme updated for this session."); }
+        if (key == "Theme preference saved.") { return @tr("Theme preference saved."); }
+        if (key == "Message appearance updated for this session.") { return @tr("Message appearance updated for this session."); }
+        if (key == "Message appearance preference saved.") { return @tr("Message appearance preference saved."); }
+        if (key == "Could not save message appearance: {}") { return @tr("Could not save message appearance: {}", argument); }
+        if (key == "Could not save theme: {}") { return @tr("Could not save theme: {}", argument); }
+        if (key == "Theme palette updated for this session.") { return @tr("Theme palette updated for this session."); }
+        if (key == "Theme palette saved.") { return @tr("Theme palette saved."); }
+        if (key == "Could not save theme palette: {}") { return @tr("Could not save theme palette: {}", argument); }
+        if (key == "Custom theme updated for this session.") { return @tr("Custom theme updated for this session."); }
+        if (key == "Custom theme saved.") { return @tr("Custom theme saved."); }
+        if (key == "Could not save custom theme: {}") { return @tr("Could not save custom theme: {}", argument); }
+        if (key == "Language updated for this session.") { return @tr("Language updated for this session."); }
+        if (key == "Language preference saved.") { return @tr("Language preference saved."); }
+        if (key == "Could not save language: {}") { return @tr("Could not save language: {}", argument); }
+        if (key == "Sidebar icon style updated for this session.") { return @tr("Sidebar icon style updated for this session."); }
+        if (key == "Sidebar icon preference saved.") { return @tr("Sidebar icon preference saved."); }
+        if (key == "Could not save sidebar icon preference: {}") { return @tr("Could not save sidebar icon preference: {}", argument); }
+        if (key == "Avatar preference updated for this session.") { return @tr("Avatar preference updated for this session."); }
+        if (key == "Avatar preference saved.") { return @tr("Avatar preference saved."); }
+        if (key == "Could not save avatar preference: {}") { return @tr("Could not save avatar preference: {}", argument); }
+        if (key == "Window frame updated for this session.") { return @tr("Window frame updated for this session."); }
+        if (key == "Window frame preference saved.") { return @tr("Window frame preference saved."); }
+        if (key == "Could not save window frame preference: {}") { return @tr("Could not save window frame preference: {}", argument); }
+        if (key == "At most {} tabs can be open. Close a tab to open another.") { return @tr("At most {} tabs can be open. Close a tab to open another.", argument); }
+        if (key == "Mail grouping is active for this session.") { return @tr("Mail grouping is active for this session."); }
+        if (key == "Mail grouping preference saved.") { return @tr("Mail grouping preference saved."); }
+        if (key == "Could not save mail grouping preference: {}") { return @tr("Could not save mail grouping preference: {}", argument); }
+        if (key == "Profile changes require local mail data.") { return @tr("Profile changes require local mail data."); }
+        if (key == "Profile saved.") { return @tr("Profile saved."); }
+        if (key == "Could not save profile: {}") { return @tr("Could not save profile: {}", argument); }
+        if (key == "Account profile updated.") { return @tr("Account profile updated."); }
+        if (key == "Account color changes require local mail data.") { return @tr("Account color changes require local mail data."); }
+        if (key == "Account color updated.") { return @tr("Account color updated."); }
+        if (key == "Could not update account color: {}") { return @tr("Could not update account color: {}", argument); }
+        if (key == "Could not update account profile: {}") { return @tr("Could not update account profile: {}", argument); }
+        if (key == "Profile deleted.") { return @tr("Profile deleted."); }
+        if (key == "Could not delete profile: {}") { return @tr("Could not delete profile: {}", argument); }
+        if (key == "Marker preference is active for this session.") { return @tr("Marker preference is active for this session."); }
+        if (key == "Mail-list marker preference saved.") { return @tr("Mail-list marker preference saved."); }
+        if (key == "Could not save mail-list marker preference: {}") { return @tr("Could not save mail-list marker preference: {}", argument); }
+        if (key == "Workspace layout updated for this session.") { return @tr("Workspace layout updated for this session."); }
+        if (key == "Workspace layout preference saved.") { return @tr("Workspace layout preference saved."); }
+        if (key == "Could not save workspace layout: {}") { return @tr("Could not save workspace layout: {}", argument); }
+        if (key == "Could not save list pane width: {}") { return @tr("Could not save list pane width: {}", argument); }
+        return "";
+    }
+
+    ui-message-system(key, argument, second-argument, third-argument) => {
+        if (key == "Opened {}") { return @tr("Opened {}", argument); }
+        if (key == "Could not open link: {}") { return @tr("Could not open link: {}", argument); }
+        if (key == "Copied HTML source") { return @tr("Copied HTML source"); }
+        if (key == "Copied selected text") { return @tr("Copied selected text"); }
+        if (key == "Copied email text") { return @tr("Copied email text"); }
+        if (key == "Copied link") { return @tr("Copied link"); }
+        if (key == "Blitz software selection render failed: {}") { return @tr("Blitz software selection render failed: {}", argument); }
+        if (key == "Blitz software tile render failed: {}") { return @tr("Blitz software tile render failed: {}", argument); }
+        if (key == "Message ready.") { return @tr("Message ready."); }
+        if (key == "System tray behavior is unavailable in this package.") { return @tr("System tray behavior is unavailable in this package."); }
+        if (key == "Close-to-tray is active for this session.") { return @tr("Close-to-tray is active for this session."); }
+        if (key == "Saving close behavior…") { return @tr("Saving close behavior…"); }
+        if (key == "Closing the window will now keep Rustmail in the tray.") { return @tr("Closing the window will now keep Rustmail in the tray."); }
+        if (key == "Closing the window will now quit Rustmail.") { return @tr("Closing the window will now quit Rustmail."); }
+        if (key == "Could not save close behavior: {}") { return @tr("Could not save close behavior: {}", argument); }
+        if (key == "Rustmail will start when you sign in.") { return @tr("Rustmail will start when you sign in."); }
+        if (key == "Rustmail will no longer start when you sign in.") { return @tr("Rustmail will no longer start when you sign in."); }
+        if (key == "Could not change startup behavior: {}") { return @tr("Could not change startup behavior: {}", argument); }
+        if (key == "Allow Rustmail under Login Items in System Settings to finish.") { return @tr("Allow Rustmail under Login Items in System Settings to finish."); }
+        return "";
+    }
+
+    ui-message-account(key, argument, second-argument, third-argument) => {
+        if (key == "Database snapshot exported to {}.") { return @tr("Database snapshot exported to {}.", argument); }
+        if (key == "Could not export database snapshot: {}") { return @tr("Could not export database snapshot: {}", argument); }
+        if (key == "Account order saved.") { return @tr("Account order saved."); }
+        if (key == "Could not save account order: {}") { return @tr("Could not save account order: {}", argument); }
+        if (key == "Mail history updated. Background sync is adjusting now.") { return @tr("Mail history updated. Background sync is adjusting now."); }
+        if (key == "Account removed from this device.") { return @tr("Account removed from this device."); }
+        if (key == "Account removed. Mail refresh will retry.") { return @tr("Account removed. Mail refresh will retry."); }
+        if (key == "Account removed; local cleanup needs a retry: {}") { return @tr("Account removed; local cleanup needs a retry: {}", argument); }
+        if (key == "Could not remove account: {}") { return @tr("Could not remove account: {}", argument); }
+        if (key == "Removing account…") { return @tr("Removing account…"); }
+        if (key == "Synchronizing account…") { return @tr("Synchronizing account…"); }
+        if (key == "Could not update mail history: {}") { return @tr("Could not update mail history: {}", argument); }
+        if (key == "Connected {}. Initial sync is running in the background.") { return @tr("Connected {}. Initial sync is running in the background.", argument); }
+        if (key == "Account setup failed: {}") { return @tr("Account setup failed: {}", argument); }
+        if (key == "OAuth failed: {}") { return @tr("OAuth failed: {}", argument); }
+        if (key == "Reconnected {}. Synchronization is resuming.") { return @tr("Reconnected {}. Synchronization is resuming.", argument); }
+        if (key == "Reconnection failed: {}") { return @tr("Reconnection failed: {}", argument); }
+        if (key == "Calendar connected and initial sync started.") { return @tr("Calendar connected and initial sync started."); }
+        if (key == "Could not connect calendar: {}") { return @tr("Could not connect calendar: {}", argument); }
+        if (key == "Calendar sync enabled.") { return @tr("Calendar sync enabled."); }
+        if (key == "Calendar sync paused.") { return @tr("Calendar sync paused."); }
+        if (key == "Could not update calendar sync: {}") { return @tr("Could not update calendar sync: {}", argument); }
+        if (key == "CalDAV connected and initial sync started.") { return @tr("CalDAV connected and initial sync started."); }
+        if (key == "Could not connect CalDAV: {}") { return @tr("Could not connect CalDAV: {}", argument); }
+        if (key == "CardDAV connected and initial sync started.") { return @tr("CardDAV connected and initial sync started."); }
+        if (key == "Could not connect CardDAV: {}") { return @tr("Could not connect CardDAV: {}", argument); }
+        if (key == "CardDAV sync enabled.") { return @tr("CardDAV sync enabled."); }
+        if (key == "CardDAV sync paused.") { return @tr("CardDAV sync paused."); }
+        if (key == "Could not update CardDAV sync: {}") { return @tr("Could not update CardDAV sync: {}", argument); }
+        if (key == "CardDAV disconnected.") { return @tr("CardDAV disconnected."); }
+        if (key == "Could not disconnect CardDAV: {}") { return @tr("Could not disconnect CardDAV: {}", argument); }
+        return "";
+    }
+
+    ui-message-data(key, argument, second-argument, third-argument) => {
+        if (key == "Connect an account before creating a backup.") { return @tr("Connect an account before creating a backup."); }
+        if (key == "Export Rustmail account backup") { return @tr("Export Rustmail account backup"); }
+        if (key == "Import Rustmail account backup") { return @tr("Import Rustmail account backup"); }
+        if (key == "Rustmail backup") { return @tr("Rustmail backup"); }
+        if (key == "Choose where to export the database snapshot") { return @tr("Choose where to export the database snapshot"); }
+        if (key == "Backup exported. Passwords and OAuth tokens were not included.") { return @tr("Backup exported. Passwords and OAuth tokens were not included."); }
+        if (key == "Could not export backup: {}") { return @tr("Could not export backup: {}", argument); }
+        if (key == "Local data storage is unavailable. Retry startup.") { return @tr("Local data storage is unavailable. Retry startup."); }
+        if (key == "Creating verified database snapshot…") { return @tr("Creating verified database snapshot…"); }
+        if (key == "Backup imported. All {} account configurations already existed.") { return @tr("Backup imported. All {} account configurations already existed.", argument); }
+        if (key == "Imported {} account configurations. Open Accounts and sign in to each one.") { return @tr("Imported {} account configurations. Open Accounts and sign in to each one.", argument); }
+        if (key == "Could not import backup: {}") { return @tr("Could not import backup: {}", argument); }
+        if (key == "All local Rustmail data was deleted.") { return @tr("All local Rustmail data was deleted."); }
+        if (key == "Could not delete all local data: {}") { return @tr("Could not delete all local data: {}", argument); }
+        if (key == "Deleting local accounts and cached data…") { return @tr("Deleting local accounts and cached data…"); }
+        return "";
+    }
+
+    ui-message-list(key, argument, second-argument, third-argument) => {
+        if (key == "Background mail refresh failed: {}") { return @tr("Background mail refresh failed: {}", argument); }
+        if (key == "No conversations in this folder") { return @tr("No conversations in this folder"); }
+        if (key == "No conversations match this search") { return @tr("No conversations match this search"); }
+        if (key == "Mail core is ready for account synchronization and message actions.") { return @tr("Mail core is ready for account synchronization and message actions."); }
+        if (key == "Large message rendered in compatibility mode.") { return @tr("Large message rendered in compatibility mode."); }
+        if (key == "Software email render failed: {}") { return @tr("Software email render failed: {}", argument); }
+        if (key == "Rendered with software fallback after GPU error: {}") { return @tr("Rendered with software fallback after GPU error: {}", argument); }
+        if (key == "Blitz render failed (GPU: {}; software: {})") { return @tr("Blitz render failed (GPU: {}; software: {})", argument, second-argument); }
+        return "";
+    }
+
+    ui-message-contacts(key, argument, second-argument, third-argument) => {
+        if (key == "Add an email address, then save the contact.") { return @tr("Add an email address, then save the contact."); }
+        if (key == "Enter a valid email address before saving.") { return @tr("Enter a valid email address before saving."); }
+        if (key == "Could not save: contact storage is unavailable.") { return @tr("Could not save: contact storage is unavailable."); }
+        if (key == "Could not save contact: {}") { return @tr("Could not save contact: {}", argument); }
+        if (key == "Contact saved.") { return @tr("Contact saved."); }
+        if (key == "Saved to contacts.") { return @tr("Saved to contacts."); }
+        if (key == "Could not delete: contact storage is unavailable.") { return @tr("Could not delete: contact storage is unavailable."); }
+        if (key == "Could not delete contact: {}") { return @tr("Could not delete contact: {}", argument); }
+        if (key == "Contact deleted.") { return @tr("Contact deleted."); }
+        if (key == "Could not load contacts: {}") { return @tr("Could not load contacts: {}", argument); }
+        if (key == "Local contact storage is still starting…") { return @tr("Local contact storage is still starting…"); }
+        if (key == "Loading contacts…") { return @tr("Loading contacts…"); }
+        return "";
+    }
+
+    ui-message-calendar(key, argument, second-argument, third-argument) => {
+        if (key == "Local calendar") { return @tr("Local calendar"); }
+        if (key == "Calendar") { return @tr("Calendar"); }
+        if (key == "Could not load calendar: {}") { return @tr("Could not load calendar: {}", argument); }
+        if (key == "Calendar shown and syncing.") { return @tr("Calendar shown and syncing."); }
+        if (key == "Calendar hidden and sync paused.") { return @tr("Calendar hidden and sync paused."); }
+        if (key == "Calendar update failed: {}") { return @tr("Calendar update failed: {}", argument); }
+        if (key == "Only events created in Rustmail can be edited.") { return @tr("Only events created in Rustmail can be edited."); }
+        if (key == "Only events created in Rustmail can be deleted.") { return @tr("Only events created in Rustmail can be deleted."); }
+        if (key == "Calendar storage is unavailable.") { return @tr("Calendar storage is unavailable."); }
+        if (key == "Could not delete event: {}") { return @tr("Could not delete event: {}", argument); }
+        if (key == "Event deleted, but refresh failed: {}") { return @tr("Event deleted, but refresh failed: {}", argument); }
+        if (key == "Event deleted.") { return @tr("Event deleted."); }
+        if (key == "Use YYYY-MM-DD and a 24-hour time such as 09:30.") { return @tr("Use YYYY-MM-DD and a 24-hour time such as 09:30."); }
+        if (key == "Event duration must be a number of minutes.") { return @tr("Event duration must be a number of minutes."); }
+        if (key == "Add a title and choose a duration from 15 to 1440 minutes.") { return @tr("Add a title and choose a duration from 15 to 1440 minutes."); }
+        if (key == "That local time does not exist in the current time zone.") { return @tr("That local time does not exist in the current time zone."); }
+        if (key == "Could not save event: {}") { return @tr("Could not save event: {}", argument); }
+        if (key == "Event saved, but refresh failed: {}") { return @tr("Event saved, but refresh failed: {}", argument); }
+        if (key == "Event saved. Provider sync will run when enabled.") { return @tr("Event saved. Provider sync will run when enabled."); }
+        return "";
+    }
+
+    ui-message-startup(key, argument, second-argument, third-argument) => {
+        if (key == "Email resource render failed: {}") { return @tr("Email resource render failed: {}", argument); }
+        if (key == "Message refresh failed: {}") { return @tr("Message refresh failed: {}", argument); }
+        if (key == "Message load failed: {}") { return @tr("Message load failed: {}", argument); }
+        if (key == "Your local mailbox could not be opened. No account operation was started. Retry, or copy the diagnostics for support.") { return @tr("Your local mailbox could not be opened. No account operation was started. Retry, or copy the diagnostics for support."); }
+        if (key == "Local storage startup failed.") { return @tr("Local storage startup failed."); }
+        if (key == "Loading local data…") { return @tr("Loading local data…"); }
+        if (key == "Local data ready.") { return @tr("Local data ready."); }
+        return "";
+    }
+
+    ui-message-sync(key, argument, second-argument, third-argument) => {
+        if (key == "Could not identify the dragged account.") { return @tr("Could not identify the dragged account."); }
+        if (key == "Account ordering requires local mail data.") { return @tr("Account ordering requires local mail data."); }
+        if (key == "Could not find the account to reorder.") { return @tr("Could not find the account to reorder."); }
+        if (key == "Saving account order…") { return @tr("Saving account order…"); }
+        if (key == "Sent copy settings require local mail data.") { return @tr("Sent copy settings require local mail data."); }
+        if (key == "Updating Sent copy settings…") { return @tr("Updating Sent copy settings…"); }
+        if (key == "Sent copy settings updated.") { return @tr("Sent copy settings updated."); }
+        if (key == "Could not update Sent copy settings: {}") { return @tr("Could not update Sent copy settings: {}", argument); }
+        if (key == "Mail history requires local mail data.") { return @tr("Mail history requires local mail data."); }
+        if (key == "Updating mail history…") { return @tr("Updating mail history…"); }
+        if (key == "Remote images are unavailable in this minimal build.") { return @tr("Remote images are unavailable in this minimal build."); }
+        if (key == "Could not save remote-image setting: {}") { return @tr("Could not save remote-image setting: {}", argument); }
+        if (key == "Remote sender icons unavailable: {}") { return @tr("Remote sender icons unavailable: {}", argument); }
+        if (key == "Remote images unavailable: {}") { return @tr("Remote images unavailable: {}", argument); }
+        if (key == "Remote body images and sender favicons enabled.") { return @tr("Remote body images and sender favicons enabled."); }
+        if (key == "Remote images blocked.") { return @tr("Remote images blocked."); }
+        if (key == "Could not refresh message images: {}") { return @tr("Could not refresh message images: {}", argument); }
+        if (key == "Remote-image loading is disabled.") { return @tr("Remote-image loading is disabled."); }
+        if (key == "Could not load message images: {}") { return @tr("Could not load message images: {}", argument); }
+        if (key == "Sync finished, refresh failed: {}") { return @tr("Sync finished, refresh failed: {}", argument); }
+        if (key == "Sync complete.") { return @tr("Sync complete."); }
+        if (key == "Sync failed: {}") { return @tr("Sync failed: {}", argument); }
+        if (key == "Local mail data is unavailable; preview data is read-only.") { return @tr("Local mail data is unavailable; preview data is read-only."); }
+        if (key == "Synchronizing accounts…") { return @tr("Synchronizing accounts…"); }
+        return "";
+    }
+
+    // Messages of the user-defined actions, the external editor and the
+    // advanced account options.
+    ui-message-tools(key, argument, second-argument, third-argument) => {
+        if (key == "Select a message first.") { return @tr("Select a message first."); }
+        if (key == "Running action “{}”…") { return @tr("Running action “{}”…", argument); }
+        if (key == "Action “{}” finished.") { return @tr("Action “{}” finished.", argument); }
+        if (key == "Action “{}” finished: {}") { return @tr("Action “{}” finished: {}", argument, second-argument); }
+        if (key == "Action “{}” failed: {}") { return @tr("Action “{}” failed: {}", argument, second-argument); }
+        if (key == "Action “{}” failed (exit {}): {}") { return @tr("Action “{}” failed (exit {}): {}", argument, second-argument, third-argument); }
+        if (key == "Action “{}” could not run: {}") { return @tr("Action “{}” could not run: {}", argument, second-argument); }
+        if (key == "Editing in your external editor. Save and close it to bring the text back.") { return @tr("Editing in your external editor. Save and close it to bring the text back."); }
+        if (key == "Text updated from your editor.") { return @tr("Text updated from your editor."); }
+        if (key == "External editor: {}") { return @tr("External editor: {}", argument); }
+        if (key == "Connection timeout must be between 1 and 600 seconds.") { return @tr("Connection timeout must be between 1 and 600 seconds."); }
+        if (key == "Maximum connections must be between 1 and 20.") { return @tr("Maximum connections must be between 1 and 20."); }
+        if (key == "Proxy port must be between 1 and 65535.") { return @tr("Proxy port must be between 1 and 65535."); }
+        if (key == "Enter the proxy host and port, or set the proxy to None.") { return @tr("Enter the proxy host and port, or set the proxy to None."); }
+        return "";
+    }
+
+    ui-message-actions(key, argument, second-argument, third-argument) => {
+        if (key == "Message action completed.") { return @tr("Message action completed."); }
+        if (key == "Permanent deletion queued. Mail will disappear after the server confirms.") { return @tr("Permanent deletion queued. Mail will disappear after the server confirms."); }
+        if (key == "Message action failed: {}") { return @tr("Message action failed: {}", argument); }
+        if (key == "Message action failed: message is no longer available") { return @tr("Message action failed: message is no longer available"); }
+        if (key == "Label added.") { return @tr("Label added."); }
+        if (key == "Label removed.") { return @tr("Label removed."); }
+        if (key == "Label created and added.") { return @tr("Label created and added."); }
+        if (key == "Label created.") { return @tr("Label created."); }
+        if (key == "Label updated.") { return @tr("Label updated."); }
+        if (key == "Label deleted.") { return @tr("Label deleted."); }
+        if (key == "Could not update label: {}") { return @tr("Could not update label: {}", argument); }
+        if (key == "Could not save label: {}") { return @tr("Could not save label: {}", argument); }
+        if (key == "Could not delete label: {}") { return @tr("Could not delete label: {}", argument); }
+        if (key == "Folder created.") { return @tr("Folder created."); }
+        if (key == "Folder renamed.") { return @tr("Folder renamed."); }
+        if (key == "Folder deleted.") { return @tr("Folder deleted."); }
+        if (key == "Could not create folder: {}") { return @tr("Could not create folder: {}", argument); }
+        if (key == "Could not rename folder: {}") { return @tr("Could not rename folder: {}", argument); }
+        if (key == "Could not delete folder: {}") { return @tr("Could not delete folder: {}", argument); }
+        if (key == "Could not close preview: {}") { return @tr("Could not close preview: {}", argument); }
+        if (key == "Opened the system print view.") { return @tr("Opened the system print view."); }
+        if (key == "Could not print message: {}") { return @tr("Could not print message: {}", argument); }
+        if (key == "Opened the message in your browser.") { return @tr("Opened the message in your browser."); }
+        if (key == "Could not open message in browser: {}") { return @tr("Could not open message in browser: {}", argument); }
+        if (key == "Connect an account before replying or forwarding.") { return @tr("Connect an account before replying or forwarding."); }
+        if (key == "Choose a message first.") { return @tr("Choose a message first."); }
+        if (key == "Only drafts can be reopened for editing.") { return @tr("Only drafts can be reopened for editing."); }
+        if (key == "Could not open draft: {}") { return @tr("Could not open draft: {}", argument); }
+        if (key == "Could not open draft: invalid account identifier") { return @tr("Could not open draft: invalid account identifier"); }
+        if (key == "Connected account") { return @tr("Connected account"); }
+        if (key == "Could not open composer: {}") { return @tr("Could not open composer: {}", argument); }
+        if (key == "Could not open composer: invalid account identifier") { return @tr("Could not open composer: invalid account identifier"); }
+        return "";
+    }
+
+    ui-message-compose(key, argument, second-argument, third-argument) => {
+        if (key == "Attach files to this email") { return @tr("Attach files to this email"); }
+        if (key == "Could not add attachments: {}") { return @tr("Could not add attachments: {}", argument); }
+        if (key == "Added 1 attachment.") { return @tr("Added 1 attachment."); }
+        if (key == "Added {} attachments.") { return @tr("Added {} attachments.", argument); }
+        if (key == "Attachments added: {}. Skipped: {} (duplicate, unreadable, or over the 25 MB total limit).") { return @tr("Attachments added: {}. Skipped: {} (duplicate, unreadable, or over the 25 MB total limit).", argument, second-argument); }
+        if (key == "Attachment removed.") { return @tr("Attachment removed."); }
+        if (key == "Choose the account this message should be sent from.") { return @tr("Choose the account this message should be sent from."); }
+        if (key == "Choose a verified sender identity for this message.") { return @tr("Choose a verified sender identity for this message."); }
+        if (key == "Connect an account before saving or sending mail.") { return @tr("Connect an account before saving or sending mail."); }
+        if (key == "Message queued for delivery (action {}).") { return @tr("Message queued for delivery (action {}).", argument); }
+        if (key == "Sending message…") { return @tr("Sending message…"); }
+        if (key == "Message sent.") { return @tr("Message sent."); }
+        if (key == "Message was not sent: {} Your draft is preserved.") { return @tr("Message was not sent: {} Your draft is preserved.", argument); }
+        if (key == "Draft saved locally (#{}).") { return @tr("Draft saved locally (#{}).", argument); }
+        if (key == "Compose failed: {}") { return @tr("Compose failed: {}", argument); }
+        if (key == "Connect an account before managing email templates.") { return @tr("Connect an account before managing email templates."); }
+        if (key == "Could not load email templates: {}") { return @tr("Could not load email templates: {}", argument); }
+        if (key == "Enter a template name.") { return @tr("Enter a template name."); }
+        if (key == "Add a subject or message to the template.") { return @tr("Add a subject or message to the template."); }
+        if (key == "Email template saved.") { return @tr("Email template saved."); }
+        if (key == "Could not save email template: {}") { return @tr("Could not save email template: {}", argument); }
+        if (key == "Email template deleted.") { return @tr("Email template deleted."); }
+        if (key == "Could not delete email template: {}") { return @tr("Could not delete email template: {}", argument); }
+        if (key == "Email template is no longer available.") { return @tr("Email template is no longer available."); }
+        if (key == "Email template inserted.") { return @tr("Email template inserted."); }
+        if (key == "Email template inserted, but its usage could not be saved: {}") { return @tr("Email template inserted, but its usage could not be saved: {}", argument); }
+        if (key == "IMAP port must be between 1 and 65535.") { return @tr("IMAP port must be between 1 and 65535."); }
+        if (key == "News server port must be between 1 and 65535.") { return @tr("News server port must be between 1 and 65535."); }
+        if (key == "SMTP port must be between 1 and 65535.") { return @tr("SMTP port must be between 1 and 65535."); }
+        if (key == "Local mail data is unavailable. Retry startup.") { return @tr("Local mail data is unavailable. Retry startup."); }
+        if (key == "Discovering JMAP and checking capabilities…") { return @tr("Discovering JMAP and checking capabilities…"); }
+        if (key == "Certificate imported. Connect to verify the server.") { return @tr("Certificate imported. Connect to verify the server."); }
+        if (key == "Could not load account preferences: {}") { return @tr("Could not load account preferences: {}", argument); }
+        if (key == "Your edited signature was preserved. Choose No signature to keep it as message text before inserting another.") { return @tr("Your edited signature was preserved. Choose No signature to keep it as message text before inserting another."); }
+        if (key == "Certificate import failed: {}") { return @tr("Certificate import failed: {}", argument); }
+        if (key == "Paste the PEM certificate into the certificate field.") { return @tr("Paste the PEM certificate into the certificate field."); }
+        if (key == "Testing IMAP and SMTP connections…") { return @tr("Testing IMAP and SMTP connections…"); }
+        if (key == "Checking the mail folder…") { return @tr("Checking the mail folder…"); }
+        if (key == "Connecting to the news server…") { return @tr("Connecting to the news server…"); }
+        return "";
+    }
+
+    ui-message-oauth(key, argument, second-argument, third-argument) => {
+        if (key == "Another browser authorization is already in progress; finish it or choose Cancel.") { return @tr("Another browser authorization is already in progress; finish it or choose Cancel."); }
+        if (key == "Add app keys in Sign-in settings to enable this provider.") { return @tr("Add app keys in Sign-in settings to enable this provider."); }
+        if (key == "Choose Gmail or Outlook OAuth.") { return @tr("Choose Gmail or Outlook OAuth."); }
+        if (key == "Complete sign-in in your browser, or choose Cancel here.") { return @tr("Complete sign-in in your browser, or choose Cancel here."); }
+        if (key == "Cancelling browser sign-in…") { return @tr("Cancelling browser sign-in…"); }
+        if (key == "Finishing browser sign-in…") { return @tr("Finishing browser sign-in…"); }
+        if (key == "Could not use that browser address: {}") { return @tr("Could not use that browser address: {}", argument); }
+        if (key == "Calendar core is unavailable.") { return @tr("Calendar core is unavailable."); }
+        if (key == "Account no longer exists.") { return @tr("Account no longer exists."); }
+        if (key == "Authorize calendar access in your browser.") { return @tr("Authorize calendar access in your browser."); }
+        if (key == "OAuth app keys saved.") { return @tr("OAuth app keys saved."); }
+        if (key == "{} OAuth settings saved.") { return @tr("{} OAuth settings saved.", argument); }
+        if (key == "OAuth settings failed: {}") { return @tr("OAuth settings failed: {}", argument); }
+        if (key == "Mail refresh failed: {}") { return @tr("Mail refresh failed: {}", argument); }
+        if (key == "Mail filter failed: {}") { return @tr("Mail filter failed: {}", argument); }
+        if (key == "Mail pagination failed: {}") { return @tr("Mail pagination failed: {}", argument); }
+        if (key == "Could not mark message as read: {}") { return @tr("Could not mark message as read: {}", argument); }
+        if (key == "Loading message…") { return @tr("Loading message…"); }
+        return "";
+    }
+}
+
+export component AppWindow inherits Window {
+    title: @tr("Rustmail");
+    // Window managers show this at 256 px at most, and the decoded pixels stay
+    // resident for the life of the process, including while in the tray.
+    icon: @image-url("../resources/app-icon/rustmail-window.png");
+    // Windows keeps its native frame and macOS its traffic lights in the
+    // integrated frame; only Linux removes the window manager's decorations.
+    no-frame: WindowChrome.integrated && WindowChrome.platform == "linux";
+    resize-border-width: root.client-frame ? 6px : 0px;
+    default-font-family: "Google Sans Flex";
+    preferred-width: 1320px;
+    preferred-height: 800px;
+    min-width: 320px;
+    min-height: 320px;
+    background: root.page-bg;
+
+    callback select_email(int);
+    callback select_thread_message(int);
+    callback search_changed(string);
+    callback set_search_filter(string);
+    callback select_scope(string);
+    callback toggle_folder(int, bool);
+    callback toggle_sidebar_section(string, bool);
+    callback filter_folders(string);
+    callback create_folder(int, int, string);
+    callback rename_folder(int, string);
+    callback delete_folder(int);
+    callback load_more();
+    callback toggle_settings();
+    callback sync_mail();
+    callback sync_account(int);
+    callback delete_account(int);
+    callback message_action(string);
+    callback message_action_for_email(int, string);
+    callback bulk_message_action(string);
+    callback toggle_mail_group(string);
+    callback empty_trash(int);
+    callback set_email_checked(int, bool);
+    callback set_all_emails_checked(bool);
+    callback toggle_mail_label(int, bool);
+    callback save_mail_label(int, int, string, color, bool, int);
+    callback delete_mail_label(int);
+    callback search_mail_labels(string);
+    callback compose_message_action(string);
+    callback close_preview();
+    callback print_message();
+    callback open_message_in_browser();
+    callback save_theme(string);
+    callback save_theme_preset(string);
+    callback save_custom_theme(color, color, color, color, color, color, color, color, color, color) -> bool;
+    callback save_avatar_visibility(bool);
+    callback save_group_mail_by_date(bool);
+    callback save_mail_profile(string, string, color) -> string;
+    callback assign_account_profile(int, string);
+    callback save_account_color(int, color, bool);
+    callback delete_mail_profile(string);
+    callback save_account_markers_visibility(bool);
+    callback save_workspace_layout(string);
+    callback save_workspace_list_pane_width(length);
+    callback save_language(string);
+    callback save_sidebar_icon_style(bool);
+    callback save_notification_settings(bool, bool, string);
+    callback save_sync_interval(int);
+    callback save_mark_read_on_open(bool);
+    callback save_contact_discovery_settings(bool, bool, bool, bool);
+    callback clear_contact_suggestions() -> bool;
+    callback set_close_to_tray(bool);
+    callback set_launch_at_login(bool);
+    callback open_compose();
+    callback close_compose();
+    callback save_compose(int, string, string, string, string, string, bool);
+    callback pick_compose_attachments();
+    callback remove_compose_attachment(int);
+    callback format_compose(string, string, int, int);
+    callback link_compose(string, string, int, int);
+    callback edit_compose_body(string, int, int, string);
+    callback update_compose_selection(string, int, int);
+    callback compose_history(string);
+    callback compose_editor_pointer_event(float, float, string, bool, bool, bool, bool);
+    callback compose_editor_key_event(string, bool, bool, bool, bool) -> bool;
+    callback compose_editor_layout_changed();
+    callback search_compose_contacts(string, int);
+    callback select_compose_contact(int, string) -> string;
+    callback refresh_email_templates();
+    callback use_email_template(int) -> bool;
+    callback save_email_template(int, string, string, string, string) -> bool;
+    callback delete_email_template(int) -> bool;
+    callback add_password_account(string, string, string, string, string, string, string, string, string);
+    callback suggest_account_settings(string);
+    callback start_oauth(string);
+    callback reauth_account(int);
+    callback cancel_oauth();
+    callback save_oauth_app(string, string, string);
+    callback save_oauth_apps(string, string, string);
+    pure callback make_account_transfer(string) -> data-transfer;
+    pure callback read_account_transfer(data-transfer) -> string;
+    pure callback settings-search-matches(string, string) -> bool;
+    callback reorder_account(string, int, bool);
+    callback save_account_mail_history(int, string);
+    callback save_account_sent_copy_policy(int, string);
+    callback connect_account_calendar(int);
+    callback set_account_calendar_enabled(int, bool);
+    callback connect_caldav(int, string, string, string);
+    callback connect_carddav(int, string, string, string);
+    callback set_account_carddav_enabled(int, bool);
+    callback disconnect_carddav(int);
+    callback export_account_backup();
+    callback import_account_backup();
+    callback export_database_snapshot();
+    callback delete_all_data();
+    callback load_storage_usage();
+    callback cancel_storage_usage();
+    callback open_email_link(string);
+    callback copy_email_status(string);
+    callback email-pointer-event(float, float, string, bool, bool, bool, bool);
+    callback email-scroll(float, float);
+    callback email-key-event(string, bool, bool, bool, bool, bool, bool);
+    callback select-email-text();
+    callback set-remote-images(bool);
+    callback load-remote-images-for-message();
+    callback calendar-navigate(string, int);
+    callback calendar-select-date(string);
+    callback calendar-set-view(string);
+    callback calendar-set-source-enabled(int, bool);
+    callback calendar-toggle-agenda-filter(int, bool);
+    callback calendar-clear-agenda-filters();
+    callback calendar-today();
+    callback calendar-open-editor();
+    callback calendar-edit-event(int);
+    callback calendar-delete-event(int);
+    callback calendar-save-event(string, string, string, string, int);
+    callback select-contact(int);
+    callback search-contacts(string);
+    callback select-contact-scope(string);
+    callback toggle-contact-section(string, bool);
+    callback new-contact();
+    callback save-contact(int, string, string, string, string, string, string, string, string, string, string, bool);
+    callback delete-contact(int);
+    callback load-contacts();
+    callback load-more-contacts();
+    callback system-back-requested() -> bool;
+    callback retry-startup();
+
+    // Host-internal wakeups. Background work only schedules these when data is
+    // ready; Rust drains the corresponding bounded channel on Slint's thread.
+    callback drain-startup-updates();
+    callback drain-core-updates();
+    callback drain-mail-list-updates();
+    callback drain-mail-metadata-updates();
+    callback drain-folder-updates();
+    callback drain-message-load-updates();
+    callback drain-read-updates();
+    callback drain-navigation-updates();
+    callback drain-action-updates();
+    callback drain-favicon-updates();
+    callback drain-profile-avatar-updates();
+    callback drain-ui-task-updates();
+    callback drain-sync-updates();
+    callback drain-data-reset-updates();
+    callback drain-contact-load-updates();
+    callback drain-compose-send-updates();
+    callback refresh-email-resources();
+
+    in property <[EmailRow]> emails: [];
+    in property <[MailListEntry]> mail_list_entries: [];
+    in property <[EmailTemplateRow]> compose_templates: [];
+    in property <[ThreadMessageRow]> thread_messages: [];
+    in property <int> selected_thread_index: 0;
+    in property <[SidebarRow]> sidebar_rows: [];
+    in-out property <string> folder_filter_query: "";
+    in property <[MailLabelRow]> mail_labels: [];
+    in property <[MailLabelRow]> mail_label_results: [];
+    in property <int> selected_mail_label_count: 0;
+    in property <bool> selected_account_uses_labels: false;
+    in property <[AccountRow]> connected_accounts: [];
+    in property <[MailProfileRow]> mail_profiles: [];
+    // The saved visible page can paint before the core is safe to use. Keep
+    // that presentation milestone separate from startup-ready, which guards
+    // every callback that can touch local storage.
+    in property <bool> startup_hydrated: false;
+    private property <int> compose-back-request: 0;
+    in property <bool> render-suspended: false;
+    callback suspend-rendering(bool);
+    in property <bool> startup_ready: false;
+    in property <bool> startup_failed: false;
+    in property <LocalizedMessage> startup-message;
+    property <string> startup_error: I18n.ui-message(root.startup-message.key, root.startup-message.argument, root.startup-message.second_argument, root.startup-message.third_argument);
+    in property <string> startup_diagnostic_id: "";
+    in property <string> diagnostics_text: "";
+    in property <[CalendarDay]> calendar_month_days: [];
+    in property <[CalendarWeekDay]> calendar_week_days: [];
+    in property <[CalendarEventRow]> calendar_events: [];
+    in property <[CalendarAgendaRow]> calendar_agenda_rows: [];
+    in property <[CalendarAgendaFilterRow]> calendar_agenda_filters: [];
+    in property <int> calendar_agenda_filter_count: 0;
+    in property <int> calendar_agenda_event_count: 0;
+    in property <float> calendar_agenda_anchor: 0;
+    in property <int> calendar_agenda_scroll_request: 0;
+    in property <string> calendar_timezone: "";
+    in property <[CalendarSourceRow]> calendar_sources: [];
+    in property <[ContactRow]> contacts: [];
+    in property <[ContactSidebarRow]> contact_sidebar_rows: [];
+    in-out property <string> contact_scope: "All contacts";
+    in-out property <string> contact_search_query: "";
+    in property <bool> contact_can_load_more: false;
+    in property <bool> contact_loading_more: false;
+    in property <int> contact_list_revision: 0;
+    in property <LocalizedMessage> contact-save-message;
+    property <string> contact_save_status: I18n.ui-message(root.contact-save-message.key, root.contact-save-message.argument, root.contact-save-message.second_argument, root.contact-save-message.third_argument);
+    in property <bool> contact_has_selection: false;
+    in-out property <int> contact_id: -1;
+    in-out property <string> contact_name: "";
+    in-out property <string> contact_email: "";
+    in-out property <string> contact_phone: "";
+    in-out property <string> contact_company: "";
+    in-out property <string> contact_job_title: "";
+    in-out property <string> contact_website: "";
+    in-out property <string> contact_birthday: "";
+    in-out property <string> contact_address: "";
+    in-out property <string> contact_notes: "";
+    in-out property <string> contact_tags: "";
+    in-out property <bool> contact_favorite: false;
+    in property <bool> contact_is_suggested: false;
+    in property <string> contact_initials: "?";
+    in property <string> contact_interactions: "";
+    in property <string> contact_last_interacted: "";
+    in property <int> contact_total_count: 0;
+    in property <int> contact_favorite_count: 0;
+    in property <int> contact_suggestion_count: 0;
+    in property <string> calendar_month_title: "";
+    in property <string> calendar_period_title: "";
+    in property <string> calendar_week_label: "";
+    in property <string> calendar_selected_date: "";
+    in property <bool> calendar_selected_date_has_events: false;
+    in-out property <bool> calendar_sidebar_collapsed: false;
+    in-out property <string> calendar_view_mode: "week";
+    in-out property <bool> calendar_editor_open: false;
+    in-out property <bool> calendar_event_editing: false;
+    in-out property <string> calendar_event_title: "";
+    in-out property <string> calendar_event_date: "";
+    in-out property <string> calendar_event_time: "09:00";
+    in-out property <string> calendar_event_duration: "60";
+    in-out property <int> calendar_event_color: 0;
+    in property <string> selected_scope: "Unified Inbox";
+    in property <string> selected_scope_title: "Unified Inbox";
+    in property <bool> trash_view: false;
+    in-out property <bool> mail_sidebar_collapsed: false;
+    in-out property <bool> contacts_sidebar_collapsed: false;
+    in property <string> unified_count: "";
+    in property <string> search_query: "";
+    in property <string> search_filter: "All mail";
+    in property <string> selected_sender: "";
+    in property <string> selected_address: "";
+    in property <string> selected_subject: "";
+    in property <string> selected_time: "";
+    in property <string> selected_to: "";
+    in property <string> selected_label: "";
+    in property <bool> selected_is_draft: false;
+    in property <string> selected_initials: "?";
+    in property <image> selected_favicon;
+    in property <bool> selected_has_favicon: false;
+    in property <LocalizedMessage> render-message;
+    // A short result (such as that of a user-defined action) shown at the
+    // bottom of the window until dismissed or after a few seconds.
+    in-out property <LocalizedMessage> toast-message;
+    property <string> toast_text: I18n.ui-message(root.toast-message.key, root.toast-message.argument, root.toast-message.second_argument, root.toast-message.third_argument);
+    property <string> render_status: I18n.ui-message(root.render-message.key, root.render-message.argument, root.render-message.second_argument, root.render-message.third_argument);
+    in property <string> selected_plain_text: "";
+    in property <string> selected_source: "";
+    in property <string> selected_text: "";
+    in property <bool> has_selection: false;
+    in property <string> clipboard_request: "";
+    in property <int> clipboard_request_id: 0;
+    in property <LocalizedMessage> sync-message;
+    property <string> sync_status: I18n.ui-message(root.sync-message.key, root.sync-message.argument, root.sync-message.second_argument, root.sync-message.third_argument);
+    in property <bool> sync_in_progress: false;
+    in property <[EmailTile]> email_tiles: [];
+    in property <[EmailLink]> email_links: [];
+    // The renderer reports the total laid-out content height while retaining
+    // only viewport-adjacent raster tiles.
+    in-out property <float> email-content-aspect: 900 / 520;
+    in-out property <bool> source_mode: false;
+    in-out property <bool> rendering_info_open: false;
+    in property <bool> can_load_more: false;
+    in property <bool> mail_loading_more: false;
+    in property <bool> mail_page_loading: false;
+    in property <int> mail_list_revision: 0;
+    in property <int> mail_selection_count: 0;
+    in property <bool> has_selected: true;
+    in property <int> previous_email_id: -1;
+    in property <int> next_email_id: -1;
+    in property <bool> selected_starred: false;
+    in property <bool> selected_unread: false;
+    in property <string> selected_sender_verification: "";
+    in-out property <bool> text_mode: false;
+    // The Rust renderer reads these bindings during Slint's WGPU rendering
+    // callback and reflows Blitz at the current logical viewport size.
+    in-out property <length> email-viewport-width: 0px;
+    in-out property <length> email-viewport-height: 0px;
+    in-out property <length> email-scroll-document-height: 0px;
+    in-out property <length> email-scroll-y: 0px;
+    in-out property <bool> settings_open: false;
+    changed settings_open => { root.product-changed(root.active_view); }
+    in-out property <string> active_view: "mail";
+    callback product-changed(string);
+    private property <string> mail-compact-page: "list";
+    private property <bool> mail-folders-open: false;
+    private property <bool> contacts-detail-visible: false;
+    changed active_view => {
+        if root.active_view != "mail" { MailAttachments.command("close", ""); }
+        root.product-changed(root.active_view);
+    }
+    in-out property <string> settings_tab: "General";
+    // Own scan lifetime here: the conditional SettingsDialog is destroyed on
+    // close, so its own change handlers cannot reliably cancel a running scan.
+    private property <bool> storage-page-open: root.settings_open && root.settings_tab == "Data";
+    changed storage-page-open => {
+        if root.storage-page-open { root.load_storage_usage(); }
+        else { root.cancel_storage_usage(); }
+    }
+    in property <bool> storage_loading: false;
+    in property <bool> storage_loaded: false;
+    in property <string> storage_total: "";
+    in property <string> storage_error: "";
+    in property <[StorageUsageRow]> storage_usage: [];
+    in-out property <string> theme_mode: "system";
+    in-out property <bool> show_avatars: true;
+    in-out property <bool> group_mail_by_date: true;
+    in-out property <bool> show_account_markers: false;
+    in-out property <string> workspace_layout: "default";
+    in-out property <length> workspace_list_pane_width: LayoutMetrics.list-pane-width;
+    in-out property <string> language_mode: "system";
+    in-out property <bool> monochrome_sidebar_icons: false;
+    in-out property <bool> notifications_enabled: true;
+    in-out property <bool> notification_sound_enabled: true;
+    in-out property <string> notification_scope: "important";
+    in-out property <int> sync_interval_minutes: 5;
+    in-out property <bool> mark_read_on_open: true;
+    in-out property <bool> collect_outgoing_contacts: true;
+    in-out property <bool> collect_incoming_contacts: false;
+    in-out property <bool> contact_suggest_all_accounts: false;
+    in-out property <bool> suggest_learned_contacts: true;
+    in-out property <bool> close_to_tray: false;
+    in-out property <bool> launch_at_login: false;
+    in property <bool> launch_at_login_available: false;
+    in-out property <bool> account_setup_in_progress: false;
+    in-out property <bool> account_form_open: false;
+    // The first-run screen's server form; exposed so it can be rendered offscreen.
+    in-out property <bool> onboarding_form_open: false;
+    in-out property <string> account_form_section: "account";
+    in-out property <bool> oauth_in_progress: false;
+    in property <bool> remote-images-available: true;
+    in-out property <bool> remote-images-enabled: false;
+    in property <bool> remote-images-blocked: false;
+    in-out property <bool> compose_open: false;
+    in property <string> compose_mode: "new";
+    in-out property <string> compose_to: "";
+    in-out property <string> compose_cc: "";
+    in-out property <string> compose_bcc: "";
+    in-out property <string> compose_subject: "";
+    in-out property <string> compose_body: "";
+    in property <bool> compose_sending: false;
+    in-out property <int> compose_account_id: -1;
+    in property <[ComposeContact]> compose_contact_suggestions: [];
+    in property <[ComposeAttachment]> compose_attachments: [];
+    in property <string> compose_attachment_summary: "";
+    in-out property <string> compose_from_label: @tr("No connected account");
+    in property <LocalizedMessage> compose-message;
+    property <string> compose_notice: I18n.ui-message(root.compose-message.key, root.compose-message.argument, root.compose-message.second_argument, root.compose-message.third_argument);
+    in property <bool> compose_notice_is_error: false;
+    in property <int> compose_selection_start: 0;
+    in property <int> compose_selection_end: 0;
+    in property <[ComposeEditorTile]> compose_editor_tiles: [];
+    in property <float> compose_editor_content_height: 18;
+    in property <float> compose_editor_caret_x: 0;
+    in property <float> compose_editor_caret_y: 0;
+    in property <float> compose_editor_caret_height: 18;
+    in property <bool> compose_bold_active: false;
+    in property <bool> compose_italic_active: false;
+    in property <bool> compose_underline_active: false;
+    in property <bool> compose_strike_active: false;
+    in property <bool> compose_code_active: false;
+    in property <string> compose_active_link_url: "";
+    in-out property <length> compose_editor_width;
+    in-out property <length> compose_editor_viewport_height;
+    in-out property <length> compose_editor_scroll_y;
+    in-out property <string> compose_editor_preedit_text;
+    out property <color> compose_editor_text_color: root.body-text;
+    out property <color> compose_editor_link_color: root.accent;
+    out property <color> compose_editor_selection_color: root.accent;
+    out property <color> compose_editor_selected_text_color: white;
+    in-out property <string> account_email: "";
+    in-out property <string> account_username: "";
+    in-out property <string> account_password: "";
+    in-out property <string> account_protocol: "imap";
+    in-out property <string> jmap_url: "";
+    in-out property <bool> connect_calendar_on_add: true;
+    in-out property <int> caldav_account_id: -1;
+    in-out property <string> caldav_url: "";
+    in-out property <string> caldav_username: "";
+    in-out property <string> caldav_password: "";
+    in-out property <bool> caldav_manage_existing: false;
+    in property <bool> caldav_connecting: false;
+    in-out property <int> carddav_account_id: -1;
+    in-out property <string> carddav_url: "";
+    in-out property <string> carddav_username: "";
+    in-out property <string> carddav_password: "";
+    in-out property <bool> carddav_manage_existing: false;
+    in-out property <string> imap_security: "auto";
+    in-out property <string> smtp_security: "auto";
+    in-out property <string> trusted_certificate_pem;
+    in-out property <AdvancedOptions> advanced;
+    in property <string> oauth_authorization_url;
+    in property <bool> oauth_browser_error;
+    callback retry_oauth_browser();
+    callback copy_oauth_link();
+    callback submit_oauth_redirect(string);
+    callback copy_oauth_authorization_url();
+    copy_oauth_authorization_url => {
+        if root.oauth_in_progress && root.oauth_authorization_url != "" {
+            oauth-clipboard.text = root.oauth_authorization_url;
+            oauth-clipboard.select-all();
+            oauth-clipboard.copy();
+        }
+    }
+    oauth-clipboard := TextInput {
+        x: -10000px; y: -10000px; width: 1px; height: 1px;
+        visible: false; enabled: false; read-only: true;
+        accessible-role: none;
+    }
+
+    callback import_mail_certificate();
+    callback browse_local_folder(bool);
+    in-out property <string> imap_host: "";
+    in-out property <string> imap_port: "993";
+    in-out property <string> smtp_host: "";
+    in-out property <string> smtp_port: "465";
+    in-out property <string> google_client_id: "";
+    in-out property <string> google_client_secret: "";
+    in-out property <string> ms_client_id: "";
+    in-out property <bool> custom_oauth_open: false;
+    in property <bool> custom_oauth_configured: false;
+    in property <bool> google_oauth_available: false;
+    in property <bool> microsoft_oauth_available: false;
+    in-out property <bool> oauth_setup_open: false;
+    in property <bool> oauth_settings_saving: false;
+    in-out property <string> oauth_settings_error: "";
+    in property <bool> google_oauth_bundled: false;
+    in property <bool> microsoft_oauth_bundled: false;
+    // Android/iOS must use their native print frameworks; until those hosts
+    // provide one, do not expose the desktop file:// printing fallback.
+    in property <bool> print_supported: true;
+    in property <bool> document_apis_supported: true;
+    in property <string> app-version: "";
+
+    // Neutral, low-chrome surfaces keep the message content visually primary.
+    // Interactive controls come from Slint's desktop widget set.
+    private property <bool> dark-mode: root.theme_mode == "dark" ? true
+        : root.theme_mode == "light" ? false
+        : Palette.color-scheme == ColorScheme.dark;
+    private property <color> page-bg: AppTheme.page-bg;
+    private property <color> surface: AppTheme.surface;
+    private property <color> surface-raised: AppTheme.surface-raised;
+    private property <color> sidebar-bg: AppTheme.sidebar-bg;
+    private property <color> control-bg: AppTheme.control-bg;
+    private property <color> muted-control-bg: AppTheme.muted-control-bg;
+    private property <color> accent: AppTheme.accent;
+    private property <color> accent-soft: AppTheme.accent-soft;
+    private property <color> accent-pale: AppTheme.accent-pale;
+    private property <color> selected-row: AppTheme.selected-row;
+    private property <color> avatar-bg: AppTheme.avatar-bg;
+    private property <color> avatar-selected-bg: AppTheme.avatar-selected-bg;
+    private property <color> border: AppTheme.border;
+    private property <color> border-subtle: AppTheme.border-subtle;
+    private property <color> title-color: AppTheme.title;
+    private property <color> heading: AppTheme.heading;
+    private property <color> body-text: AppTheme.body;
+    private property <color> secondary-text: AppTheme.secondary;
+    private property <color> muted-text: AppTheme.muted;
+    private property <color> faint-text: AppTheme.faint;
+    // This content-driven breakpoint is the smallest width that can hold the
+    // rail, folders, message list, and a useful reading pane simultaneously.
+    private property <bool> compact-layout: root.width - root.safe-area-insets.left - root.safe-area-insets.right < 980px;
+    // In the integrated frame the window controls sit over the top corners
+    // and toolbars reserve room for them, so content keeps the full window.
+    // Desktop windows with accounts show the tabs in a top bar above the
+    // product rail; in the integrated frame it also holds the window
+    // controls. Compact layouts navigate from the bottom bar.
+    private property <bool> top-bar: !root.compact-layout && root.connected_accounts.length > 0;
+    changed top-bar => { root.sync-window-chrome(); }
+    private property <length> content-x: root.safe-area-insets.left;
+    private property <length> content-y: root.safe-area-insets.top + (root.top-bar ? WindowChrome.band-height : 0px);
+    private property <length> content-width: root.width - root.safe-area-insets.left - root.safe-area-insets.right;
+    private property <length> content-height: root.height - root.content-y - root.safe-area-insets.bottom;
+    // Linux draws the whole frame, so it also provides the resize border and
+    // window outline that the window manager would otherwise draw.
+    private property <bool> client-frame: root.no-frame && !root.maximized && !root.full-screen;
+    private property <bool> compact-primary-nav-visible: root.compact-layout
+        && !root.compose_open && !root.calendar_editor_open
+        && !(root.active_view == "mail" && root.mail-compact-page == "message")
+        && !(root.active_view == "mail" && root.mail-folders-open)
+        && !(root.active_view == "contacts" && root.contacts-detail-visible)
+        && !(root.active_view == "files" && FilesUi.preview-open);
+    private property <length> compact-primary-nav-height: LayoutMetrics.compact-navigation-height;
+    private property <bool> folder-dialog-open: false;
+    private property <bool> trash-delete-open: false;
+    private property <string> trash-delete-kind: "";
+    private property <int> trash-delete-id: -1;
+
+    function confirm-trash-deletion(kind: string, id: int) {
+        root.trash-delete-kind = kind;
+        root.trash-delete-id = id;
+        root.trash-delete-open = true;
+    }
+    private property <string> folder-dialog-item-kind: "folder";
+    private property <string> folder-dialog-mode: "create";
+    private property <int> folder-dialog-account-id: -1;
+    private property <int> folder-dialog-folder-id: -1;
+    private property <int> folder-dialog-parent-id: -1;
+    private property <string> folder-dialog-parent-name: "";
+    private property <int> folder-dialog-parent-label-id: -1;
+    private property <string> folder-dialog-parent-label-path: "";
+    private property <bool> folder-dialog-has-descendants: false;
+    private property <string> folder-dialog-name: "";
+    private property <color> folder-dialog-label-color: transparent;
+
+    function open-folder-create(account-id: int, parent-id: int, parent-name: string) {
+        root.folder-dialog-item-kind = "folder";
+        root.folder-dialog-mode = "create";
+        root.folder-dialog-account-id = account-id;
+        root.folder-dialog-parent-id = parent-id;
+        root.folder-dialog-parent-label-id = -1;
+        root.folder-dialog-parent-label-path = "";
+        root.folder-dialog-has-descendants = false;
+        root.folder-dialog-parent-name = parent-name;
+        root.folder-dialog-name = "";
+        root.folder-dialog-open = true;
+    }
+
+    function open-label-create(account-id: int, account-name: string, parent-label-id: int, parent-path: string) {
+        root.folder-dialog-item-kind = "label";
+        root.folder-dialog-mode = "create";
+        root.folder-dialog-account-id = account-id;
+        root.folder-dialog-folder-id = -1;
+        root.folder-dialog-parent-label-id = parent-label-id;
+        root.folder-dialog-parent-label-path = parent-path;
+        root.folder-dialog-has-descendants = false;
+        root.folder-dialog-parent-name = parent-path == "" ? account-name : parent-path;
+        root.folder-dialog-name = "";
+        // Gmail accepts a fixed provider palette; this blue is supported
+        // remotely and remains a sensible local default for other accounts.
+        root.folder-dialog-label-color = #4a86e8;
+        root.folder-dialog-open = true;
+    }
+
+    function open-folder-rename(folder-id: int, name: string) {
+        root.folder-dialog-item-kind = "folder";
+        root.folder-dialog-mode = "rename";
+        root.folder-dialog-folder-id = folder-id;
+        root.folder-dialog-parent-label-id = -1;
+        root.folder-dialog-parent-label-path = "";
+        root.folder-dialog-has-descendants = false;
+        root.folder-dialog-parent-name = "";
+        root.folder-dialog-name = name;
+        root.folder-dialog-open = true;
+    }
+
+    function open-folder-delete(folder-id: int, name: string) {
+        root.folder-dialog-item-kind = "folder";
+        root.folder-dialog-mode = "delete";
+        root.folder-dialog-folder-id = folder-id;
+        root.folder-dialog-parent-label-id = -1;
+        root.folder-dialog-parent-label-path = "";
+        root.folder-dialog-has-descendants = false;
+        root.folder-dialog-parent-name = "";
+        root.folder-dialog-name = name;
+        root.folder-dialog-open = true;
+    }
+
+    function open-label-rename(label-id: int, name: string, color: color, account: string, global: bool) {
+        root.folder-dialog-item-kind = "label";
+        root.folder-dialog-mode = "rename";
+        root.folder-dialog-folder-id = label-id;
+        root.folder-dialog-parent-label-id = -1;
+        root.folder-dialog-parent-label-path = "";
+        root.folder-dialog-has-descendants = false;
+        root.folder-dialog-parent-name = global ? @tr("Global Labels (local only)") : account;
+        root.folder-dialog-name = name;
+        root.folder-dialog-label-color = color;
+        root.folder-dialog-open = true;
+    }
+
+    function open-label-delete(label-id: int, name: string, account: string, global: bool, has-descendants: bool) {
+        root.folder-dialog-item-kind = "label";
+        root.folder-dialog-mode = "delete";
+        root.folder-dialog-folder-id = label-id;
+        root.folder-dialog-parent-label-id = -1;
+        root.folder-dialog-parent-label-path = "";
+        root.folder-dialog-has-descendants = has-descendants;
+        root.folder-dialog-parent-name = global ? @tr("Global Labels (local only)") : account;
+        root.folder-dialog-name = name;
+        root.folder-dialog-open = true;
+    }
+
+    system-back-requested => {
+        if MailAttachments.open { MailAttachments.command("close", ""); return true; }
+        if root.active_view == "files" && FilesUi.transfers-open {FilesUi.transfers-open=false;return true;}
+        if root.active_view == "files" && FilesUi.dialog != "" { FilesUi.dialog = ""; return true; }
+        if root.active_view == "files" && FilesUi.setup-open { FilesUi.setup-open = false; return true; }
+        if root.active_view == "files" && FilesUi.navigation-open { FilesUi.navigation-open = false; return true; }
+        if root.active_view == "files" && FilesUi.preview-open { FilesUi.preview-open = false; if FilesUi.busy { FilesUi.command("cancel", "", ""); } FilesUi.command("release-preview", "", ""); return true; }
+        if root.active_view == "files" && FilesUi.can-up && !FilesUi.busy { FilesUi.command("up", "", ""); return true; }
+        if (root.folder-dialog-open) {
+            root.folder-dialog-open = false;
+            return true;
+        }
+        if (root.trash-delete-open) {
+            root.trash-delete-open = false;
+            return true;
+        }
+        if (!root.compact-layout) {
+            return false;
+        }
+        if (root.compose_open) {
+            root.compose-back-request += 1;
+            return true;
+        }
+        if (root.calendar_editor_open) {
+            root.calendar_editor_open = false;
+            return true;
+        }
+        if (root.settings_open) {
+            root.settings_open = false;
+            return true;
+        }
+        if (root.active_view == "mail" && root.mail-folders-open) {
+            root.mail-folders-open = false;
+            return true;
+        }
+        if (root.active_view == "mail" && root.mail-compact-page == "message") {
+            root.mail-compact-page = "list";
+            root.close_preview();
+            return true;
+        }
+        if (root.active_view == "contacts" && root.contacts-detail-visible) {
+            root.contacts-detail-visible = false;
+            return true;
+        }
+        return false;
+    }
+
+    changed compose_open => {
+        if (!root.compose_open) {
+            root.compose-back-request = 0;
+            root.compose_editor_scroll_y = 0px;
+            root.compose_editor_preedit_text = "";
+        }
+    }
+
+    changed theme-mode => {
+        Palette.color-scheme = root.theme-mode == "dark" ? ColorScheme.dark
+            : root.theme-mode == "light" ? ColorScheme.light
+            : ColorScheme.unknown;
+    }
+
+    changed width => { root.sync-window-chrome(); }
+    changed full-screen => { root.sync-window-chrome(); }
+    changed compact-layout => { root.sync-window-chrome(); }
+    private property <length> chrome-band: WindowChrome.band-height;
+    private property <length> chrome-trailing: WindowChrome.trailing-width;
+    changed chrome-band => { WindowChrome.geometry-changed(); }
+    changed chrome-trailing => { WindowChrome.geometry-changed(); }
+
+    function sync-window-chrome() {
+        WindowChrome.window-width = root.width;
+        WindowChrome.full-screen = root.full-screen;
+        WindowChrome.compact = root.compact-layout;
+        WindowChrome.top-bar = root.top-bar;
+        TabsUi.enabled = root.top-bar;
+    }
+
+    // Seeds WindowChrome once; the handlers above keep it current. A child
+    // element runs this so AppWindow's own init stays free for tooling.
+    Rectangle {
+        width: 0px;
+        height: 0px;
+        init => { root.sync-window-chrome(); }
+    }
+
+    // Toolbar rows sit above this band; wherever they have no interactive
+    // content, input falls through to it and moves the window.
+    if WindowChrome.controls-visible : WindowDragArea {
+        x: root.content-x;
+        y: root.safe-area-insets.top;
+        width: root.content-width;
+        height: WindowChrome.band-height;
+    }
+
+    // Account discovery is asynchronous. Paint a small initial view while
+    // neither the cached mailbox nor the onboarding decision is available.
+    if !root.startup_ready && !root.startup_failed && root.connected_accounts.length == 0 : Rectangle {
+        x: root.content-x;
+        y: root.content-y;
+        width: root.content-width;
+        height: root.content-height;
+        background: root.page-bg;
+        accessible-role: groupbox;
+        accessible-label: I18n.loading-local-data();
+
+        VerticalLayout {
+            width: 240px.min(parent.width - 32px);
+            height: 92px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            spacing: 12px;
+            Text {
+                text: "Rustmail";
+                color: root.title-color;
+                font-size: TypeScale.heading;
+                font-weight: 600;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: I18n.loading-local-data();
+                color: root.muted-text;
+                font-size: TypeScale.body;
+                horizontal-alignment: center;
+            }
+            LoadingSkeletonBlock {
+                height: 4px;
+                radius: 2px;
+                base-color: root.border;
+                highlight-color: root.accent;
+            }
+        }
+    }
+
+    if root.connected_accounts.length > 0 : Rectangle {
+        // Do not construct the mailbox on a fresh profile. `visible: false`
+        // retains the entire tree, and constructing it before the account
+        // query touches code and assets that onboarding never needs.
+        x: root.content-x;
+        y: root.content-y;
+        width: root.content-width;
+        height: root.content-height;
+        background: root.page-bg;
+
+        product-rail := ProductRail {
+            visible: !root.compact-layout;
+            x: 0px;
+            y: 0px;
+            width: LayoutMetrics.product-rail-width;
+            height: parent.height;
+            active-view <=> root.active_view;
+            settings-active: root.settings_open;
+            background-color: root.sidebar-bg;
+            divider-color: root.border;
+            accent-color: root.accent;
+            accent-background: root.accent-soft;
+            title-color: root.title-color;
+            muted-color: root.muted-text;
+            open-settings => { root.toggle_settings(); }
+            select-view(view) => {
+                root.active_view = view;
+                root.settings_open = false;
+
+            }
+        }
+
+        if root.active_view == "mail" : WorkspaceFrame {
+            compact: root.compact-layout;
+            reserve-compact-navigation: root.compact-primary-nav-visible;
+            available-width: parent.width;
+            available-height: parent.height;
+
+        MailView {
+            changed email-viewport-width => { root.email-viewport-width = self.email-viewport-width; }
+            changed email-viewport-height => { root.email-viewport-height = self.email-viewport-height; }
+            changed email-scroll-document-height => { root.email-scroll-document-height = self.email-scroll-document-height; }
+            compact-page <=> root.mail-compact-page;
+            folders-open <=> root.mail-folders-open;
+            loading: !root.startup_hydrated || root.mail_page_loading;
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            available-width: parent.width;
+            compact: root.compact-layout;
+            layout-mode: root.workspace_layout;
+            list-pane-width <=> root.workspace_list_pane_width;
+            list-pane-width-committed(width) => { root.save_workspace_list_pane_width(width); }
+            show-avatars: root.show_avatars;
+            emails: root.emails;
+            list_entries: root.mail_list_entries;
+            group_mail_by_date: root.group_mail_by_date;
+            thread_messages: root.thread_messages;
+            selected_thread_index: root.selected_thread_index;
+            sidebar_rows: root.sidebar_rows;
+            folder_filter_query <=> root.folder_filter_query;
+            mail_labels: root.mail_labels;
+            mail_label_results: root.mail_label_results;
+            selected_mail_label_count: root.selected_mail_label_count;
+            selected_account_uses_labels: root.selected_account_uses_labels;
+            email_tiles: root.email_tiles;
+            email_links: root.email_links;
+            active_view: root.active_view;
+            selected_scope: root.selected_scope;
+            selected_scope_title: root.selected_scope_title;
+            trash_view: root.trash_view;
+            unified_count: root.unified_count;
+            search_query: root.search_query;
+            search_filter: root.search_filter;
+            selected_sender: root.selected_sender;
+            selected_address: root.selected_address;
+            selected_subject: root.selected_subject;
+            selected_time: root.selected_time;
+            selected_to: root.selected_to;
+            selected_label: root.selected_label;
+            selected_is_draft: root.selected_is_draft;
+            selected_initials: root.selected_initials;
+            selected_favicon: root.selected_favicon;
+            selected_has_favicon: root.selected_has_favicon;
+            selected_plain_text: root.selected_plain_text;
+            selected_source: root.selected_source;
+            selected_text: root.selected_text;
+            has_selection: root.has_selection;
+            clipboard_request: root.clipboard_request;
+            clipboard_request_id: root.clipboard_request_id;
+            sync_in_progress: root.sync_in_progress;
+            can_load_more: root.can_load_more;
+            loading_more: root.mail_loading_more;
+            list_content_revision: root.mail_list_revision;
+            selection-count: root.mail_selection_count;
+            has_selected: root.startup_ready && root.has_selected;
+            previous-email-id: root.previous_email_id;
+            next-email-id: root.next_email_id;
+            selected_starred: root.selected_starred;
+            selected_unread: root.selected_unread;
+            selected_sender_verification: root.selected_sender_verification;
+            remote-images-blocked: root.remote-images-blocked;
+            monochrome_sidebar_icons: root.monochrome_sidebar_icons;
+            print_supported: root.print_supported;
+            mail_sidebar_collapsed <=> root.mail_sidebar_collapsed;
+            text_mode <=> root.text_mode;
+            source_mode <=> root.source_mode;
+            rendering_info_open <=> root.rendering_info_open;
+            email-content-aspect <=> root.email-content-aspect;
+            email-scroll-y <=> root.email-scroll-y;
+            settings_open <=> root.settings_open;
+            settings_tab <=> root.settings_tab;
+            accent: root.accent;
+            accent-soft: root.accent-soft;
+            avatar-bg: root.avatar-bg;
+            avatar-selected-bg: root.avatar-selected-bg;
+            body-text: root.body-text;
+            border: root.border;
+            border-subtle: root.border-subtle;
+            control-bg: root.control-bg;
+            faint-text: root.faint-text;
+            heading: root.heading;
+            muted-control-bg: root.muted-control-bg;
+            muted-text: root.muted-text;
+            secondary-text: root.secondary-text;
+            selected-row: root.selected-row;
+            sidebar-bg: root.sidebar-bg;
+            surface: root.surface;
+            surface-raised: root.surface-raised;
+            title-color: root.title-color;
+            select_email(id) => { root.select_email(id); }
+            select_thread_message(index) => { root.select_thread_message(index); }
+            search_changed(query) => { root.search_changed(query); }
+            set_search_filter(filter) => { root.set_search_filter(filter); }
+            select_scope(scope) => { root.select_scope(scope); }
+            toggle_sidebar_section(key, open) => { root.toggle_sidebar_section(key, open); }
+            toggle_folder(id, expanded) => { root.toggle_folder(id, expanded); }
+            filter_folders(query) => { root.filter_folders(query); }
+            request_folder_create(account-id, parent-id, parent-name) => { root.open-folder-create(account-id, parent-id, parent-name); }
+            request_label_create(account-id, account-name, parent-id, parent-path) => {
+                root.open-label-create(account-id, account-name, parent-id, parent-path);
+            }
+            request_folder_rename(id, name) => { root.open-folder-rename(id, name); }
+            request_folder_delete(id, name) => { root.open-folder-delete(id, name); }
+            request_label_rename(id, name, color, account, global) => { root.open-label-rename(id, name, color, account, global); }
+            request_label_delete(id, name, account, global, has-descendants) => {
+                root.open-label-delete(id, name, account, global, has-descendants);
+            }
+            load_more => { root.load_more(); }
+            sync_mail => { root.sync_mail(); }
+            message_action(action) => {
+                if action == "delete_permanently" { root.confirm-trash-deletion("selected", -1); }
+                else { root.message_action(action); }
+            }
+            message_action_for_email(id, action) => {
+                if action == "delete_permanently" { root.confirm-trash-deletion("row", id); }
+                else { root.message_action_for_email(id, action); }
+            }
+            bulk_message_action(action) => {
+                if action == "delete_permanently" { root.confirm-trash-deletion("bulk", -1); }
+                else { root.bulk_message_action(action); }
+            }
+            toggle_mail_group(key) => { root.toggle_mail_group(key); }
+            request_empty_trash(account-id) => { root.confirm-trash-deletion("empty", account-id); }
+            set_email_checked(id, checked) => { root.set_email_checked(id, checked); }
+            set_all_emails_checked(checked) => { root.set_all_emails_checked(checked); }
+            toggle_mail_label(id, applied) => { root.toggle_mail_label(id, applied); }
+            save_mail_label(id, account-id, name, color, global, parent-id) => {
+                root.save_mail_label(id, account-id, name, color, global, parent-id);
+            }
+            search_mail_labels(query) => { root.search_mail_labels(query); }
+            compose_message_action(action) => { root.compose_message_action(action); }
+            close_preview => { root.close_preview(); }
+            print_message => { root.print_message(); }
+            open_message_in_browser => { root.open_message_in_browser(); }
+            open_compose => { root.open_compose(); }
+            open_email_link(url) => { root.open_email_link(url); }
+            copy_email_status(status) => { root.copy_email_status(status); }
+            email-pointer-event(x, y, kind, control, shift, alt, meta) => {
+                root.email-pointer-event(x, y, kind, control, shift, alt, meta);
+            }
+            email-scroll(offset, viewport-height) => { root.email-scroll(offset, viewport-height); }
+            email-key-event(text, pressed, repeat, control, shift, alt, meta) => {
+                root.email-key-event(text, pressed, repeat, control, shift, alt, meta);
+            }
+            select-email-text => { root.select-email-text(); }
+            load-remote-images-for-message => { root.load-remote-images-for-message(); }
+        }
+        }
+
+        if root.active_view == "calendar" : WorkspaceFrame {
+            compact: root.compact-layout;
+            reserve-compact-navigation: root.compact-primary-nav-visible;
+            available-width: parent.width;
+            available-height: parent.height;
+
+        FunctionalCalendarView {
+            active: root.active_view == "calendar";
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            compact: root.compact-layout;
+            sidebar-collapsed <=> root.calendar_sidebar_collapsed;
+            dark-mode: root.dark-mode;
+            month-days: root.calendar_month_days;
+            week-days: root.calendar_week_days;
+            events: root.calendar_events;
+            agenda-rows: root.calendar_agenda_rows;
+            agenda-filters: root.calendar_agenda_filters;
+            agenda-filter-count: root.calendar_agenda_filter_count;
+            agenda-event-count: root.calendar_agenda_event_count;
+            agenda-anchor: root.calendar_agenda_anchor;
+            agenda-scroll-request: root.calendar_agenda_scroll_request;
+            timezone: root.calendar_timezone;
+            sources: root.calendar_sources;
+            month-title: root.calendar_month_title;
+            period-title: root.calendar_period_title;
+            week-label: root.calendar_week_label;
+            selected-date: root.calendar_selected_date;
+            selected-date-has-events: root.calendar_selected_date_has_events;
+            view-mode: root.calendar_view_mode;
+            background-color: root.page-bg;
+            sidebar-color: root.sidebar-bg;
+            surface-color: root.surface;
+            ui-border-color: root.border;
+            subtle-border-color: root.border-subtle;
+            title-color: root.title-color;
+            body-color: root.body-text;
+            secondary-color: root.secondary-text;
+            muted-color: root.muted-text;
+            control-color: root.control-bg;
+            control-hover-color: root.muted-control-bg;
+            accent-color: root.accent;
+            accent-background: root.accent-soft;
+            navigate(scope, direction) => { root.calendar-navigate(scope, direction); }
+            select-date(date) => { root.calendar-select-date(date); }
+            set-view(mode) => { root.calendar-set-view(mode); }
+            set-source-enabled(calendar-id, enabled) => { root.calendar-set-source-enabled(calendar-id, enabled); }
+            toggle-agenda-filter(id, checked) => { root.calendar-toggle-agenda-filter(id, checked); }
+            clear-agenda-filters => { root.calendar-clear-agenda-filters(); }
+            today => { root.calendar-today(); }
+            new-event => { root.calendar-open-editor(); }
+            edit-event(event-id) => { root.calendar-edit-event(event-id); }
+            delete-event(event-id) => { root.calendar-delete-event(event-id); }
+            open-link(url) => { root.open_email_link(url); }
+        }
+        }
+
+        if root.active_view == "contacts" : WorkspaceFrame {
+            compact: root.compact-layout;
+            reserve-compact-navigation: root.compact-primary-nav-visible;
+            available-width: parent.width;
+            available-height: parent.height;
+
+        ContactsView {
+            detail-page-visible <=> root.contacts-detail-visible;
+            active: root.active_view == "contacts";
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            available-width: parent.width;
+            compact: root.compact-layout;
+            layout-mode: root.workspace_layout;
+            list-pane-width <=> root.workspace_list_pane_width;
+            list-pane-width-committed(width) => { root.save_workspace_list_pane_width(width); }
+            dark-mode: root.dark-mode;
+            sidebar-collapsed <=> root.contacts_sidebar_collapsed;
+            contacts: root.contacts;
+            sidebar-rows: root.contact_sidebar_rows;
+            toggle-section(key, open) => { root.toggle-contact-section(key, open); }
+            query: root.contact_search_query;
+            filter: root.contact_scope == "Favorites" ? "favorites"
+                : root.contact_scope == "Suggestions" ? "suggestions" : "all";
+            selected-scope: root.contact_scope;
+            status: root.contact_save_status;
+            can-load-more: root.contact_can_load_more;
+            loading-more: root.contact_loading_more;
+            content-revision: root.contact_list_revision;
+            total-count: root.contact_total_count;
+            favorite-count: root.contact_favorite_count;
+            suggestion-count: root.contact_suggestion_count;
+            has-selected: root.contact_has_selection;
+            selected-id <=> root.contact_id;
+            edit-name <=> root.contact_name;
+            edit-email <=> root.contact_email;
+            edit-phone <=> root.contact_phone;
+            edit-company <=> root.contact_company;
+            edit-job-title <=> root.contact_job_title;
+            edit-website <=> root.contact_website;
+            edit-birthday <=> root.contact_birthday;
+            edit-postal-address <=> root.contact_address;
+            edit-notes <=> root.contact_notes;
+            edit-tags <=> root.contact_tags;
+            edit-favorite <=> root.contact_favorite;
+            is-suggested: root.contact_is_suggested;
+            edit-initials: root.contact_initials;
+            interaction-label: root.contact_interactions + (root.contact_last_interacted != "" ? " · " + root.contact_last_interacted : "");
+            accent: root.accent;
+            accent-soft: root.accent-soft;
+            avatar-bg: root.avatar-bg;
+            body-text: root.body-text;
+            border: root.border;
+            border-subtle: root.border-subtle;
+            control-bg: root.control-bg;
+            heading: root.heading;
+            muted-control-bg: root.muted-control-bg;
+            muted-text: root.muted-text;
+            secondary-text: root.secondary-text;
+            selected-row: root.selected-row;
+            sidebar-bg: root.sidebar-bg;
+            surface: root.surface;
+            surface-raised: root.surface-raised;
+            title-color: root.title-color;
+            select-contact(id) => { root.select-contact(id); }
+            search(query) => { root.search-contacts(query); }
+            refresh => { root.load-contacts(); }
+            load-more => { root.load-more-contacts(); }
+            select-filter(filter) => {
+                root.select-contact-scope(filter == "favorites" ? "Favorites"
+                    : filter == "suggestions" ? "Suggestions"
+                    : filter == "all" ? "All contacts" : filter);
+            }
+            new-contact => { root.new-contact(); }
+            save-contact(id, name, email, phone, company, job-title, website, birthday, address, notes, tags, favorite) => {
+                root.save-contact(
+                    id, name, email, phone, company, job-title, website,
+                    birthday, address, notes, tags, favorite
+                );
+            }
+            delete-contact(id) => { root.delete-contact(id); }
+            compose-to-contact(email) => {
+                root.compose_to = email;
+                root.open_compose();
+            }
+        }
+        }
+
+        if root.active_view == "files" : WorkspaceFrame {
+            compact: root.compact-layout;
+            reserve-compact-navigation: root.compact-primary-nav-visible;
+            available-width: parent.width;
+            available-height: parent.height;
+            files-view := FilesView {
+                active: root.active_view == "files";
+                width: parent.width;
+                height: parent.height;
+                available-width: parent.width;
+                compact: root.compact-layout;
+                layout-mode: root.workspace_layout;
+                list-pane-width <=> root.workspace_list_pane_width;
+                account-model: root.connected_accounts;
+                list-pane-width-committed(width) => { root.save_workspace_list_pane_width(width); }
+            }
+        }
+
+        CompactProductNav {
+            // Keep compact navigation mounted so entering/leaving a detail
+            // screen can slide it instead of popping it in and out.
+            visible: root.compact-layout
+                && (root.compact-primary-nav-visible || self.opacity > 0);
+            x: 0px;
+            y: root.compact-primary-nav-visible
+                ? parent.height - root.compact-primary-nav-height
+                : parent.height;
+            width: parent.width;
+            height: root.compact-primary-nav-height;
+            opacity: root.compact-primary-nav-visible ? 1 : 0;
+            interactive: root.compact-primary-nav-visible;
+            animate y { duration: 240ms; easing: spring(0); }
+            animate opacity { duration: 160ms; easing: ease-out; }
+            active-view <=> root.active_view;
+            settings-active: root.settings_open;
+            background-color: root.sidebar-bg;
+            divider-color: root.border;
+            accent-color: root.accent;
+            accent-background: root.accent-soft;
+            muted-color: root.muted-text;
+            open-settings => { root.toggle_settings(); }
+            select-view(view) => {
+                root.active_view = view;
+                root.settings_open = false;
+
+            }
+        }
+
+        if root.calendar_editor_open : CalendarEventDialog {
+            compact: root.compact-layout;
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            dark-mode: root.dark-mode;
+            accent: root.accent;
+            border: root.border;
+            border-subtle: root.border-subtle;
+            control-bg: root.control-bg;
+            muted-text: root.muted-text;
+            surface: root.surface;
+            title-color: root.title-color;
+            calendar_editor_open <=> root.calendar_editor_open;
+            calendar_event_editing: root.calendar_event_editing;
+            calendar_event_title <=> root.calendar_event_title;
+            calendar_event_date <=> root.calendar_event_date;
+            calendar_event_time <=> root.calendar_event_time;
+            calendar_event_duration <=> root.calendar_event_duration;
+            calendar_event_color <=> root.calendar_event_color;
+            calendar-save-event(title, date, time, duration, color) => {
+                root.calendar-save-event(title, date, time, duration, color);
+            }
+        }
+
+        if root.settings_open : WorkspaceFrame {
+            compact: root.compact-layout;
+            reserve-compact-navigation: root.compact-primary-nav-visible;
+            available-width: parent.width;
+            available-height: parent.height;
+
+        SettingsDialog {
+            compact: root.compact-layout;
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            connected_accounts: root.connected_accounts;
+            mail_profiles: root.mail_profiles;
+            custom_oauth_configured: root.custom_oauth_configured;
+            google_oauth_available: root.google_oauth_available;
+            microsoft_oauth_available: root.microsoft_oauth_available;
+            google_oauth_bundled: root.google_oauth_bundled;
+            microsoft_oauth_bundled: root.microsoft_oauth_bundled;
+            remote-images-available: root.remote-images-available;
+            account-transfer-supported: root.document_apis_supported;
+            sync_in_progress: root.sync_in_progress;
+            account_setup_in_progress: root.account_setup_in_progress;
+            imap_form_open <=> root.account_form_open;
+            account_form_section <=> root.account_form_section;
+            oauth_in_progress: root.oauth_in_progress;
+            oauth_settings_saving: root.oauth_settings_saving;
+            sync_status: root.sync_status;
+            app-version: root.app-version;
+            storage_loading: root.storage_loading;
+            storage_loaded: root.storage_loaded;
+            storage_total: root.storage_total;
+            storage_error: root.storage_error;
+            storage_usage: root.storage_usage;
+            accent: root.accent;
+            accent-soft: root.accent-soft;
+            body-text: root.body-text;
+            border-subtle: root.border-subtle;
+            faint-text: root.faint-text;
+            heading: root.heading;
+            muted-text: root.muted-text;
+            page-bg: root.page-bg;
+            secondary-text: root.secondary-text;
+            sidebar-bg: root.sidebar-bg;
+            surface: root.surface;
+            surface-raised: root.surface-raised;
+            title-color: root.title-color;
+            settings_open <=> root.settings_open;
+            settings_tab <=> root.settings_tab;
+            theme_mode <=> root.theme_mode;
+            show_avatars <=> root.show_avatars;
+            group_mail_by_date <=> root.group_mail_by_date;
+            show_account_markers <=> root.show_account_markers;
+            workspace_layout <=> root.workspace_layout;
+            language_mode <=> root.language_mode;
+            monochrome_sidebar_icons <=> root.monochrome_sidebar_icons;
+            notifications_enabled <=> root.notifications_enabled;
+            notification_sound_enabled <=> root.notification_sound_enabled;
+            notification_scope <=> root.notification_scope;
+            sync_interval_minutes <=> root.sync_interval_minutes;
+            mark_read_on_open <=> root.mark_read_on_open;
+            collect_outgoing_contacts <=> root.collect_outgoing_contacts;
+            collect_incoming_contacts <=> root.collect_incoming_contacts;
+            contact_suggest_all_accounts <=> root.contact_suggest_all_accounts;
+            suggest_learned_contacts <=> root.suggest_learned_contacts;
+            close_to_tray <=> root.close_to_tray;
+            launch_at_login <=> root.launch_at_login;
+            launch_at_login_available: root.launch_at_login_available;
+            remote-images-enabled <=> root.remote-images-enabled;
+            account_email <=> root.account_email;
+            account_username <=> root.account_username;
+            account_password <=> root.account_password;
+            account_protocol <=> root.account_protocol;
+            jmap_url <=> root.jmap_url;
+            connect_calendar_on_add <=> root.connect_calendar_on_add;
+            caldav_account_id <=> root.caldav_account_id;
+            caldav_url <=> root.caldav_url;
+            caldav_username <=> root.caldav_username;
+            caldav_password <=> root.caldav_password;
+            caldav_manage_existing <=> root.caldav_manage_existing;
+            caldav_connecting: root.caldav_connecting;
+            carddav_account_id <=> root.carddav_account_id;
+            carddav_url <=> root.carddav_url;
+            carddav_username <=> root.carddav_username;
+            carddav_password <=> root.carddav_password;
+            carddav_manage_existing <=> root.carddav_manage_existing;
+            imap_security <=> root.imap_security;
+            smtp_security <=> root.smtp_security;
+            trusted_certificate_pem <=> root.trusted_certificate_pem;
+            advanced <=> root.advanced;
+            oauth_authorization_url: root.oauth_authorization_url;
+            oauth_browser_error: root.oauth_browser_error;
+            retry_oauth_browser => { root.retry_oauth_browser(); }
+            copy_oauth_link => { root.copy_oauth_link(); }
+            submit_oauth_redirect(address) => { root.submit_oauth_redirect(address); }
+            import_mail_certificate => { root.import_mail_certificate(); }
+            browse_local_folder(file) => { root.browse_local_folder(file); }
+            imap_host <=> root.imap_host;
+            imap_port <=> root.imap_port;
+            smtp_host <=> root.smtp_host;
+            smtp_port <=> root.smtp_port;
+            google_client_id <=> root.google_client_id;
+            google_client_secret <=> root.google_client_secret;
+            ms_client_id <=> root.ms_client_id;
+            custom_oauth_open <=> root.custom_oauth_open;
+            save_theme(mode) => { root.save_theme(mode); }
+            save_theme_preset(preset) => { root.save_theme_preset(preset); }
+            save_custom_theme(
+                light-primary,
+                light-page,
+                light-surface,
+                light-text,
+                light-border,
+                dark-primary,
+                dark-page,
+                dark-surface,
+                dark-text,
+                dark-border,
+            ) => {
+                return root.save_custom_theme(
+                    light-primary,
+                    light-page,
+                    light-surface,
+                    light-text,
+                    light-border,
+                    dark-primary,
+                    dark-page,
+                    dark-surface,
+                    dark-text,
+                    dark-border,
+                );
+            }
+            save_avatar_visibility(enabled) => { root.save_avatar_visibility(enabled); }
+            save_mail_profile(profile-id, name, color) => {
+                return root.save_mail_profile(profile-id, name, color);
+            }
+            assign_account_profile(account-id, profile-id) => {
+                root.assign_account_profile(account-id, profile-id);
+            }
+            save_account_color(account-id, color, generated) => {
+                root.save_account_color(account-id, color, generated);
+            }
+            delete_mail_profile(profile-id) => { root.delete_mail_profile(profile-id); }
+            save_account_markers_visibility(enabled) => {
+                root.save_account_markers_visibility(enabled);
+            }
+            save_workspace_layout(mode) => { root.save_workspace_layout(mode); }
+            save_language(language) => { root.save_language(language); }
+            save_sidebar_icon_style(monochrome) => { root.save_sidebar_icon_style(monochrome); }
+            save_notification_settings(enabled, sound-enabled, scope) => {
+                root.save_notification_settings(enabled, sound-enabled, scope);
+            }
+            save_sync_interval(minutes) => { root.save_sync_interval(minutes); }
+            save_mark_read_on_open(enabled) => { root.save_mark_read_on_open(enabled); }
+            save_group_mail_by_date(enabled) => { root.save_group_mail_by_date(enabled); }
+            save_contact_discovery_settings(outgoing, incoming, all-accounts, suggest) => {
+                root.save_contact_discovery_settings(outgoing, incoming, all-accounts, suggest);
+            }
+            clear_contact_suggestions => { return root.clear_contact_suggestions(); }
+            set_close_to_tray(enabled) => { root.set_close_to_tray(enabled); }
+            set_launch_at_login(enabled) => { root.set_launch_at_login(enabled); }
+            sync_mail => { root.sync_mail(); }
+            sync_account(account-id) => { root.sync_account(account-id); }
+            delete_account(account-id) => { root.delete_account(account-id); }
+            add_password_account(protocol, email, username, password, jmap-url, imap-host, imap-port, smtp-host, smtp-port) => {
+                root.add_password_account(protocol, email, username, password, jmap-url, imap-host, imap-port, smtp-host, smtp-port);
+            }
+            suggest_account_settings(email) => { root.suggest_account_settings(email); }
+            start_oauth(provider) => { root.start_oauth(provider); }
+            reauth_account(account-id) => { root.reauth_account(account-id); }
+            cancel_oauth => { root.cancel_oauth(); }
+            save_oauth_app(google-id, google-secret, microsoft-id) => {
+                root.save_oauth_app(google-id, google-secret, microsoft-id);
+            }
+            set-remote-images(enabled) => { root.set-remote-images(enabled); }
+            make_account_transfer(value) => root.make_account_transfer(value);
+            read_account_transfer(value) => root.read_account_transfer(value);
+            settings-search-matches(haystack, query) => root.settings-search-matches(haystack, query);
+            reorder_account(source, target, after) => { root.reorder_account(source, target, after); }
+            save_account_mail_history(account-id, value) => { root.save_account_mail_history(account-id, value); }
+            save_account_sent_copy_policy(account-id, value) => { root.save_account_sent_copy_policy(account-id, value); }
+            connect_account_calendar(account-id) => { root.connect_account_calendar(account-id); }
+            set_account_calendar_enabled(account-id, enabled) => { root.set_account_calendar_enabled(account-id, enabled); }
+            connect_caldav(account-id, url, username, password) => { root.connect_caldav(account-id, url, username, password); }
+            connect_carddav(account-id, url, username, password) => { root.connect_carddav(account-id, url, username, password); }
+            set_account_carddav_enabled(account-id, enabled) => { root.set_account_carddav_enabled(account-id, enabled); }
+            disconnect_carddav(account-id) => { root.disconnect_carddav(account-id); }
+            export_account_backup => { root.export_account_backup(); }
+            import_account_backup => { root.import_account_backup(); }
+            export_database_snapshot => { root.export_database_snapshot(); }
+            delete_all_data => { root.delete_all_data(); }
+            load_storage_usage => { root.load_storage_usage(); }
+            open-link(url) => { root.open_email_link(url); }
+        }
+        }
+
+        if root.compose_open : ComposeDialog {
+
+            in property <int> back-request: root.compose-back-request;
+            changed back-request => { if (self.back-request > 0) { self.back-requested(); } }
+            compact: root.compact-layout;
+            attachment-picker-supported: root.document_apis_supported;
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            accent: root.accent;
+            accent-soft: root.accent-soft;
+            body-text: root.body-text;
+            border: root.border;
+            border-subtle: root.border-subtle;
+            control-bg: root.control-bg;
+            muted-control-bg: root.muted-control-bg;
+            muted-text: root.muted-text;
+            secondary-text: root.secondary-text;
+            surface: root.surface;
+            surface-raised: root.surface-raised;
+            title-color: root.title-color;
+            compose_open <=> root.compose_open;
+            compose_mode: root.compose_mode;
+            compose_to <=> root.compose_to;
+            compose_cc <=> root.compose_cc;
+            compose_bcc <=> root.compose_bcc;
+            compose_subject <=> root.compose_subject;
+            compose_body <=> root.compose_body;
+            compose_sending: root.compose_sending;
+            compose_accounts: root.connected_accounts;
+            compose_account_id <=> root.compose_account_id;
+            compose_contact_suggestions: root.compose_contact_suggestions;
+            compose_attachments: root.compose_attachments;
+            compose_templates: root.compose_templates;
+            compose_attachment_summary: root.compose_attachment_summary;
+            compose_from_label <=> root.compose_from_label;
+            compose_notice: root.compose_notice;
+            compose_notice_is_error: root.compose_notice_is_error;
+            compose_selection_start: root.compose_selection_start;
+            compose_selection_end: root.compose_selection_end;
+            compose_editor_tiles: root.compose_editor_tiles;
+            compose_editor_content_height: root.compose_editor_content_height;
+            compose_editor_caret_x: root.compose_editor_caret_x;
+            compose_editor_caret_y: root.compose_editor_caret_y;
+            compose_editor_caret_height: root.compose_editor_caret_height;
+            compose_bold_active: root.compose_bold_active;
+            compose_italic_active: root.compose_italic_active;
+            compose_underline_active: root.compose_underline_active;
+            compose_strike_active: root.compose_strike_active;
+            compose_code_active: root.compose_code_active;
+            compose_active_link_url: root.compose_active_link_url;
+            close_compose => { root.close_compose(); }
+            save_compose(account-id, to, cc, bcc, subject, body, send-now) => {
+                root.save_compose(account-id, to, cc, bcc, subject, body, send-now);
+            }
+            pick_compose_attachments => { root.pick_compose_attachments(); }
+            remove_compose_attachment(index) => { root.remove_compose_attachment(index); }
+            format_compose(kind, body, anchor, cursor) => {
+                root.format_compose(kind, body, anchor, cursor);
+            }
+            link_compose(url, body, anchor, cursor) => {
+                root.link_compose(url, body, anchor, cursor);
+            }
+            edit_compose_body(body, anchor, cursor, key-text) => { root.edit_compose_body(body, anchor, cursor, key-text); }
+            update_compose_selection(body, anchor, cursor) => { root.update_compose_selection(body, anchor, cursor); }
+            compose_history(direction) => { root.compose_history(direction); }
+            compose_editor_pointer_event(x, y, kind, control, shift, alt, meta) => {
+                root.compose_editor_pointer_event(x, y, kind, control, shift, alt, meta);
+            }
+            compose_editor_key_event(key, control, shift, alt, meta) => {
+                root.compose_editor_key_event(key, control, shift, alt, meta)
+            }
+            compose_editor_layout_changed(width, height, scroll-y, preedit) => {
+                root.compose_editor_width = width;
+                root.compose_editor_viewport_height = height;
+                root.compose_editor_scroll_y = scroll-y;
+                root.compose_editor_preedit_text = preedit;
+                root.compose_editor_layout_changed();
+            }
+            search_compose_contacts(query, account-id) => { root.search_compose_contacts(query, account-id); }
+            select_compose_contact(index, recipients) => root.select_compose_contact(index, recipients);
+            refresh_email_templates => { root.refresh_email_templates(); }
+            use_email_template(id) => root.use_email_template(id);
+            save_email_template(id, name, shortcut, subject, body) => root.save_email_template(id, name, shortcut, subject, body);
+            delete_email_template(id) => root.delete_email_template(id);
+        }
+
+        // The rail width comes from the shared workspace geometry. Its hover label is
+        // rendered here, above the adjacent workspace, so it can extend right
+        // of the icon without being clipped by the rail component.
+        Rectangle {
+            visible: !root.compact-layout && product-rail.tooltip-text != "";
+            x: LayoutMetrics.product-rail-width + 6px;
+            y: product-rail.tooltip-y;
+            width: rail-tooltip-label.preferred-width + 16px;
+            height: 28px;
+            border-radius: 5px;
+            background: #292929;
+            z: 10000;
+
+            rail-tooltip-label := Text {
+                text: product-rail.tooltip-text;
+                color: white;
+                font-size: TypeScale.secondary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    if root.trash-delete-open : ConfirmationDialog {
+        x: root.content-x;
+        y: root.content-y;
+        width: root.content-width;
+        height: root.content-height;
+        z: 16000;
+        open <=> root.trash-delete-open;
+        title: root.trash-delete-kind == "empty" ? @tr("Empty Trash?") : @tr("Delete permanently?");
+        subject: "";
+        description: root.trash-delete-kind == "empty"
+            ? root.trash-delete-id == 0 || (root.trash-delete-id < 0 && root.selected_scope == "Unified Trash")
+                ? @tr("Permanently delete all messages in Trash across every connected account?")
+                : @tr("Permanently delete all messages in this account’s Trash?")
+            : root.trash-delete-kind == "bulk"
+                ? @tr("Permanently delete the selected conversations from Trash?")
+                : @tr("Permanently delete this conversation from Trash?");
+        detail: @tr("This action cannot be undone.");
+        confirm-label: root.trash-delete-kind == "empty" ? @tr("Empty Trash") : @tr("Delete permanently");
+        icon: @image-url("icons/lucide/outline/trash.svg");
+        surface: root.surface;
+        dialog-border-color: root.border;
+        title-color: root.title-color;
+        body-color: root.body-text;
+        muted-color: root.muted-text;
+        confirmed => {
+            if root.trash-delete-kind == "empty" { root.empty_trash(root.trash-delete-id); }
+            else if root.trash-delete-kind == "bulk" { root.bulk_message_action("delete_permanently"); }
+            else if root.trash-delete-kind == "row" { root.message_action_for_email(root.trash-delete-id, "delete_permanently"); }
+            else { root.message_action("delete_permanently"); }
+        }
+    }
+
+    if root.folder-dialog-open : FolderDialog {
+        x: root.content-x;
+        y: root.content-y;
+        width: root.content-width;
+        height: root.content-height;
+        z: 15000;
+        mode: root.folder-dialog-mode;
+        item-kind: root.folder-dialog-item-kind;
+        name <=> root.folder-dialog-name;
+        parent-name: root.folder-dialog-parent-name;
+        has-descendants: root.folder-dialog-has-descendants;
+        surface-color: root.surface;
+        raised-color: root.control-bg;
+        ui-border-color: root.border;
+        accent-color: root.accent;
+        title-color: root.title-color;
+        body-color: root.body-text;
+        muted-color: root.muted-text;
+        cancel => { root.folder-dialog-open = false; }
+        submit(name) => {
+            root.folder-dialog-open = false;
+            if (root.folder-dialog-item-kind == "label") {
+                root.save_mail_label(
+                    root.folder-dialog-folder-id,
+                    root.folder-dialog-account-id,
+                    name,
+                    root.folder-dialog-label-color,
+                    false,
+                    root.folder-dialog-parent-label-id,
+                );
+                if (root.folder-dialog-parent-label-id >= 0) {
+                    root.toggle_sidebar_section(
+                        "gmail-label:" + root.folder-dialog-account-id + ":" + root.folder-dialog-parent-label-id,
+                        true,
+                    );
+                }
+            } else if (root.folder-dialog-mode == "create") {
+                root.create-folder(root.folder-dialog-account-id, root.folder-dialog-parent-id, name);
+            } else {
+                root.rename-folder(root.folder-dialog-folder-id, name);
+            }
+        }
+        confirm-delete => {
+            root.folder-dialog-open = false;
+            if (root.folder-dialog-item-kind == "label") {
+                root.delete_mail_label(root.folder-dialog-folder-id);
+            } else {
+                root.delete-folder(root.folder-dialog-folder-id);
+            }
+        }
+    }
+
+    // Slint conditional elements are instantiated lazily. The comparatively
+    // large onboarding form is unnecessary on normal launches with an account.
+    if root.startup_ready && root.connected_accounts.length == 0 : OnboardingView {
+        x: root.content-x;
+        y: root.content-y;
+        width: root.content-width;
+        height: root.content-height;
+        startup-ready: root.startup_ready;
+        account-setup-in-progress: root.account_setup_in_progress;
+        oauth-in-progress: root.oauth_in_progress;
+        oauth-settings-saving: root.oauth_settings_saving;
+        oauth-settings-error <=> root.oauth_settings_error;
+        google-available: root.google_oauth_available;
+        microsoft-available: root.microsoft_oauth_available;
+        google-bundled: root.google_oauth_bundled;
+        microsoft-bundled: root.microsoft_oauth_bundled;
+        google-client-id: root.google_client_id;
+        google-client-secret: root.google_client_secret;
+        ms-client-id: root.ms_client_id;
+        oauth-setup-open <=> root.oauth_setup_open;
+        save-oauth-apps(google-id, google-secret, microsoft-id) => {
+            root.save_oauth_apps(google-id, google-secret, microsoft-id);
+        }
+        status: root.sync_status;
+        page-bg: root.page-bg;
+        surface: root.surface;
+        hover-surface: root.muted-control-bg;
+        title-color: root.title-color;
+        body-text: root.body-text;
+        muted-text: root.muted-text;
+        ui-border: root.border;
+        imap-form-open <=> root.onboarding_form_open;
+        account-email <=> root.account_email;
+        account-password <=> root.account_password;
+        account-protocol <=> root.account_protocol;
+        jmap-url <=> root.jmap_url;
+        imap-security <=> root.imap_security;
+        smtp-security <=> root.smtp_security;
+        trusted-certificate-pem <=> root.trusted_certificate_pem;
+        advanced <=> root.advanced;
+        account-username <=> root.account_username;
+        oauth-authorization-url: root.oauth_authorization_url;
+        oauth-browser-error: root.oauth_browser_error;
+        retry-oauth-browser => { root.retry_oauth_browser(); }
+        copy-oauth-link => { root.copy_oauth_link(); }
+        submit-oauth-redirect(address) => { root.submit_oauth_redirect(address); }
+        import-mail-certificate => { root.import_mail_certificate(); }
+        browse-local-folder(file) => { root.browse_local_folder(file); }
+        imap-host <=> root.imap_host;
+        imap-port <=> root.imap_port;
+        smtp-host <=> root.smtp_host;
+        smtp-port <=> root.smtp_port;
+        add-password-account(protocol, email, username, password, jmap-url, imap-host, imap-port, smtp-host, smtp-port) => {
+            root.add_password_account(protocol, email, username, password, jmap-url, imap-host, imap-port, smtp-host, smtp-port);
+        }
+        suggest-account-settings(email) => { root.suggest_account_settings(email); }
+        start-oauth(provider) => {
+            root.connect_calendar_on_add = false;
+            root.start_oauth(provider);
+        }
+        cancel-oauth => { root.cancel_oauth(); }
+        import-account-backup => {
+            root.import_account_backup();
+            if (root.connected_accounts.length > 0) {
+                root.settings_tab = "Accounts";
+                root.settings_open = true;
+            }
+        }
+    }
+
+    // Keep the progressively painted shell inert until its callbacks have a
+    // core behind them. This disappears as soon as the first page lands.
+    if !root.startup_ready : TouchArea {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        z: 20000;
+    }
+
+    if root.startup_failed : Rectangle {
+        x: root.content-x;
+        y: root.content-y;
+        width: root.content-width;
+        height: root.content-height;
+        background: root.page-bg;
+        z: 30000;
+
+        startup-card := Rectangle {
+            width: 460px.min(parent.width - 32px);
+            height: 330px.min(parent.height - 32px);
+            private property <bool> cramped: parent.height < 420px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            border-radius: 12px;
+            border-width: 1px;
+            border-color: root.border;
+            background: root.surface;
+            accessible-role: groupbox;
+            accessible-label: @tr("Mailbox startup failed");
+
+            VerticalLayout {
+                padding: parent.cramped ? 12px : 24px;
+                spacing: parent.cramped ? 8px : 12px;
+                Text {
+                    text: @tr("Rustmail could not open local storage");
+                    color: root.title-color;
+                    font-size: TypeScale.heading;
+                    font-weight: 700;
+                    wrap: word-wrap;
+                }
+                Text {
+                    text: root.startup_error;
+                    color: root.body-text;
+                    font-size: TypeScale.body;
+                    wrap: word-wrap;
+                }
+                Text {
+                    text: @tr("Diagnostic ID: {}", root.startup_diagnostic_id);
+                    color: root.muted-text;
+                    font-size: TypeScale.secondary;
+                    accessible-label: @tr("Diagnostic ID {}", root.startup_diagnostic_id);
+                }
+                Rectangle { vertical-stretch: 1; }
+                Button {
+                    height: root.content-height < 420px ? 44px : 48px;
+                    text: @tr("Retry");
+                    primary: true;
+                    clicked => {
+                        root.retry-startup();
+                    }
+                }
+                Button {
+                    height: root.content-height < 420px ? 44px : 48px;
+                    text: @tr("Copy diagnostics");
+                    clicked => {
+                        diagnostic-copy.text = root.diagnostics_text;
+                        diagnostic-copy.select-all();
+                        diagnostic-copy.copy();
+                    }
+                }
+            }
+
+            // Slint's native text input is the cross-platform clipboard bridge.
+            diagnostic-copy := TextInput {
+                width: 1px;
+                height: 1px;
+                opacity: 0;
+            }
+        }
+    }
+    AttachmentPreviewDialog {
+        x: root.content-x; y: root.content-y;
+        width: root.content-width;
+        height: root.content-height;
+        compact: root.compact-layout;
+    }
+
+    OpenPgpReader { width: parent.width; height: parent.height; }
+
+    // Keep the startup shell movable while its input is blocked.
+    if WindowChrome.controls-visible && !root.startup_ready : WindowDragArea {
+        x: root.content-x;
+        y: root.safe-area-insets.top;
+        width: root.content-width;
+        height: WindowChrome.band-height;
+        z: 20001;
+    }
+
+    if root.toast_text != "" : Rectangle {
+        z: 45000;
+        width: min(560px, root.width - 32px);
+        height: max(44px, toast-label.preferred-height + 24px);
+        x: (root.width - self.width) / 2;
+        y: root.height - self.height - 28px;
+        background: AppTheme.surface;
+        border-radius: 10px;
+        border-width: 1px;
+        border-color: AppTheme.control-border;
+        drop-shadow-blur: 16px;
+        drop-shadow-offset-y: 4px;
+        drop-shadow-color: #00000044;
+        accessible-role: groupbox;
+        accessible-label: root.toast_text;
+        toast-label := Text {
+            x: 16px;
+            y: 12px;
+            width: parent.width - 56px;
+            text: root.toast_text;
+            wrap: word-wrap;
+            color: AppTheme.heading;
+            font-size: TypeScale.secondary;
+        }
+        TouchArea {
+            x: parent.width - 40px;
+            y: 0px;
+            width: 40px;
+            height: 44px;
+            mouse-cursor: pointer;
+            accessible-role: button;
+            accessible-label: @tr("Dismiss");
+            accessible-action-default => { root.toast-message = { key: "", argument: "", second_argument: "", third_argument: "" }; }
+            clicked => { root.toast-message = { key: "", argument: "", second_argument: "", third_argument: "" }; }
+            Text { text: "×"; color: AppTheme.secondary; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
+        }
+    }
+    Timer {
+        interval: 9s;
+        running: root.toast_text != "";
+        triggered => { root.toast-message = { key: "", argument: "", second_argument: "", third_argument: "" }; }
+    }
+
+    // Above every layer, including startup and modal overlays, so the window
+    // can always be minimized, maximized and closed.
+    if root.top-bar : WindowTopBar {
+        x: root.content-x;
+        y: root.safe-area-insets.top;
+        width: root.content-width;
+        height: WindowChrome.band-height;
+        z: 40000;
+        // The active tab follows the open conversation or mailbox.
+        live-title: root.active_view != "mail" ? ""
+            : root.has_selected && root.selected_subject != "" ? root.selected_subject
+            : root.selected_scope_title;
+        background-color: root.sidebar-bg;
+        divider-color: root.border;
+        title-color: root.title-color;
+        accent-color: root.accent;
+        active-tab-background: AppTheme.surface;
+        hover-background: AppTheme.muted-control-bg;
+        muted-color: root.muted-text;
+    }
+
+    if WindowChrome.controls-visible : WindowControls {
+        x: root.content-x;
+        y: root.safe-area-insets.top;
+        width: root.content-width;
+        height: WindowChrome.band-height;
+        z: 50000;
+        maximized: root.maximized;
+        foreground: root.title-color;
+        background-color: AppTheme.surface;
+    }
+
+    if root.client-frame : Rectangle {
+        z: 50001;
+        border-width: 1px;
+        border-color: AppTheme.control-border;
+    }
+}

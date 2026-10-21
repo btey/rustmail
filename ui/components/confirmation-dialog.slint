@@ -1,0 +1,122 @@
+import { HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { Button } from "button.slint";
+import { TypeScale } from "../typography.slint";
+
+// Reusable destructive confirmation overlay. The scrim intentionally does
+// not dismiss the dialog: data deletion must end in an explicit choice.
+export component ConfirmationDialog inherits Rectangle {
+    in-out property <bool> open: false;
+    in property <string> title;
+    in property <string> subject;
+    in property <string> description;
+    in property <string> detail: @tr("This action cannot be undone.");
+    in property <string> confirm-label: @tr("Confirm");
+    in property <string> cancel-label: @tr("Cancel");
+    in property <image> icon;
+    in property <color> surface;
+    in property <color> dialog-border-color;
+    in property <color> title-color;
+    in property <color> body-color;
+    in property <color> muted-color;
+    in property <color> danger-color: #d04a43;
+    callback confirmed;
+    callback cancelled;
+    private property <bool> confirm-selected: false;
+
+    visible: root.open;
+    background: #00000088;
+    z: 1000;
+    // Slint has no dialog accessibility role; groupbox is the closest
+    // semantic container, while the focused scope owns keyboard interaction.
+    accessible-role: groupbox;
+    accessible-label: root.title;
+
+    function cancel() {
+        root.open = false;
+        root.cancelled();
+    }
+
+    function confirm() {
+        root.open = false;
+        root.confirmed();
+    }
+
+    changed open => {
+        if root.open {
+            root.confirm-selected = false;
+            dialog-focus.focus();
+        }
+    }
+
+    // Consume pointer input over the entire scrim without closing.
+    TouchArea { enabled: root.open; }
+
+    panel := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(460px, parent.width - 32px);
+        height: max(244px, dialog-content.preferred-height);
+        border-radius: 12px;
+        border-width: 1px;
+        border-color: root.dialog-border-color;
+        background: root.surface;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 8px;
+        drop-shadow-color: #00000055;
+
+        dialog-focus := FocusScope {
+            key-pressed(event) => {
+                if event.text == Key.Escape {
+                    root.cancel();
+                    return accept;
+                }
+                if event.text == Key.Tab {
+                    root.confirm-selected = !root.confirm-selected;
+                    return accept;
+                }
+                if event.text == Key.Return || event.text == Key.Space {
+                    if root.confirm-selected {
+                        root.confirm();
+                    } else {
+                        root.cancel();
+                    }
+                    return accept;
+                }
+                reject
+            }
+
+            dialog-content := VerticalBox {
+                padding-top: 22px;
+                padding-right: 22px;
+                padding-bottom: 20px;
+                padding-left: 22px;
+                spacing: 12px;
+
+                HorizontalBox {
+                    height: max(panel.width < 360px ? 56px : 42px, dialog-title.preferred-height + 16px);
+                    spacing: 12px;
+                    Rectangle {
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 21px;
+                        background: #d04a4324;
+                        Image { x: 11px; y: 11px; width: 20px; height: 20px; source: root.icon; colorize: root.danger-color; image-fit: contain; accessible-role: none; }
+                    }
+                    dialog-title := Text { text: root.title; color: root.title-color; font-size: TypeScale.heading; font-weight: 700; vertical-alignment: center; wrap: word-wrap; }
+                }
+
+                if root.subject != "" : Text { text: root.subject; color: root.body-color; font-size: TypeScale.secondary; font-weight: 600; wrap: char-wrap; }
+                Text { min-height: 42px; text: root.description; color: root.body-color; font-size: TypeScale.secondary; wrap: word-wrap; vertical-alignment: center; }
+                Text { min-height: 26px; text: root.detail; color: root.muted-color; font-size: TypeScale.caption; wrap: word-wrap; vertical-alignment: center; }
+                Rectangle { vertical-stretch: 1; }
+
+                GridLayout {
+                    height: panel.width < 360px ? 76px : 34px;
+                    spacing: 8px;
+                    Button { row: 0; col: 0; height: 34px; text: root.cancel-label; selected: !root.confirm-selected; clicked => { root.cancel(); } }
+                    Button { row: panel.width < 360px ? 1 : 0; col: panel.width < 360px ? 0 : 1; height: 34px; text: root.confirm-label; destructive: true; clicked => { root.confirm(); } }
+                }
+            }
+        }
+    }
+}

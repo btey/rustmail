@@ -1,0 +1,231 @@
+[workspace]
+members = ["crates/rustmail-core", "crates/renderer-probe"]
+exclude = ["crates/candle-core", "crates/blitz-dom", "crates/blitz-paint", "crates/parley", "crates/parley_emoji"]
+resolver = "3"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "fs"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+
+[patch.crates-io]
+# Remove when Candle releases ZIP 9 support; see patches/candle/README.md.
+candle-core = { path = "crates/candle-core" }
+blitz-dom = { path = "crates/blitz-dom" }
+blitz-paint = { path = "crates/blitz-paint" }
+# Slint still uses Parley 0.11.1; Blitz's Parley 0.12 is already fixed upstream.
+parley = { path = "crates/parley" }
+
+[package]
+name = "rustmail"
+version = "0.1.0-alpha.7"
+description = "A native email client built with Rust, Slint, and Blitz"
+license = "AGPL-3.0-only"
+repository = "https://github.com/rustmail/rustmail"
+homepage = "https://rustmail.org"
+publish = false
+edition = "2024"
+rust-version = "1.92"
+build = "build.rs"
+autobins = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "rustmail"
+path = "src/desktop.rs"
+
+[features]
+# Desktop builds include both renderers. The saved runtime preference defaults
+# to CPU, which does not initialize WGPU. Minimal builds opt out below.
+default = ["remote-content", "gpu-renderer"]
+gpu-renderer = [
+    "dep:anyrender_vello",
+    "dep:vello",
+    "slint/renderer-femtovg-wgpu",
+    "slint/unstable-wgpu-30",
+]
+# Normal builds include the bounded image-loader capability, but the persisted
+# runtime setting remains off by default. `--no-default-features` omits all
+# remote body-image loading code for a capability-free minimal build.
+remote-content = []
+# The Flatpak sandbox omits Slint's legacy StatusNotifierItem integration.
+# Native packages retain the system tray and close-to-tray behavior.
+flatpak = []
+
+[dependencies]
+arboard = { version = "3.6", default-features = false, features = ["wayland-data-control"] }
+rfd = { version = "0.16", default-features = false, features = ["tokio", "xdg-portal"] }
+pdfium-render = { version = "=0.9.4", default-features = false, features = ["pdfium_7881", "thread_safe"] }
+anyrender = "0.14"
+anyrender_vello = { version = "0.15", optional = true }
+anyrender_vello_cpu = "0.18"
+# Email templates use CSS floats and legacy table/image align attributes.
+# Keep float layout enabled on every platform, including minimal builds.
+blitz-dom = { version = "=0.3.0-beta.3", features = ["floats"] }
+blitz-html = "=0.3.0-beta.3"
+blitz-paint = "=0.3.0-beta.3"
+blitz-traits = "=0.3.0-beta.3"
+base64 = "0.22"
+percent-encoding = "2"
+data-url = "0.3"
+html5ever = "0.40"
+# Snapshot archives one verified database snapshot for the document provider.
+zip = { version = "9.0.4", default-features = false }
+cssparser = "0.38"
+# Match Blitz's Stylo version when adapting resolved CSS colors and gradients.
+style = { package = "stylo", version = "=0.22.0" }
+style_traits = { package = "stylo_traits", version = "=0.22.0" }
+unicode-segmentation = "1.13"
+# Parley 0.12 includes the upstream emoji presentation fix.
+parley = "=0.12.0"
+pulldown-cmark = "0.13.4"
+vello = { version = "0.11", optional = true }
+# This native shell currently exposes keyword/FTS search, not local semantic
+# search. Do not link Candle, tokenizers, or Hugging Face into every AppImage.
+rustmail-core = { path = "crates/rustmail-core", default-features = false }
+# Slint uses Fontique 0.11; Blitz beta.3 uses 0.12. Both must load
+# Fontconfig dynamically so the rendering stacks agree on the native ABI.
+fontique_0_11 = { package = "fontique", version = "=0.11.1", features = ["fontconfig-dlopen"] }
+fontique_0_12 = { package = "fontique", version = "=0.12.0", features = ["fontconfig-dlopen"] }
+chrono.workspace = true
+cosmic-text = { version = "0.19", default-features = false, features = ["std", "swash"] }
+image = { version = "0.25", default-features = false, features = ["gif", "ico", "jpeg", "png", "webp"] }
+keyboard-types = "0.7"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
+sha2 = "0.10"
+serde.workspace = true
+serde_json.workspace = true
+sys-locale = "0.3"
+tempfile = "3"
+# The application paints its own controls on Slint's winit backend. Desktop
+# Linux enables both Wayland and X11; Apple and Windows use their native winit
+# integrations. Android supplies its dedicated activity backend separately.
+# The `gpu-renderer` feature adds WGPU and exposes its device/queue to Vello.
+slint = { version = "1.18.1", default-features = false, features = [
+    "std",
+    "renderer-software",
+    "system-tray",
+    "unstable-fontique-011",
+    "compat-1-2",
+] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "net", "io-util", "fs", "process"] }
+tracing.workspace = true
+unicode-properties = { version = "0.1", default-features = false, features = ["emoji"] }
+url = "2"
+webbrowser = "1.2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_System_JobObjects",
+    "Win32_System_Memory",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# Cargo cannot evaluate build.rs aliases; this is `linux_desktop`.
+[target.'cfg(all(target_os = "linux", not(target_env = "ohos")))'.dependencies]
+ashpd = { version = "0.11", default-features = false, features = ["tokio"] }
+landlock = "0.4.7"
+seccompiler = "0.5"
+slint = { version = "1.18.1", default-features = false, features = ["backend-winit", "unstable-winit-030"] }
+# Integrated window controls follow live desktop settings from the portal
+# stream and ask X11 window managers for their window menu. Both crates are
+# already part of the Linux build through ashpd and winit.
+futures-util = { version = "0.3", default-features = false }
+x11rb = { version = "0.13", default-features = false }
+# A forwarded launch hands its activation token to the running window through
+# winit's own Wayland connection. Winit already builds these crates with the
+# same features.
+wayland-backend = { version = "0.3", default-features = false, features = ["client_system"] }
+wayland-client = { version = "0.31", default-features = false }
+wayland-protocols = { version = "0.32", default-features = false, features = ["client", "staging"] }
+
+# Integrated window frames use winit window attributes and native window events.
+[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
+slint = { version = "1.18.1", default-features = false, features = ["backend-winit", "unstable-winit-030"] }
+
+# The integrated title bar adjusts the native window, which winit cannot
+# change after creation. These AppKit bindings are already in the build.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6", default-features = false, features = ["std"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSButton", "NSControl", "NSResponder", "NSView", "NSWindow"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSAppleEventManager", "NSError", "NSGeometry", "NSString", "NSUserDefaults"] }
+# Registers the bundled sign-in agent with Login Items (macOS 13+).
+objc2-service-management = { version = "0.3", default-features = false, features = ["std", "objc2", "objc2-foundation", "SMAppService"] }
+
+
+[package.metadata.appimage]
+icon = "resources/app-icon/rustmail-masked-512.png"
+desktop_entry = "resources/org.rustmail.mail.desktop"
+auto_link = true
+auto_link_exclude_list = [
+    "ld-linux*.so*",
+    "libc.so*",
+    "libdl.so*",
+    "libgcc_s.so*",
+    "libm.so*",
+    "libpthread.so*",
+    "librt.so*",
+    "libstdc++.so*",
+]
+
+# The Fontique alias deliberately aligns a feature across Slint's and Blitz's
+# transitive font stacks. `wayland-backend` is reached through
+# `wayland_client::backend`; the direct dependency guarantees its
+# `client_system` feature, which attaching to winit's display requires.
+# `slint-build`, and Windows-only `winresource` are consumed by build.rs.
+# These do not appear as normal Rust paths on every host, so dependency
+# scanners need the explicit exceptions.
+[package.metadata.cargo-machete]
+ignored = ["fontique_0_11", "fontique_0_12", "wayland-backend", "slint-build", "winresource", "cfg_aliases"]
+
+# tests/text_fit.rs measures laid-out text through Slint's item tree, which
+# only the internal crate exposes. It must stay on the version `slint` uses.
+[dev-dependencies]
+i-slint-core = { version = "=1.18.1", default-features = false }
+
+[build-dependencies]
+cfg_aliases = "0.2"
+slint-build = "1.18.1"
+winresource = "0.1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "unwind"
+strip = "symbols"
+
+# Full DWARF for this renderer/protocol dependency graph consumes many GiB and
+# makes every integration-test binary expensive to link. Line tables preserve
+# useful file/line backtraces while keeping development builds substantially
+# smaller and less memory-hungry.
+[profile.dev]
+debug = 1
+# Rustmail draws its whole interface with Slint's software renderer and lays
+# out email with Blitz, so unoptimised builds are unusably slow. Optimise the
+# application lightly and every dependency fully; the dependencies change
+# rarely, so their one-time compile cost is paid once per lockfile change.
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.test]
+debug = 1

@@ -1,0 +1,149 @@
+import { Button } from "../components/button.slint";
+import { TypeScale } from "../typography.slint";
+
+// Folder editing belongs to the application overlay layer. Keeping this out of
+// the sidebar prevents clipping and centers the decision in the full window.
+export component FolderDialog inherits Rectangle {
+    in property <string> item-kind: "folder";
+    in property <string> mode: "create";
+    in-out property <string> name: "";
+    in property <string> parent-name: "";
+    in property <bool> has-descendants: false;
+    in property <color> surface-color;
+    in property <color> raised-color;
+    in property <color> ui-border-color;
+    in property <color> accent-color;
+    in property <color> title-color;
+    in property <color> body-color;
+    in property <color> muted-color;
+    callback cancel;
+    callback submit(string);
+    callback confirm-delete;
+
+    background: #00000066;
+    forward-focus: folder-name-input;
+    accessible-role: groupbox;
+    accessible-label: root.mode == "create" && root.item-kind == "label" ? @tr("New label")
+        : root.mode == "create" ? @tr("New folder")
+        : root.mode == "rename" && root.item-kind == "label" ? @tr("Rename label")
+        : root.mode == "rename" ? @tr("Rename folder")
+        : root.item-kind == "label" ? @tr("Delete label?")
+        : @tr("Delete folder?");
+
+    TouchArea { }
+
+    dialog-card := Rectangle {
+        width: min(420px, parent.width - 32px);
+        // The message and name field follow the heading, which grows with the platform font.
+        height: root.mode == "delete"
+            ? folder-message.y + folder-message.height + 86px
+            : folder-name-frame.y + folder-name-frame.height + 86px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        border-radius: 12px;
+        border-width: 1px;
+        border-color: root.ui-border-color;
+        background: root.surface-color;
+
+        folder-heading := Text {
+            x: 22px;
+            y: 20px;
+            width: parent.width - 44px;
+            height: max(28px, self.preferred-height);
+            text: root.mode == "create" && root.item-kind == "label" ? @tr("New label")
+                : root.mode == "create" ? @tr("New folder")
+                : root.mode == "rename" && root.item-kind == "label" ? @tr("Rename label")
+                : root.mode == "rename" ? @tr("Rename folder")
+                : root.item-kind == "label" ? @tr("Delete label?")
+                : @tr("Delete folder?");
+            color: root.title-color;
+            font-size: TypeScale.heading;
+            font-weight: 700;
+            overflow: elide;
+        }
+
+        folder-message := Text {
+            x: 22px;
+            y: folder-heading.y + folder-heading.height + 6px;
+            width: parent.width - 44px;
+            height: max(root.mode == "delete" ? 54px : 34px, self.preferred-height);
+            text: root.mode == "delete"
+                ? root.item-kind == "label"
+                    ? root.has-descendants
+                        ? @tr("Delete “{}” and all nested labels from “{}”? Messages will not be deleted.", root.name, root.parent-name)
+                        : @tr("Delete “{}” from “{}”? Messages will not be deleted.", root.name, root.parent-name)
+                    : @tr("Delete “{}” and its contents from the mail server?", root.name)
+                : root.mode == "rename"
+                    ? root.item-kind == "label"
+                        ? @tr("Rename this label in “{}”.", root.parent-name)
+                        : @tr("Enter a new name for this folder.")
+                : root.item-kind == "label"
+                    ? @tr("Create a label in “{}”.", root.parent-name)
+                : root.parent-name == ""
+                    ? @tr("Create at the top level")
+                    : @tr("Inside “{}”", root.parent-name);
+            color: root.muted-color;
+            font-size: TypeScale.secondary;
+            wrap: word-wrap;
+        }
+
+        folder-name-frame := Rectangle {
+            visible: root.mode != "delete";
+            x: 22px;
+            y: folder-message.y + folder-message.height + 10px;
+            width: parent.width - 44px;
+            height: 40px;
+            border-radius: 6px;
+            border-width: 1px;
+            border-color: folder-name-input.has-focus ? root.accent-color : root.ui-border-color;
+            background: root.raised-color;
+            forward-focus: folder-name-input;
+
+            folder-name-input := TextInput {
+                x: 11px;
+                width: parent.width - 22px;
+                height: parent.height;
+                text <=> root.name;
+                enabled: root.mode != "delete";
+                color: root.body-color;
+                font-size: TypeScale.body;
+                single-line: true;
+                vertical-alignment: center;
+                accepted => {
+                    if self.text != "" {
+                        root.submit(self.text);
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            x: 22px;
+            y: parent.height - 54px;
+            width: parent.width - 44px;
+            height: 34px;
+            spacing: 8px;
+            Rectangle { horizontal-stretch: 1; }
+            Button {
+                text: @tr("Cancel");
+                clicked => { root.cancel(); }
+            }
+            Button {
+                text: root.mode == "delete" ? @tr("Delete")
+                    : root.mode == "create" && root.item-kind == "label" ? @tr("Create label")
+                    : root.mode == "create" ? @tr("Create folder")
+                    : @tr("Save");
+                destructive: root.mode == "delete";
+                primary: root.mode != "delete";
+                enabled: root.mode == "delete" || root.name != "";
+                clicked => {
+                    if root.mode == "delete" {
+                        root.confirm-delete();
+                    } else {
+                        root.submit(root.name);
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,550 @@
+name: Native platform artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_linux:
+        description: Build Linux packages
+        type: boolean
+        default: true
+      include_windows:
+        description: Build Windows packages
+        type: boolean
+        default: true
+      include_macos:
+        description: Build macOS packages
+        type: boolean
+        default: true
+      run_quality:
+        description: Run the full quality suite (disable only for manual packaging checks)
+        type: boolean
+        default: true
+  pull_request:
+    paths:
+      - ".github/workflows/native-platforms.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "build.rs"
+      - "packaging/**"
+      - "resources/**"
+      - "scripts/**"
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  quality:
+    needs: metadata
+    if: github.event_name == 'push' || inputs.run_quality
+    name: Release quality gate
+    uses: ./.github/workflows/quality.yml
+
+  metadata:
+    name: Release preflight
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      native_version: ${{ steps.version.outputs.native_version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      source_date_epoch: ${{ steps.source.outputs.source_date_epoch }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Use the source commit timestamp
+        id: source
+        run: |
+          epoch="$(git show -s --format=%ct HEAD)"
+          echo "SOURCE_DATE_EPOCH=$epoch" >> "$GITHUB_ENV"
+          echo "source_date_epoch=$epoch" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+      - name: Install preflight tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y appstream desktop-file-utils dpkg-dev
+      - name: Check release metadata and packaging
+        id: version
+        env:
+          IS_TAG_PUSH: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+        run: |
+          if [[ "$IS_TAG_PUSH" == true ]]; then
+            bash scripts/check-release.sh --tag "$GITHUB_REF_NAME"
+          else
+            bash scripts/check-release.sh
+          fi
+
+  linux:
+    needs: metadata
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || inputs.include_linux
+    name: Linux packages (x64)
+    runs-on: ubuntu-22.04
+    env:
+      SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.source_date_epoch }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            appstream \
+            build-essential \
+            desktop-file-utils \
+            file \
+            libdbus-1-dev \
+            libfontconfig1-dev \
+            libx11-dev \
+            libx11-xcb-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxcursor-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            pkg-config \
+            python3 \
+            wget \
+            xinput \
+            xvfb
+
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          cache-on-failure: true
+          key: native-linux-x64
+
+      - name: Validate desktop metadata
+        run: |
+          desktop-file-validate resources/org.rustmail.mail.desktop
+          # Network checks make private pre-publication repositories look like
+          # broken URLs. Flathub performs its own online validation on submit.
+          appstreamcli validate --no-net resources/org.rustmail.mail.metainfo.xml
+
+      - name: Build release executable
+        env:
+          RUSTMAIL_GOOGLE_DESKTOP_CLIENT_ID: ${{ secrets.RUSTMAIL_GOOGLE_DESKTOP_CLIENT_ID }}
+          RUSTMAIL_GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.RUSTMAIL_GOOGLE_DESKTOP_CLIENT_SECRET }}
+          RUSTMAIL_MICROSOFT_DESKTOP_CLIENT_ID: ${{ secrets.RUSTMAIL_MICROSOFT_DESKTOP_CLIENT_ID }}
+        run: cargo build --locked --release --no-default-features --features remote-content,gpu-renderer --bin rustmail
+
+      - name: Build AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          RUSTMAIL_SKIP_BUILD: "1"
+        run: ./scripts/build-appimage.sh
+
+      - name: Build Debian package
+        env:
+          RUSTMAIL_SKIP_BUILD: "1"
+        run: ./scripts/build-deb.sh
+
+      - name: Benchmark startup and idle resources
+        run: |
+          xvfb-run -a ./scripts/benchmark-startup.py \
+            --binary target/release/rustmail \
+            --profile-cache-dir resources/benchmarks/warm-cache \
+            --rounds 3 \
+            --idle-seconds 3
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rustmail-linux-x64
+          path: |
+            target/appimage/*.AppImage
+            target/deb/*.deb
+            target/startup-benchmark/*.json
+          if-no-files-found: error
+
+  rpm:
+    needs: metadata
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || inputs.include_linux
+    name: Fedora RPM build (x64, Fedora 43 baseline)
+    runs-on: ubuntu-24.04
+    # Build against the oldest supported Fedora; test this exact artifact below.
+    container: fedora:43
+    env:
+      SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.source_date_epoch }}
+    steps:
+      - name: Install Fedora build dependencies
+        run: |
+          dnf install -y \
+            appstream \
+            dbus-daemon \
+            dbus-devel \
+            desktop-file-utils \
+            findutils \
+            fontconfig-devel \
+            gcc \
+            gcc-c++ \
+            git \
+            libX11-devel \
+            libXcursor-devel \
+            libxcb-devel \
+            libxkbcommon-devel \
+            libxkbcommon-x11-devel \
+            make \
+            pkgconf-pkg-config \
+            python3 \
+            rpm-build \
+            tar \
+            wayland-devel \
+            xorg-x11-server-Xvfb
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          cache-on-failure: true
+          key: native-fedora-43-rpm-x64
+      - name: Build Fedora release executable
+        env:
+          RUSTMAIL_GOOGLE_DESKTOP_CLIENT_ID: ${{ secrets.RUSTMAIL_GOOGLE_DESKTOP_CLIENT_ID }}
+          RUSTMAIL_GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.RUSTMAIL_GOOGLE_DESKTOP_CLIENT_SECRET }}
+          RUSTMAIL_MICROSOFT_DESKTOP_CLIENT_ID: ${{ secrets.RUSTMAIL_MICROSOFT_DESKTOP_CLIENT_ID }}
+        run: cargo build --locked --release --no-default-features --features remote-content,gpu-renderer --bin rustmail
+      - name: Build and inspect RPM
+        env:
+          RUSTMAIL_SKIP_BUILD: "1"
+        run: |
+          ./scripts/build-rpm.sh
+          rpm -qip target/rpm/rustmail.rpm
+          rpm -qlp target/rpm/rustmail.rpm
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rustmail-rpm-x64
+          path: target/rpm/rustmail.rpm
+          if-no-files-found: error
+
+  rpm-test:
+    needs: rpm
+    name: RPM runtime (Fedora ${{ matrix.fedora }}, x64)
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: [43, 44]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: rustmail-rpm-x64
+          path: target/rpm
+      - name: Test published RPM in a clean Fedora container
+        shell: bash
+        env:
+          FEDORA_VERSION: ${{ matrix.fedora }}
+        run: |
+          mkdir -p target/rpm-test
+          docker run --rm \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/work,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/target/rpm-test,target=/results" \
+            "fedora:$FEDORA_VERSION" \
+            bash /work/scripts/test-rpm.sh /work/target/rpm/rustmail.rpm /results \
+            2>&1 | tee target/rpm-test/transaction.log
+      - name: Preserve RPM runtime diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rustmail-rpm-test-fedora-${{ matrix.fedora }}
+          path: target/rpm-test
+          if-no-files-found: error
+
+  flatpak:
+    needs: metadata
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || inputs.include_linux
+    name: Flatpak preview bundle (x64)
+    runs-on: ubuntu-24.04
+    env:
+      SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.source_date_epoch }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Install Flatpak build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y appstream dbus-x11 desktop-file-utils flatpak flatpak-builder xvfb
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive -y flathub \
+            org.freedesktop.Platform//25.08 \
+            org.freedesktop.Sdk//25.08 \
+            org.freedesktop.Sdk.Extension.rust-stable//25.08
+      - name: Build Flatpak bundle from locked sources
+        run: ./scripts/build-flatpak.sh
+      - name: Test Flatpak installation and packaged runtime
+        env:
+          EXPECTED_VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          flatpak install --user --noninteractive -y target/flatpak/rustmail.flatpak
+          flatpak run --command=sh --env=EXPECTED_VERSION="$EXPECTED_VERSION" org.rustmail.mail -c '
+            test -x /app/bin/rustmail
+            test -f /app/lib/rustmail/libpdfium.so
+            test -x /usr/bin/gpg
+            test -f /app/share/applications/org.rustmail.mail.desktop
+            test -f /app/share/metainfo/org.rustmail.mail.metainfo.xml
+            ! grep -q X-AppImage /app/share/applications/org.rustmail.mail.desktop
+            grep -q "version=\"$EXPECTED_VERSION\"" /app/share/metainfo/org.rustmail.mail.metainfo.xml
+          '
+          flatpak info --user --show-permissions org.rustmail.mail
+          set +e
+          timeout 15s dbus-run-session -- xvfb-run -a flatpak run org.rustmail.mail \
+            > target/flatpak/launch.log 2>&1
+          status=$?
+          set -e
+          if [[ "$status" -ne 124 ]]; then
+            cat target/flatpak/launch.log
+            echo "Flatpak launch smoke test exited unexpectedly with status $status" >&2
+            exit 1
+          fi
+          flatpak uninstall --user --noninteractive -y org.rustmail.mail
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rustmail-flatpak-x64
+          path: target/flatpak/rustmail.flatpak
+          if-no-files-found: error
+
+  windows:
+    needs: metadata
+    if: github.event_name == 'push' || inputs.include_windows
+    name: Windows installer and portable executable (x64)
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          cache-on-failure: true
+          key: native-windows-x64
+
+      - name: Build release executable
+        shell: bash
+        env:
+          # Keep the portable build independent of an installed VC++ runtime.
+          # RUSTFLAGS replaces .cargo/config.toml, so retain its stack setting.
+          RUSTFLAGS: "-C target-feature=+crt-static -C link-arg=/STACK:8000000"
+          RUSTMAIL_GOOGLE_DESKTOP_CLIENT_ID: ${{ secrets.RUSTMAIL_GOOGLE_DESKTOP_CLIENT_ID }}
+          RUSTMAIL_GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.RUSTMAIL_GOOGLE_DESKTOP_CLIENT_SECRET }}
+          RUSTMAIL_MICROSOFT_DESKTOP_CLIENT_ID: ${{ secrets.RUSTMAIL_MICROSOFT_DESKTOP_CLIENT_ID }}
+        run: |
+          mkdir -p target
+          if cargo build --locked --release --no-default-features --features remote-content,gpu-renderer --bin rustmail 2>&1 | tee target/windows-build.log; then
+            exit 0
+          fi
+          # Keep the compiler's final diagnostics available in the check result,
+          # including when a maintainer cannot download authenticated run logs.
+          python - <<'PY'
+          from pathlib import Path
+          details = "\n".join(Path("target/windows-build.log").read_text(errors="replace").splitlines()[-80:])
+          details = details[-16000:].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+          print(f"::error title=Windows compilation failed::{details}")
+          PY
+          exit 1
+
+      - name: Package executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force target/package/windows | Out-Null
+          New-Item -ItemType Directory -Force "target/package/windows/LICENSES/Google Sans Flex" | Out-Null
+          New-Item -ItemType Directory -Force "target/package/windows/LICENSES/Noto Emoji" | Out-Null
+          python scripts/stage-pdfium.py win-x64 target/package/windows
+          if ($LASTEXITCODE -ne 0) { throw "PDFium staging failed" }
+          Copy-Item target/release/rustmail.exe target/package/windows/
+          Copy-Item README.md target/package/windows/
+          Copy-Item LICENSE target/package/windows/
+          Copy-Item LICENSES/* target/package/windows/LICENSES/ -Recurse -Force
+          Copy-Item THIRD_PARTY_NOTICES.md target/package/windows/
+          Copy-Item resources/fonts/google-sans-flex/OFL.txt "target/package/windows/LICENSES/Google Sans Flex/"
+          Copy-Item resources/fonts/google-sans-flex/README.md "target/package/windows/LICENSES/Google Sans Flex/"
+          Copy-Item resources/fonts/noto-emoji/OFL.txt "target/package/windows/LICENSES/Noto Emoji/"
+          Copy-Item resources/fonts/noto-emoji/README.md "target/package/windows/LICENSES/Noto Emoji/"
+          python scripts/test-pdf-preview.py target/package/windows/rustmail.exe
+          if ($LASTEXITCODE -ne 0) { throw "Packaged PDF preview test failed" }
+          Compress-Archive -Path target/package/windows/* -DestinationPath target/rustmail-windows-x64.zip -Force
+
+      - name: Install pinned Inno Setup compiler
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'innosetup.exe'
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-6_5_4/innosetup-6.5.4.exe' -OutFile $installer
+          $expected = 'fa73bf47a4da250d185d07561c2bfda387e5e20db77e4570004cf6a133cc10b1'
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash -ne $expected) { throw 'Inno Setup checksum mismatch' }
+          $process = Start-Process $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Inno Setup install failed: $($process.ExitCode)" }
+
+      - name: Build per-user Windows installer
+        shell: pwsh
+        env:
+          APP_VERSION: ${{ needs.metadata.outputs.version }}
+          NATIVE_VERSION: ${{ needs.metadata.outputs.native_version }}
+        run: |
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $compiler)) { throw "Inno Setup 6 is missing from the runner" }
+          & $compiler "/DAppVersion=$env:APP_VERSION" "/DNativeVersion=$env:NATIVE_VERSION" platform/windows/installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
+
+      - name: Verify unattended installation and uninstall
+        shell: pwsh
+        run: |
+          $destination = Join-Path $env:RUNNER_TEMP 'Rustmail install test'
+          $installer = (Resolve-Path target/rustmail-windows-x64-setup.exe).Path
+          $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$destination`"")
+          $process = Start-Process $installer -ArgumentList $arguments -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installation failed: $($process.ExitCode)" }
+          if (-not (Test-Path "$destination/rustmail.exe")) { throw 'Installed executable is missing' }
+          $process = Start-Process "$destination/unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Uninstall failed: $($process.ExitCode)" }
+          if (Test-Path "$destination/rustmail.exe") { throw 'Uninstall left the executable behind' }
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rustmail-windows-x64
+          path: |
+            target/rustmail-windows-x64.zip
+            target/rustmail-windows-x64-setup.exe
+          if-no-files-found: error
+
+  macos:
+    needs: metadata
+    if: github.event_name == 'push' || inputs.include_macos
+    name: macOS application (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Apple silicon
+            runner: macos-15
+            architecture: arm64
+          - name: Intel
+            runner: macos-15-intel
+            architecture: x64
+    runs-on: ${{ matrix.runner }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          cache-on-failure: true
+          key: native-macos-${{ matrix.architecture }}
+
+      - name: Build release application
+        env:
+          RUSTMAIL_GOOGLE_DESKTOP_CLIENT_ID: ${{ secrets.RUSTMAIL_GOOGLE_DESKTOP_CLIENT_ID }}
+          RUSTMAIL_GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.RUSTMAIL_GOOGLE_DESKTOP_CLIENT_SECRET }}
+          RUSTMAIL_MICROSOFT_DESKTOP_CLIENT_ID: ${{ secrets.RUSTMAIL_MICROSOFT_DESKTOP_CLIENT_ID }}
+        run: cargo build --locked --release --no-default-features --features remote-content,gpu-renderer --bin rustmail
+
+      - name: Create ad-hoc signed app bundle
+        run: |
+          mkdir -p target/macos
+          if ./scripts/package-macos.sh \
+            target/release/rustmail target/macos \
+            "${{ matrix.architecture }}" 2>&1 | tee target/macos/package.log; then
+            exit 0
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          details = "\n".join(Path("target/macos/package.log").read_text(errors="replace").splitlines()[-80:])
+          details = details[-16000:].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+          print(f"::error title=macOS packaging failed::{details}")
+          PY
+          exit 1
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rustmail-macos-${{ matrix.architecture }}
+          path: |
+            target/macos/rustmail-macos-${{ matrix.architecture }}.zip
+            target/macos/rustmail-macos-${{ matrix.architecture }}.dmg
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    if: >-
+      !cancelled() && github.event_name == 'push' && github.ref_type == 'tag' &&
+      needs.metadata.result == 'success' && needs.quality.result == 'success' &&
+      needs.linux.result == 'success' && needs.rpm.result == 'success' &&
+      needs.rpm-test.result == 'success' &&
+      needs.flatpak.result == 'success' && needs.windows.result == 'success' &&
+      needs.macos.result == 'success'
+    needs: [metadata, quality, linux, rpm, rpm-test, flatpak, windows, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      artifact-metadata: write
+      attestations: write
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Download Linux packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: rustmail-linux-x64
+          path: release-assets/linux
+
+      - name: Download Windows package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: rustmail-windows-x64
+          path: release-assets/windows
+
+      - name: Download RPM package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: rustmail-rpm-x64
+          path: release-assets/rpm
+
+      - name: Download Flatpak bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: rustmail-flatpak-x64
+          path: release-assets/flatpak
+
+      - name: Download macOS Apple silicon package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: rustmail-macos-arm64
+          path: release-assets/macos/arm64
+
+      - name: Download macOS Intel package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: rustmail-macos-x64
+          path: release-assets/macos/x64
+
+      - name: Prepare release downloads
+        env:
+          RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
+        run: python3 scripts/prepare-release.py
+
+      - name: Attest release downloads
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/*
+
+      - name: Publish tagged release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
+        run: bash scripts/publish-release.sh

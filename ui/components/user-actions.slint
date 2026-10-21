@@ -1,0 +1,159 @@
+import { VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { ActionMenuEntry } from "action-menu.slint";
+import { Button } from "button.slint";
+import { LineEdit } from "controls.slint";
+import { AppTheme } from "../design-system.slint";
+import { TypeScale } from "../typography.slint";
+
+export struct UserActionRow {
+    id: string,
+    name: string,
+    command: string,
+}
+
+// User-defined message actions and the external composing editor. The Rust
+// side keeps these in step with the saved settings.
+export global UserActions {
+    // Entries of the reader's Actions menu (empty hides the menu).
+    in-out property <[ActionMenuEntry]> menu-entries;
+    in-out property <[UserActionRow]> rows;
+    in-out property <string> editor-command;
+    // True when an editor command is configured: shows the composer button.
+    in-out property <bool> editor-available: false;
+    in-out property <string> new-name;
+    in-out property <string> new-command;
+    in-out property <string> status;
+    in-out property <bool> busy: false;
+    // The profile or its settings changed; reload everything.
+    callback context-changed();
+    callback add-action();
+    callback delete-action(string);
+    callback save-editor();
+    // Run the saved action with this id on the open message.
+    callback run(string);
+    // Edit the message being composed in the external editor.
+    callback edit-externally();
+}
+
+export component UserActionsSettings inherits VerticalBox {
+    in property <bool> compact: false;
+    in property <color> heading-color;
+    in property <color> secondary-text;
+    in property <color> body-text;
+    in property <color> border-color;
+    padding: 0px;
+    spacing: 10px;
+
+    Text {
+        height: max(20px, self.preferred-height);
+        text: @tr("External editor");
+        color: root.heading-color;
+        font-size: TypeScale.secondary;
+        font-weight: 600;
+    }
+    LineEdit {
+        height: 36px;
+        enabled: !UserActions.busy;
+        text <=> UserActions.editor-command;
+        input-label: @tr("Editor command");
+        placeholder-text: @tr("alacritty -e nvim %f");
+    }
+    Text {
+        text: @tr("Opens the message text in your editor from the composer. %f is the file to edit; use a terminal command for terminal editors, and a --wait option for graphical editors so the command stays running until you close them. Leave empty to hide the composer button.");
+        color: root.secondary-text;
+        font-size: TypeScale.caption;
+        wrap: word-wrap;
+        height: self.preferred-height;
+    }
+    HorizontalBox {
+        padding: 0px;
+        height: 34px;
+        alignment: start;
+        Button {
+            width: max(120px, self.content-width + 28px);
+            text: @tr("Save editor command");
+            enabled: !UserActions.busy;
+            clicked => { UserActions.save-editor(); }
+        }
+    }
+    Rectangle { height: 1px; background: root.border-color; }
+
+    Text {
+        height: max(20px, self.preferred-height);
+        text: @tr("Message actions");
+        color: root.heading-color;
+        font-size: TypeScale.secondary;
+        font-weight: 600;
+    }
+    Text {
+        text: @tr("Commands you can run on the open message from the Actions button in the reader. %f is a private temporary copy of the message (.eml). The subject and sender are available as $RUSTMAIL_SUBJECT and $RUSTMAIL_FROM; quote them in your command. Commands stop after 60 seconds. Only add commands you trust.");
+        color: root.secondary-text;
+        font-size: TypeScale.caption;
+        wrap: word-wrap;
+        height: self.preferred-height;
+    }
+    if UserActions.rows.length == 0 : Text {
+        height: max(18px, self.preferred-height);
+        text: @tr("No actions yet.");
+        color: root.secondary-text;
+        font-size: TypeScale.caption;
+    }
+    for row in UserActions.rows : Rectangle {
+        height: 52px;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: root.border-color;
+        HorizontalBox {
+            padding-left: 12px;
+            padding-right: 8px;
+            spacing: 8px;
+            VerticalBox {
+                horizontal-stretch: 1;
+                padding: 0px;
+                spacing: 2px;
+                alignment: center;
+                Text { text: row.name; color: root.heading-color; font-size: TypeScale.secondary; font-weight: 600; overflow: elide; }
+                Text { text: row.command; color: root.secondary-text; font-size: TypeScale.caption; overflow: elide; }
+            }
+            Button {
+                width: max(76px, self.content-width + 24px);
+                text: @tr("Delete");
+                enabled: !UserActions.busy;
+                clicked => { UserActions.delete-action(row.id); }
+            }
+        }
+    }
+    LineEdit {
+        height: 36px;
+        enabled: !UserActions.busy;
+        text <=> UserActions.new-name;
+        input-label: @tr("Action name");
+        placeholder-text: @tr("Name, for example Open in Thunderbird");
+    }
+    LineEdit {
+        height: 36px;
+        enabled: !UserActions.busy;
+        text <=> UserActions.new-command;
+        input-label: @tr("Command");
+        placeholder-text: @tr("thunderbird -file %f");
+    }
+    HorizontalBox {
+        padding: 0px;
+        height: 34px;
+        alignment: start;
+        Button {
+            width: max(120px, self.content-width + 28px);
+            primary: true;
+            text: @tr("Add action");
+            enabled: !UserActions.busy && UserActions.new-name != "" && UserActions.new-command != "";
+            clicked => { UserActions.add-action(); }
+        }
+    }
+    if UserActions.status != "" : Text {
+        text: UserActions.status;
+        color: root.secondary-text;
+        font-size: TypeScale.caption;
+        wrap: word-wrap;
+        height: self.preferred-height;
+    }
+}

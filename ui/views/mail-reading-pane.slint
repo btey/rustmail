@@ -1,0 +1,2056 @@
+import { AccountMailPreferences } from "../components/account-mail-preferences.slint";
+import { ActionMenu, ActionMenuEntry } from "../components/action-menu.slint";
+import { UserActions } from "../components/user-actions.slint";
+import { ZoomControls } from "../components/zoom-controls.slint";
+import { CheckBox, HorizontalBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
+import { MailAttachments, EmailReader, EmailLink, EmailTile, MailLabelRow, ThreadMessageRow } from "../models.slint";
+import { Avatar } from "../components/avatar.slint";
+import { Button } from "../components/button.slint";
+import { IconButton, LineEdit, TextEdit, ToolbarIconButton } from "../components/controls.slint";
+import { DetailEmptyState } from "../components/detail-empty-state.slint";
+import { EmailLinkContextArea } from "../components/email-link-context-area.slint";
+import { FocusVisibleScope } from "../components/focus-visible-scope.slint";
+import { LoadingSkeletonBlock } from "../components/loading-skeleton.slint";
+import { RenderingInfoDialog } from "../dialogs/rendering-info-dialog.slint";
+import { TypeScale } from "../typography.slint";
+import { AppTheme, LayoutMetrics, MailIconPalette, MotionSettings } from "../design-system.slint";
+import { MessageColors } from "../message-colors.slint";
+import { WindowControlsClearance } from "../window-chrome.slint";
+
+component ReaderControl inherits ToolbarIconButton {
+    tooltip-above: true;
+    interactive: EmailReader.available;
+    icon-color: AppTheme.body;
+    hover-background: AppTheme.control-bg;
+    active-background: AppTheme.accent-soft;
+}
+
+component MailLabelChip inherits Rectangle {
+    in property <string> name;
+    in property <bool> name-has-emoji: false;
+    in property <bool> use-label-icon: false;
+    in property <color> label-color;
+    in property <color> text-color;
+    in property <color> chip-border-color;
+
+    min-width: chip-name.preferred-width + 28px;
+    preferred-width: self.min-width;
+    max-width: 180px;
+    height: 24px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: root.chip-border-color;
+    background: root.label-color.transparentize(0.88);
+
+    Image {
+        x: 7px;
+        y: 6px;
+        width: 12px;
+        height: 12px;
+        source: root.use-label-icon
+            ? @image-url("../icons/lucide/filled/tag.svg")
+            : @image-url("../icons/lucide/filled/file-directory.svg");
+        colorize: root.label-color;
+        image-fit: contain;
+        accessible-role: none;
+    }
+    chip-name := Text {
+        x: 23px;
+        width: parent.width - 27px;
+        height: parent.height;
+        text: root.name;
+        color: root.text-color;
+        font-size: TypeScale.caption;
+        font-weight: 600;
+        font-family: root.name-has-emoji ? "Noto Emoji" : "";
+        overflow: elide;
+        vertical-alignment: center;
+    }
+}
+
+component LabelColorSwatch inherits Rectangle {
+    in property <color> swatch-color;
+    in property <bool> selected: false;
+    in property <string> accessible-name;
+    callback chosen;
+
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border-width: root.selected ? 2px : 1px;
+    border-color: root.selected ? root.swatch-color : root.swatch-color.transparentize(0.5);
+    background: swatch-hit.has-hover ? root.swatch-color.transparentize(0.8) : transparent;
+
+    Rectangle {
+        x: 7px;
+        y: 7px;
+        width: 16px;
+        height: 16px;
+        border-radius: 5px;
+        background: root.swatch-color;
+
+        if root.selected : Rectangle {
+            x: 5px;
+            y: 5px;
+            width: 6px;
+            height: 6px;
+            border-radius: 3px;
+            background: white;
+        }
+    }
+
+    swatch-hit := TouchArea {
+        accessible-role: radio-button;
+        accessible-label: root.accessible-name;
+        accessible-checked: root.selected;
+        accessible-action-default => { root.chosen(); }
+        clicked => { root.chosen(); }
+        mouse-cursor: pointer;
+    }
+}
+
+// The native mail renderer can take a moment to parse and rasterize complex
+// HTML. Keep the document surface alive and show its approximate structure so
+// that switching messages never flashes an empty white panel.
+component MessageLoadingSkeleton inherits Rectangle {
+    in property <bool> active: false;
+    in property <color> surface-color;
+    in property <color> base-color;
+    in property <color> highlight-color;
+    in property <color> text-color;
+    // The skeleton covers a body as tall as its rendered email. Only this
+    // visible window, in the skeleton's coordinates, is painted.
+    in property <length> paint-top: 0px;
+    in property <length> paint-bottom: self.height;
+
+    visible: root.active || self.opacity > 0;
+    clip: true;
+    opacity: root.active ? 1 : 0;
+    animate opacity { duration: 180ms; easing: ease-out; }
+
+    Rectangle {
+        y: clamp(root.paint-top, 0px, root.height);
+        height: clamp(root.paint-bottom, 0px, root.height) - self.y;
+        background: root.surface-color;
+    }
+
+    LoadingSkeletonBlock {
+        x: 18px;
+        y: 18px;
+        width: 40px;
+        height: 40px;
+        radius: 20px;
+        active: root.active;
+        base-color: root.base-color;
+        highlight-color: root.highlight-color;
+    }
+    LoadingSkeletonBlock {
+        x: 70px;
+        y: 19px;
+        width: min(180px, max(88px, parent.width * 0.34));
+        height: 14px;
+        active: root.active;
+        base-color: root.base-color;
+        highlight-color: root.highlight-color;
+    }
+    LoadingSkeletonBlock {
+        x: 70px;
+        y: 40px;
+        width: min(124px, max(64px, parent.width * 0.24));
+        height: 10px;
+        active: root.active;
+        base-color: root.base-color;
+        highlight-color: root.highlight-color;
+    }
+
+    for line[index] in 7 : LoadingSkeletonBlock {
+        x: 18px;
+        y: 82px + index * 24px;
+        width: min(max(0px, parent.width - 36px), max(72px, parent.width * (index == 0 ? 0.86
+            : index == 1 ? 0.72
+            : index == 2 ? 0.91
+            : index == 3 ? 0.64
+            : index == 4 ? 0.82
+            : index == 5 ? 0.76
+            : 0.48)));
+        height: 11px;
+        active: root.active;
+        base-color: root.base-color;
+        highlight-color: root.highlight-color;
+    }
+
+    Text {
+        x: 18px;
+        y: 258px;
+        width: max(0px, parent.width - 36px);
+        height: 24px;
+        text: @tr("Rendering message…");
+        color: root.text-color;
+        font-size: TypeScale.secondary;
+        vertical-alignment: center;
+        accessible-role: text;
+    }
+}
+
+// One conversation message header. The selected row becomes the open
+// accordion section; every other row remains a compact, directly selectable
+// summary in chronological order.
+component ThreadMessageHeader inherits Rectangle {
+    in property <string> sender;
+    in property <string> address;
+    in property <string> initials: "?";
+    in property <image> favicon;
+    in property <bool> has-favicon: false;
+    in property <string> preview;
+    in property <string> time;
+    in property <string> to;
+    in property <bool> outgoing: false;
+    in property <bool> unread: false;
+    in property <bool> body-pending: false;
+    in property <bool> selected: false;
+    in property <bool> thread-interactive: false;
+    in property <string> sender-verification: "";
+    in property <bool> show-avatar: true;
+    in property <color> accent;
+    in property <color> accent-soft;
+    in property <color> border;
+    in property <color> control-bg;
+    in property <color> heading;
+    in property <color> secondary-text;
+    // The pane positions every header from these, so it supplies them.
+    in property <length> sender-height: 23px;
+    in property <length> detail-height: 24px;
+    callback open;
+
+    height: 17px + root.sender-height + root.detail-height;
+    border-radius: 8px;
+    border-width: root.selected ? 0px : 1px;
+    border-color: root.border;
+    background: root.thread-interactive && header-hit.has-hover
+        ? root.control-bg
+        : root.selected ? transparent : root.control-bg.transparentize(0.35);
+    animate background { duration: 140ms; }
+    accessible-role: button;
+    accessible-enabled: root.thread-interactive;
+    accessible-label: @tr("Message from {}", root.outgoing ? @tr("You") : root.sender)
+        + ", " + (root.body-pending ? @tr("Loading message…") : root.preview);
+    accessible-action-default => { if root.thread-interactive { root.open(); } }
+
+    Avatar {
+        visible: root.show-avatar;
+        x: 8px;
+        y: (parent.height - self.height) / 2;
+        size: 38px;
+        source: root.favicon;
+        has-source: root.has-favicon;
+        fallback: root.initials;
+        image-fit: contain;
+        background-color: root.has-favicon ? #ffffff : root.outgoing ? root.accent : root.control-bg;
+        foreground-color: root.outgoing ? #ffffff : root.secondary-text;
+        avatar-border-width: root.has-favicon ? 1px : 0px;
+        avatar-border-color: root.border;
+    }
+
+    private property <length> content-x: root.show-avatar ? 56px : 10px;
+    sender-label := Text {
+        x: root.content-x;
+        y: 7px;
+        width: max(0px, parent.width - self.x - (root.sender-verification != "" ? 112px : 92px));
+        height: root.sender-height;
+        text: root.outgoing ? @tr("You") : root.sender;
+        color: root.heading;
+        font-size: TypeScale.body;
+        font-weight: root.selected || root.unread ? 700 : 600;
+        overflow: elide;
+        vertical-alignment: center;
+    }
+    if root.sender-verification != "" : Image {
+        x: min(sender-label.x + sender-label.preferred-width + 6px, parent.width - 122px);
+        y: sender-label.y + (sender-label.height - self.height) / 2;
+        width: 17px;
+        height: 17px;
+        source: @image-url("../icons/lucide/outline/check-circle.svg");
+        colorize: root.accent;
+        image-fit: contain;
+        accessible-label: root.sender-verification == "brand"
+            ? @tr("Verified brand with BIMI authority evidence")
+            : root.sender-verification == "bimi"
+                ? @tr("BIMI-authenticated sender")
+                : root.sender-verification == "microsoft"
+                    ? @tr("Sender authenticated by Microsoft")
+                    : @tr("Sender domain authenticated with DMARC and DKIM");
+    }
+    Text {
+        x: parent.width - 82px;
+        y: 7px;
+        width: 70px;
+        height: root.sender-height;
+        text: root.time;
+        color: root.secondary-text;
+        font-size: TypeScale.caption;
+        overflow: elide;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+    }
+    Text {
+        x: root.content-x;
+        y: sender-label.y + sender-label.height + 1px;
+        width: max(0px, parent.width - self.x - 12px);
+        height: root.detail-height;
+        text: root.selected
+            ? root.address + (root.to == "" ? "" : " · " + @tr("to {}", root.to))
+            : root.body-pending ? @tr("Loading message…") : root.preview;
+        color: root.body-pending ? root.accent : root.secondary-text;
+        font-size: TypeScale.secondary;
+        overflow: elide;
+        vertical-alignment: center;
+    }
+    if root.selected : Rectangle {
+        x: 10px;
+        y: parent.height - 1px;
+        width: max(0px, parent.width - 20px);
+        height: 1px;
+        background: root.border.transparentize(0.35);
+    }
+    header-hit := TouchArea {
+        enabled: root.thread-interactive;
+        mouse-cursor: pointer;
+        clicked => { root.open(); }
+    }
+}
+
+export component MailReadingPane inherits Rectangle {
+    in property <bool> compact: false;
+    in property <bool> full-width: false;
+    private property <bool> attachment-menu-mode: root.height < 500px;
+    in property <bool> show-avatars: true;
+    // The title wrap width comes from the containing window, not this pane's
+    // preferred width, which avoids a HorizontalBox measurement cycle.
+    in property <length> window-width;
+    in property <[EmailTile]> email_tiles: [];
+    in property <[EmailLink]> email_links: [];
+    in property <[MailLabelRow]> mail_labels: [];
+    in property <[MailLabelRow]> mail-label-results: [];
+    in property <[ThreadMessageRow]> thread-messages: [];
+    in property <int> selected-thread-index: 0;
+    in property <int> selected-label-count: 0;
+    in property <bool> selected-account-uses-labels: false;
+    in property <string> selected_sender: "";
+    in property <string> selected_address: "";
+    in property <string> selected_subject: "";
+    in property <string> selected_time: "";
+    in property <string> selected_to: "";
+    in property <string> selected_label: "";
+    in property <string> selected_initials: "?";
+    in property <image> selected_favicon;
+    in property <bool> selected_has_favicon: false;
+    in property <string> selected_plain_text: "";
+    in property <string> selected_source: "";
+    in property <string> selected_text: "";
+    in property <bool> has_selection: false;
+    in property <string> clipboard_request: "";
+    in property <int> clipboard_request_id: 0;
+    in property <bool> has_selected: true;
+    in property <int> previous-email-id: -1;
+    in property <int> next-email-id: -1;
+    in property <bool> selected_starred: false;
+    in property <bool> selected_unread: false;
+    in property <bool> selected_is_draft: false;
+    in property <bool> trash_view: false;
+    callback request_empty_trash();
+    in property <string> selected_sender_verification: "";
+    in property <bool> remote-images-blocked: false;
+    in property <bool> print_supported: true;
+    private property <[ActionMenuEntry]> draft-action-menu: [
+        { id: "edit_draft", title: @tr("Continue editing"), icon: @image-url("../icons/lucide/outline/compose.svg") },
+        { id: "rendering_info", title: @tr("About email rendering"), icon: @image-url("../icons/lucide/outline/info.svg") },
+        { id: "source", title: root.source_mode ? @tr("Show rendered message") : @tr("Show source"), icon: root.source_mode ? @image-url("../icons/lucide/outline/browser.svg") : @image-url("../icons/lucide/outline/code.svg") },
+        { id: "plain_text", title: root.text_mode ? @tr("Show rendered message") : @tr("View plain text"), icon: root.text_mode ? @image-url("../icons/lucide/outline/browser.svg") : @image-url("../icons/lucide/outline/file.svg") },
+        { id: "original_colors", title: MessageColors.original ? @tr("Use message appearance") : @tr("Show original colors"), icon: @image-url("../icons/lucide/outline/contrast.svg") },
+        { id: root.trash_view ? "delete_permanently" : "trash", title: root.trash_view ? @tr("Delete permanently…") : @tr("Move to trash"), icon: @image-url("../icons/lucide/outline/trash.svg"), destructive: true },
+    ];
+    private property <[ActionMenuEntry]> message-action-menu: [
+        { id: "reply", title: @tr("Reply"), icon: @image-url("../icons/lucide/outline/reply.svg") },
+        { id: "reply_all", title: @tr("Reply all"), icon: @image-url("../icons/lucide/outline/reply-all.svg") },
+        { id: "forward", title: @tr("Forward"), icon: @image-url("../icons/lucide/outline/forward.svg") },
+        { id: "star", title: root.selected_starred ? @tr("Remove star") : @tr("Star message"), icon: root.selected_starred ? @image-url("../icons/lucide/filled/star.svg") : @image-url("../icons/lucide/outline/star.svg") },
+        { id: "labels", title: @tr("Manage labels"), icon: root.selected-account-uses-labels ? @image-url("../icons/lucide/filled/tag.svg") : @image-url("../icons/lucide/filled/file-directory.svg") },
+        { id: "openpgp", title: @tr("Decrypt / verify OpenPGP"), icon: @image-url("../icons/lucide/outline/lock.svg") },
+        { id: "print", title: @tr("Print message"), icon: @image-url("../icons/lucide/outline/printer.svg") },
+        { id: "browser", title: @tr("Open in browser"), icon: @image-url("../icons/lucide/outline/browser.svg") },
+        { id: "rendering_info", title: @tr("About email rendering"), icon: @image-url("../icons/lucide/outline/info.svg") },
+        { id: "source", title: root.source_mode ? @tr("Show rendered message") : @tr("Show source"), icon: root.source_mode ? @image-url("../icons/lucide/outline/browser.svg") : @image-url("../icons/lucide/outline/code.svg") },
+        { id: "plain_text", title: root.text_mode ? @tr("Show rendered message") : @tr("View plain text"), icon: root.text_mode ? @image-url("../icons/lucide/outline/browser.svg") : @image-url("../icons/lucide/outline/file.svg") },
+        { id: "original_colors", title: MessageColors.original ? @tr("Use message appearance") : @tr("Show original colors"), icon: @image-url("../icons/lucide/outline/contrast.svg") },
+        { id: "read", title: root.selected_unread ? @tr("Mark as read") : @tr("Mark as unread"), icon: root.selected_unread ? @image-url("../icons/lucide/outline/mail-open.svg") : @image-url("../icons/lucide/outline/mail.svg") },
+        { id: "archive", title: @tr("Archive"), icon: @image-url("../icons/lucide/outline/archive.svg") },
+        { id: "spam", title: @tr("Move to spam"), icon: @image-url("../icons/lucide/outline/alert.svg") },
+        { id: root.trash_view ? "delete_permanently" : "trash", title: root.trash_view ? @tr("Delete permanently…") : @tr("Move to trash"), icon: @image-url("../icons/lucide/outline/trash.svg"), destructive: true },
+    ];
+    private property <[ActionMenuEntry]> message-action-menu-no-print: [
+        { id: "reply", title: @tr("Reply"), icon: @image-url("../icons/lucide/outline/reply.svg") },
+        { id: "reply_all", title: @tr("Reply all"), icon: @image-url("../icons/lucide/outline/reply-all.svg") },
+        { id: "forward", title: @tr("Forward"), icon: @image-url("../icons/lucide/outline/forward.svg") },
+        { id: "star", title: root.selected_starred ? @tr("Remove star") : @tr("Star message"), icon: root.selected_starred ? @image-url("../icons/lucide/filled/star.svg") : @image-url("../icons/lucide/outline/star.svg") },
+        { id: "labels", title: @tr("Manage labels"), icon: root.selected-account-uses-labels ? @image-url("../icons/lucide/filled/tag.svg") : @image-url("../icons/lucide/filled/file-directory.svg") },
+        { id: "openpgp", title: @tr("Decrypt / verify OpenPGP"), icon: @image-url("../icons/lucide/outline/lock.svg") },
+        { id: "browser", title: @tr("Open in browser"), icon: @image-url("../icons/lucide/outline/browser.svg") },
+        { id: "rendering_info", title: @tr("About email rendering"), icon: @image-url("../icons/lucide/outline/info.svg") },
+        { id: "source", title: root.source_mode ? @tr("Show rendered message") : @tr("Show source"), icon: root.source_mode ? @image-url("../icons/lucide/outline/browser.svg") : @image-url("../icons/lucide/outline/code.svg") },
+        { id: "plain_text", title: root.text_mode ? @tr("Show rendered message") : @tr("View plain text"), icon: root.text_mode ? @image-url("../icons/lucide/outline/browser.svg") : @image-url("../icons/lucide/outline/file.svg") },
+        { id: "original_colors", title: MessageColors.original ? @tr("Use message appearance") : @tr("Show original colors"), icon: @image-url("../icons/lucide/outline/contrast.svg") },
+        { id: "read", title: root.selected_unread ? @tr("Mark as read") : @tr("Mark as unread"), icon: root.selected_unread ? @image-url("../icons/lucide/outline/mail-open.svg") : @image-url("../icons/lucide/outline/mail.svg") },
+        { id: "archive", title: @tr("Archive"), icon: @image-url("../icons/lucide/outline/archive.svg") },
+        { id: "spam", title: @tr("Move to spam"), icon: @image-url("../icons/lucide/outline/alert.svg") },
+        { id: root.trash_view ? "delete_permanently" : "trash", title: root.trash_view ? @tr("Delete permanently…") : @tr("Move to trash"), icon: @image-url("../icons/lucide/outline/trash.svg"), destructive: true },
+    ];
+    // The reader toolbar drops actions that the More menu also offers when
+    // integrated window controls or a narrow pane leave too little room.
+    private property <length> toolbar-room: 1000px;
+    private property <length> toolbar-button: root.compact ? LayoutMetrics.touch-target : LayoutMetrics.desktop-icon-button-size;
+    private property <length> toolbar-spacing: 6px;
+    private property <length> toolbar-slot: root.toolbar-button + root.toolbar-spacing;
+    // Integrated caption buttons can leave room for only Close, Reply and
+    // More at the minimum window width. Keep all other actions in the menu.
+    private property <bool> show-label-action: root.toolbar-room >= 4 * root.toolbar-slot;
+    private property <bool> show-star-action: root.toolbar-room >= 5 * root.toolbar-slot;
+    // Reply stays available even in compact panes. Reserve space for the
+    // other compose actions before adding message management or navigation.
+    // Each count includes one gap per button (there is also a stretch spacer).
+    private property <bool> show-all-compose-actions: !root.compact
+        && root.toolbar-room >= 7 * root.toolbar-slot;
+    private property <int> compose-button-count: root.selected_is_draft ? 0
+        : root.show-all-compose-actions ? 3 : 1;
+    private property <bool> show-navigation: root.toolbar-room >= (10 + root.compose-button-count) * root.toolbar-slot;
+    // Compact pages never show navigation or spam, so read is the only
+    // secondary action there.
+    private property <int> secondary-button-count: (root.compact ? 7 : 8) + root.compose-button-count;
+    private property <bool> show-secondary-actions: root.toolbar-room
+        >= root.secondary-button-count * root.toolbar-slot;
+    private property <bool> show-primary-actions: root.toolbar-room >= (6 + root.compose-button-count) * root.toolbar-slot;
+    in-out property <bool> text_mode: false;
+    in-out property <bool> source_mode: false;
+    in-out property <bool> rendering_info_open: false;
+    in-out property <float> email-content-aspect: 900 / 520;
+    in-out property <length> email-scroll-y: 0px;
+    private property <length> accordion-scroll-y: 0px;
+    private property <bool> syncing-accordion-scroll: false;
+    private property <length> message-card-inset: 6px;
+    private property <length> message-card-border-width: 1px;
+    private property <length> thread-item-gap: 6px;
+    private property <bool> alternate-body-active: root.text_mode || root.source_mode || EmailReader.reader-mode;
+    out property <length> email-viewport-width: max(
+        0px,
+        email-scroll.visible-width - 2 * (root.message-card-inset + root.message-card-border-width)
+    );
+    out property <length> email-viewport-height: max(
+        40px,
+        email-surface.height - root.thread-header-height - root.renderer-controls-height
+    );
+    private property <length> rendered-email-height: root.email-viewport-width * EmailReader.width-ratio * root.email-content-aspect + (root.remote-images-blocked ? 60px : 0px);
+    // Slint's software renderer (CPU mode, Android) panics when it paints a
+    // rectangle past ±32767 physical pixels (#35). Surfaces that grow with the
+    // message paint only the visible scroll content, with a margin for cut edges.
+    // Remove this clamping once a Slint release fixes slint-ui/slint#14250.
+    private property <length> paint-margin: 32px;
+    private property <length> paint-left: -email-scroll.content-x - root.paint-margin;
+    private property <length> paint-right: -email-scroll.content-x + email-scroll.visible-width + root.paint-margin;
+    private property <length> paint-top: -email-scroll.content-y - root.paint-margin;
+    private property <length> paint-bottom: -email-scroll.content-y + email-scroll.visible-height + root.paint-margin;
+    // Attachment rows share one height so the document height stays exact.
+    private property <length> attachment-heading-line: max(20px, attachment-heading-probe.preferred-height);
+    private property <length> attachment-name-line: max(22px, attachment-name-probe.preferred-height);
+    private property <length> attachment-detail-line: max(17px, attachment-detail-probe.preferred-height);
+    private property <length> attachment-card-height: 5px + root.attachment-name-line + root.attachment-detail-line;
+    private property <length> attachment-section-height: MailAttachments.rows.length > 0
+        ? 14px + root.attachment-heading-line + MailAttachments.rows.length * (root.attachment-card-height + 4px)
+        : 0px;
+    // Normal HTML uses its intrinsic rendered height. Alternate surfaces own
+    // their scrolling. Fit their body and footer in the outer viewport when
+    // possible so a short reader view cannot scroll its header away.
+    private property <length> message-body-content-height: root.alternate-body-active
+        ? max(40px, root.email-viewport-height - root.attachment-section-height
+            - (MailAttachments.rows.length > 0 ? 12px : 0px)
+            - root.message-actions-height - root.message-bottom-padding)
+        : root.rendered-email-height;
+    private property <length> attachment-flow-y: root.message-body-content-height;
+    private property <length> message-actions-padding: root.compact ? 4px : 5px;
+    private property <length> message-actions-height: root.toolbar-button + 2 * root.message-actions-padding;
+    private property <length> message-bottom-padding: root.compact ? 10px : 12px;
+    // Header lines keep their 12px design and grow with the platform font.
+    private property <length> thread-sender-height: max(23px, thread-sender-probe.preferred-height);
+    private property <length> thread-detail-height: max(24px, thread-detail-probe.preferred-height);
+    private property <length> thread-header-height: 17px + root.thread-sender-height + root.thread-detail-height;
+    thread-sender-probe := Text { visible: false; text: "Ag"; font-size: TypeScale.body; font-weight: 700; }
+    thread-detail-probe := Text { visible: false; text: "Ag"; font-size: TypeScale.secondary; }
+    attachment-heading-probe := Text { visible: false; text: "Ag"; font-weight: 600; }
+    attachment-name-probe := Text { visible: false; text: "Ag"; font-size: TypeScale.body; font-weight: 600; }
+    attachment-detail-probe := Text { visible: false; text: "Ag"; font-size: TypeScale.caption; }
+    private property <length> thread-item-stride: root.thread-header-height + root.thread-item-gap;
+    private property <int> accordion-message-count: max(1, root.thread-messages.length);
+    private property <int> accordion-selected-index: min(max(0, root.selected-thread-index), root.accordion-message-count - 1);
+    private property <length> selected-header-y: root.accordion-selected-index * root.thread-item-stride;
+    private property <length> renderer-controls-height: renderer-controls.preferred-height;
+    private property <length> message-body-y: root.selected-header-y + root.thread-header-height + root.renderer-controls-height;
+    private property <length> message-document-height: root.attachment-flow-y
+        + root.attachment-section-height
+        + (MailAttachments.rows.length > 0 ? 12px : 0px);
+    private property <length> message-actions-y: root.message-body-y + root.message-document-height;
+    private property <length> expanded-message-height: root.renderer-controls-height
+        + root.message-document-height
+        + root.message-actions-height
+        + root.message-bottom-padding;
+    // Height from the selected message body through its footer. Keyboard
+    // navigation uses the active surface's height, including attachments.
+    out property <length> email-scroll-document-height: root.message-document-height
+        + root.message-actions-height + root.message-bottom-padding;
+    animate selected-header-y { duration: 240ms; easing: spring(0); }
+    in property <color> accent;
+    in property <color> accent-soft;
+    in property <color> border;
+    in property <color> border-subtle;
+    in property <color> control-bg;
+    in property <color> heading;
+    in property <color> muted-control-bg;
+    in property <color> muted-text;
+    in property <color> secondary-text;
+    in property <color> surface;
+    in property <color> surface-raised;
+    in property <color> title-color;
+    callback message_action(string);
+    callback toggle-mail-label(int, bool);
+    callback save-mail-label(int, string, color, bool);
+    callback search-mail-labels(string);
+    callback select_email(int);
+    callback select_thread_message(int);
+    callback compose_message_action(string);
+    callback close_preview();
+    callback print_message();
+    callback open_message_in_browser();
+    callback open_email_link(string);
+    callback copy_email_status(string);
+    callback email-pointer-event(float, float, string, bool, bool, bool, bool);
+    callback email-scroll(float, float);
+    callback email-key-event(string, bool, bool, bool, bool, bool, bool);
+    callback select-email-text();
+    callback load-remote-images-for-message();
+
+    public function focus-content() {
+        if root.source_mode { source-editor.focus(); }
+        else if root.text_mode { plain-text-editor.focus(); }
+        else if EmailReader.reader-mode { reader-focus.focus(); }
+        else { email-focus.focus(); }
+    }
+
+    private property <bool> viewport-pending: false;
+    private property <int> transition-message-id: EmailReader.message-id;
+    private property <float> animated-content-reveal: 1;
+    private property <float> content-reveal: MotionSettings.enabled ? root.animated-content-reveal : 1;
+    private property <bool> content-reveal-pending: false;
+
+    function restart-content-reveal() {
+        if MotionSettings.enabled {
+            root.animated-content-reveal = 0;
+            root.content-reveal-pending = true;
+        } else {
+            root.animated-content-reveal = 1;
+            root.content-reveal-pending = false;
+        }
+    }
+
+    changed transition-message-id => { root.restart-content-reveal(); }
+    changed selected-thread-index => {
+        root.restart-content-reveal();
+        root.syncing-accordion-scroll = true;
+        root.email-scroll-y = 0px;
+        // Keep the newly expanded message in view even when it is late in a
+        // very large conversation. Renderer-local scrolling remains at the
+        // top of that message's body.
+        root.accordion-scroll-y = -root.accordion-selected-index * root.thread-item-stride;
+        root.syncing-accordion-scroll = false;
+    }
+    changed alternate-body-active => {
+        root.syncing-accordion-scroll = true;
+        root.email-scroll-y = 0px;
+        root.accordion-scroll-y = -root.selected-header-y;
+        email-scroll.content-x = 0px;
+        root.syncing-accordion-scroll = false;
+        root.email-scroll(0, email-scroll.visible-height / 1px);
+    }
+    changed email-scroll-y => {
+        if (!root.syncing-accordion-scroll) {
+            root.accordion-scroll-y = root.email-scroll-y == 0px
+                ? (root.alternate-body-active ? -root.selected-header-y : 0px)
+                : root.email-scroll-y - root.message-body-y;
+        }
+    }
+    changed email-viewport-width => { root.viewport-pending = true; }
+    changed email-viewport-height => { root.viewport-pending = true; }
+    Timer { interval: 50ms; running: root.viewport-pending; triggered => {
+        root.viewport-pending = false;
+        if EmailReader.available { EmailReader.command("viewport"); }
+    } }
+    Timer {
+        interval: 16ms;
+        running: MotionSettings.enabled && root.content-reveal-pending;
+        triggered => {
+            root.content-reveal-pending = false;
+            root.animated-content-reveal = 1;
+        }
+    }
+    private property <bool> selecting: false;
+    private property <bool> touch-pending: false;
+    private property <float> touch-x: 0;
+    private property <float> touch-y: 0;
+    Timer {
+        interval: 550ms;
+        running: root.touch-pending;
+        triggered => {
+            root.touch-pending = false; root.selecting = true;
+            root.email-pointer-event(root.touch-x,root.touch-y,"long-press",false,false,false,false);
+        }
+    }
+    private property <string> drag-kind: "move";
+    private property <float> drag-x: 0;
+    private property <float> drag-y: 0;
+    Timer {
+        interval: 40ms;
+        running: root.selecting;
+        triggered => {
+                let screen-y = root.drag-y * 1px + root.message-body-y + root.accordion-scroll-y;
+                if screen-y < 28px || screen-y > email-surface.height - 28px {
+                    let step = screen-y < 28px ? 16px : -16px;
+                    let old = root.accordion-scroll-y;
+                    root.accordion-scroll-y = max(-max(0px,email-scroll.content-height - email-scroll.visible-height), min(0px,old + step));
+                    root.drag-y += (old - root.accordion-scroll-y) / 1px;
+                    root.syncing-accordion-scroll = true;
+                    root.email-scroll-y = min(0px, root.accordion-scroll-y + root.message-body-y);
+                    root.syncing-accordion-scroll = false;
+                    root.email-pointer-event(root.drag-x,root.drag-y,root.drag-kind,false,false,false,false);
+                    root.email-scroll(-root.email-scroll-y / 1px,email-scroll.visible-height / 1px);
+                }
+        }
+    }
+    private property <string> display-subject: root.selected_subject == "" ? @tr("(No subject)") : root.selected_subject;
+    private property <bool> label-editor-open: false;
+    private property <string> label-search-query: "";
+    private property <int> label-editor-id: -1;
+    private property <bool> label-editor-is-auto: false;
+    private property <bool> label-editor-is-global: false;
+    private property <string> new-label-name: "";
+    private property <color> new-label-color: #4a86e8;
+    changed clipboard-request-id => {
+        if root.clipboard-request-id > 0 {
+            clipboard-source.text = root.clipboard_request;
+            clipboard-source.select-all();
+            clipboard-source.copy();
+        }
+    }
+
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+                background: root.surface-raised;
+
+                VerticalBox {
+                    visible: root.has_selected;
+                    padding: 0px;
+                    spacing: 0px;
+
+                    reader-toolbar := Rectangle {
+                        // Desktop actions share the product rail/sidebar/list
+                        // centerline at y=32. Compact actions use the same
+                        // centered 44px touch geometry as the other pages.
+                        height: root.compact ? LayoutMetrics.compact-header-height : LayoutMetrics.desktop-mail-toolbar-height;
+                        background: root.surface-raised;
+                        private property <length> inset: root.compact ? 8px : 14px;
+                        // Width left for buttons once integrated window
+                        // controls are accounted for. Copied on change so the
+                        // collapsing buttons do not feed back into the layout.
+                        private property <length> room-now: self.width
+                            - max(self.inset, toolbar-clearance.leading)
+                            - max(self.inset, toolbar-clearance.trailing);
+                        changed room-now => { root.toolbar-room = self.room-now; }
+                        init => { root.toolbar-room = self.room-now; }
+                        toolbar-clearance := WindowControlsClearance { width: parent.width; height: parent.height; }
+                        HorizontalBox {
+                            padding-top: 0px;
+                            padding-left: max(parent.inset, toolbar-clearance.leading);
+                            padding-right: max(parent.inset, toolbar-clearance.trailing);
+                            padding-bottom: 0px;
+                            spacing: root.toolbar-spacing;
+                            cross-axis-alignment: center;
+                            ToolbarIconButton {
+                                visible: root.has_selected;
+                                compact: root.compact;
+                                icon: root.compact ? @image-url("../icons/lucide/outline/arrow-left.svg") : @image-url("../icons/lucide/outline/x.svg");
+                                icon-color: root.secondary-text;
+                                idle-background: root.control-bg;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: @tr("Close conversation");
+                                accessible-id: "message-back-button";
+                                clicked => { root.close_preview(); }
+                            }
+                            if !root.compact && root.show-navigation : ToolbarIconButton {
+                                interactive: root.previous-email-id >= 0;
+                                icon: @image-url("../icons/lucide/outline/chevron-left.svg");
+                                icon-color: root.secondary-text;
+                                idle-background: root.control-bg;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: @tr("Previous conversation");
+                                accessible-id: "previous-message-button";
+                                clicked => { root.select_email(root.previous-email-id); }
+                            }
+                            if !root.compact && root.show-navigation : ToolbarIconButton {
+                                interactive: root.next-email-id >= 0;
+                                icon: @image-url("../icons/lucide/outline/chevron-right.svg");
+                                icon-color: root.secondary-text;
+                                idle-background: root.control-bg;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: @tr("Next conversation");
+                                accessible-id: "next-message-button";
+                                clicked => { root.select_email(root.next-email-id); }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                            if !root.selected_is_draft : ToolbarIconButton {
+                                interactive: root.has_selected;
+                                compact: root.compact;
+                                icon: @image-url("../icons/lucide/outline/reply.svg");
+                                icon-color: root.secondary-text;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: @tr("Reply");
+                                accessible-id: "message-toolbar-reply-button";
+                                clicked => { root.compose_message_action("reply"); }
+                            }
+                            if !root.selected_is_draft && root.show-all-compose-actions : ToolbarIconButton {
+                                interactive: root.has_selected;
+                                icon: @image-url("../icons/lucide/outline/reply-all.svg");
+                                icon-color: root.secondary-text;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: @tr("Reply all");
+                                accessible-id: "message-toolbar-reply-all-button";
+                                clicked => { root.compose_message_action("reply_all"); }
+                            }
+                            if !root.selected_is_draft && root.show-all-compose-actions : ToolbarIconButton {
+                                interactive: root.has_selected;
+                                icon: @image-url("../icons/lucide/outline/forward.svg");
+                                icon-color: root.secondary-text;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: @tr("Forward");
+                                accessible-id: "message-toolbar-forward-button";
+                                clicked => { root.compose_message_action("forward"); }
+                            }
+                            if root.show-primary-actions : ToolbarIconButton {
+                                visible: !root.selected_is_draft;
+                                interactive: root.has_selected;
+                                compact: root.compact;
+                                icon: @image-url("../icons/lucide/outline/archive.svg");
+                                icon-color: root.secondary-text;
+                                idle-background: root.control-bg;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: @tr("Archive message");
+                                clicked => { root.message_action("archive"); }
+                            }
+                            if !root.selected_is_draft && root.show-star-action : ToolbarIconButton {
+                                interactive: root.has_selected;
+                                compact: root.compact;
+                                icon: root.selected_starred ? @image-url("../icons/lucide/filled/star.svg") : @image-url("../icons/lucide/outline/star.svg");
+                                icon-color: root.selected_starred ? MailIconPalette.starred : root.secondary-text;
+                                idle-background: root.control-bg;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: root.selected_starred ? @tr("Remove star") : @tr("Star message");
+                                clicked => { root.message_action(root.selected_starred ? "unstar" : "star"); }
+                            }
+                            if root.show-secondary-actions : ToolbarIconButton {
+                                visible: !root.selected_is_draft;
+                                interactive: root.has_selected;
+                                compact: root.compact;
+                                icon: root.selected_unread ? @image-url("../icons/lucide/filled/mail.svg") : @image-url("../icons/lucide/outline/mail-open.svg");
+                                icon-color: root.selected_unread ? MailIconPalette.inbox : root.secondary-text;
+                                idle-background: root.control-bg;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: root.selected_unread ? @tr("Mark as read") : @tr("Mark as unread");
+                                clicked => { root.message_action(root.selected_unread ? "mark_read" : "mark_unread"); }
+                            }
+                            if !root.compact && !root.selected_is_draft && root.show-secondary-actions : ToolbarIconButton {
+                                interactive: root.has_selected;
+                                icon: @image-url("../icons/lucide/outline/alert.svg");
+                                icon-color: root.secondary-text;
+                                idle-background: root.control-bg;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: @tr("Move to spam");
+                                clicked => { root.message_action("spam"); }
+                            }
+                            if root.show-primary-actions : ToolbarIconButton {
+                                interactive: root.has_selected;
+                                compact: root.compact;
+                                icon: @image-url("../icons/lucide/outline/trash.svg");
+                                icon-color: root.secondary-text;
+                                idle-background: root.control-bg;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: root.trash_view ? @tr("Delete permanently") : @tr("Move to trash");
+                                clicked => { root.message_action(root.trash_view ? "delete_permanently" : "trash"); }
+                            }
+                            label-action := Rectangle {
+                                visible: !root.selected_is_draft;
+                                // Keep the popup anchor alive when the trigger
+                                // moves into More, without reserving a button.
+                                width: root.show-label-action ? root.toolbar-button : 0px;
+                                height: root.toolbar-button;
+                                if root.show-label-action : ToolbarIconButton {
+                                    compact: root.compact;
+                                    width: parent.width;
+                                    height: parent.height;
+                                    interactive: root.has_selected;
+                                    icon: root.selected-account-uses-labels
+                                        ? @image-url("../icons/lucide/filled/tag.svg")
+                                        : @image-url("../icons/lucide/filled/file-directory.svg");
+                                    icon-color: root.selected-label-count > 0 ? MailIconPalette.folders : root.secondary-text;
+                                    idle-background: root.control-bg;
+                                    hover-background: root.muted-control-bg;
+                                    tooltip-text: @tr("Manage labels");
+                                    accessible-id: "message-label-button";
+                                    clicked => {
+                                        root.label-search-query = "";
+                                        root.search-mail-labels("");
+                                        label-popup.show();
+                                    }
+                                }
+
+                                label-popup := PopupWindow {
+                                    x: max(8px - label-action.absolute-position.x, parent.width - self.width);
+                                    y: parent.height + 4px;
+                                    width: 288px;
+                                    height: 330px;
+                                    close-policy: close-on-click-outside;
+                                    forward-focus: label-search-field;
+
+                                    Rectangle {
+                                        border-radius: 10px;
+                                        border-width: 1px;
+                                        border-color: root.border;
+                                        background: root.surface-raised;
+                                        drop-shadow-blur: 18px;
+                                        drop-shadow-offset-y: 5px;
+                                        drop-shadow-color: #0000002e;
+                                        clip: true;
+
+                                        VerticalBox {
+                                            padding: 8px;
+                                            spacing: 8px;
+
+                                            Text {
+                                                height: 28px;
+                                                text: @tr("Labels");
+                                                color: root.title-color;
+                                                font-size: TypeScale.subtitle;
+                                                font-weight: 700;
+                                                vertical-alignment: center;
+                                            }
+
+                                            label-search-field := LineEdit {
+                                                height: 36px;
+                                                text <=> root.label-search-query;
+                                                placeholder-text: @tr("Search labels");
+                                                show-leading-icon: true;
+                                                leading-icon: @image-url("../icons/lucide/outline/search.svg");
+                                                leading-icon-color: root.muted-text;
+                                                edited(value) => { root.search-mail-labels(value); }
+                                            }
+
+                                            Rectangle { height: 1px; background: root.border-subtle; }
+
+                                            Rectangle {
+                                                vertical-stretch: 1;
+                                                background: transparent;
+
+                                                label-list := ListView {
+                                                    width: parent.width;
+                                                    height: parent.height;
+                                                    horizontal-scrollbar-policy: as-needed;
+                                                    accessible-label: @tr("Available labels");
+                                                    accessible-item-count: root.mail-label-results.length;
+
+                                                    for label[index] in root.mail-label-results : Rectangle {
+                                                        width: label-list.visible-width;
+                                                        height: label-detail.y + label-detail.height + 4px;
+                                                        border-radius: 6px;
+                                                        background: label-hit.has-hover ? root.control-bg : transparent;
+
+                                                        Image {
+                                                            x: 15px - self.width / 2;
+                                                            y: (parent.height - self.height) / 2;
+                                                            width: LayoutMetrics.icon-size;
+                                                            height: LayoutMetrics.icon-size;
+                                                            source: root.selected-account-uses-labels
+                                                                ? @image-url("../icons/lucide/filled/tag.svg")
+                                                                : @image-url("../icons/lucide/filled/file-directory.svg");
+                                                            colorize: label.color;
+                                                            image-fit: contain;
+                                                            accessible-role: none;
+                                                        }
+                                                        label-name := Text {
+                                                            x: 30px;
+                                                            width: parent.width - 88px;
+                                                            y: 3px;
+                                                            height: max(20px, self.preferred-height);
+                                                            text: label.name;
+                                                            color: root.heading;
+                                                            font-size: TypeScale.body;
+                                                            font-weight: label.applied ? 600 : 500;
+                                                            font-family: label.name_has_emoji ? "Noto Emoji" : "";
+                                                            overflow: elide;
+                                                            vertical-alignment: center;
+                                                        }
+                                                        label-detail := Text {
+                                                            x: 30px;
+                                                            y: label-name.y + label-name.height - 1px;
+                                                            width: parent.width - 88px;
+                                                            height: max(16px, self.preferred-height);
+                                                            text: label.is_auto ? @tr("Smart category") : label.account_name;
+                                                            color: root.muted-text;
+                                                            font-size: TypeScale.caption;
+                                                            overflow: elide;
+                                                            vertical-alignment: center;
+                                                        }
+                                                        Image {
+                                                            x: parent.width - 58px;
+                                                            y: (parent.height - self.height) / 2;
+                                                            width: 22px;
+                                                            height: 22px;
+                                                            visible: label.applied;
+                                                            source: @image-url("../icons/lucide/outline/check.svg");
+                                                            colorize: root.accent;
+                                                            accessible-role: none;
+                                                        }
+                                                        label-hit := TouchArea {
+                                                            accessible-role: checkbox;
+                                                            accessible-label: label.name + (label.account_name == "" ? "" : ", " + label.account_name);
+                                                            accessible-checked: label.applied;
+                                                            accessible-item-index: index;
+                                                            accessible-action-default => {
+                                                                root.toggle-mail-label(label.id, !label.applied);
+                                                                label-popup.close();
+                                                            }
+                                                            clicked => {
+                                                                root.toggle-mail-label(label.id, !label.applied);
+                                                                label-popup.close();
+                                                            }
+                                                            mouse-cursor: pointer;
+                                                        }
+                                                        IconButton {
+                                                            x: parent.width - 34px;
+                                                            y: 7px;
+                                                            width: 28px;
+                                                            height: 28px;
+                                                            icon-size: 15px;
+                                                            icon: @image-url("../icons/lucide/outline/pencil.svg");
+                                                            icon-color: root.muted-text;
+                                                            ghost: true;
+                                                            hover-background: root.muted-control-bg;
+                                                            tooltip-text: @tr("Edit label");
+                                                            clicked => {
+                                                                root.label-editor-id = label.id;
+                                                                root.label-editor-is-auto = label.is_auto;
+                                                                root.label-editor-is-global = label.is_global;
+                                                                root.new-label-name = label.name;
+                                                                root.new-label-color = label.color;
+                                                                root.label-editor-open = true;
+                                                                label-popup.close();
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                if root.mail-label-results.length == 0 : Text {
+                                                    width: parent.width;
+                                                    height: 64px;
+                                                    text: @tr("No matching labels");
+                                                    color: root.muted-text;
+                                                    font-size: TypeScale.body;
+                                                    horizontal-alignment: center;
+                                                    vertical-alignment: center;
+                                                }
+                                            }
+
+                                            Rectangle { height: 1px; background: root.border-subtle; }
+
+                                            Button {
+                                                height: 34px;
+                                                text: @tr("Create label…");
+                                                has-icon: true;
+                                                icon: @image-url("../icons/lucide/outline/plus.svg");
+                                                clicked => {
+                                                    root.label-editor-id = -1;
+                                                    root.label-editor-is-auto = false;
+                                                    root.label-editor-is-global = false;
+                                                    root.new-label-name = root.label-search-query;
+                                                    root.new-label-color = #4a86e8;
+                                                    root.label-editor-open = true;
+                                                    label-popup.close();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if UserActions.menu-entries.length > 0 && !root.selected_is_draft : ActionMenu {
+                                compact: root.compact;
+                                interactive: root.has_selected;
+                                icon: @image-url("../icons/lucide/outline/code.svg");
+                                icon-color: root.secondary-text;
+                                tooltip-text: @tr("Actions");
+                                trigger-accessible-id: "message-user-actions-button";
+                                entries: UserActions.menu-entries;
+                                activated(action) => { UserActions.run(action); }
+                            }
+                            ActionMenu {
+                                compact: root.compact;
+                                interactive: root.has_selected;
+                                icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
+                                icon-color: root.secondary-text;
+                                tooltip-text: @tr("More message actions");
+                                trigger-accessible-id: "message-more-actions-button";
+                                max-menu-height: max(160px, root.height - (root.compact ? LayoutMetrics.compact-header-height : LayoutMetrics.desktop-mail-toolbar-height) - 12px);
+                                entries: root.selected_is_draft
+                                    ? root.draft-action-menu
+                                    : root.print_supported
+                                        ? root.message-action-menu
+                                        : root.message-action-menu-no-print;
+                                activated(action) => {
+                                    if action == "edit_draft" || action == "reply" || action == "reply_all" || action == "forward" {
+                                        root.compose_message_action(action);
+                                    } else if action == "star" {
+                                        root.message_action(root.selected_starred ? "unstar" : "star");
+                                    } else if action == "labels" {
+                                        root.label-search-query = "";
+                                        root.search-mail-labels("");
+                                        label-popup.show();
+                                    } else if action == "openpgp" {
+                                        AccountMailPreferences.read-message();
+                                    } else if action == "print" {
+                                        root.print_message();
+                                    } else if action == "browser" {
+                                        root.open_message_in_browser();
+                                    } else if action == "rendering_info" {
+                                        root.rendering_info_open = true;
+                                    } else if action == "source" {
+                                        root.source_mode = !root.source_mode;
+                                        if root.source_mode { root.text_mode = false; EmailReader.reader-mode = false; }
+                                    } else if action == "plain_text" {
+                                        root.text_mode = !root.text_mode;
+                                        if root.text_mode { root.source_mode = false; EmailReader.reader-mode = false; }
+                                    } else if action == "original_colors" {
+                                        MessageColors.original = !MessageColors.original;
+                                    } else if action == "read" {
+                                        root.message_action(root.selected_unread ? "mark_read" : "mark_unread");
+                                    } else {
+                                        root.message_action(action);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle { height: 1px; background: root.border; }
+
+                    message-content := VerticalBox {
+                        vertical-stretch: 1;
+                        padding-top: root.compact ? 14px : 20px;
+                        padding-right: root.compact ? 12px : 24px;
+                        padding-bottom: 0px;
+                        padding-left: root.compact ? 12px : 24px;
+                        spacing: 0px;
+                        opacity: 0.28 + root.content-reveal * 0.72;
+                        animate opacity {
+                            duration: 190ms;
+                            easing: ease-out;
+                            enabled: MotionSettings.enabled && root.content-reveal > 0;
+                        }
+
+                        Text {
+                            // The two navigation panes and separators occupy
+                            // 622px; the reading pane adds 24px padding on
+                            // each side. Referencing the window avoids a
+                            // preferred-size loop while still giving wrapping
+                            // a real width to measure against.
+                            width: root.compact ? max(0px, root.window-width - 24px)
+                                : root.full-width ? max(0px, root.window-width - 48px)
+                                : max(0px, root.window-width - 734px);
+                            // Up to three lines; longer subjects end in an ellipsis.
+                            height: min(self.preferred-height, 3 * (self.font-metrics.ascent - self.font-metrics.descent));
+                            text: root.display-subject;
+                            color: root.title-color;
+                            font-size: root.compact ? TypeScale.title-small : TypeScale.title;
+                            font-weight: 600;
+                            letter-spacing: -0.3px;
+                            wrap: word-wrap;
+                            overflow: elide;
+                        }
+
+                        Rectangle { height: 8px; }
+
+                        if root.selected-label-count > 0 : HorizontalBox {
+                            height: 24px;
+                            padding: 0px;
+                            spacing: 6px;
+                            alignment: start;
+                            for label in root.mail_labels : MailLabelChip {
+                                visible: label.applied;
+                                name: label.name;
+                                name-has-emoji: label.name_has_emoji;
+                                use-label-icon: root.selected-account-uses-labels;
+                                label-color: label.color;
+                                text-color: root.heading;
+                                chip-border-color: root.border-subtle;
+                            }
+                        }
+
+                        if root.selected-label-count > 0 : Rectangle { height: 8px; }
+
+                        Rectangle { height: 12px; }
+                        email-surface := Rectangle {
+                            horizontal-stretch: 1;
+                            vertical-stretch: 1;
+                            min-height: 0px;
+                            // This is the scrolling viewport, not the message
+                            // card. Keeping it visually transparent prevents a
+                            // short message from looking as tall as the pane;
+                            // the intrinsic-height card below owns the border.
+                            background: transparent;
+                            clip: true;
+
+                                email-scroll := ScrollView {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    content-width: 2 * (root.message-card-inset + root.message-card-border-width)
+                                        + root.email-viewport-width * (root.alternate-body-active ? 1 : EmailReader.width-ratio);
+                                    content-height: max(
+                                        parent.height,
+                                        root.accordion-message-count * root.thread-header-height
+                                            + max(0, root.accordion-message-count - 1) * root.thread-item-gap
+                                            + root.expanded-message-height
+                                    );
+                                    content-y <=> root.accordion-scroll-y;
+                                    horizontal-scrollbar-policy: !root.alternate-body-active && EmailReader.width-ratio > 1.01 ? as-needed : always-off;
+                                    mouse-drag-pan-enabled: root.compact && !root.selecting;
+                                    scrolled => {
+                                        root.syncing-accordion-scroll = true;
+                                        root.email-scroll-y = min(0px, self.content-y + root.message-body-y);
+                                        root.syncing-accordion-scroll = false;
+                                        root.email-scroll(-root.email-scroll-y / 1px, self.visible-height / 1px);
+                                    }
+
+                                // The expanded header and document share one card
+                                // boundary. Its fixed horizontal position keeps the
+                                // chrome aligned while a zoomed document scrolls.
+                                // The card is as tall as the rendered email, so it
+                                // is painted only within the visible window.
+                                Rectangle {
+                                    property <length> card-top: root.selected-header-y;
+                                    property <length> card-bottom: self.card-top + root.thread-header-height + root.expanded-message-height;
+                                    x: -email-scroll.content-x + root.message-card-inset;
+                                    y: clamp(root.paint-top, self.card-top, self.card-bottom);
+                                    width: max(0px, email-scroll.visible-width - 2 * root.message-card-inset);
+                                    height: clamp(root.paint-bottom, self.card-top, self.card-bottom) - self.y;
+                                    background: root.surface;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: root.border-subtle;
+                                }
+
+                                if root.thread-messages.length == 0 : ThreadMessageHeader {
+                                    x: -email-scroll.content-x + root.message-card-inset;
+                                    y: 0px;
+                                    width: max(0px, email-scroll.visible-width - 2 * root.message-card-inset);
+                                    sender: root.selected_sender;
+                                    address: root.selected_address;
+                                    initials: root.selected_initials;
+                                    favicon: root.selected_favicon;
+                                    has-favicon: root.selected_has_favicon;
+                                    preview: root.selected_plain_text;
+                                    time: root.selected_time;
+                                    to: root.selected_to;
+                                    selected: true;
+                                    thread-interactive: false;
+                                    sender-verification: root.selected_sender_verification;
+                                    show-avatar: root.show-avatars;
+                                    accent: root.accent;
+                                    accent-soft: root.accent-soft;
+                                    border: root.border;
+                                    control-bg: root.control-bg;
+                                    heading: root.heading;
+                                    secondary-text: root.secondary-text;
+                                    sender-height: root.thread-sender-height;
+                                    detail-height: root.thread-detail-height;
+                                }
+
+                                for row in root.thread-messages : ThreadMessageHeader {
+                                    x: -email-scroll.content-x + root.message-card-inset;
+                                    y: row.index * root.thread-item-stride
+                                        + (row.index > root.accordion-selected-index ? root.expanded-message-height : 0px);
+                                    animate y { duration: 240ms; easing: spring(0); }
+                                    width: max(0px, email-scroll.visible-width - 2 * root.message-card-inset);
+                                    sender: row.sender;
+                                    address: row.address;
+                                    initials: row.initials;
+                                    favicon: root.compact ? row.favicon_small : row.favicon;
+                                    has-favicon: row.has_favicon;
+                                    preview: row.preview;
+                                    time: row.time;
+                                    to: row.to;
+                                    outgoing: row.outgoing;
+                                    unread: row.unread;
+                                    body-pending: row.body_pending;
+                                    selected: row.selected;
+                                    thread-interactive: root.thread-messages.length > 1;
+                                    sender-verification: row.selected ? root.selected_sender_verification : "";
+                                    show-avatar: root.show-avatars;
+                                    accent: root.accent;
+                                    accent-soft: root.accent-soft;
+                                    border: root.border;
+                                    control-bg: root.control-bg;
+                                    heading: root.heading;
+                                    secondary-text: root.secondary-text;
+                                    sender-height: root.thread-sender-height;
+                                    detail-height: root.thread-detail-height;
+                                    open => { root.select_thread_message(row.index); }
+                                }
+
+                                // Renderer controls are part of the expanded
+                                // message. They follow its sender header and
+                                // leave the viewport when the message is scrolled.
+                                renderer-controls := VerticalBox {
+                                    x: -email-scroll.content-x + root.message-card-inset + root.message-card-border-width;
+                                    y: root.selected-header-y + root.thread-header-height;
+                                    width: root.email-viewport-width;
+                                    height: self.preferred-height;
+                                    padding-top: 4px;
+                                    padding-right: 10px;
+                                    padding-bottom: 4px;
+                                    padding-left: 10px;
+                                    spacing: 0px;
+
+                                    HorizontalBox {
+                                        height: root.compact ? LayoutMetrics.touch-target : LayoutMetrics.control-height; padding: 0px; spacing: 4px; cross-axis-alignment: center;
+                                        ZoomControls { compact: root.compact; available: EmailReader.available; zoom: EmailReader.zoom; revision: EmailReader.zoom-revision; fitting: EmailReader.auto-fit; command(action) => { EmailReader.command(action); } }
+                                        Rectangle { horizontal-stretch: 1; }
+                                        if root.attachment-menu-mode && MailAttachments.rows.length > 0 : ContextMenuArea {
+                                            width: root.compact ? LayoutMetrics.touch-target : LayoutMetrics.control-height;
+                                            height: root.compact ? LayoutMetrics.touch-target : LayoutMetrics.control-height;
+                                            ToolbarIconButton {
+                                                compact: root.compact; icon: @image-url("../icons/lucide/outline/paperclip.svg");
+                                                icon-color: root.secondary-text; tooltip-text: @tr("Attachments");
+                                                clicked => { parent.show({ x: 0px, y: parent.height }); }
+                                            }
+                                            Menu {
+                                                for attachment in MailAttachments.rows : MenuItem {
+                                                    title: attachment.name;
+                                                    activated => { MailAttachments.command(attachment.previewable ? "preview" : "download", attachment.id); }
+                                                }
+                                            }
+                                        }
+                                        ReaderControl { compact: root.compact; icon: EmailReader.find-open ? @image-url("../icons/lucide/filled/search.svg") : @image-url("../icons/lucide/outline/search.svg"); tooltip-text: @tr("Find in message"); active: EmailReader.find-open; clicked => { EmailReader.find-open = !EmailReader.find-open; if EmailReader.find-open { EmailReader.reader-mode = false; root.text_mode = false; root.source_mode = false; find-input.focus(); } } }
+                                        if !root.compact : ReaderControl { compact: root.compact; icon: @image-url("../icons/lucide/outline/contrast.svg"); tooltip-text: MessageColors.original ? @tr("Use message appearance") : @tr("Show original colors"); active: MessageColors.original; accessible-checked: MessageColors.original; accessible-id: "message-original-colors"; clicked => { MessageColors.original = !MessageColors.original; } }
+                                        ReaderControl { compact: root.compact; icon: EmailReader.reader-mode ? @image-url("../icons/lucide/filled/code.svg") : @image-url("../icons/lucide/outline/book.svg"); tooltip-text: EmailReader.reader-mode ? @tr("Show original layout") : @tr("Reader mode"); active: EmailReader.reader-mode; clicked => { EmailReader.reader-mode = !EmailReader.reader-mode; if EmailReader.reader-mode { root.text_mode = false; root.source_mode = false; EmailReader.find-open = false; } } }
+                                    }
+                                    HorizontalBox {
+                                        visible: EmailReader.find-open;
+                                        height: EmailReader.find-open ? (root.compact ? 44px : 32px) : 0px; padding: 0px; spacing: 4px;
+                                        find-input := LineEdit { enabled: EmailReader.find-open; text <=> EmailReader.query; placeholder-text: @tr("Find in message"); edited => { EmailReader.find(EmailReader.query, 0); } accepted => { EmailReader.find(EmailReader.query, 1); } }
+                                        Text { text: EmailReader.find-status; color: root.secondary-text; vertical-alignment: center; }
+                                        ReaderControl { compact: root.compact; icon: @image-url("../icons/lucide/outline/chevron-up.svg"); tooltip-text: @tr("Previous match"); clicked => { EmailReader.find(EmailReader.query, -1); } }
+                                        ReaderControl { compact: root.compact; icon: @image-url("../icons/lucide/outline/chevron-down.svg"); tooltip-text: @tr("Next match"); clicked => { EmailReader.find(EmailReader.query, 1); } }
+                                        ReaderControl { compact: root.compact; icon: @image-url("../icons/lucide/outline/x.svg"); tooltip-text: @tr("Close find"); clicked => { EmailReader.find-open = false; } }
+                                    }
+                                    if EmailReader.failed-images > 0 && !root.remote-images-blocked && !root.text_mode && !root.source_mode && !EmailReader.reader-mode : HorizontalBox {
+                                        height: root.compact ? 44px : 32px; padding: 0px; spacing: 6px;
+                                        Text { text: @tr("Some images could not be loaded."); overflow: elide; color: root.secondary-text; vertical-alignment: center; horizontal-stretch: 1; }
+                                        ReaderControl { compact: root.compact; icon: @image-url("../icons/lucide/outline/sync.svg"); tooltip-text: @tr("Retry images"); clicked => { EmailReader.retry-images(); } }
+                                    }
+                                    if EmailReader.body-pending : HorizontalBox {
+                                        height: root.compact ? 44px : 32px; padding: 0px; spacing: 8px;
+                                        Text { text: @tr("Loading message…"); color: root.secondary-text; vertical-alignment: center; horizontal-stretch: 1; }
+                                        ReaderControl { compact: root.compact; interactive: true; icon: @image-url("../icons/lucide/outline/sync.svg"); tooltip-text: @tr("Reload message"); clicked => { EmailReader.ensure-body(EmailReader.message-id); } }
+                                    }
+                                    if EmailReader.notice != "" : Text {
+                                        height: self.preferred-height;
+                                        text: EmailReader.notice; wrap: word-wrap; color: root.secondary-text; font-size: TypeScale.secondary;
+                                        accessible-role: text;
+                                    }
+                                }
+
+                                MessageLoadingSkeleton {
+                                    x: -email-scroll.content-x + root.message-card-inset + root.message-card-border-width;
+                                    y: root.message-body-y;
+                                    width: root.email-viewport-width;
+                                    height: root.message-body-content-height;
+                                    paint-top: root.paint-top - self.y;
+                                    paint-bottom: root.paint-bottom - self.y;
+                                    z: 50;
+                                    active: EmailReader.body-pending;
+                                    surface-color: root.surface;
+                                    base-color: root.control-bg;
+                                    highlight-color: root.surface-raised;
+                                    text-color: root.secondary-text;
+                                }
+
+                                // This area supplies the normal right-click
+                                // menu for the rendered mail. Link hit areas
+                                // below add the link-specific native actions.
+                                email-context := ContextMenuArea {
+                                    x: root.message-card-inset + root.message-card-border-width;
+                                    y: root.message-body-y;
+                                    width: root.email-viewport-width * (root.alternate-body-active ? 1 : EmailReader.width-ratio);
+                                    height: root.message-body-content-height;
+                                    // Keep the parent enabled in plain-text
+                                    // mode as well; otherwise Slint propagates
+                                    // the disabled state into the read-only
+                                    // TextEdit and its text cannot be selected.
+                                    enabled: root.has_selected;
+
+                                    if root.text_mode : Rectangle {
+                                        width: parent.width; height: parent.height;
+                                        background: MessageColors.background;
+                                        accessible-role: none;
+                                    }
+
+                                    if root.remote-images-blocked && !root.text_mode && !root.source_mode && !EmailReader.reader-mode : Rectangle {
+                                        x: 12px;
+                                        y: 12px;
+                                        width: parent.width - 24px;
+                                        height: 36px;
+                                        background: root.control-bg;
+                                        border-radius: 6px;
+                                        border-width: 1px;
+                                        border-color: root.border;
+
+                                        HorizontalBox {
+                                            padding-left: 10px;
+                                            padding-right: 8px;
+                                            spacing: 10px;
+                                            Text {
+                                                text: @tr("Remote images were blocked to protect your privacy.");
+                                                color: root.secondary-text;
+                                                font-size: TypeScale.secondary;
+                                                vertical-alignment: center;
+                                                horizontal-stretch: 1;
+                                                overflow: elide;
+                                            }
+                                            Button {
+                                                height: 26px;
+                                                text: @tr("Load images");
+                                                clicked => { root.load-remote-images-for-message(); }
+                                            }
+                                        }
+                                    }
+
+                                    for tile in root.email_tiles : Image {
+                                        source: tile.image;
+                                        x: 0px;
+                                        y: tile.y * root.email-viewport-width * EmailReader.width-ratio + (root.remote-images-blocked ? 60px : 0px);
+                                        width: parent.width;
+                                        height: tile.height * root.email-viewport-width * EmailReader.width-ratio;
+                                        visible: !root.text_mode && !root.source_mode && !EmailReader.reader-mode;
+                                        vertical-alignment: top;
+                                        image-fit: fill;
+                                        // One message is rasterized into many
+                                        // tiles. Expose its text once on the
+                                        // focus surface instead of announcing
+                                        // every implementation tile as an image.
+                                        accessible-role: none;
+                                    }
+
+                                    for missing in EmailReader.images : Rectangle {
+                                        visible: !root.text_mode && !root.source_mode && !EmailReader.reader-mode;
+                                        x: missing.x * 1px; y: missing.y * 1px + (root.remote-images-blocked ? 60px : 0px);
+                                        width: missing.width * 1px; height: missing.height * 1px;
+                                        clip: true; accessible-role: image; accessible-label: missing.alt;
+                                        // Authored image sizes are unbounded; paint
+                                        // only the visible part of the placeholder.
+                                        Rectangle {
+                                            x: clamp(root.paint-left - email-context.x - parent.x, 0px, parent.width);
+                                            y: clamp(root.paint-top - email-context.y - parent.y, 0px, parent.height);
+                                            width: clamp(root.paint-right - email-context.x - parent.x, 0px, parent.width) - self.x;
+                                            height: clamp(root.paint-bottom - email-context.y - parent.y, 0px, parent.height) - self.y;
+                                            background: root.control-bg; border-width: 1px; border-color: root.border;
+                                        }
+                                        Text {
+                                            x: 4px; y: 2px; width: max(0px,parent.width - 8px); height: max(0px,parent.height - 4px);
+                                            text: missing.alt != "" ? missing.alt : missing.state == "loading" ? @tr("Loading image…") : missing.state == "blocked" ? @tr("Blocked image") : missing.state == "limited" ? @tr("Image exceeds limits") : @tr("Image unavailable");
+                                            wrap: word-wrap; color: root.secondary-text; font-size: TypeScale.caption;
+                                        }
+                                    }
+
+                                    // The tiles remain the visual renderer, but
+                                    // input is forwarded into the retained Blitz
+                                    // document so its native text-selection state
+                                    // and selection highlights stay authoritative.
+                                    email-focus := FocusScope {
+                                        y: root.remote-images-blocked ? 60px : 0px;
+                                        width: parent.width;
+                                        height: root.email-viewport-width * EmailReader.width-ratio * root.email-content-aspect;
+                                        enabled: root.has_selected && !root.text_mode && !root.source_mode && !EmailReader.reader-mode;
+                                        focus-on-click: true;
+                                        focus-on-tab-navigation: true;
+                                        accessible-role: text;
+                                        accessible-label: root.selected_plain_text;
+
+                                        email-input := TouchArea {
+                                            width: parent.width;
+                                            height: parent.height;
+                                            enabled: parent.enabled;
+                                            mouse-cursor: EmailReader.destination != "" ? pointer : text;
+
+                                            changed has-hover => { if !self.has-hover { EmailReader.destination = ""; } }
+                                            pointer-event(event) => {
+                                                // `moved` only fires while pressed; plain hover
+                                                // must also update the link cursor and destination.
+                                                if event.kind == PointerEventKind.move {
+                                                    EmailReader.destination = EmailReader.link-at(self.mouse-x / 1px, self.mouse-y / 1px);
+                                                }
+                                                root.drag-x = email-input.mouse-x / 1px; root.drag-y = email-input.mouse-y / 1px;
+                                                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                                                    root.drag-kind = "move";
+                                                    if root.compact {
+                                                        root.touch-x = root.drag-x; root.touch-y = root.drag-y; root.touch-pending = true;
+                                                    } else { root.selecting = true; }
+                                                }
+                                                if event.kind == PointerEventKind.move && root.touch-pending && (abs(root.drag-x - root.touch-x) > 8 || abs(root.drag-y - root.touch-y) > 8) { root.touch-pending = false; }
+                                                if event.kind == PointerEventKind.down {
+                                                    EmailReader.context-link = EmailReader.link-at(email-input.mouse-x / 1px, email-input.mouse-y / 1px);
+                                                }
+                                                if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                                                    email-context.show({ x: email-input.mouse-x, y: email-input.mouse-y + (root.remote-images-blocked ? 60px : 0px) });
+                                                } else if (event.button == PointerEventButton.left || event.kind == PointerEventKind.move || event.kind == PointerEventKind.cancel) {
+                                                    if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                                        email-focus.focus();
+                                                    }
+                                                    if root.compact && event.kind == PointerEventKind.up && root.touch-pending {
+                                                        root.email-pointer-event(root.touch-x,root.touch-y,"down",false,false,false,false);
+                                                        root.email-pointer-event(root.drag-x,root.drag-y,"up",false,false,false,false);
+                                                    }
+                                                    if !root.compact || root.selecting || event.kind == PointerEventKind.cancel { root.email-pointer-event(
+                                                        email-input.mouse-x / 1px,
+                                                        email-input.mouse-y / 1px,
+                                                        event.kind == PointerEventKind.down ? "down" : event.kind == PointerEventKind.move ? "move" : event.kind == PointerEventKind.up ? "up" : "cancel",
+                                                        event.modifiers.control,
+                                                        event.modifiers.shift,
+                                                        event.modifiers.alt,
+                                                        event.modifiers.meta
+                                                    ); }
+                                                    if event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel { root.selecting = false; root.touch-pending = false; }
+                                                }
+                                            }
+                                        }
+
+                                        key-pressed(event) => {
+                                            if (event.modifiers.control || event.modifiers.meta) && event.text == "f" { EmailReader.find-open = true; EmailReader.reader-mode = false; find-input.focus(); return accept; }
+                                            if (event.modifiers.control || event.modifiers.meta) && (event.text == "+" || event.text == "=") { EmailReader.command("zoom-in"); return accept; }
+                                            if (event.modifiers.control || event.modifiers.meta) && event.text == "-" { EmailReader.command("zoom-out"); return accept; }
+                                            if (event.modifiers.control || event.modifiers.meta) && event.text == "0" { EmailReader.command("zoom-reset"); return accept; }
+                                            if event.text == Key.F7 { EmailReader.caret-mode = !EmailReader.caret-mode; return accept; }
+                                            if event.text == Key.Escape { EmailReader.command("clear-selection"); return accept; }
+                                            if !event.modifiers.shift && !EmailReader.caret-mode {
+                                                if event.text == Key.LeftArrow { email-scroll.content-x = min(0px,email-scroll.content-x + 40px); return accept; }
+                                                if event.text == Key.RightArrow { email-scroll.content-x = max(-max(0px,email-scroll.content-width - email-scroll.visible-width),email-scroll.content-x - 40px); return accept; }
+                                                if event.text == Key.DownArrow { EmailReader.command("down"); return accept; }
+                                                if event.text == Key.UpArrow { EmailReader.command("up"); return accept; }
+                                                if event.text == Key.PageDown || event.text == " " { EmailReader.command("page-down"); return accept; }
+                                                if event.text == Key.PageUp { EmailReader.command("page-up"); return accept; }
+                                                if event.text == Key.Home { EmailReader.command("home"); return accept; }
+                                                if event.text == Key.End { EmailReader.command("end"); return accept; }
+                                            }
+                                            if ((event.modifiers.control || event.modifiers.meta) && (event.text == "a" || event.text == "c")) || ((event.modifiers.shift || EmailReader.caret-mode) && (event.text == Key.LeftArrow || event.text == Key.RightArrow || event.text == Key.UpArrow || event.text == Key.DownArrow || event.text == Key.Home || event.text == Key.End || event.text == Key.PageUp || event.text == Key.PageDown)) {
+                                                root.email-key-event(event.text, true, event.repeat, event.modifiers.control, event.modifiers.shift, event.modifiers.alt, event.modifiers.meta);
+                                                return accept;
+                                            }
+                                            reject
+                                        }
+                                        key-released(event) => { reject }
+                                    }
+
+                                    if EmailReader.caret-mode && EmailReader.selection-end.valid && !root.has_selection && !root.text_mode && !root.source_mode : Rectangle {
+                                        x: EmailReader.selection-end.x * 1px;
+                                        y: EmailReader.selection-end.y * 1px + (root.remote-images-blocked ? 60px : 0px);
+                                        width: 2px; height: EmailReader.selection-end.height * 1px;
+                                        background: root.accent; accessible-role: none;
+                                    }
+                                    for caret[index] in [EmailReader.selection-start,EmailReader.selection-end] : Rectangle {
+                                        visible: root.compact && root.has_selection && caret.valid && !root.text_mode && !root.source_mode;
+                                        x: caret.x * 1px - 18px;
+                                        y: (caret.y + caret.height) * 1px + (root.remote-images-blocked ? 60px : 0px) - 4px;
+                                        width: 36px; height: 36px;
+                                        Rectangle { x: 11px; y: 4px; width: 14px; height: 18px; border-radius: 7px; background: root.accent; }
+                                        TouchArea {
+                                            private property <float> origin-x;
+                                            private property <float> origin-y;
+                                            pointer-event(event) => {
+                                                if event.kind == PointerEventKind.down {
+                                                    root.drag-kind = index == 0 ? "extend-start" : "extend-end";
+                                                    self.origin-x = self.mouse-x / 1px; self.origin-y = self.mouse-y / 1px;
+                                                    root.selecting = true;
+                                                }
+                                                if event.kind == PointerEventKind.move && self.pressed {
+                                                    root.drag-x = caret.x + self.mouse-x / 1px - self.origin-x;
+                                                    root.drag-y = caret.y + self.mouse-y / 1px - self.origin-y;
+                                                    root.email-pointer-event(root.drag-x,root.drag-y,index == 0 ? "extend-start" : "extend-end",false,false,false,false);
+                                                }
+                                                if event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel { root.selecting = false; root.email-pointer-event(0,0,"up",false,false,false,false); }
+                                            }
+                                        }
+                                    }
+
+                                    plain-text-editor := TextEdit {
+                                        visible: root.text_mode;
+                                        x: 16px;
+                                        y: 54px;
+                                        width: parent.width - 32px;
+                                        height: parent.height - 70px;
+                                        text: EmailReader.use-authored-text && EmailReader.authored-text != "" ? EmailReader.authored-text : root.selected_plain_text;
+                                        read-only: true;
+                                        text-color: MessageColors.foreground;
+                                        background-color: MessageColors.background;
+                                        font-size: TypeScale.body-large;
+                                    }
+
+                                    if root.text_mode : Button {
+                                        x: 16px;
+                                        y: 16px;
+                                        width: parent.width - 32px;
+                                        height: 30px;
+                                        text: @tr("Show rendered email");
+                                        clicked => { root.text_mode = false; }
+                                    }
+
+                                    source-editor := TextEdit {
+                                        visible: root.source_mode;
+                                        x: 16px;
+                                        y: 64px;
+                                        width: parent.width - 32px;
+                                        height: parent.height - 80px;
+                                        text: root.selected_source;
+                                        read-only: true;
+                                        font-size: TypeScale.secondary;
+                                    }
+
+                                    if root.source_mode : HorizontalBox {
+                                        x: 16px;
+                                        y: 14px;
+                                        width: parent.width - 32px;
+                                        height: 36px;
+                                        spacing: 8px;
+                                        cross-axis-alignment: center;
+                                        Text {
+                                            text: @tr("Copy this HTML into your GitHub rendering issue.");
+                                            color: root.secondary-text;
+                                            font-size: TypeScale.secondary;
+                                            horizontal-stretch: 1;
+                                            overflow: elide;
+                                        }
+                                        Button {
+                                            height: 30px;
+                                            text: @tr("Copy source");
+                                            clicked => {
+                                                source-editor.select-all();
+                                                source-editor.copy();
+                                                root.copy_email_status("Copied HTML source");
+                                            }
+                                        }
+                                        Button {
+                                            height: 30px;
+                                            text: @tr("Show email");
+                                            clicked => { root.source_mode = false; }
+                                        }
+                                    }
+
+                                    Menu {
+                                        MenuItem { title: @tr("Open link"); enabled: EmailReader.context-link != ""; activated => { root.open_email_link(EmailReader.context-link); } }
+                                        MenuItem { title: @tr("Copy link"); enabled: EmailReader.context-link != ""; activated => {
+                                            clipboard-source.text = EmailReader.context-link; clipboard-source.select-all(); clipboard-source.copy();
+                                        } }
+                                        MenuItem { title: @tr("View original plain text"); enabled: EmailReader.authored-text != ""; activated => { EmailReader.use-authored-text = true; root.text_mode = true; EmailReader.reader-mode = false; } }
+                                        MenuItem { title: @tr("Retry images"); activated => { EmailReader.retry-images(); } }
+                                        MenuItem { title: @tr("Copy formatted selection"); enabled: root.has_selection; activated => { EmailReader.command("copy-rich"); } }
+                                        MenuItem { title: @tr("Caret browsing"); checkable: true; checked: EmailReader.caret-mode; activated => { EmailReader.caret-mode = !EmailReader.caret-mode; } }
+                                        MenuItem { title: @tr("Show original colors"); checkable: true; checked: MessageColors.original; activated => { MessageColors.original = !MessageColors.original; } }
+                                        MenuItem {
+                                            title: @tr("Copy selected text");
+                                            enabled: root.has_selection;
+                                            activated => {
+                                                clipboard-source.text = root.selected_text;
+                                                clipboard-source.select-all();
+                                                clipboard-source.copy();
+                                                root.copy_email_status("Copied selected text");
+                                            }
+                                        }
+                                        MenuItem {
+                                            title: @tr("Copy all email text");
+                                            enabled: root.selected_plain_text != "";
+                                            activated => {
+                                                clipboard-source.text = root.selected_plain_text;
+                                                clipboard-source.select-all();
+                                                clipboard-source.copy();
+                                                root.copy_email_status("Copied email text");
+                                            }
+                                        }
+                                        MenuItem {
+                                            title: @tr("Select all email text");
+                                            enabled: root.selected_plain_text != "";
+                                            activated => { root.select-email-text(); }
+                                        }
+                                    }
+                                }
+
+                                // Keyboard/accessibility targets never intercept pointer drags.
+                                for link in root.email_links : FocusScope {
+                                    x: root.message-card-inset + root.message-card-border-width
+                                        + link.x * root.email-viewport-width;
+                                    y: root.message-body-y + link.y * root.email-viewport-width
+                                        + (root.remote-images-blocked ? 60px : 0px);
+                                    width: link.width * root.email-viewport-width;
+                                    height: link.height * root.email-viewport-width;
+                                    enabled: !root.text_mode && !root.source_mode && !EmailReader.reader-mode;
+                                    focus-on-click: false;
+                                    accessible-role: button;
+                                    accessible-label: @tr("Link: {}", link.name);
+                                    accessible-description: link.url;
+                                    accessible-action-default => { root.open_email_link(link.url); }
+                                    changed has-focus => {
+                                        if self.has-focus {
+                                            EmailReader.destination = link.url; EmailReader.context-link = link.url;
+                                            let document-y = self.y - root.message-body-y;
+                                            let top = document-y + root.email-scroll-y;
+                                            if top < 0px { root.email-scroll-y = -document-y; }
+                                            if top + self.height > email-scroll.visible-height { root.email-scroll-y = min(0px,email-scroll.visible-height - document-y - self.height); }
+                                            root.email-scroll(-root.email-scroll-y / 1px,email-scroll.visible-height / 1px);
+                                        }
+                                    }
+                                    key-pressed(event) => {
+                                        if event.text == Key.Return || event.text == " " { root.open_email_link(link.url); return accept; }
+                                        reject
+                                    }
+                                    // A link can wrap the whole message; paint
+                                    // only the visible part of its focus ring.
+                                    Rectangle {
+                                        x: clamp(root.paint-left - parent.x, 0px, parent.width);
+                                        y: clamp(root.paint-top - parent.y, 0px, parent.height);
+                                        width: clamp(root.paint-right - parent.x, 0px, parent.width) - self.x;
+                                        height: clamp(root.paint-bottom - parent.y, 0px, parent.height) - self.y;
+                                        border-width: parent.has-focus ? 2px : 0px; border-color: root.accent; background: transparent;
+                                    }
+                                }
+
+                                // Attachments belong to the message document. They
+                                // share its vertical scroll and appear only after
+                                // the rendered body has passed through the viewport.
+                                if MailAttachments.rows.length > 0 : VerticalBox {
+                                    x: -email-scroll.content-x + root.message-card-inset + 12px;
+                                    y: root.message-body-y + root.attachment-flow-y;
+                                    width: max(0px, email-scroll.visible-width - 24px);
+                                    height: root.attachment-section-height;
+                                    padding: 0px;
+                                    padding-top: 8px;
+                                    spacing: 6px;
+                                    Text {
+                                        height: root.attachment-heading-line;
+                                        text: @tr("Attachments");
+                                        color: root.heading;
+                                        font-weight: 600;
+                                    }
+                                    for attachment in MailAttachments.rows : HorizontalBox {
+                                        width: parent.width;
+                                        height: root.attachment-card-height + 4px;
+                                        padding: 0px;
+                                        spacing: 8px;
+                                        attachment-focus := FocusVisibleScope {
+                                            min-width: 0px;
+                                            horizontal-stretch: 1;
+                                            key-pressed(event) => {
+                                                if event.text == Key.Return || event.text == Key.Space {
+                                                    MailAttachments.command(attachment.previewable ? "preview" : "download", attachment.id); return accept;
+                                                }
+                                                reject
+                                            }
+                                            Rectangle {
+                                                width: parent.width;
+                                                height: root.attachment-card-height;
+                                                border-radius: 7px;
+                                                background: attachment-hit.has-hover || attachment-focus.focus-visible
+                                                    ? root.accent-soft
+                                                    : transparent;
+
+                                                Rectangle {
+                                                    x: 4px;
+                                                    y: (parent.height - self.height) / 2;
+                                                    width: 36px;
+                                                    height: 36px;
+                                                    border-radius: 6px;
+                                                    border-width: 1px;
+                                                    border-color: root.border-subtle;
+                                                    background: root.control-bg;
+                                                    clip: true;
+
+                                                    if attachment.has_thumbnail : Image {
+                                                        width: parent.width;
+                                                        height: parent.height;
+                                                        source: attachment.thumbnail;
+                                                        image-fit: cover;
+                                                        accessible-role: none;
+                                                    }
+                                                    if !attachment.has_thumbnail : Image {
+                                                        x: 9px;
+                                                        y: 9px;
+                                                        width: 18px;
+                                                        height: 18px;
+                                                        source: @image-url("../icons/lucide/outline/file.svg");
+                                                        colorize: root.secondary-text;
+                                                        image-fit: contain;
+                                                        accessible-role: none;
+                                                    }
+                                                }
+
+                                                Text {
+                                                    x: 48px;
+                                                    y: attachment.detail == "" ? 0px : 3px;
+                                                    width: max(0px, parent.width - self.x - 6px);
+                                                    height: attachment.detail == "" ? parent.height : root.attachment-name-line;
+                                                    text: attachment.name;
+                                                    color: root.heading;
+                                                    font-size: TypeScale.body;
+                                                    font-weight: attachment-focus.focus-visible ? 600 : 500;
+                                                    overflow: elide;
+                                                    vertical-alignment: center;
+                                                }
+                                                if attachment.detail != "" : Text {
+                                                    x: 48px;
+                                                    y: 1px + root.attachment-name-line;
+                                                    width: max(0px, parent.width - self.x - 6px);
+                                                    height: root.attachment-detail-line;
+                                                    text: attachment.detail;
+                                                    color: root.secondary-text;
+                                                    font-size: TypeScale.caption;
+                                                    overflow: elide;
+                                                    vertical-alignment: center;
+                                                }
+
+                                                attachment-hit := TouchArea {
+                                                    accessible-role: button;
+                                                    accessible-label: attachment.name;
+                                                    accessible-description: attachment.detail;
+                                                    accessible-action-default => {
+                                                        attachment-focus.focus();
+                                                        MailAttachments.command(attachment.previewable ? "preview" : "download", attachment.id);
+                                                    }
+                                                    clicked => {
+                                                        attachment-focus.focus();
+                                                        attachment-focus.pointer-activated();
+                                                        MailAttachments.command(attachment.previewable ? "preview" : "download", attachment.id);
+                                                    }
+                                                    mouse-cursor: pointer;
+                                                }
+                                            }
+                                        }
+                                        ToolbarIconButton {
+                                            compact: root.compact;
+                                            icon: @image-url("../icons/lucide/outline/download.svg");
+                                            icon-color: AppTheme.secondary;
+                                            tooltip-text: @tr("Download");
+                                            clicked => { MailAttachments.command("download", attachment.id); }
+                                        }
+                                    }
+                                }
+
+                                reader-focus := FocusVisibleScope {
+                                    visible: EmailReader.reader-mode;
+                                    enabled: root.has_selected && EmailReader.reader-mode;
+                                    focus-on-tab-navigation: true;
+                                    accessible-role: text;
+                                    accessible-label: root.selected_plain_text;
+                                    key-pressed(event) => {
+                                        if !self.has-focus || event.modifiers.control || event.modifiers.meta || event.modifiers.alt || event.modifiers.shift { return reject; }
+                                        let page = max(1px, reader-list.visible-height - 32px);
+                                        let limit = max(0px, reader-list.content-height - reader-list.visible-height);
+                                        if event.text == Key.DownArrow { reader-list.content-y = max(-limit, reader-list.content-y - 40px); return accept; }
+                                        if event.text == Key.UpArrow { reader-list.content-y = min(0px, reader-list.content-y + 40px); return accept; }
+                                        if event.text == Key.PageDown || event.text == Key.Space { reader-list.content-y = max(-limit, reader-list.content-y - page); return accept; }
+                                        if event.text == Key.PageUp { reader-list.content-y = min(0px, reader-list.content-y + page); return accept; }
+                                        if event.text == Key.Home { reader-list.content-y = 0px; return accept; }
+                                        if event.text == Key.End { reader-list.content-y = -limit; return accept; }
+                                        reject
+                                    }
+                                    x: -email-scroll.content-x + root.message-card-inset + root.message-card-border-width;
+                                    y: root.message-body-y;
+                                    width: root.email-viewport-width; height: root.message-body-content-height;
+                                    Rectangle {
+                                        width: parent.width; height: parent.height;
+                                        background: MessageColors.background;
+                                        border-width: reader-focus.focus-visible ? 2px : 0px;
+                                        border-color: root.accent;
+                                        accessible-role: none;
+                                    }
+                                    reader-list := ListView {
+                                        width: parent.width; height: parent.height;
+                                        content-width: self.visible-width;
+                                        for item in EmailReader.items : VerticalBox {
+                                            width: reader-list.visible-width;
+                                            padding: 16px; spacing: 0px;
+                                            if item.url != "" : Button {
+                                                text: item.name; accessible-label: item.name;
+                                                clicked => { root.open_email_link(item.url); }
+                                            }
+                                            if item.url == "" : Text {
+                                                text: item.name; wrap: word-wrap;
+                                                font-size: item.kind == "heading" ? 22px * EmailReader.zoom : 16px * EmailReader.zoom;
+                                                font-weight: item.kind == "heading" ? 700 : 400;
+                                                color: MessageColors.foreground;
+                                                accessible-role: text;
+                                                accessible-label: item.kind == "heading" ? @tr("Heading: {}", item.name) : item.name;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // These actions are the natural end of the selected
+                                // message, after its body and attachments. The
+                                // ScrollView content height above includes this row
+                                // and a small reveal margin beneath it.
+                                message-actions := Rectangle {
+                                    x: -email-scroll.content-x + root.message-card-inset + root.message-card-border-width;
+                                    y: root.message-actions-y;
+                                    width: root.email-viewport-width;
+                                    height: root.message-actions-height;
+                                    background: root.surface;
+
+                                    Rectangle {
+                                        y: 0px;
+                                        width: parent.width;
+                                        height: 1px;
+                                        background: root.border-subtle;
+                                    }
+
+                                    HorizontalBox {
+                                        padding-top: root.message-actions-padding;
+                                        padding-right: 10px;
+                                        padding-bottom: root.message-actions-padding;
+                                        padding-left: 10px;
+                                        spacing: 4px;
+                                        alignment: start;
+                                        cross-axis-alignment: center;
+
+                                        if !root.selected_is_draft : ReaderControl {
+                                            compact: root.compact;
+                                            interactive: root.has_selected;
+                                            icon: @image-url("../icons/lucide/outline/reply.svg");
+                                            tooltip-text: @tr("Reply");
+                                            accessible-id: "message-reply-button";
+                                            clicked => { root.compose_message_action("reply"); }
+                                        }
+                                        if !root.selected_is_draft : ReaderControl {
+                                            compact: root.compact;
+                                            interactive: root.has_selected;
+                                            icon: @image-url("../icons/lucide/outline/reply-all.svg");
+                                            tooltip-text: @tr("Reply all");
+                                            accessible-id: "message-reply-all-button";
+                                            clicked => { root.compose_message_action("reply_all"); }
+                                        }
+                                        if !root.selected_is_draft : ReaderControl {
+                                            compact: root.compact;
+                                            interactive: root.has_selected;
+                                            icon: @image-url("../icons/lucide/outline/forward.svg");
+                                            tooltip-text: @tr("Forward");
+                                            accessible-id: "message-forward-button";
+                                            clicked => { root.compose_message_action("forward"); }
+                                        }
+                                        if root.selected_is_draft : ReaderControl {
+                                            compact: root.compact;
+                                            interactive: root.has_selected;
+                                            icon: @image-url("../icons/lucide/filled/compose.svg");
+                                            tooltip-text: @tr("Continue editing");
+                                            clicked => { root.compose_message_action("edit_draft"); }
+                                        }
+
+                                        Rectangle { horizontal-stretch: 1; }
+
+                                        if !root.compact && !root.selected_is_draft : ReaderControl {
+                                            interactive: root.has_selected;
+                                            icon: @image-url("../icons/lucide/outline/browser.svg");
+                                            tooltip-text: @tr("Open in browser");
+                                            accessible-id: "message-open-in-browser-button";
+                                            clicked => { root.open_message_in_browser(); }
+                                        }
+                                        if !root.compact && !root.selected_is_draft : ReaderControl {
+                                            interactive: root.has_selected;
+                                            icon: @image-url("../icons/lucide/outline/info.svg");
+                                            tooltip-text: @tr("About email rendering");
+                                            clicked => { root.rendering_info_open = true; }
+                                        }
+                                    }
+                                }
+                            }
+
+                        }
+                        Text {
+                            height: EmailReader.destination == "" ? 0px : 20px;
+                            text: EmailReader.destination; overflow: elide; color: root.secondary-text; font-size: TypeScale.caption;
+                        }
+                        Rectangle { height: root.compact ? 10px : 12px; }
+
+                    }
+                }
+
+                // Keep a tiny primitive text input as the platform clipboard
+                // bridge. Selection itself lives in the retained Blitz DOM;
+                // this input is never used to display the email body.
+                clipboard-source := TextInput {
+                    x: -10000px;
+                    y: -10000px;
+                    width: 1px;
+                    height: 1px;
+                    visible: false;
+                    enabled: false;
+                    read-only: true;
+                    accessible-role: none;
+                    text: "";
+                }
+
+                Rectangle {
+                    visible: !root.has_selected;
+                    x: 0px;
+                    y: 0px;
+                    width: parent.width;
+                    height: parent.height;
+                    background: root.surface-raised;
+                    DetailEmptyState {
+                        width: parent.width;
+                        height: parent.height;
+                        icon: root.trash_view ? @image-url("../icons/lucide/outline/trash.svg") : @image-url("../icons/lucide/outline/mail-open.svg");
+                        title: @tr("No message selected");
+                        description: @tr("Choose an email to read it here.");
+                        action-label: root.trash_view ? @tr("Empty Trash…") : "";
+                        action-icon: @image-url("../icons/lucide/outline/trash.svg");
+                        action-destructive: true;
+                        action => { root.request_empty_trash(); }
+                    }
+                }
+
+                if root.label-editor-open : Rectangle {
+                    x: 0px;
+                    y: 0px;
+                    width: parent.width;
+                    height: parent.height;
+                    background: #00000055;
+
+                    TouchArea {
+                        width: parent.width;
+                        height: parent.height;
+                        clicked => { root.label-editor-open = false; }
+                    }
+
+                    Rectangle {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        width: min(360px, parent.width - 32px);
+                        height: root.label-editor-id < 0 ? 294px : 250px;
+                        border-radius: 10px;
+                        border-width: 1px;
+                        border-color: root.border;
+                        background: root.surface-raised;
+
+                        VerticalBox {
+                            padding: 20px;
+                            spacing: 12px;
+                            Text {
+                                text: root.label-editor-id < 0 ? @tr("Create label") : @tr("Edit label");
+                                color: root.title-color;
+                                font-size: TypeScale.heading;
+                                font-weight: 700;
+                            }
+                            LineEdit {
+                                text <=> root.new-label-name;
+                                placeholder-text: @tr("Label name");
+                                enabled: !root.label-editor-is-auto;
+                            }
+                            VerticalBox {
+                                height: 36px + label-color-heading.height;
+                                spacing: 6px;
+                                label-color-heading := Text {
+                                    height: max(16px, self.preferred-height);
+                                    text: @tr("Color");
+                                    color: root.muted-text;
+                                    font-size: TypeScale.caption;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+                                HorizontalBox {
+                                    height: 30px;
+                                    spacing: 6px;
+                                    alignment: start;
+                                    LabelColorSwatch { swatch-color: #4a86e8; selected: root.new-label-color == self.swatch-color; accessible-name: @tr("Blue"); chosen => { root.new-label-color = self.swatch-color; } }
+                                    LabelColorSwatch { swatch-color: #a479e2; selected: root.new-label-color == self.swatch-color; accessible-name: @tr("Purple"); chosen => { root.new-label-color = self.swatch-color; } }
+                                    LabelColorSwatch { swatch-color: #f691b3; selected: root.new-label-color == self.swatch-color; accessible-name: @tr("Pink"); chosen => { root.new-label-color = self.swatch-color; } }
+                                    LabelColorSwatch { swatch-color: #fb4c2f; selected: root.new-label-color == self.swatch-color; accessible-name: @tr("Red"); chosen => { root.new-label-color = self.swatch-color; } }
+                                    LabelColorSwatch { swatch-color: #ffad46; selected: root.new-label-color == self.swatch-color; accessible-name: @tr("Amber"); chosen => { root.new-label-color = self.swatch-color; } }
+                                    LabelColorSwatch { swatch-color: #16a765; selected: root.new-label-color == self.swatch-color; accessible-name: @tr("Green"); chosen => { root.new-label-color = self.swatch-color; } }
+                                    LabelColorSwatch { swatch-color: #43d692; selected: root.new-label-color == self.swatch-color; accessible-name: @tr("Teal"); chosen => { root.new-label-color = self.swatch-color; } }
+                                    LabelColorSwatch { swatch-color: #666666; selected: root.new-label-color == self.swatch-color; accessible-name: @tr("Slate"); chosen => { root.new-label-color = self.swatch-color; } }
+                                }
+                            }
+                            if root.label-editor-id < 0 : CheckBox {
+                                height: 32px;
+                                text: @tr("Use across all accounts (local only)");
+                                checked <=> root.label-editor-is-global;
+                            }
+                            HorizontalBox {
+                                height: 34px;
+                                spacing: 8px;
+                                alignment: end;
+                                Button {
+                                    height: parent.height;
+                                    text: @tr("Cancel");
+                                    clicked => { root.label-editor-open = false; }
+                                }
+                                Button {
+                                    height: parent.height;
+                                    text: root.label-editor-id < 0 ? @tr("Create") : @tr("Save");
+                                    primary: true;
+                                    enabled: root.new-label-name != "";
+                                    clicked => {
+                                        root.save-mail-label(
+                                            root.label-editor-id,
+                                            root.new-label-name,
+                                            root.new-label-color,
+                                            root.label-editor-is-global,
+                                        );
+                                        root.label-editor-open = false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RenderingInfoDialog {
+                    open <=> root.rendering_info_open;
+                    compact: root.compact;
+                    x: 0px;
+                    y: 0px;
+                    width: root.width;
+                    height: root.height;
+                    accent: root.accent;
+                    accent-soft: root.accent-soft;
+                    border: root.border;
+                    body-color: root.heading;
+                    muted-color: root.muted-text;
+                    surface: root.surface-raised;
+                    title-color: root.title-color;
+                    copy-source => {
+                        clipboard-source.text = root.selected_source;
+                        clipboard-source.select-all();
+                        clipboard-source.copy();
+                        root.copy_email_status("Copied HTML source");
+                    }
+                    report-issue => {
+                        root.open_email_link("https://github.com/rustmail/rustmail/issues/new?title=Email%20rendering%20issue&body=%23%23%20What%20looked%20wrong%3F%0A%0A%23%23%20Email%20HTML%20source%0A%3C!--%20Remove%20private%20information%20before%20pasting.%20--%3E%0A");
+                    }
+                }
+}

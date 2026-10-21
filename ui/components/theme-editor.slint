@@ -1,0 +1,776 @@
+import { HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { AppTheme, ThemeUtilities } from "../design-system.slint";
+import { TypeScale } from "../typography.slint";
+import { Button } from "button.slint";
+import { LineEdit, RadioButton } from "controls.slint";
+import { FocusVisibleScope } from "focus-visible-scope.slint";
+
+component ThemePresetCard inherits FocusVisibleScope {
+    in property <string> name;
+    in property <color> preview-primary;
+    in property <color> preview-page;
+    in property <color> preview-surface;
+    in property <color> preview-text;
+    in property <bool> selected: false;
+    in property <length> label-bottom-padding: 10px;
+    callback chosen;
+
+    height: 44px + preset-name.height + root.label-bottom-padding;
+    min-width: 112px;
+    focus-on-click: true;
+    accessible-role: radio-button;
+    accessible-label: root.name;
+    accessible-checked: root.selected;
+    accessible-action-default => { root.chosen(); }
+    key-pressed(event) => {
+        if event.text == Key.Return || event.text == Key.Space {
+            root.chosen();
+            return accept;
+        }
+        reject
+    }
+
+    Rectangle {
+        border-radius: 8px;
+        border-width: root.selected || root.focus-visible ? 2px : 1px;
+        border-color: root.selected || root.focus-visible ? AppTheme.accent : AppTheme.border;
+        background: preset-hit.has-hover ? AppTheme.control-bg : AppTheme.surface;
+
+        Rectangle {
+            x: 9px;
+            y: 9px;
+            width: parent.width - 18px;
+            height: 30px;
+            border-radius: 5px;
+            background: root.preview-page;
+            border-width: 1px;
+            border-color: root.preview-text.with-alpha(0.16);
+
+            Rectangle {
+                x: 5px;
+                y: 5px;
+                width: parent.width - 25px;
+                height: 20px;
+                border-radius: 4px;
+                background: root.preview-surface;
+            }
+            Rectangle {
+                x: parent.width - 15px;
+                y: 9px;
+                width: 9px;
+                height: 9px;
+                border-radius: 5px;
+                background: root.preview-primary;
+            }
+        }
+        preset-name := Text {
+            x: 10px;
+            y: 44px;
+            width: parent.width - 20px;
+            height: max(18px, self.preferred-height);
+            text: root.name;
+            color: root.selected ? AppTheme.accent : AppTheme.body;
+            font-size: TypeScale.caption;
+            font-weight: root.selected ? 700 : 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        preset-hit := TouchArea {
+            clicked => { root.pointer-activated(); root.chosen(); }
+            mouse-cursor: pointer;
+        }
+    }
+}
+
+component ThemeModeCard inherits FocusVisibleScope {
+    in property <string> name;
+    in property <string> mode;
+    in property <bool> selected: false;
+    callback chosen;
+
+    height: 51px + mode-name.height;
+    min-width: 92px;
+    focus-on-click: true;
+    accessible-role: radio-button;
+    accessible-label: root.name;
+    accessible-checked: root.selected;
+    accessible-action-default => { root.chosen(); }
+    key-pressed(event) => {
+        if event.text == Key.Return || event.text == Key.Space { root.chosen(); return accept; }
+        reject
+    }
+
+    Rectangle {
+        border-radius: 8px;
+        border-width: root.selected || root.focus-visible ? 2px : 1px;
+        border-color: root.selected || root.focus-visible ? AppTheme.accent : AppTheme.border;
+        background: mode-hit.has-hover ? AppTheme.control-bg : AppTheme.surface;
+        Rectangle {
+            x: 9px; y: 8px; width: parent.width - 18px; height: 32px;
+            border-radius: 5px; border-width: 1px; border-color: AppTheme.border; clip: true;
+            background: root.mode == "dark" ? #18191a : #f2f2f0;
+            if root.mode == "system" : Rectangle { x: parent.width / 2; width: parent.width / 2; height: parent.height; background: #18191a; }
+            Rectangle {
+                x: 6px; y: 6px; width: parent.width - 12px; height: 20px;
+                border-radius: 3px;
+                background: root.mode == "dark" ? #242526 : root.mode == "light" ? #ffffff : @linear-gradient(90deg, #ffffff 0%, #ffffff 50%, #242526 50%, #242526 100%);
+            }
+            Rectangle { x: 10px; y: 11px; width: 28%; height: 3px; border-radius: 2px; background: #3b82f6; }
+        }
+        mode-name := Text {
+            x: 8px; y: 44px; width: parent.width - 16px; height: max(17px, self.preferred-height);
+            text: root.name; color: root.selected ? AppTheme.accent : AppTheme.body;
+            font-size: TypeScale.caption; font-weight: root.selected ? 700 : 600;
+            horizontal-alignment: center; vertical-alignment: center; overflow: elide;
+        }
+        mode-hit := TouchArea { clicked => { root.pointer-activated(); root.chosen(); } mouse-cursor: pointer; }
+    }
+}
+
+component ThemeColorChip inherits FocusVisibleScope {
+    in property <string> name;
+    in property <color> value;
+    in property <bool> selected: false;
+    callback chosen;
+
+    height: 48px;
+    min-width: 104px;
+    focus-on-click: true;
+    accessible-role: radio-button;
+    accessible-label: root.name + " " + ThemeUtilities.color-to-hex(root.value);
+    accessible-checked: root.selected;
+    accessible-action-default => { root.chosen(); }
+    key-pressed(event) => {
+        if event.text == Key.Return || event.text == Key.Space {
+            root.chosen();
+            return accept;
+        }
+        reject
+    }
+
+    Rectangle {
+        border-radius: 7px;
+        border-width: root.selected || root.focus-visible ? 2px : 1px;
+        border-color: root.selected || root.focus-visible ? AppTheme.accent : AppTheme.border-subtle;
+        background: chip-hit.has-hover ? AppTheme.control-bg : AppTheme.surface-raised;
+        HorizontalBox {
+            padding-left: 8px;
+            padding-right: 8px;
+            spacing: 7px;
+            Rectangle {
+                width: 24px;
+                height: 24px;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: AppTheme.border;
+                background: root.value;
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.name;
+                color: AppTheme.body;
+                font-size: TypeScale.caption;
+                font-weight: root.selected ? 700 : 500;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+        chip-hit := TouchArea {
+            clicked => { root.pointer-activated(); root.chosen(); }
+            mouse-cursor: pointer;
+        }
+    }
+}
+
+export component RuntimeColorPicker inherits Rectangle {
+    in-out property <color> value;
+    callback edited(color);
+    private property <float> hue: root.value.to-hsv().hue;
+    private property <float> saturation: root.value.to-hsv().saturation;
+    private property <float> brightness: root.value.to-hsv().value;
+    private property <string> hex-value: ThemeUtilities.color-to-hex(root.value);
+    private property <bool> hex-valid: ThemeUtilities.valid-color(root.hex-value);
+
+    height: 222px;
+    border-radius: 9px;
+    border-width: 1px;
+    border-color: AppTheme.border-subtle;
+    background: AppTheme.surface-raised;
+
+    init => {
+        // External bindings are resolved before the component is shown, but
+        // an in-out string keeps its type default until explicitly synced.
+        root.hex-value = ThemeUtilities.color-to-hex(root.value);
+    }
+
+    changed value => {
+        root.hex-value = ThemeUtilities.color-to-hex(root.value);
+    }
+
+    function update-saturation-value(x: length, y: length) {
+        let saturation = (x / sv-map.width).clamp(0, 1);
+        let brightness = (1 - y / sv-map.height).clamp(0, 1);
+        root.value = hsv(root.hue, saturation, brightness);
+        root.edited(root.value);
+    }
+
+    function update-hue(x: length) {
+        let hue = (x / hue-strip.width * 360).clamp(0, 360);
+        root.value = hsv(hue, root.saturation, root.brightness);
+        root.edited(root.value);
+    }
+
+    VerticalBox {
+        padding: 12px;
+        spacing: 10px;
+
+        sv-map := FocusVisibleScope {
+            height: 136px;
+            focus-on-click: true;
+            accessible-role: slider;
+            accessible-label: @tr("Color saturation and brightness");
+            accessible-value: @tr("Saturation {}%, brightness {}%", (root.saturation * 100).round(), (root.brightness * 100).round());
+            key-pressed(event) => {
+                if event.text == Key.LeftArrow {
+                    root.value = hsv(root.hue, (root.saturation - 0.02).clamp(0, 1), root.brightness);
+                } else if event.text == Key.RightArrow {
+                    root.value = hsv(root.hue, (root.saturation + 0.02).clamp(0, 1), root.brightness);
+                } else if event.text == Key.UpArrow {
+                    root.value = hsv(root.hue, root.saturation, (root.brightness + 0.02).clamp(0, 1));
+                } else if event.text == Key.DownArrow {
+                    root.value = hsv(root.hue, root.saturation, (root.brightness - 0.02).clamp(0, 1));
+                } else {
+                    return reject;
+                }
+                root.edited(root.value);
+                return accept;
+            }
+
+            Rectangle {
+                border-radius: 6px;
+                background: hsv(root.hue, 1, 1);
+                clip: true;
+                Rectangle { background: @linear-gradient(90deg, white 0%, #ffffff00 100%); }
+                Rectangle { background: @linear-gradient(180deg, #00000000 0%, black 100%); }
+                sv-hit := TouchArea {
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down || (event.kind == PointerEventKind.move && self.pressed) {
+                            sv-map.focus();
+                            sv-map.pointer-activated();
+                            root.update-saturation-value(self.mouse-x, self.mouse-y);
+                        }
+                    }
+                    mouse-cursor: crosshair;
+                }
+                Rectangle {
+                    x: (root.saturation * parent.width - self.width / 2).clamp(-self.width / 2, parent.width - self.width / 2);
+                    y: ((1 - root.brightness) * parent.height - self.height / 2).clamp(-self.height / 2, parent.height - self.height / 2);
+                    width: 14px;
+                    height: 14px;
+                    border-radius: 7px;
+                    border-width: 2px;
+                    border-color: white;
+                    background: transparent;
+                    drop-shadow-blur: 2px;
+                    drop-shadow-color: #00000099;
+                }
+                Rectangle {
+                    border-radius: 6px;
+                    border-width: sv-map.focus-visible ? 2px : 1px;
+                    border-color: sv-map.focus-visible ? AppTheme.accent : #ffffff44;
+                    background: transparent;
+                }
+            }
+        }
+
+        hue-strip := FocusVisibleScope {
+            height: 20px;
+            focus-on-click: true;
+            accessible-role: slider;
+            accessible-label: @tr("Hue");
+            accessible-value: @tr("{} degrees", root.hue.round());
+            key-pressed(event) => {
+                if event.text == Key.LeftArrow {
+                    root.value = hsv(root.hue - 3, root.saturation, root.brightness);
+                } else if event.text == Key.RightArrow {
+                    root.value = hsv(root.hue + 3, root.saturation, root.brightness);
+                } else {
+                    return reject;
+                }
+                root.edited(root.value);
+                return accept;
+            }
+            Rectangle {
+                border-radius: 6px;
+                background: @linear-gradient(90deg,
+                    #ff0000 0%, #ffff00 16.67%, #00ff00 33.33%,
+                    #00ffff 50%, #0000ff 66.67%, #ff00ff 83.33%, #ff0000 100%);
+                hue-hit := TouchArea {
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down || (event.kind == PointerEventKind.move && self.pressed) {
+                            hue-strip.focus();
+                            hue-strip.pointer-activated();
+                            root.update-hue(self.mouse-x);
+                        }
+                    }
+                    mouse-cursor: pointer;
+                }
+                Rectangle {
+                    x: (root.hue / 360 * parent.width - self.width / 2).clamp(-self.width / 2, parent.width - self.width / 2);
+                    y: -2px;
+                    width: 8px;
+                    height: parent.height + 4px;
+                    border-radius: 4px;
+                    border-width: 2px;
+                    border-color: white;
+                    background: transparent;
+                    drop-shadow-blur: 2px;
+                    drop-shadow-color: #00000099;
+                }
+                Rectangle {
+                    border-radius: 6px;
+                    border-width: hue-strip.focus-visible ? 2px : 1px;
+                    border-color: hue-strip.focus-visible ? AppTheme.accent : #ffffff44;
+                    background: transparent;
+                }
+            }
+        }
+
+        HorizontalBox {
+            height: 32px;
+            spacing: 9px;
+            Rectangle {
+                width: 32px;
+                height: 32px;
+                border-radius: 7px;
+                border-width: 1px;
+                border-color: AppTheme.border;
+                background: root.value;
+            }
+            // As tall as the swatch and field beside it, so all three share a center.
+            Text {
+                width: max(30px, self.preferred-width);
+                height: max(32px, self.preferred-height);
+                text: "HEX";
+                color: AppTheme.secondary;
+                font-size: TypeScale.caption;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+            hex-field := LineEdit {
+                horizontal-stretch: 1;
+                height: 32px;
+                text <=> root.hex-value;
+                invalid: !root.hex-valid;
+                placeholder-text: "#RRGGBB";
+                edited(value) => {
+                    if ThemeUtilities.valid-color(value) {
+                        root.value = ThemeUtilities.parse-color(value, root.value);
+                        root.edited(root.value);
+                    }
+                }
+                accepted(value) => {
+                    if ThemeUtilities.valid-color(value) {
+                        root.value = ThemeUtilities.parse-color(value, root.value);
+                        root.edited(root.value);
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct ThemeContrastCheck {
+    label: string,
+    ratio: float,
+}
+
+export component ThemeEditor inherits Rectangle {
+    in property <bool> compact: false;
+    in-out property <string> theme-mode: "system";
+    callback save-theme-mode(string);
+    callback save-preset(string);
+    callback save-custom-theme(color, color, color, color, color, color, color, color, color, color) -> bool;
+    callback discard-changes;
+
+    private property <string> selected-token: "primary";
+    private property <bool> editing-dark: AppTheme.dark;
+    private property <bool> dirty: false;
+    private property <color> saved-light-primary;
+    private property <color> saved-light-page-bg;
+    private property <color> saved-light-surface;
+    private property <color> saved-light-text;
+    private property <color> saved-light-border;
+    private property <color> saved-dark-primary;
+    private property <color> saved-dark-page-bg;
+    private property <color> saved-dark-surface;
+    private property <color> saved-dark-text;
+    private property <color> saved-dark-border;
+
+    private property <color> current-primary: root.editing-dark ? AppTheme.custom-dark-primary : AppTheme.custom-light-primary;
+    private property <color> current-page-bg: root.editing-dark ? AppTheme.custom-dark-page-bg : AppTheme.custom-light-page-bg;
+    private property <color> current-surface: root.editing-dark ? AppTheme.custom-dark-surface : AppTheme.custom-light-surface;
+    private property <color> current-text: root.editing-dark ? AppTheme.custom-dark-text : AppTheme.custom-light-text;
+    private property <color> current-border: root.editing-dark ? AppTheme.custom-dark-border : AppTheme.custom-light-border;
+    private property <color> current-value: root.selected-token == "primary" ? root.current-primary
+        : root.selected-token == "page" ? root.current-page-bg
+        : root.selected-token == "surface" ? root.current-surface
+        : root.selected-token == "text" ? root.current-text
+        : root.current-border;
+
+    private property <float> light-text-page-contrast: ThemeUtilities.contrast(AppTheme.custom-light-text, AppTheme.custom-light-page-bg);
+    private property <float> light-text-surface-contrast: ThemeUtilities.contrast(AppTheme.custom-light-text, AppTheme.custom-light-surface);
+    private property <float> light-action-contrast: ThemeUtilities.contrast(ThemeUtilities.contrasting-foreground(AppTheme.custom-light-primary), AppTheme.custom-light-primary);
+    private property <color> light-faint-text: AppTheme.custom-light-text.mix(AppTheme.custom-light-page-bg, 0.68);
+    private property <float> light-faint-page-contrast: ThemeUtilities.contrast(root.light-faint-text, AppTheme.custom-light-page-bg);
+    private property <float> light-faint-surface-contrast: ThemeUtilities.contrast(root.light-faint-text, AppTheme.custom-light-surface);
+    private property <float> dark-text-page-contrast: ThemeUtilities.contrast(AppTheme.custom-dark-text, AppTheme.custom-dark-page-bg);
+    private property <float> dark-text-surface-contrast: ThemeUtilities.contrast(AppTheme.custom-dark-text, AppTheme.custom-dark-surface);
+    private property <float> dark-action-contrast: ThemeUtilities.contrast(ThemeUtilities.contrasting-foreground(AppTheme.custom-dark-primary), AppTheme.custom-dark-primary);
+    private property <color> dark-faint-text: AppTheme.custom-dark-text.mix(AppTheme.custom-dark-page-bg, 0.68);
+    private property <float> dark-faint-page-contrast: ThemeUtilities.contrast(root.dark-faint-text, AppTheme.custom-dark-page-bg);
+    private property <float> dark-faint-surface-contrast: ThemeUtilities.contrast(root.dark-faint-text, AppTheme.custom-dark-surface);
+    private property <float> minimum-contrast: min(
+        min(
+            min(min(root.light-text-page-contrast, root.light-text-surface-contrast), root.light-action-contrast),
+            min(root.light-faint-page-contrast, root.light-faint-surface-contrast),
+        ),
+        min(
+            min(min(root.dark-text-page-contrast, root.dark-text-surface-contrast), root.dark-action-contrast),
+            min(root.dark-faint-page-contrast, root.dark-faint-surface-contrast),
+        ),
+    );
+    private property <bool> contrast-valid: root.minimum-contrast >= 4.5;
+
+    private property <[ThemeContrastCheck]> contrast-checks: [
+        { label: @tr("Light · Text on canvas"), ratio: root.light-text-page-contrast },
+        { label: @tr("Light · Text on surface"), ratio: root.light-text-surface-contrast },
+        { label: @tr("Light · Secondary text on canvas"), ratio: root.light-faint-page-contrast },
+        { label: @tr("Light · Secondary text on surface"), ratio: root.light-faint-surface-contrast },
+        { label: @tr("Light · Primary button text"), ratio: root.light-action-contrast },
+        { label: @tr("Dark · Text on canvas"), ratio: root.dark-text-page-contrast },
+        { label: @tr("Dark · Text on surface"), ratio: root.dark-text-surface-contrast },
+        { label: @tr("Dark · Secondary text on canvas"), ratio: root.dark-faint-page-contrast },
+        { label: @tr("Dark · Secondary text on surface"), ratio: root.dark-faint-surface-contrast },
+        { label: @tr("Dark · Primary button text"), ratio: root.dark-action-contrast },
+    ];
+
+    vertical-stretch: 0;
+    height: max(
+        AppTheme.preset == "custom"
+            ? (root.compact ? 970px : 690px)
+            : (root.compact ? 420px : 272px),
+        editor-content.preferred-height);
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: AppTheme.border-subtle;
+    background: AppTheme.surface;
+
+    function snapshot() {
+        root.saved-light-primary = AppTheme.custom-light-primary;
+        root.saved-light-page-bg = AppTheme.custom-light-page-bg;
+        root.saved-light-surface = AppTheme.custom-light-surface;
+        root.saved-light-text = AppTheme.custom-light-text;
+        root.saved-light-border = AppTheme.custom-light-border;
+        root.saved-dark-primary = AppTheme.custom-dark-primary;
+        root.saved-dark-page-bg = AppTheme.custom-dark-page-bg;
+        root.saved-dark-surface = AppTheme.custom-dark-surface;
+        root.saved-dark-text = AppTheme.custom-dark-text;
+        root.saved-dark-border = AppTheme.custom-dark-border;
+    }
+
+    function begin-edit() {
+        if !root.dirty {
+            root.snapshot();
+            root.dirty = true;
+        }
+    }
+
+    function revert() {
+        if root.dirty {
+            AppTheme.custom-light-primary = root.saved-light-primary;
+            AppTheme.custom-light-page-bg = root.saved-light-page-bg;
+            AppTheme.custom-light-surface = root.saved-light-surface;
+            AppTheme.custom-light-text = root.saved-light-text;
+            AppTheme.custom-light-border = root.saved-light-border;
+            AppTheme.custom-dark-primary = root.saved-dark-primary;
+            AppTheme.custom-dark-page-bg = root.saved-dark-page-bg;
+            AppTheme.custom-dark-surface = root.saved-dark-surface;
+            AppTheme.custom-dark-text = root.saved-dark-text;
+            AppTheme.custom-dark-border = root.saved-dark-border;
+            root.dirty = false;
+        }
+    }
+
+    function choose-mode(mode: string) {
+        root.theme-mode = mode;
+        if mode == "dark" { root.editing-dark = true; }
+        else if mode == "light" { root.editing-dark = false; }
+        root.save-theme-mode(mode);
+    }
+
+    function choose-preset(preset: string) {
+        AppTheme.preset = preset;
+        if preset == "custom" { root.editing-dark = AppTheme.dark; }
+        root.save-preset(preset);
+    }
+
+    function set-current-value(value: color) {
+        root.begin-edit();
+        if root.selected-token == "primary" {
+            if root.editing-dark { AppTheme.custom-dark-primary = value; }
+            else { AppTheme.custom-light-primary = value; }
+        } else if root.selected-token == "page" {
+            if root.editing-dark { AppTheme.custom-dark-page-bg = value; }
+            else { AppTheme.custom-light-page-bg = value; }
+        } else if root.selected-token == "surface" {
+            if root.editing-dark { AppTheme.custom-dark-surface = value; }
+            else { AppTheme.custom-light-surface = value; }
+        } else if root.selected-token == "text" {
+            if root.editing-dark { AppTheme.custom-dark-text = value; }
+            else { AppTheme.custom-light-text = value; }
+        } else {
+            if root.editing-dark { AppTheme.custom-dark-border = value; }
+            else { AppTheme.custom-light-border = value; }
+        }
+    }
+
+    function reset-current-palette() {
+        root.begin-edit();
+        if root.editing-dark {
+            AppTheme.custom-dark-primary = #0969da;
+            AppTheme.custom-dark-page-bg = #111213;
+            AppTheme.custom-dark-surface = #18191a;
+            AppTheme.custom-dark-text = #f3f3f2;
+            AppTheme.custom-dark-border = #3a3b3c;
+        } else {
+            AppTheme.custom-light-primary = #0969da;
+            AppTheme.custom-light-page-bg = #f2f2f0;
+            AppTheme.custom-light-surface = #ffffff;
+            AppTheme.custom-light-text = #202120;
+            AppTheme.custom-light-border = #d9d9d6;
+        }
+    }
+
+    function persist() {
+        if root.dirty {
+            let saved = root.save-custom-theme(
+                AppTheme.custom-light-primary,
+                AppTheme.custom-light-page-bg,
+                AppTheme.custom-light-surface,
+                AppTheme.custom-light-text,
+                AppTheme.custom-light-border,
+                AppTheme.custom-dark-primary,
+                AppTheme.custom-dark-page-bg,
+                AppTheme.custom-dark-surface,
+                AppTheme.custom-dark-text,
+                AppTheme.custom-dark-border,
+            );
+            if saved {
+                root.dirty = false;
+            }
+        }
+    }
+
+    discard-changes => { root.revert(); }
+
+    editor-content := VerticalBox {
+        padding-top: 16px;
+        padding-right: 18px;
+        padding-bottom: 16px;
+        padding-left: 18px;
+        spacing: 10px;
+
+        Text {
+            height: max(22px, self.preferred-height);
+            text: @tr("Theme");
+            color: AppTheme.heading;
+            font-size: TypeScale.subtitle;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+
+        Text { height: max(18px, self.preferred-height); text: @tr("Color scheme"); color: AppTheme.secondary; font-size: TypeScale.secondary; vertical-alignment: center; }
+        HorizontalBox {
+            padding: 0px;
+            spacing: 8px;
+            ThemeModeCard { horizontal-stretch: 1; min-width: 0px; name: @tr("System"); mode: "system"; selected: root.theme-mode == "system"; chosen => { root.choose-mode("system"); } }
+            ThemeModeCard { horizontal-stretch: 1; min-width: 0px; name: @tr("Dark"); mode: "dark"; selected: root.theme-mode == "dark"; chosen => { root.choose-mode("dark"); } }
+            ThemeModeCard { horizontal-stretch: 1; min-width: 0px; name: @tr("Light"); mode: "light"; selected: root.theme-mode == "light"; chosen => { root.choose-mode("light"); } }
+        }
+
+        Rectangle { height: 1px; background: AppTheme.border-subtle; }
+        Text { height: max(18px, self.preferred-height); text: @tr("Palette"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+
+        if !root.compact : HorizontalBox {
+            padding: 0px;
+            spacing: 8px;
+            ThemePresetCard { horizontal-stretch: 1; name: @tr("Default"); preview-primary: #0969da; preview-page: AppTheme.dark ? #111213 : #f2f2f0; preview-surface: AppTheme.dark ? #18191a : white; preview-text: AppTheme.dark ? #f3f3f2 : #202120; selected: AppTheme.preset == "default"; chosen => { root.choose-preset("default"); } }
+            ThemePresetCard { horizontal-stretch: 1; name: @tr("Teal"); preview-primary: #006b7a; preview-page: AppTheme.dark ? #0b1519 : #edf5f7; preview-surface: AppTheme.dark ? #122026 : #fbfefe; preview-text: AppTheme.dark ? #e5f0f2 : #173039; selected: AppTheme.preset == "teal"; chosen => { root.choose-preset("teal"); } }
+            ThemePresetCard { horizontal-stretch: 1; name: @tr("Green"); preview-primary: #2f6f44; preview-page: AppTheme.dark ? #101711 : #f1f5ef; preview-surface: AppTheme.dark ? #182019 : #fcfdfb; preview-text: AppTheme.dark ? #e9f0e6 : #213026; selected: AppTheme.preset == "green"; chosen => { root.choose-preset("green"); } }
+            ThemePresetCard { horizontal-stretch: 1; name: @tr("Purple"); preview-primary: #78418a; preview-page: AppTheme.dark ? #171119 : #f6f1f7; preview-surface: AppTheme.dark ? #201722 : #fdfbfe; preview-text: AppTheme.dark ? #f1e8f3 : #332537; selected: AppTheme.preset == "purple"; chosen => { root.choose-preset("purple"); } }
+            ThemePresetCard { horizontal-stretch: 1; name: @tr("Custom"); preview-primary: root.current-primary; preview-page: root.current-page-bg; preview-surface: root.current-surface; preview-text: root.current-text; selected: AppTheme.preset == "custom"; chosen => { root.choose-preset("custom"); } }
+        }
+        if root.compact : VerticalBox {
+            padding: 0px;
+            spacing: 8px;
+            HorizontalBox {
+                padding: 0px;
+                spacing: 8px;
+                ThemePresetCard { horizontal-stretch: 1; min-width: 0px; label-bottom-padding: 6px; name: @tr("Default"); preview-primary: #0969da; preview-page: AppTheme.dark ? #111213 : #f2f2f0; preview-surface: AppTheme.dark ? #18191a : white; preview-text: AppTheme.dark ? #f3f3f2 : #202120; selected: AppTheme.preset == "default"; chosen => { root.choose-preset("default"); } }
+                ThemePresetCard { horizontal-stretch: 1; min-width: 0px; label-bottom-padding: 6px; name: @tr("Teal"); preview-primary: #006b7a; preview-page: AppTheme.dark ? #0b1519 : #edf5f7; preview-surface: AppTheme.dark ? #122026 : #fbfefe; preview-text: AppTheme.dark ? #e5f0f2 : #173039; selected: AppTheme.preset == "teal"; chosen => { root.choose-preset("teal"); } }
+            }
+            HorizontalBox {
+                padding: 0px;
+                spacing: 8px;
+                ThemePresetCard { horizontal-stretch: 1; min-width: 0px; label-bottom-padding: 6px; name: @tr("Green"); preview-primary: #2f6f44; preview-page: AppTheme.dark ? #101711 : #f1f5ef; preview-surface: AppTheme.dark ? #182019 : #fcfdfb; preview-text: AppTheme.dark ? #e9f0e6 : #213026; selected: AppTheme.preset == "green"; chosen => { root.choose-preset("green"); } }
+                ThemePresetCard { horizontal-stretch: 1; min-width: 0px; label-bottom-padding: 6px; name: @tr("Purple"); preview-primary: #78418a; preview-page: AppTheme.dark ? #171119 : #f6f1f7; preview-surface: AppTheme.dark ? #201722 : #fdfbfe; preview-text: AppTheme.dark ? #f1e8f3 : #332537; selected: AppTheme.preset == "purple"; chosen => { root.choose-preset("purple"); } }
+            }
+            HorizontalBox {
+                padding: 0px;
+                spacing: 8px;
+                Rectangle { horizontal-stretch: 1; }
+                ThemePresetCard { horizontal-stretch: 1; min-width: 0px; label-bottom-padding: 6px; name: @tr("Custom"); preview-primary: root.current-primary; preview-page: root.current-page-bg; preview-surface: root.current-surface; preview-text: root.current-text; selected: AppTheme.preset == "custom"; chosen => { root.choose-preset("custom"); } }
+                Rectangle { horizontal-stretch: 1; }
+            }
+        }
+
+        if AppTheme.preset == "custom" : Rectangle { height: 1px; background: AppTheme.border-subtle; }
+        // A phone row only fits the mode choice, so the heading and the save
+        // state get their own lines there.
+        if AppTheme.preset == "custom" && root.compact : Text {
+            text: @tr("Custom palette");
+            color: AppTheme.heading;
+            font-size: TypeScale.body;
+            font-weight: 700;
+            wrap: word-wrap;
+        }
+        // The radio buttons set the row height; vertical padding would leave
+        // the texts beside them too short to show.
+        if AppTheme.preset == "custom" : HorizontalBox {
+            height: max(26px, self.preferred-height);
+            padding-top: 0px;
+            padding-bottom: 0px;
+            if !root.compact : Text {
+                text: @tr("Custom palette");
+                color: AppTheme.heading;
+                font-size: TypeScale.body;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+            RadioButton {
+                height: 26px;
+                text: @tr("Light");
+                checked: !root.editing-dark;
+                clicked => { root.editing-dark = false; }
+            }
+            RadioButton {
+                height: 26px;
+                text: @tr("Dark");
+                checked: root.editing-dark;
+                clicked => { root.editing-dark = true; }
+            }
+            Rectangle { horizontal-stretch: 1; }
+            if !root.compact : Text {
+                text: root.dirty ? @tr("Unsaved changes") : @tr("Saved");
+                color: root.dirty ? AppTheme.accent : AppTheme.secondary;
+                font-size: TypeScale.caption;
+                vertical-alignment: center;
+            }
+        }
+        if AppTheme.preset == "custom" && root.compact : Text {
+            text: root.dirty ? @tr("Unsaved changes") : @tr("Saved");
+            color: root.dirty ? AppTheme.accent : AppTheme.secondary;
+            font-size: TypeScale.caption;
+            wrap: word-wrap;
+        }
+
+        if AppTheme.preset == "custom" && !root.compact : HorizontalBox {
+            height: 48px;
+            spacing: 8px;
+            ThemeColorChip { horizontal-stretch: 1; name: @tr("Primary"); value: root.current-primary; selected: root.selected-token == "primary"; chosen => { root.selected-token = "primary"; } }
+            ThemeColorChip { horizontal-stretch: 1; name: @tr("Canvas"); value: root.current-page-bg; selected: root.selected-token == "page"; chosen => { root.selected-token = "page"; } }
+            ThemeColorChip { horizontal-stretch: 1; name: @tr("Surface"); value: root.current-surface; selected: root.selected-token == "surface"; chosen => { root.selected-token = "surface"; } }
+            ThemeColorChip { horizontal-stretch: 1; name: @tr("Text"); value: root.current-text; selected: root.selected-token == "text"; chosen => { root.selected-token = "text"; } }
+            ThemeColorChip { horizontal-stretch: 1; name: @tr("Border"); value: root.current-border; selected: root.selected-token == "border"; chosen => { root.selected-token = "border"; } }
+        }
+        if AppTheme.preset == "custom" && root.compact : VerticalBox {
+            height: 160px;
+            padding: 0px;
+            spacing: 8px;
+            HorizontalBox {
+                height: 48px;
+                padding: 0px;
+                spacing: 8px;
+                ThemeColorChip { horizontal-stretch: 1; min-width: 0px; name: @tr("Primary"); value: root.current-primary; selected: root.selected-token == "primary"; chosen => { root.selected-token = "primary"; } }
+                ThemeColorChip { horizontal-stretch: 1; min-width: 0px; name: @tr("Canvas"); value: root.current-page-bg; selected: root.selected-token == "page"; chosen => { root.selected-token = "page"; } }
+            }
+            HorizontalBox {
+                height: 48px;
+                padding: 0px;
+                spacing: 8px;
+                ThemeColorChip { horizontal-stretch: 1; min-width: 0px; name: @tr("Surface"); value: root.current-surface; selected: root.selected-token == "surface"; chosen => { root.selected-token = "surface"; } }
+                ThemeColorChip { horizontal-stretch: 1; min-width: 0px; name: @tr("Text"); value: root.current-text; selected: root.selected-token == "text"; chosen => { root.selected-token = "text"; } }
+            }
+            HorizontalBox {
+                height: 48px;
+                padding: 0px;
+                spacing: 8px;
+                Rectangle { horizontal-stretch: 1; }
+                ThemeColorChip { horizontal-stretch: 1; min-width: 0px; name: @tr("Border"); value: root.current-border; selected: root.selected-token == "border"; chosen => { root.selected-token = "border"; } }
+                Rectangle { horizontal-stretch: 1; }
+            }
+        }
+
+        if AppTheme.preset == "custom" : RuntimeColorPicker {
+            height: 222px;
+            value: root.current-value;
+            edited(value) => { root.set-current-value(value); }
+        }
+
+        if AppTheme.preset == "custom" : contrast-status := Rectangle {
+            height: max(root.compact ? 54px : 34px, warning-layout.preferred-height);
+            border-radius: 6px;
+            private property <color> fill-color: root.contrast-valid ? AppTheme.accent-soft : AppTheme.destructive.mix(AppTheme.surface, 0.12);
+            private property <color> foreground: ThemeUtilities.contrasting-foreground(self.fill-color);
+            background: self.fill-color;
+            warning-layout := VerticalLayout {
+                padding: 10px;
+                spacing: 0px;
+                Text {
+                    text: root.contrast-valid
+                        ? @tr("Checked text contrast meets 4.5:1 · minimum {}:1", root.minimum-contrast.to-fixed(2))
+                        : @tr("Low contrast · 4.5:1 is recommended for text. You can still save this palette.");
+                    color: contrast-status.foreground;
+                    font-size: TypeScale.caption;
+                    font-weight: 600;
+                    wrap: word-wrap;
+                }
+                for check in root.contrast-checks : Rectangle {
+                    height: check.ratio < 4.5 ? check-label.preferred-height + 4px : 0px;
+                    visible: check.ratio < 4.5;
+                    check-label := Text {
+                        y: 4px;
+                        width: parent.width;
+                        height: self.preferred-height;
+                        text: @tr("{} · {}:1", check.label, check.ratio.to-fixed(2));
+                        color: contrast-status.foreground;
+                        font-size: TypeScale.caption;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+        }
+
+        // A phone row may be too narrow for three long translated labels.
+        if AppTheme.preset == "custom" : HorizontalBox {
+            height: 32px;
+            spacing: 8px;
+            Button { text: root.compact ? @tr("Reset") : @tr("Reset this palette"); label-overflow: elide; clicked => { root.reset-current-palette(); } }
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: @tr("Revert"); label-overflow: elide; enabled: root.dirty; clicked => { root.revert(); } }
+            Button { text: root.compact ? @tr("Save") : @tr("Save palette"); label-overflow: elide; primary: true; enabled: root.dirty; clicked => { root.persist(); } }
+        }
+    }
+}

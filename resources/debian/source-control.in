@@ -1,0 +1,14 @@
+Source: rustmail
+Section: mail
+Priority: optional
+Maintainer: Rustmail <rustmail@users.noreply.github.com>
+Standards-Version: 4.7.2
+Rules-Requires-Root: no
+Homepage: https://rustmail.org
+
+Package: rustmail
+Architecture: amd64
+Depends: ${shlibs:Depends}, libfontconfig1, libwayland-client0, libx11-6, libx11-xcb1, libxkbcommon0, libxkbcommon-x11-0, hicolor-icon-theme, xdg-utils
+Recommends: xdg-desktop-portal, gnome-keyring
+Description: Native Slint mail client
+ Rustmail is a native desktop mail client built with Rust and Slint.

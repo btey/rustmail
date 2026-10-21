@@ -1,0 +1,293 @@
+import { ListView, HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { CalendarAgendaRow, CalendarAgendaFilterRow, CalendarEventRow } from "../models.slint";
+import { AppTheme, LayoutMetrics } from "../design-system.slint";
+import { TypeScale } from "../typography.slint";
+import { Button } from "button.slint";
+import { ToolbarIconButton } from "controls.slint";
+import { FocusVisibleScope } from "focus-visible-scope.slint";
+import { ScrollFade } from "scroll-fade.slint";
+
+export global CalendarAgendaStyle {
+    public pure function color(index: int) -> color {
+        return index == 0 ? #3478f6 : index == 1 ? #8b5cf6 : index == 2 ? #e87924 : #26a269;
+    }
+}
+
+export global CalendarAgendaNavigation {
+    pure callback index([CalendarAgendaRow], string) -> int;
+}
+
+// View-only filters: these do not change provider sync settings.
+export component CalendarAgendaFilter inherits Rectangle {
+    in property <[CalendarAgendaFilterRow]> filters;
+    in property <int> filter-count;
+    in property <bool> compact;
+    callback toggled(int, bool);
+    callback cleared;
+    width: root.compact ? LayoutMetrics.touch-target : LayoutMetrics.desktop-icon-button-size;
+    height: root.width;
+
+    trigger := ToolbarIconButton {
+        width: parent.width;
+        height: parent.height;
+        compact: root.compact;
+        icon: @image-url("../icons/lucide/outline/filter.svg");
+        icon-color: root.filter-count > 0 ? AppTheme.accent : AppTheme.secondary;
+        active: popup.is-open || root.filter-count > 0;
+        hover-background: AppTheme.muted-control-bg;
+        active-background: AppTheme.accent-soft;
+        tooltip-text: root.filter-count > 0 ? @tr("Filter calendars · {} hidden", root.filter-count) : @tr("Filter calendars");
+        accessible-id: "calendar-agenda-filter";
+        accessible-expanded: popup.is-open;
+        clicked => { if popup.is-open { popup.close(); } else { popup.show(); } }
+    }
+    popup := PopupWindow {
+        x: root.width - self.width;
+        y: root.height + 4px;
+        width: 288px;
+        height: min(400px, 90px + root.filters.length * 52px);
+        close-policy: close-on-click-outside;
+        forward-focus: popup-focus;
+        Rectangle {
+            background: AppTheme.surface;
+            border-radius: LayoutMetrics.corner-radius;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            popup-focus := FocusScope {
+                key-pressed(event) => {
+                    if event.text == Key.Escape { popup.close(); trigger.focus(); return accept; }
+                    reject
+                }
+                VerticalBox {
+                    padding: 12px;
+                    spacing: 8px;
+                    HorizontalBox {
+                        padding: 0px;
+                        spacing: 8px;
+                        Text { text: @tr("Show calendars"); color: AppTheme.heading; font-size: TypeScale.body; font-weight: 600; horizontal-stretch: 1; }
+                        Button { text: @tr("Reset"); enabled: root.filter-count > 0; clicked => { root.cleared(); } }
+                    }
+                    Text { text: @tr("Filters only affect this agenda."); color: AppTheme.secondary; font-size: TypeScale.caption; }
+                    filter-list := ListView {
+                        content-width: self.visible-width;
+                        horizontal-scrollbar-policy: always-off;
+                        mouse-drag-pan-enabled: root.compact;
+                        for filter in root.filters: Rectangle {
+                            width: filter-list.visible-width;
+                            height: filter.account == ""
+                                ? max(52px, filter-name.preferred-height + 28px)
+                                : max(52px, filter-account.y + filter-account.height + 6px);
+                            border-radius: 6px;
+                            background: filter-hit.has-hover ? AppTheme.muted-control-bg : transparent;
+                            border-width: filter-keyboard.focus-visible ? 2px : 0px;
+                            border-color: AppTheme.accent;
+                            accessible-role: checkbox;
+                            accessible-label: filter.name + (filter.account != "" ? " · " + filter.account : "");
+                            accessible-checked: filter.checked;
+                            accessible-action-default => { root.toggled(filter.id, !filter.checked); }
+                            forward-focus: filter-keyboard;
+                            Rectangle {
+                                x: 8px;
+                                y: (parent.height - self.height) / 2;
+                                width: 18px;
+                                height: 18px;
+                                border-radius: 4px;
+                                border-width: 1px;
+                                border-color: CalendarAgendaStyle.color(filter.color-index);
+                                background: filter.checked ? CalendarAgendaStyle.color(filter.color-index) : transparent;
+                                Image { visible: filter.checked; x: 3px; y: 3px; width: 12px; height: 12px; source: @image-url("../icons/lucide/outline/check.svg"); colorize: white; }
+                            }
+                            filter-name := Text { x: 36px; y: filter.account == "" ? max(14px, (52px - self.height) / 2) : 6px; width: parent.width - 44px; height: max(24px, self.preferred-height); text: filter.name; color: AppTheme.heading; font-size: TypeScale.body; overflow: elide; vertical-alignment: center; }
+                            filter-account := Text { x: 36px; y: filter-name.y + filter-name.height - 1px; width: parent.width - 44px; height: max(17px, self.preferred-height); text: filter.account; color: AppTheme.secondary; font-size: TypeScale.caption; overflow: elide; }
+                            filter-keyboard := FocusVisibleScope {
+                                key-pressed(event) => {
+                                    if event.text == Key.Return || event.text == Key.Space { root.toggled(filter.id, !filter.checked); return accept; }
+                                    reject
+                                }
+                            }
+                            filter-hit := TouchArea { mouse-cursor: pointer; clicked => { filter-keyboard.focus(); filter-keyboard.pointer-activated(); root.toggled(filter.id, !filter.checked); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component CalendarAgenda inherits Rectangle {
+    in property <[CalendarAgendaRow]> rows;
+    in property <int> event-count;
+    in property <int> filter-count;
+    in property <float> anchor;
+    in property <int> scroll-request;
+    in property <string> selected-date;
+    in property <string> period-title;
+    in property <bool> compact;
+    callback event-clicked(CalendarEventRow);
+    callback new-event;
+    callback clear-filters;
+    out property <string> keyboard-key: "";
+    out property <length> scroll-offset: root.scroll-y;
+    private property <length> scroll-y: 0px;
+    private property <length> edge-gutter: 48px;
+    background: AppTheme.surface;
+    forward-focus: agenda-keyboard;
+
+    public function scroll-to-selection() {
+        root.keyboard-key = "";
+        root.scroll-y = -min(max(0px, root.anchor * 1px - root.edge-gutter), max(0px, agenda-list.content-height - agenda-list.visible-height));
+    }
+    changed selected-date => { root.scroll-to-selection(); }
+    changed period-title => { root.scroll-to-selection(); }
+    changed scroll-request => { root.scroll-to-selection(); }
+    init => { root.scroll-to-selection(); }
+
+    public function focus-list() { agenda-keyboard.focus(); }
+
+    function keep-visible(top: length, height: length) {
+        if top + root.scroll-y < root.edge-gutter { root.scroll-y = min(0px, root.edge-gutter - top); }
+        else if top + height + root.scroll-y > agenda-list.visible-height - root.edge-gutter { root.scroll-y = agenda-list.visible-height - top - height - root.edge-gutter; }
+    }
+
+    function focus-event(index: int) {
+        if index < 0 || index >= root.rows.length { return; }
+        root.keyboard-key = root.rows[index].key;
+        let top = root.rows[index].offset * 1px;
+        root.keep-visible(top, 68px);
+    }
+
+    agenda-keyboard := FocusVisibleScope {
+        key-pressed(event) => {
+            if root.event-count == 0 { return reject; }
+            let current-index = CalendarAgendaNavigation.index(root.rows, root.keyboard-key);
+            if event.text == Key.DownArrow {
+                root.focus-event(current-index < 0 ? root.rows[0].next-event : root.rows[current-index].next-event);
+                return accept;
+            }
+            if event.text == Key.UpArrow {
+                root.focus-event(current-index < 0 ? root.rows[root.rows.length - 1].previous-event : root.rows[current-index].previous-event);
+                return accept;
+            }
+            if (event.text == Key.Return || event.text == Key.Space) && current-index >= 0 && root.rows[current-index].kind == "event" {
+                root.event-clicked(root.rows[current-index].event); return accept;
+            }
+            reject
+        }
+        agenda-list := ListView {
+            width: parent.width;
+            height: parent.height;
+            content-width: self.visible-width;
+            content-y <=> root.scroll-y;
+            horizontal-scrollbar-policy: always-off;
+            mouse-drag-pan-enabled: root.compact;
+            for row[index] in root.rows: agenda-row := Rectangle {
+                width: agenda-list.visible-width;
+                // Uniform slots keep the virtualizer's date and keyboard
+                // positions exact, regardless of how many events a day has.
+                height: 68px;
+                private property <length> inset: root.compact ? 16px : LayoutMetrics.content-inset;
+                private property <bool> cancelled: row.event.status == "CANCELLED" || row.event.status == "cancelled";
+                background: row.kind == "event" && (event-hit.has-hover || (agenda-keyboard.focus-visible && root.keyboard-key == row.key)) ? AppTheme.muted-control-bg : transparent;
+                border-width: row.kind == "event" && agenda-keyboard.focus-visible && root.keyboard-key == row.key ? 2px : 0px;
+                border-color: AppTheme.accent;
+                if row.kind == "day": Rectangle {
+                    y: 24px;
+                    width: parent.width;
+                    height: 44px;
+                    background: AppTheme.sidebar-bg;
+                }
+                if row.kind == "day": HorizontalBox {
+                    y: 24px;
+                    height: 44px;
+                    padding-left: parent.inset;
+                    padding-right: parent.inset;
+                    spacing: 8px;
+                    cross-axis-alignment: center;
+                    Text { text: row.date-label; color: row.is-today ? AppTheme.accent : AppTheme.heading; font-size: TypeScale.secondary; font-weight: 600; overflow: elide; horizontal-stretch: 1; }
+                    if row.is-today: Rectangle {
+                        width: max(48px, today-label.preferred-width + 12px);
+                        height: max(22px, today-label.preferred-height + 4px);
+                        border-radius: self.height / 2;
+                        background: AppTheme.accent-soft;
+                        today-label := Text { text: @tr("Today"); color: AppTheme.accent; font-size: TypeScale.caption; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Text { text: @tr("{n} event" | "{n} events" % row.count); color: AppTheme.muted; font-size: TypeScale.caption; }
+                }
+                if row.kind == "day": Rectangle { y: parent.height - 1px; height: 1px; width: parent.width; background: AppTheme.border-subtle; }
+                if row.kind == "event": HorizontalBox {
+                    padding-left: parent.inset;
+                    padding-right: parent.inset;
+                    spacing: root.compact ? 12px : 20px;
+                    cross-axis-alignment: center;
+                    VerticalBox {
+                        width: max(root.compact ? 62px : 82px, max(agenda-start.preferred-width, agenda-end.preferred-width));
+                        padding: 0px;
+                        spacing: 3px;
+                        agenda-start := Text { text: row.time-label; color: AppTheme.body; font-size: TypeScale.secondary; font-weight: 600; overflow: elide; }
+                        agenda-end := Text { text: row.end-label; color: AppTheme.muted; font-size: TypeScale.caption; }
+                    }
+                    Rectangle { width: 3px; height: 36px; border-radius: 2px; background: CalendarAgendaStyle.color(row.event.color-index); opacity: agenda-row.cancelled ? 0.5 : 1; }
+                    VerticalBox {
+                        horizontal-stretch: 1;
+                        padding: 0px;
+                        spacing: 3px;
+                        Text { text: row.event.title; color: agenda-row.cancelled ? AppTheme.muted : AppTheme.heading; font-size: TypeScale.body; font-weight: 600; overflow: elide; }
+                        Text { text: root.compact ? (row.event.calendar != "" ? row.event.calendar : @tr("Local calendar")) + (row.event.location != "" ? " · " + row.event.location : "") : row.event.location != "" ? row.event.location : row.event.account; color: AppTheme.secondary; font-size: TypeScale.caption; overflow: elide; }
+                    }
+                    if agenda-row.cancelled: Text { text: @tr("Cancelled"); color: AppTheme.muted; font-size: TypeScale.caption; }
+                    if !root.compact: Rectangle {
+                        width: min(160px, max(80px, agenda-list.visible-width / 5));
+                        height: 26px;
+                        border-radius: 6px;
+                        background: CalendarAgendaStyle.color(row.event.color-index).with-alpha(AppTheme.dark ? 0.16 : 0.08);
+                        HorizontalBox {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 6px;
+                            cross-axis-alignment: center;
+                            Image { width: 12px; height: 12px; source: @image-url("../icons/lucide/outline/calendar.svg"); colorize: CalendarAgendaStyle.color(row.event.color-index); }
+                            Text { text: row.event.calendar != "" ? row.event.calendar : @tr("Local calendar"); color: AppTheme.body; font-size: TypeScale.caption; overflow: elide; horizontal-stretch: 1; }
+                        }
+                    }
+                }
+                event-hit := TouchArea {
+                    enabled: row.kind == "event";
+                    visible: row.kind == "event";
+                    accessible-role: button;
+                    accessible-label: @tr("View details for {}", row.event.title) + " · " + row.iso-date + " · " + row.time-label + " · " + row.event.calendar;
+                    accessible-action-default => { if row.kind == "event" { root.event-clicked(row.event); } }
+                    mouse-cursor: row.kind == "event" ? MouseCursor.pointer : MouseCursor.default;
+                    clicked => { agenda-keyboard.focus(); agenda-keyboard.pointer-activated(); root.keyboard-key = row.key; root.event-clicked(row.event); }
+                }
+                if row.kind == "now": HorizontalBox {
+                    padding-left: parent.inset;
+                    padding-right: parent.inset;
+                    spacing: 8px;
+                    cross-axis-alignment: center;
+                    Rectangle { width: 6px; height: 6px; border-radius: 3px; background: AppTheme.destructive; }
+                    Text { text: @tr("Now · {}", row.time-label); color: AppTheme.destructive; font-size: TypeScale.caption; font-weight: 600; }
+                    Rectangle { height: 1px; background: AppTheme.destructive; horizontal-stretch: 1; }
+                }
+                if row.kind == "end": Text { x: parent.inset; width: parent.width - 2 * parent.inset; height: parent.height; text: @tr("Nothing else is scheduled this month."); color: AppTheme.muted; font-size: TypeScale.secondary; vertical-alignment: center; }
+            }
+        }
+    }
+    ScrollFade { width: parent.width; height: parent.height; fade-height: root.edge-gutter; surface-color: AppTheme.surface; content-y: agenda-list.content-y; content-height: agenda-list.content-height; visible-height: agenda-list.visible-height; }
+    if root.event-count == 0: VerticalBox {
+        padding: 24px;
+        spacing: 12px;
+        alignment: center;
+        HorizontalBox {
+            padding: 0px;
+            alignment: center;
+            Image { width: 36px; height: 36px; source: @image-url("../icons/lucide/outline/calendar.svg"); colorize: AppTheme.muted; }
+        }
+        Text { text: root.filter-count > 0 ? @tr("No events match your filters") : @tr("No events this month"); color: AppTheme.heading; font-size: TypeScale.body-large; font-weight: 600; horizontal-alignment: center; }
+        Text { text: root.filter-count > 0 ? @tr("Show more calendars to see their events.") : @tr("Create an event to start planning your month."); color: AppTheme.secondary; font-size: TypeScale.secondary; horizontal-alignment: center; wrap: word-wrap; }
+        HorizontalBox {
+            padding: 0px;
+            alignment: center;
+            Button { text: root.filter-count > 0 ? @tr("Reset filters") : @tr("New event"); primary: true; height: root.compact ? LayoutMetrics.touch-target : LayoutMetrics.sidebar-action-height; clicked => { if root.filter-count > 0 { root.clear-filters(); } else { root.new-event(); } } }
+        }
+    }
+}

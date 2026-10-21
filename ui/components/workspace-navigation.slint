@@ -1,0 +1,605 @@
+import { HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { TypeScale } from "../typography.slint";
+import { LayoutMetrics } from "../design-system.slint";
+import { WindowChrome, WindowDragArea } from "../window-chrome.slint";
+
+
+component ProductRailItem inherits Rectangle {
+    in property <string> label;
+    in property <image> outline-icon;
+    in property <image> filled-icon;
+    in property <bool> active: false;
+    in property <color> accent-color;
+    in property <color> accent-background;
+    in property <color> muted-color;
+    out property <bool> hovered: item-hit.has-hover;
+    callback clicked;
+
+    // Desktop navigation is icon-only. The target and selected surface remain
+    // square so each destination has an even, predictable hit area.
+    height: 48px;
+    background: transparent;
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: 4px;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: root.active || item-hit.has-hover ? root.accent-background : transparent;
+        animate background { duration: 140ms; easing: ease-out; }
+        Image {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: root.active ? LayoutMetrics.icon-size + 2px : LayoutMetrics.icon-size;
+            height: root.active ? LayoutMetrics.icon-size + 2px : LayoutMetrics.icon-size;
+            source: root.active ? root.filled-icon : root.outline-icon;
+            colorize: root.active ? root.accent-color : root.muted-color;
+            animate colorize { duration: 140ms; easing: ease-out; }
+            animate width, height { duration: 180ms; easing: spring(0.12); }
+            image-fit: contain;
+            accessible-role: none;
+        }
+        item-hit := TouchArea {
+            accessible-role: button;
+            accessible-label: root.label;
+            accessible-checked: root.active;
+            accessible-action-default => { root.clicked(); }
+            clicked => { root.clicked(); }
+            mouse-cursor: pointer;
+        }
+    }
+
+}
+
+// The product rail is deliberately narrow: it switches workspaces without
+// competing with the context-specific sidebar immediately to its right.
+export component ProductRail inherits Rectangle {
+    in-out property <string> active-view: "mail";
+    in property <bool> settings-active: false;
+    in property <color> background-color;
+    in property <color> divider-color;
+    in property <color> accent-color;
+    in property <color> accent-background;
+    in property <color> title-color;
+    in property <color> muted-color;
+    out property <string> tooltip-text: mail-item.hovered ? mail-item.label
+        : calendar-item.hovered ? calendar-item.label
+        : files-item.hovered ? files-item.label
+        : contacts-item.hovered ? contacts-item.label
+        : settings-item.hovered ? settings-item.label
+        : "";
+    out property <length> tooltip-y: mail-item.hovered ? mail-item.y + 10px
+        : calendar-item.hovered ? calendar-item.y + 10px
+        : files-item.hovered ? files-item.y + 10px
+        : contacts-item.hovered ? contacts-item.y + 10px
+        : settings-item.hovered ? settings-item.y + 10px
+        : 0px;
+    callback open-settings;
+    callback select-view(string);
+
+    width: LayoutMetrics.product-rail-width;
+    background: root.background-color;
+
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        height: parent.height;
+        background: root.divider-color;
+    }
+
+    VerticalBox {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        // 8px outer padding and 48px items preserve a compact 8px rhythm.
+        padding-top: 8px;
+        padding-right: 0px;
+        padding-bottom: 10px;
+        padding-left: 0px;
+        spacing: 8px;
+
+        mail-item := ProductRailItem {
+            label: @tr("Mail");
+            outline-icon: @image-url("../icons/lucide/outline/mail.svg");
+            filled-icon: @image-url("../icons/lucide/filled/mail.svg");
+            active: !root.settings-active && root.active-view == "mail";
+            accent-color: root.accent-color;
+            accent-background: root.accent-background;
+            muted-color: root.muted-color;
+            clicked => { root.select-view("mail"); }
+        }
+
+        calendar-item := ProductRailItem {
+            label: @tr("Calendar");
+            outline-icon: @image-url("../icons/lucide/outline/calendar.svg");
+            filled-icon: @image-url("../icons/lucide/filled/calendar.svg");
+            active: !root.settings-active && root.active-view == "calendar";
+            accent-color: root.accent-color;
+            accent-background: root.accent-background;
+            muted-color: root.muted-color;
+            clicked => { root.select-view("calendar"); }
+        }
+
+        files-item := ProductRailItem {
+            label: @tr("Files");
+            outline-icon: @image-url("../icons/lucide/outline/files.svg");
+            filled-icon: @image-url("../icons/lucide/filled/files.svg");
+            active: !root.settings-active && root.active-view == "files";
+            accent-color: root.accent-color;
+            accent-background: root.accent-background;
+            muted-color: root.muted-color;
+            clicked => { root.select-view("files"); }
+        }
+
+        contacts-item := ProductRailItem {
+            label: @tr("Contacts");
+            outline-icon: @image-url("../icons/lucide/outline/contacts.svg");
+            filled-icon: @image-url("../icons/lucide/filled/contacts.svg");
+            active: !root.settings-active && root.active-view == "contacts";
+            accent-color: root.accent-color;
+            accent-background: root.accent-background;
+            muted-color: root.muted-color;
+            clicked => { root.select-view("contacts"); }
+        }
+
+
+        Rectangle { vertical-stretch: 1; }
+
+        settings-item := ProductRailItem {
+            label: @tr("Settings");
+            outline-icon: @image-url("../icons/lucide/outline/gear.svg");
+            filled-icon: @image-url("../icons/lucide/filled/gear.svg");
+            active: root.settings-active;
+            accent-color: root.accent-color;
+            accent-background: root.accent-background;
+            muted-color: root.muted-color;
+            clicked => { root.open-settings(); }
+        }
+    }
+}
+
+// Compact navigation stays at the bottom, inside Window.safe-area-insets. This
+// keeps the primary destinations in thumb reach without duplicating any
+// application state or business logic.
+component CompactProductNavItem inherits Rectangle {
+    in property <string> label;
+    in property <image> outline-icon;
+    in property <image> filled-icon;
+    in property <bool> active: false;
+    in property <color> accent-color;
+    in property <color> active-background;
+    in property <color> muted-color;
+    in property <bool> interactive: true;
+    callback clicked;
+
+    min-width: 64px;
+    height: 64px;
+    background: transparent;
+
+    // The selected destination uses a compact indicator behind the icon.
+    // Keeping the label outside it prevents the active item from looking like
+    // an oversized card at narrow window widths.
+    Rectangle {
+        x: (parent.width - 56px) / 2;
+        y: 6px;
+        width: 56px;
+        height: 32px;
+        border-radius: 16px;
+        background: root.active || nav-hit.has-hover ? root.active-background : transparent;
+        animate background { duration: 140ms; easing: ease-out; }
+
+        Image {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: root.active ? 24px : 22px;
+            height: root.active ? 24px : 22px;
+            source: root.active ? root.filled-icon : root.outline-icon;
+            colorize: root.active ? root.accent-color : root.muted-color;
+            animate colorize { duration: 140ms; easing: ease-out; }
+            animate width, height { duration: 180ms; easing: spring(0.12); }
+            image-fit: contain;
+            accessible-role: none;
+        }
+    }
+    // The label may use the item's full width and bottom inset as the
+    // platform font grows.
+    Text {
+        x: 0px;
+        y: 40px;
+        width: parent.width;
+        height: min(parent.height - self.y, max(18px, self.preferred-height));
+        text: root.label;
+        color: root.active ? root.accent-color : root.muted-color;
+        font-size: TypeScale.caption;
+        font-weight: root.active ? 700 : 600;
+        animate color { duration: 140ms; easing: ease-out; }
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    // Make the complete navigation item interactive, including the space
+    // around its indicator and label.
+    nav-hit := TouchArea {
+        enabled: root.interactive;
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-enabled: root.interactive;
+        accessible-label: root.label;
+        accessible-id: "mobile-nav-" + root.label.to-lowercase();
+        accessible-checked: root.active;
+        accessible-action-default => { root.clicked(); }
+        clicked => { root.clicked(); }
+    }
+}
+
+export component CompactProductNav inherits Rectangle {
+    in-out property <string> active-view: "mail";
+    in property <bool> settings-active: false;
+    in property <color> background-color;
+    in property <color> divider-color;
+    in property <color> accent-color;
+    in property <color> accent-background;
+    in property <color> muted-color;
+    in property <bool> interactive: true;
+    callback open-settings;
+    callback select-view(string);
+
+    height: LayoutMetrics.compact-navigation-height;
+    background: root.background-color;
+    accessible-role: navigation;
+    accessible-label: @tr("Primary navigation");
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: 1px;
+        background: root.divider-color;
+    }
+
+    HorizontalBox {
+        x: 4px;
+        y: 1px;
+        width: parent.width - 8px;
+        height: 79px;
+        padding-top: 7px;
+        padding-bottom: 8px;
+        spacing: 2px;
+
+        CompactProductNavItem {
+            horizontal-stretch: 1;
+            label: @tr("Mail");
+            outline-icon: @image-url("../icons/lucide/outline/mail.svg");
+            filled-icon: @image-url("../icons/lucide/filled/mail.svg");
+            active: !root.settings-active && root.active-view == "mail";
+            accent-color: root.accent-color;
+            active-background: root.accent-background;
+            muted-color: root.muted-color;
+            interactive: root.interactive;
+            clicked => { root.select-view("mail"); }
+        }
+        CompactProductNavItem {
+            horizontal-stretch: 1;
+            label: @tr("Calendar");
+            outline-icon: @image-url("../icons/lucide/outline/calendar.svg");
+            filled-icon: @image-url("../icons/lucide/filled/calendar.svg");
+            active: !root.settings-active && root.active-view == "calendar";
+            accent-color: root.accent-color;
+            active-background: root.accent-background;
+            muted-color: root.muted-color;
+            interactive: root.interactive;
+            clicked => { root.select-view("calendar"); }
+        }
+        CompactProductNavItem {
+            horizontal-stretch: 1;
+            label: @tr("Files");
+            outline-icon: @image-url("../icons/lucide/outline/files.svg");
+            filled-icon: @image-url("../icons/lucide/filled/files.svg");
+            active: !root.settings-active && root.active-view == "files";
+            accent-color: root.accent-color;
+            active-background: root.accent-background;
+            muted-color: root.muted-color;
+            interactive: root.interactive;
+            clicked => { root.select-view("files"); }
+        }
+        CompactProductNavItem {
+            horizontal-stretch: 1;
+            label: @tr("Contacts");
+            outline-icon: @image-url("../icons/lucide/outline/contacts.svg");
+            filled-icon: @image-url("../icons/lucide/filled/contacts.svg");
+            active: !root.settings-active && root.active-view == "contacts";
+            accent-color: root.accent-color;
+            active-background: root.accent-background;
+            muted-color: root.muted-color;
+            interactive: root.interactive;
+            clicked => { root.select-view("contacts"); }
+        }
+        CompactProductNavItem {
+            horizontal-stretch: 1;
+            label: @tr("Settings");
+            outline-icon: @image-url("../icons/lucide/outline/gear.svg");
+            filled-icon: @image-url("../icons/lucide/filled/gear.svg");
+            active: root.settings-active;
+            accent-color: root.accent-color;
+            active-background: root.accent-background;
+            muted-color: root.muted-color;
+            interactive: root.interactive;
+            clicked => { root.open-settings(); }
+        }
+    }
+}
+
+export struct TabRow {
+    id: int,
+    // "mail" | "calendar" | "contacts" | "files"
+    workspace: string,
+    // Saved title for inactive tabs; empty uses the workspace name.
+    title: string,
+    active: bool,
+}
+
+// Browser-style tabs. Rust owns the tab list; each tab is a saved location
+// that is restored through the app's normal navigation when activated.
+export global TabsUi {
+    in property <[TabRow]> rows;
+    // True while the desktop top bar shows the tabs.
+    in property <bool> enabled;
+    callback select(int);
+    callback close(int);
+    callback create();
+    // Move the tab with this id to a new index.
+    callback move(int, int);
+    // Open a conversation from the current list in a new tab; the flag
+    // activates the tab, otherwise it opens in the background.
+    callback open-conversation(int, bool);
+    // Keyboard commands: "new", "close", "next", "previous", "last", or a
+    // zero-based index.
+    callback command(string);
+    // Re-apply the active tab once local mail storage is ready.
+    callback restore-active();
+    // Forget every tab and its saved state, leaving one Inbox tab.
+    callback reset();
+}
+
+component WorkspaceIcon inherits Image {
+    in property <string> workspace;
+    in property <bool> filled;
+    source: root.workspace == "calendar"
+            ? (root.filled ? @image-url("../icons/lucide/filled/calendar.svg") : @image-url("../icons/lucide/outline/calendar.svg"))
+        : root.workspace == "files"
+            ? (root.filled ? @image-url("../icons/lucide/filled/files.svg") : @image-url("../icons/lucide/outline/files.svg"))
+        : root.workspace == "contacts"
+            ? (root.filled ? @image-url("../icons/lucide/filled/contacts.svg") : @image-url("../icons/lucide/outline/contacts.svg"))
+        : (root.filled ? @image-url("../icons/lucide/filled/mail.svg") : @image-url("../icons/lucide/outline/mail.svg"));
+    image-fit: contain;
+    accessible-role: none;
+}
+
+component NewTabButton inherits Rectangle {
+    in property <color> hover-background;
+    in property <color> muted-color;
+
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: hit.has-hover ? root.hover-background : transparent;
+    animate background { duration: 140ms; easing: ease-out; }
+
+    Image {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 16px;
+        height: 16px;
+        source: @image-url("../icons/lucide/outline/plus.svg");
+        colorize: root.muted-color;
+        accessible-role: none;
+    }
+
+    hit := TouchArea {
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: @tr("New tab");
+        accessible-action-default => { TabsUi.create(); }
+        clicked => { TabsUi.create(); }
+    }
+
+    if hit.has-hover : Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: parent.height + 6px;
+        width: tooltip-text.preferred-width + 16px;
+        height: 26px;
+        border-radius: 5px;
+        background: #292929;
+        tooltip-text := Text {
+            text: @tr("New tab");
+            color: white;
+            font-size: TypeScale.caption;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component TabItem inherits Rectangle {
+    in property <TabRow> entry;
+    in property <int> index;
+    // Live title of the active tab; inactive tabs use their saved title.
+    in property <string> live-title;
+    in property <length> slot-width;
+    in property <int> count;
+    in property <color> title-color;
+    in property <color> muted-color;
+    in property <color> accent-color;
+    in property <color> active-background;
+    in property <color> hover-background;
+    in property <color> tab-border-color;
+
+    private property <string> workspace-name: root.entry.workspace == "calendar" ? @tr("Calendar")
+        : root.entry.workspace == "files" ? @tr("Files")
+        : root.entry.workspace == "contacts" ? @tr("Contacts")
+        : @tr("Mail");
+    private property <string> title: root.entry.active && root.live-title != "" ? root.live-title
+        : root.entry.title != "" ? root.entry.title : root.workspace-name;
+    private property <bool> show-close: root.width >= 88px && (root.entry.active || hit.has-hover);
+    private property <length> drag-offset: hit.dragging ? hit.mouse-x - hit.pressed-x : 0px;
+
+    width: root.slot-width;
+    height: 32px;
+    z: hit.dragging ? 1 : 0;
+
+    face := Rectangle {
+        x: root.drag-offset;
+        width: parent.width;
+        height: parent.height;
+        border-radius: 8px;
+        background: root.entry.active ? root.active-background
+            : hit.has-hover ? root.hover-background : transparent;
+        border-width: root.entry.active ? 1px : 0px;
+        border-color: root.tab-border-color;
+        animate background { duration: 120ms; easing: ease-out; }
+
+        WorkspaceIcon {
+            x: 10px;
+            y: (parent.height - self.height) / 2;
+            width: 14px;
+            height: 14px;
+            workspace: root.entry.workspace;
+            filled: root.entry.active;
+            colorize: root.entry.active ? root.accent-color : root.muted-color;
+        }
+        Text {
+            x: 30px;
+            width: parent.width - self.x - (root.show-close ? 30px : 10px);
+            height: parent.height;
+            text: root.title;
+            color: root.entry.active ? root.title-color : root.muted-color;
+            font-size: TypeScale.secondary;
+            font-weight: root.entry.active ? 600 : 500;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    hit := TouchArea {
+        property <bool> dragging;
+        mouse-cursor: pointer;
+        accessible-role: tab;
+        accessible-label: root.title;
+        accessible-checked: root.entry.active;
+        accessible-action-default => { TabsUi.select(root.entry.id); }
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                TabsUi.select(root.entry.id);
+            } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                if self.dragging {
+                    // Drop where the tab's centre lands.
+                    let target = ((root.index * root.slot-width + root.drag-offset + root.slot-width / 2) / root.slot-width).floor();
+                    TabsUi.move(root.entry.id, max(0, min(root.count - 1, target)));
+                }
+                self.dragging = false;
+            } else if event.button == PointerEventButton.middle && event.kind == PointerEventKind.up {
+                TabsUi.close(root.entry.id);
+            }
+        }
+        moved => {
+            if self.pressed && !self.dragging && abs(self.mouse-x - self.pressed-x) > 6px {
+                self.dragging = true;
+            }
+        }
+    }
+
+    if root.show-close : Rectangle {
+        x: root.drag-offset + parent.width - 26px;
+        y: (parent.height - self.height) / 2;
+        width: 20px;
+        height: 20px;
+        border-radius: 5px;
+        background: close-hit.has-hover ? root.hover-background.darker(8%) : transparent;
+        Image {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 12px;
+            height: 12px;
+            source: @image-url("../icons/lucide/outline/x.svg");
+            colorize: root.muted-color;
+            accessible-role: none;
+        }
+        close-hit := TouchArea {
+            accessible-role: button;
+            accessible-label: @tr("Close tab");
+            accessible-action-default => { TabsUi.close(root.entry.id); }
+            clicked => { TabsUi.close(root.entry.id); }
+        }
+    }
+}
+
+// Desktop top bar with the tabs. It meets the product rail in the top-left
+// corner, where the integrated frame places leading window controls; trailing
+// controls sit in its right corner.
+export component WindowTopBar inherits Rectangle {
+    in property <string> live-title;
+    in property <color> background-color;
+    in property <color> divider-color;
+    in property <color> title-color;
+    in property <color> accent-color;
+    in property <color> active-tab-background;
+    in property <color> hover-background;
+    in property <color> muted-color;
+
+    background: root.background-color;
+    accessible-role: window-title-bar;
+    accessible-label: @tr("Rustmail");
+
+    // Tabs start at the window edge unless leading controls need the room.
+    private property <length> tabs-x: max(8px, WindowChrome.leading-width);
+    private property <length> trailing: WindowChrome.trailing-width + 8px;
+    // Tabs share the space up to the new-tab button.
+    private property <length> tabs-room: root.width - root.tabs-x - 4px - 32px - root.trailing;
+    private property <length> slot-width: TabsUi.rows.length == 0 ? 0px
+        : max(48px, min(220px, (root.tabs-room - (TabsUi.rows.length - 1) * 4px) / TabsUi.rows.length));
+
+    if WindowChrome.controls-visible : WindowDragArea {
+        width: parent.width;
+        height: parent.height;
+    }
+
+    tab-strip := HorizontalLayout {
+        x: root.tabs-x;
+        y: (parent.height - 32px) / 2;
+        width: min(root.tabs-room, self.preferred-width);
+        height: 32px;
+        spacing: 4px;
+        accessible-role: tab-list;
+        accessible-label: @tr("Tabs");
+
+        for tab-row[index] in TabsUi.rows : TabItem {
+            entry: tab-row;
+            index: index;
+            count: TabsUi.rows.length;
+            slot-width: root.slot-width;
+            live-title: root.live-title;
+            title-color: root.title-color;
+            muted-color: root.muted-color;
+            accent-color: root.accent-color;
+            active-background: root.active-tab-background;
+            hover-background: root.hover-background;
+            tab-border-color: root.divider-color;
+        }
+    }
+
+    NewTabButton {
+        x: root.tabs-x + tab-strip.width + 4px;
+        y: (parent.height - self.height) / 2;
+        hover-background: root.hover-background;
+        muted-color: root.muted-color;
+    }
+
+    Rectangle {
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: root.divider-color;
+    }
+}

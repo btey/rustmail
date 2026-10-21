@@ -1,0 +1,232 @@
+import { ScrollView, VerticalBox } from "std-widgets.slint";
+import { Button } from "../components/button.slint";
+import { TypeScale } from "../typography.slint";
+
+component DetailField inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    in property <color> label-color;
+    in property <color> value-color;
+    in property <bool> multiline: false;
+
+    visible: root.value != "";
+    height: root.visible ? field-value.y + field-value.height : 0px;
+
+    field-label := Text {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: max(16px, self.preferred-height);
+        text: root.label;
+        color: root.label-color;
+        font-size: TypeScale.caption;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        overflow: elide;
+    }
+    field-value := Text {
+        x: 0px;
+        y: field-label.y + field-label.height + 3px;
+        width: parent.width;
+        height: max(root.multiline ? 57px : 29px, self.preferred-height);
+        text: root.value;
+        color: root.value-color;
+        font-size: TypeScale.secondary;
+        overflow: root.multiline ? clip : elide;
+        wrap: root.multiline ? word-wrap : no-wrap;
+        vertical-alignment: top;
+    }
+}
+
+// Display-ready metadata dialog shared by calendar collections and events.
+// Local events expose edit/delete actions; provider data remains read-only,
+// and API identifiers and credentials stay in Rust/the core.
+export component CalendarDetailsDialog inherits Rectangle {
+    in-out property <bool> open: false;
+    in property <bool> compact: false;
+    in property <string> kind: "event";
+    in property <string> title;
+    in property <string> subtitle;
+    in property <string> provider;
+    in property <string> date-time;
+    in property <string> calendar;
+    in property <string> account;
+    in property <string> location;
+    in property <string> organizer;
+    in property <string> access;
+    in property <string> sync;
+    in property <string> status;
+    in property <string> rsvp;
+    in property <string> recurrence;
+    in property <string> attendees;
+    in property <string> description;
+    in property <string> join-url;
+    in property <bool> editable: false;
+    in property <color> accent;
+    in property <color> accent-soft;
+    in property <color> border;
+    in property <color> border-subtle;
+    in property <color> muted-text;
+    in property <color> surface;
+    in property <color> title-color;
+    callback open-link(string);
+    callback edit-event;
+    callback delete-event;
+
+    visible: root.open;
+    background: #20212466;
+    z: 900;
+
+    TouchArea {
+        accessible-role: button;
+        accessible-label: @tr("Close calendar details");
+        clicked => { root.open = false; }
+    }
+
+    panel := Rectangle {
+        accessible-role: groupbox;
+        accessible-label: root.kind == "calendar" ? @tr("Calendar details") : @tr("Event details");
+        x: root.compact ? 0px : (parent.width - 520px) / 2;
+        y: root.compact ? 0px : max(24px, (parent.height - 640px) / 2);
+        width: root.compact ? parent.width : 520px;
+        height: root.compact ? parent.height : min(640px, parent.height - 48px);
+        border-radius: root.compact ? 0px : 14px;
+        border-width: root.compact ? 0px : 1px;
+        border-color: root.border;
+        background: root.surface;
+        clip: true;
+
+        // Consume clicks so the backdrop never closes a dialog interaction.
+        TouchArea { }
+
+        details-header := Rectangle {
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: provider-pill.y + provider-pill.height + 7px;
+            background: root.accent-soft;
+
+            Image {
+                x: 24px;
+                y: 24px;
+                width: 36px;
+                height: 36px;
+                source: root.provider == "gmail" ? @image-url("../icons/brand/gmail.svg")
+                    : root.provider == "microsoft" ? @image-url("../icons/brand/outlook.svg")
+                    : @image-url("../icons/lucide/outline/calendar.svg");
+                image-fit: contain;
+                accessible-role: none;
+            }
+            details-title := Text {
+                x: 74px;
+                y: 19px;
+                width: parent.width - 128px;
+                height: max(30px, self.preferred-height);
+                text: root.title;
+                color: root.title-color;
+                font-size: TypeScale.title-small;
+                font-weight: 700;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            details-subtitle := Text {
+                x: 74px;
+                y: details-title.y + details-title.height;
+                width: parent.width - 98px;
+                height: max(22px, self.preferred-height);
+                text: root.subtitle;
+                color: root.muted-text;
+                font-size: TypeScale.secondary;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            provider-pill := Rectangle {
+                x: 74px;
+                y: details-subtitle.y + details-subtitle.height + 4px;
+                width: provider-label.preferred-width + 16px;
+                height: max(22px, provider-label.preferred-height + 4px);
+                border-radius: self.height / 2;
+                background: root.accent;
+                provider-label := Text {
+                    text: root.provider == "gmail" ? @tr("Gmail")
+                        : root.provider == "microsoft" ? @tr("Outlook")
+                        : root.provider == "local" ? @tr("Local") : @tr("CalDAV");
+                    color: white;
+                    font-size: TypeScale.caption;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        details-scroll := ScrollView {
+            x: 24px;
+            y: details-header.height + 16px;
+            width: parent.width - 48px;
+            height: max(0px, parent.height - self.y - 70px);
+            content-width: self.visible-width;
+            horizontal-scrollbar-policy: always-off;
+
+            VerticalBox {
+                width: details-scroll.visible-width;
+                padding: 0px;
+                spacing: 8px;
+                alignment: start;
+
+                DetailField { label: @tr("WHEN"); value: root.date-time; label-color: root.muted-text; value-color: root.title-color; }
+                DetailField { label: @tr("CALENDAR"); value: root.calendar; label-color: root.muted-text; value-color: root.title-color; }
+                DetailField { label: @tr("ACCOUNT"); value: root.account; label-color: root.muted-text; value-color: root.title-color; }
+                DetailField { label: @tr("LOCATION"); value: root.location; label-color: root.muted-text; value-color: root.title-color; }
+                DetailField { label: @tr("ORGANIZER"); value: root.organizer; label-color: root.muted-text; value-color: root.title-color; }
+                DetailField { label: @tr("ACCESS"); value: root.access; label-color: root.muted-text; value-color: root.title-color; }
+                DetailField { label: @tr("SYNC"); value: root.sync; label-color: root.muted-text; value-color: root.title-color; }
+                DetailField { label: @tr("STATUS"); value: root.status; label-color: root.muted-text; value-color: root.title-color; }
+                DetailField { label: @tr("MY RESPONSE"); value: root.rsvp; label-color: root.muted-text; value-color: root.title-color; }
+                DetailField { label: @tr("RECURRENCE"); value: root.recurrence; label-color: root.muted-text; value-color: root.title-color; }
+                DetailField { label: @tr("ATTENDEES"); value: root.attendees; multiline: true; label-color: root.muted-text; value-color: root.title-color; }
+                DetailField { label: @tr("DESCRIPTION"); value: root.description; multiline: true; label-color: root.muted-text; value-color: root.title-color; }
+            }
+        }
+
+        Rectangle { x: 0px; y: parent.height - 64px; width: parent.width; height: 1px; background: root.border-subtle; }
+        Button {
+            visible: root.join-url != "" && !root.editable;
+            x: 24px;
+            y: parent.height - 52px;
+            width: max(176px, self.content-width);
+            height: 40px;
+            text: @tr("Open meeting link");
+            primary: true;
+            clicked => { root.open-link(root.join-url); }
+        }
+        Button {
+            visible: root.kind == "event" && root.editable;
+            x: 24px;
+            y: parent.height - 52px;
+            width: max(90px, self.content-width);
+            height: 40px;
+            text: @tr("Delete");
+            destructive: true;
+            clicked => { root.delete-event(); }
+        }
+        Button {
+            visible: root.kind == "event" && root.editable;
+            x: details-close.x - self.width - 8px;
+            y: parent.height - 52px;
+            width: max(82px, self.content-width);
+            height: 40px;
+            text: @tr("Edit");
+            primary: true;
+            clicked => { root.edit-event(); }
+        }
+        details-close := Button {
+            x: parent.width - self.width - 24px;
+            y: parent.height - 52px;
+            width: max(82px, self.content-width);
+            height: 40px;
+            text: @tr("Close");
+            clicked => { root.open = false; }
+        }
+    }
+}

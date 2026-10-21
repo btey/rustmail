@@ -1,0 +1,72 @@
+import { VerticalBox } from "std-widgets.slint";
+import { AppTheme } from "../design-system.slint";
+import { TypeScale } from "../typography.slint";
+import { Button } from "button.slint";
+
+// Shared placeholder for the detail panes in Mail, Contacts, and Files.
+export component DetailEmptyState inherits Rectangle {
+    in property <image> icon;
+    in property <string> title;
+    in property <string> description;
+    in property <string> action-label: "";
+    in property <image> action-icon;
+    in property <bool> action-destructive: false;
+    callback action();
+
+    background: transparent;
+    min-width: 0px;
+    preferred-width: 320px;
+    horizontal-stretch: 1;
+
+    VerticalBox {
+        width: root.width;
+        height: root.height;
+        padding: 24px;
+        alignment: center;
+        cross-axis-alignment: center;
+        spacing: 12px;
+
+        Rectangle {
+            width: 72px;
+            height: 72px;
+            horizontal-stretch: 0;
+            border-radius: 36px;
+            background: AppTheme.accent-soft;
+            Image {
+                width: 34px;
+                height: 34px;
+                source: root.icon;
+                colorize: AppTheme.accent;
+                image-fit: contain;
+                accessible-role: none;
+            }
+        }
+
+        Text {
+            width: 280px;
+            text: root.title;
+            color: AppTheme.heading;
+            font-size: TypeScale.heading-large;
+            font-weight: 700;
+            wrap: word-wrap;
+            horizontal-alignment: center;
+        }
+        Text {
+            width: 280px;
+            text: root.description;
+            color: AppTheme.secondary;
+            font-size: TypeScale.secondary;
+            wrap: word-wrap;
+            horizontal-alignment: center;
+        }
+        if root.action-label != "" : Button {
+            height: 36px;
+            min-width: 156px;
+            text: root.action-label;
+            has-icon: true;
+            icon: root.action-icon;
+            destructive: root.action-destructive;
+            clicked => { root.action(); }
+        }
+    }
+}

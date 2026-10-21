@@ -1,0 +1,190 @@
+import { TypeScale } from "../typography.slint";
+
+export component RecipientRow inherits Rectangle {
+    in-out property <string> text;
+    in property <string> label;
+    in property <string> placeholder-text;
+    in property <length> right-padding: 12px;
+    in property <color> background-color;
+    in property <color> label-color;
+    in property <color> text-color;
+    in property <color> placeholder-color;
+    in property <color> focus-color;
+    in property <bool> suggestions-open: false;
+    out property <bool> has-focus: field.has-focus;
+    callback edited(string);
+    callback move-suggestion(int);
+    callback accept-suggestion();
+    callback dismiss-suggestions();
+
+    forward-focus: field;
+
+    height: 40px;
+    background: root.background-color;
+
+    row-label := Text {
+        x: 12px;
+        width: max(34px, self.preferred-width);
+        height: parent.height;
+        text: root.label;
+        color: field.has-focus ? root.focus-color : root.label-color;
+        font-size: TypeScale.secondary;
+        font-weight: 600;
+        vertical-alignment: center;
+    }
+
+    Text {
+        x: row-label.x + row-label.width + 4px;
+        width: max(0px, parent.width - self.x - root.right-padding);
+        height: parent.height;
+        visible: root.text == "";
+        text: root.placeholder-text;
+        color: root.placeholder-color;
+        font-size: TypeScale.body;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    field := TextInput {
+        x: row-label.x + row-label.width + 4px;
+        width: max(0px, parent.width - self.x - root.right-padding);
+        height: parent.height;
+        text <=> root.text;
+        color: root.text-color;
+        selection-background-color: root.focus-color;
+        selection-foreground-color: white;
+        font-size: TypeScale.body;
+        single-line: true;
+        vertical-alignment: center;
+        edited => {
+            root.edited(self.text);
+        }
+        key-pressed(event) => {
+            if (root.suggestions-open && event.text == Key.DownArrow) {
+                root.move-suggestion(1);
+                return accept;
+            }
+            if (root.suggestions-open && event.text == Key.UpArrow) {
+                root.move-suggestion(-1);
+                return accept;
+            }
+            if (root.suggestions-open && (event.text == Key.Return || event.text == Key.Tab)) {
+                root.accept-suggestion();
+                return accept;
+            }
+            if (root.suggestions-open && event.text == Key.Escape) {
+                root.dismiss-suggestions();
+                return accept;
+            }
+            reject
+        }
+    }
+}
+
+export component FormatButton inherits Rectangle {
+    in property <string> label;
+    in property <string> tooltip-text;
+    in property <bool> emphasized: false;
+    in property <bool> italic: false;
+    in property <bool> underlined: false;
+    in property <bool> struck: false;
+    in property <bool> selected: false;
+    in property <color> text-color;
+    in property <color> hover-color;
+    in property <color> selected-color;
+    in property <color> selected-background;
+    callback clicked;
+
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: root.selected ? root.selected-background : hit.has-hover ? root.hover-color : transparent;
+
+    Text {
+        text: root.label;
+        color: root.selected ? root.selected-color : root.text-color;
+        font-size: TypeScale.body;
+        font-weight: root.emphasized ? 800 : 500;
+        font-italic: root.italic;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    if root.underlined : Rectangle {
+        x: 8px;
+        y: 22px;
+        width: parent.width - 16px;
+        height: 1px;
+        background: root.selected ? root.selected-color : root.text-color;
+    }
+
+    if root.struck : Rectangle {
+        x: 8px;
+        y: 14px;
+        width: parent.width - 16px;
+        height: 1px;
+        background: root.selected ? root.selected-color : root.text-color;
+    }
+
+    hit := TouchArea {
+        accessible-role: button;
+        accessible-label: root.tooltip-text;
+        accessible-checked: root.selected;
+        accessible-action-default => { root.clicked(); }
+        clicked => { root.clicked(); }
+        mouse-cursor: pointer;
+    }
+
+    Rectangle {
+        visible: root.tooltip-text != "" && hit.has-hover;
+        x: (parent.width - self.width) / 2;
+        y: parent.height + 7px;
+        width: tip.preferred-width + 16px;
+        height: 26px;
+        border-radius: 5px;
+        background: #292929;
+        z: 1000;
+
+        tip := Text {
+            text: root.tooltip-text;
+            color: white;
+            font-size: TypeScale.caption;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component ModeButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    in property <color> text-color;
+    in property <color> selected-text-color;
+    in property <color> hover-color;
+    in property <color> selected-background;
+    out property <length> label-width: mode-label.preferred-width;
+    callback clicked;
+
+    width: 58px;
+    height: 26px;
+    border-radius: 5px;
+    background: root.selected ? root.selected-background : hit.has-hover ? root.hover-color : transparent;
+
+    mode-label := Text {
+        text: root.text;
+        color: root.selected ? root.selected-text-color : root.text-color;
+        font-size: TypeScale.caption;
+        font-weight: root.selected ? 700 : 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    hit := TouchArea {
+        accessible-role: button;
+        accessible-label: root.text;
+        accessible-checked: root.selected;
+        accessible-action-default => { root.clicked(); }
+        clicked => { root.clicked(); }
+        mouse-cursor: pointer;
+    }
+}

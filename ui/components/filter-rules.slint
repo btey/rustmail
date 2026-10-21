@@ -1,0 +1,263 @@
+import { VerticalBox, HorizontalBox, ComboBox, CheckBox } from "std-widgets.slint";
+import { Button } from "button.slint";
+import { LineEdit } from "controls.slint";
+import { AppTheme } from "../design-system.slint";
+import { TypeScale } from "../typography.slint";
+
+export struct FilterRuleRow {
+    id: string,
+    name: string,
+    summary: string,
+    enabled: bool,
+}
+
+// Filter rules (conditions and actions applied to incoming mail). The Rust
+// side keeps these in step with the saved settings.
+export global FilterRules {
+    in-out property <[FilterRuleRow]> rows;
+    in-out property <string> status;
+    // Result of the last "run now", shown next to its button.
+    in-out property <string> run-status;
+    in-out property <bool> busy: false;
+    // The rule being written. A condition or action row with no field/kind is
+    // left out; field, op and kind hold the stored identifiers.
+    in-out property <string> edit-name;
+    in-out property <bool> edit-match-all: true;
+    in-out property <bool> edit-stop: false;
+    in-out property <string> c1-field;
+    in-out property <string> c1-op;
+    in-out property <string> c1-value;
+    in-out property <string> c2-field;
+    in-out property <string> c2-op;
+    in-out property <string> c2-value;
+    in-out property <string> c3-field;
+    in-out property <string> c3-op;
+    in-out property <string> c3-value;
+    in-out property <string> a1-kind;
+    in-out property <string> a1-value;
+    in-out property <string> a2-kind;
+    in-out property <string> a2-value;
+    callback context-changed();
+    callback add-rule();
+    callback delete-rule(string);
+    callback toggle-rule(string);
+    callback move-rule(string, int);
+    callback run-now();
+}
+
+component ConditionRow inherits HorizontalBox {
+    in-out property <string> field;
+    in-out property <string> op;
+    in-out property <string> value;
+    in property <bool> enabled: true;
+    private property <[string]> field-ids: ["", "from", "to", "cc", "subject", "size", "has_attachment", "list_mail"];
+    private property <[string]> text-ops: ["contains", "not_contains", "equals", "starts_with", "ends_with", "regex"];
+    private property <string> kind: root.field == "size" ? "size" : (root.field == "has_attachment" || root.field == "list_mail") ? "flag" : "text";
+    padding: 0px;
+    spacing: 8px;
+    height: 36px;
+
+    ComboBox {
+        width: 150px;
+        enabled: root.enabled;
+        model: [@tr("(not used)"), @tr("From"), @tr("To"), @tr("Cc"), @tr("Subject"), @tr("Size"), @tr("Has attachment"), @tr("Mailing list")];
+        current-index: root.field == "from" ? 1 : root.field == "to" ? 2 : root.field == "cc" ? 3 : root.field == "subject" ? 4 : root.field == "size" ? 5 : root.field == "has_attachment" ? 6 : root.field == "list_mail" ? 7 : 0;
+        selected(value) => {
+            root.field = root.field-ids[self.current-index];
+            root.op = root.kind == "size" ? "greater" : root.kind == "flag" ? "yes" : "contains";
+        }
+    }
+    if root.field != "" && root.kind == "text" : ComboBox {
+        width: 170px;
+        enabled: root.enabled;
+        model: [@tr("contains"), @tr("does not contain"), @tr("is exactly"), @tr("starts with"), @tr("ends with"), @tr("matches regex")];
+        current-index: root.op == "not_contains" ? 1 : root.op == "equals" ? 2 : root.op == "starts_with" ? 3 : root.op == "ends_with" ? 4 : root.op == "regex" ? 5 : 0;
+        selected(value) => { root.op = root.text-ops[self.current-index]; }
+    }
+    if root.field != "" && root.kind == "size" : ComboBox {
+        width: 170px;
+        enabled: root.enabled;
+        model: [@tr("larger than (KB)"), @tr("smaller than (KB)")];
+        current-index: root.op == "less" ? 1 : 0;
+        selected(value) => { root.op = self.current-index == 1 ? "less" : "greater"; }
+    }
+    if root.field != "" && root.kind == "flag" : ComboBox {
+        width: 170px;
+        enabled: root.enabled;
+        model: [@tr("yes"), @tr("no")];
+        current-index: root.op == "no" ? 1 : 0;
+        selected(value) => { root.op = self.current-index == 1 ? "no" : "yes"; }
+    }
+    if root.field != "" && root.kind != "flag" : LineEdit {
+        horizontal-stretch: 1;
+        enabled: root.enabled;
+        text <=> root.value;
+        placeholder-text: root.kind == "size" ? @tr("Size in KB") : root.op == "regex" ? @tr("Regular expression") : @tr("Text to look for");
+    }
+}
+
+component ActionRow inherits HorizontalBox {
+    in-out property <string> kind;
+    in-out property <string> value;
+    in property <bool> enabled: true;
+    private property <[string]> kind-ids: ["", "mark_read", "mark_unread", "star", "archive", "spam", "trash", "move", "add_label"];
+    padding: 0px;
+    spacing: 8px;
+    height: 36px;
+
+    ComboBox {
+        width: 230px;
+        enabled: root.enabled;
+        model: [@tr("(no action)"), @tr("Mark as read"), @tr("Mark as unread"), @tr("Star"), @tr("Archive"), @tr("Mark as spam"), @tr("Move to trash"), @tr("Move to folder"), @tr("Add label")];
+        current-index: root.kind == "mark_read" ? 1 : root.kind == "mark_unread" ? 2 : root.kind == "star" ? 3 : root.kind == "archive" ? 4 : root.kind == "spam" ? 5 : root.kind == "trash" ? 6 : root.kind == "move" ? 7 : root.kind == "add_label" ? 8 : 0;
+        selected(value) => {
+            root.kind = root.kind-ids[self.current-index];
+            root.value = "";
+        }
+    }
+    if root.kind == "move" || root.kind == "add_label" : LineEdit {
+        horizontal-stretch: 1;
+        enabled: root.enabled;
+        text <=> root.value;
+        placeholder-text: root.kind == "move" ? @tr("Folder name, for example Receipts") : @tr("Label name");
+    }
+}
+
+export component FilterRulesSettings inherits VerticalBox {
+    in property <bool> compact: false;
+    in property <color> heading-color;
+    in property <color> secondary-text;
+    in property <color> border-color;
+    padding: 0px;
+    spacing: 10px;
+
+    Text {
+        height: max(20px, self.preferred-height);
+        text: @tr("Your filters");
+        color: root.heading-color;
+        font-size: TypeScale.secondary;
+        font-weight: 600;
+    }
+    Text {
+        text: @tr("Filters run on new mail that arrives in an Inbox, in the order shown. A filter acts on the whole conversation. Mail already in your account is not changed unless you run the filters by hand.");
+        color: root.secondary-text;
+        font-size: TypeScale.caption;
+        wrap: word-wrap;
+        height: self.preferred-height;
+    }
+    if FilterRules.rows.length == 0 : Text {
+        height: max(18px, self.preferred-height);
+        text: @tr("No filters yet.");
+        color: root.secondary-text;
+        font-size: TypeScale.caption;
+    }
+    for row[index] in FilterRules.rows : Rectangle {
+        height: 58px;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: root.border-color;
+        opacity: row.enabled ? 1 : 0.55;
+        HorizontalBox {
+            padding-left: 12px;
+            padding-right: 8px;
+            spacing: 6px;
+            VerticalBox {
+                horizontal-stretch: 1;
+                padding: 0px;
+                spacing: 2px;
+                alignment: center;
+                Text { text: row.name; color: root.heading-color; font-size: TypeScale.secondary; font-weight: 600; overflow: elide; }
+                Text { text: row.summary; color: root.secondary-text; font-size: TypeScale.caption; overflow: elide; }
+            }
+            Button { width: 40px; text: "↑"; enabled: !FilterRules.busy && index > 0; clicked => { FilterRules.move-rule(row.id, -1); } }
+            Button { width: 40px; text: "↓"; enabled: !FilterRules.busy && index < FilterRules.rows.length - 1; clicked => { FilterRules.move-rule(row.id, 1); } }
+            Button { width: max(88px, self.content-width + 24px); text: row.enabled ? @tr("Turn off") : @tr("Turn on"); enabled: !FilterRules.busy; clicked => { FilterRules.toggle-rule(row.id); } }
+            Button { width: max(76px, self.content-width + 24px); text: @tr("Delete"); enabled: !FilterRules.busy; clicked => { FilterRules.delete-rule(row.id); } }
+        }
+    }
+    HorizontalBox {
+        padding: 0px;
+        height: 34px;
+        alignment: start;
+        Button {
+            width: max(200px, self.content-width + 28px);
+            text: @tr("Run filters on the Inboxes now");
+            enabled: !FilterRules.busy && FilterRules.rows.length > 0;
+            clicked => { FilterRules.run-now(); }
+        }
+    }
+    if FilterRules.run-status != "" : Text {
+        text: FilterRules.run-status;
+        color: root.secondary-text;
+        font-size: TypeScale.caption;
+        wrap: word-wrap;
+        height: self.preferred-height;
+    }
+    Rectangle { height: 1px; background: root.border-color; }
+
+    Text {
+        height: max(20px, self.preferred-height);
+        text: @tr("New filter");
+        color: root.heading-color;
+        font-size: TypeScale.secondary;
+        font-weight: 600;
+    }
+    LineEdit {
+        height: 36px;
+        enabled: !FilterRules.busy;
+        text <=> FilterRules.edit-name;
+        input-label: @tr("Filter name");
+        placeholder-text: @tr("Name, for example Receipts");
+    }
+    HorizontalBox {
+        padding: 0px;
+        height: 36px;
+        spacing: 8px;
+        alignment: start;
+        Text { text: @tr("Apply when"); color: root.secondary-text; font-size: TypeScale.caption; vertical-alignment: center; }
+        ComboBox {
+            width: 150px;
+            enabled: !FilterRules.busy;
+            model: [@tr("all"), @tr("any")];
+            current-index: FilterRules.edit-match-all ? 0 : 1;
+            selected(value) => { FilterRules.edit-match-all = self.current-index == 0; }
+        }
+        Text { text: @tr("of these match:"); color: root.secondary-text; font-size: TypeScale.caption; vertical-alignment: center; }
+    }
+    ConditionRow { enabled: !FilterRules.busy; field <=> FilterRules.c1-field; op <=> FilterRules.c1-op; value <=> FilterRules.c1-value; }
+    ConditionRow { enabled: !FilterRules.busy; field <=> FilterRules.c2-field; op <=> FilterRules.c2-op; value <=> FilterRules.c2-value; }
+    ConditionRow { enabled: !FilterRules.busy; field <=> FilterRules.c3-field; op <=> FilterRules.c3-op; value <=> FilterRules.c3-value; }
+    Text {
+        height: max(20px, self.preferred-height);
+        text: @tr("Then:");
+        color: root.secondary-text;
+        font-size: TypeScale.caption;
+    }
+    ActionRow { enabled: !FilterRules.busy; kind <=> FilterRules.a1-kind; value <=> FilterRules.a1-value; }
+    ActionRow { enabled: !FilterRules.busy; kind <=> FilterRules.a2-kind; value <=> FilterRules.a2-value; }
+    CheckBox {
+        text: @tr("Stop: skip the filters below when this one matches");
+        enabled: !FilterRules.busy;
+        checked: FilterRules.edit-stop;
+        toggled => { FilterRules.edit-stop = self.checked; }
+    }
+    HorizontalBox {
+        padding: 0px;
+        height: 34px;
+        alignment: start;
+        Button {
+            width: max(120px, self.content-width + 28px);
+            primary: true;
+            text: @tr("Add filter");
+            enabled: !FilterRules.busy && FilterRules.edit-name != "";
+            clicked => { FilterRules.add-rule(); }
+        }
+    }
+    if FilterRules.status != "" : Text {
+        text: FilterRules.status;
+        color: root.secondary-text;
+        font-size: TypeScale.caption;
+        wrap: word-wrap;
+        height: self.preferred-height;
+    }
+}

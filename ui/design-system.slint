@@ -1,0 +1,226 @@
+import { Palette } from "std-widgets.slint";
+
+// One geometry contract for every workspace. Feature views may choose their
+// content, but they must not invent their own rail, sidebar, toolbar, or touch
+// target dimensions.
+export global LayoutMetrics {
+    out property <length> product-rail-width: 56px;
+    out property <length> sidebar-width: 230px;
+    out property <length> list-pane-width: 390px;
+    out property <length> divider-width: 1px;
+    // Resizable list panes retain the established 390px default/minimum and
+    // leave enough room for the adjacent message, contact, or file detail.
+    out property <length> detail-pane-min-width: 300px;
+    out property <length> pane-resize-hit-width: 9px;
+    out property <length> pane-resize-keyboard-step: 16px;
+    out property <length> compact-navigation-height: 80px;
+    out property <length> compact-header-height: 60px;
+    out property <length> touch-target: 44px;
+    out property <length> desktop-icon-button-size: 40px;
+    out property <length> icon-size: 18px;
+    out property <length> desktop-toolbar-icon-size: icon-size;
+    out property <length> compact-toolbar-icon-size: icon-size;
+    // Feature sidebars keep a full 12px content gutter. Scrollable trees add
+    // their own scrollbar breathing room inside this boundary.
+    out property <length> sidebar-inset: 12px;
+    out property <length> sidebar-scrollbar-gutter: 12px;
+    // The rail starts at 8px and its 48px destination row is centered at
+    // 32px. A 34px feature action therefore begins at 15px.
+    out property <length> sidebar-action-top: 15px;
+    out property <length> sidebar-action-height: 34px;
+    out property <length> workspace-action-center-y: 32px;
+    out property <length> desktop-mail-toolbar-height: 64px;
+    out property <length> content-inset: 12px;
+    out property <length> list-row-inset: 12px;
+    // Rows stop short of the overlaid scrollbar so selection and focus
+    // outlines never paint over it.
+    out property <length> list-scrollbar-gutter: 12px;
+    out property <length> compact-inset: 10px;
+    out property <length> control-height: 40px;
+    out property <length> corner-radius: 8px;
+}
+
+// Runtime motion stays enabled by default. Deterministic renderers such as the
+// README screenshot generator can opt out so they capture the settled state
+// without changing the motion users see in the application.
+export global MotionSettings {
+    in-out property <bool> enabled: true;
+}
+
+// Mail actions and their matching sidebar destinations share one semantic
+// icon palette. These colors stay stable across themes so the same action is
+// recognizable wherever it appears.
+export global MailIconPalette {
+    out property <color> inbox: #2f9cf4;
+    out property <color> starred: #f5b301;
+    out property <color> sent: #00a8f3;
+    out property <color> spam: #f59e0b;
+    out property <color> trash: #ff5b4d;
+    out property <color> archive: #8b5cf6;
+    out property <color> drafts: #d946ef;
+    out property <color> folders: #22a06b;
+    out property <color> other: #64748b;
+}
+
+// Settings destinations use the same preference-controlled color strategy as
+// mailbox icons: semantic colors by default, neutral colors in monochrome mode.
+export global SettingsIconPalette {
+    out property <color> general: #64748b;
+    out property <color> accounts: #3b82f6;
+    out property <color> notifications: #f59e0b;
+    out property <color> shortcuts: #22a06b;
+    out property <color> storage: #a855f7;
+    out property <color> actions: #0ea5e9;
+    out property <color> filters: #f97316;
+    out property <color> about: #ec4899;
+}
+
+// Application colors live here instead of being re-declared by every custom
+// button and view. Palette.color-scheme is set by AppWindow's theme setting,
+// so all consumers update together when the user changes appearance.
+export global AppTheme {
+    // Color scheme and palette are separate preferences. This lets every
+    // preset follow the OS while a custom palette keeps independent light and
+    // dark values. The default branch below is the original Rustmail palette.
+    in-out property <string> preset: "default";
+    in-out property <color> custom-light-primary: #0969da;
+    in-out property <color> custom-light-page-bg: #f2f2f0;
+    in-out property <color> custom-light-surface: #ffffff;
+    in-out property <color> custom-light-text: #202120;
+    in-out property <color> custom-light-border: #d9d9d6;
+    in-out property <color> custom-dark-primary: #0969da;
+    in-out property <color> custom-dark-page-bg: #111213;
+    in-out property <color> custom-dark-surface: #18191a;
+    in-out property <color> custom-dark-text: #f3f3f2;
+    in-out property <color> custom-dark-border: #3a3b3c;
+
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+
+    // Each non-default preset starts from five user-facing foundation colors.
+    // The rest of the semantic tokens are derived consistently, so adding a
+    // component never expands the persisted theme schema.
+    out property <color> light-primary: preset == "default" ? #0969da
+        : preset == "teal" ? #006b7a : preset == "green" ? #2f6f44
+        : preset == "purple" ? #78418a : custom-light-primary;
+    out property <color> dark-primary: preset == "default" ? #0969da
+        : preset == "teal" ? #006b7a : preset == "green" ? #2f6f44
+        : preset == "purple" ? #78418a : custom-dark-primary;
+    private property <color> themed-primary: dark ? dark-primary : light-primary;
+    private property <color> themed-page-bg: preset == "teal" ? (dark ? #0b1519 : #edf5f7)
+        : preset == "green" ? (dark ? #101711 : #f1f5ef)
+        : preset == "purple" ? (dark ? #171119 : #f6f1f7)
+        : dark ? custom-dark-page-bg : custom-light-page-bg;
+    // Both schemes are exposed for message appearance independent of the UI.
+    out property <color> light-surface: preset == "default" ? #ffffff
+        : preset == "teal" ? #fbfefe : preset == "green" ? #fcfdfb
+        : preset == "purple" ? #fdfbfe : custom-light-surface;
+    out property <color> dark-surface: preset == "default" ? #18191a
+        : preset == "teal" ? #122026 : preset == "green" ? #182019
+        : preset == "purple" ? #201722 : custom-dark-surface;
+    out property <color> light-text: preset == "default" ? #202120
+        : preset == "teal" ? #173039 : preset == "green" ? #213026
+        : preset == "purple" ? #332537 : custom-light-text;
+    out property <color> dark-text: preset == "default" ? #f3f3f2
+        : preset == "teal" ? #e5f0f2 : preset == "green" ? #e9f0e6
+        : preset == "purple" ? #f1e8f3 : custom-dark-text;
+    private property <color> themed-surface: dark ? dark-surface : light-surface;
+    private property <color> themed-text: dark ? dark-text : light-text;
+    private property <color> themed-border: preset == "teal" ? (dark ? #294047 : #c8dadd)
+        : preset == "green" ? (dark ? #344039 : #ccd8c8)
+        : preset == "purple" ? (dark ? #46354a : #dfd0e2)
+        : dark ? custom-dark-border : custom-light-border;
+    private property <color> themed-accent: dark
+        ? themed-primary.mix(white, 0.62)
+        : themed-primary;
+
+    out property <color> page-bg: preset == "default" ? (dark ? #111213 : #f2f2f0) : themed-page-bg;
+    out property <color> surface: preset == "default" ? (dark ? #18191a : #ffffff) : themed-surface;
+    out property <color> surface-raised: preset == "default" ? (dark ? #131415 : #fafaf8)
+        : themed-surface.mix(themed-page-bg, 0.72);
+    out property <color> sidebar-bg: preset == "default" ? (dark ? #151617 : #f0f0ee)
+        : themed-page-bg.mix(themed-surface, 0.72);
+    out property <color> control-bg: preset == "default" ? (dark ? #232425 : #f1f1ef)
+        : themed-surface.mix(themed-text, dark ? 0.90 : 0.94);
+    out property <color> muted-control-bg: preset == "default" ? (dark ? #242526 : #e8e8e5)
+        : themed-surface.mix(themed-text, dark ? 0.86 : 0.90);
+    // Product actions deliberately keep the established Rustmail blue in both
+    // themes. The lighter dark-theme accent remains available for selection,
+    // focus, and small icons where extra contrast is useful.
+    out property <color> primary: preset == "default" ? #0969da : themed-primary;
+    out property <color> primary-hover: preset == "default" ? #1675df : themed-primary.mix(white, 0.90);
+    out property <color> primary-pressed: preset == "default" ? #0757b5 : themed-primary.mix(black, 0.82);
+    out property <color> accent: preset == "default" ? (dark ? #5ca3ff : #0969da) : themed-accent;
+    out property <color> accent-hover: preset == "default" ? (dark ? #74b1ff : #1675df) : themed-accent.mix(white, 0.88);
+    out property <color> accent-pressed: preset == "default" ? (dark ? #428de8 : #0757b5) : themed-accent.mix(black, 0.84);
+    out property <color> accent-soft: preset == "default" ? (dark ? #26364a : #dcecff)
+        : themed-accent.mix(themed-surface, dark ? 0.20 : 0.14);
+    out property <color> accent-pale: preset == "default" ? (dark ? #1c2a3a : #edf6ff)
+        : themed-accent.mix(themed-surface, dark ? 0.11 : 0.07);
+    out property <color> selected-row: preset == "default" ? (dark ? #252627 : #e9e9e6)
+        : themed-surface.mix(themed-text, dark ? 0.90 : 0.93);
+    out property <color> avatar-bg: preset == "default" ? (dark ? #303132 : #e6e6e2)
+        : themed-surface.mix(themed-text, dark ? 0.84 : 0.89);
+    out property <color> avatar-selected-bg: preset == "default" ? (dark ? #354860 : #d5e8ff)
+        : themed-accent.mix(themed-surface, dark ? 0.28 : 0.18);
+    out property <color> border: preset == "default" ? (dark ? #292a2b : #d9d9d6) : themed-border;
+    out property <color> border-subtle: preset == "default" ? (dark ? #232425 : #e6e6e2)
+        : themed-border.mix(themed-surface, 0.58);
+    out property <color> control-border: preset == "default" ? (dark ? #3a3b3c : #d2d3d0)
+        : themed-border.mix(themed-text, dark ? 0.76 : 0.88);
+    out property <color> input-border: preset == "default" ? (dark ? #383a3b : #cccdca)
+        : themed-border.mix(themed-text, dark ? 0.80 : 0.86);
+    out property <color> title: preset == "default" ? (dark ? #f3f3f2 : #202120) : themed-text;
+    out property <color> heading: preset == "default" ? (dark ? #e4e4e2 : #30312f)
+        : themed-text.mix(themed-page-bg, 0.94);
+    out property <color> body: preset == "default" ? (dark ? #c5c6c3 : #4b4c49)
+        : themed-text.mix(themed-page-bg, 0.88);
+    out property <color> secondary: preset == "default" ? (dark ? #a0a19e : #72736f)
+        : themed-text.mix(themed-page-bg, 0.80);
+    out property <color> muted: preset == "default" ? (dark ? #80817e : #888985)
+        : themed-text.mix(themed-page-bg, 0.72);
+    out property <color> faint: preset == "default" ? (dark ? #737471 : #949591)
+        : themed-text.mix(themed-page-bg, 0.68);
+    out property <color> disabled-bg: preset == "default" ? (dark ? #202122 : #ededeb)
+        : themed-surface.mix(themed-text, dark ? 0.92 : 0.94);
+    out property <color> input-bg: preset == "default" ? (dark ? #1c1d1e : #ffffff) : themed-surface;
+    out property <color> placeholder: preset == "default" ? (dark ? #747572 : #90918d)
+        : themed-text.mix(themed-surface, 0.68);
+    out property <color> destructive: #b73731;
+    out property <color> destructive-hover: #c8443d;
+    out property <color> destructive-pressed: #922d28;
+}
+
+export global ThemeUtilities {
+    pure function linear-channel(channel: int) -> float {
+        let value = channel / 255;
+        return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4);
+    }
+
+    pure function luminance(value: color) -> float {
+        return 0.2126 * self.linear-channel(value.red)
+            + 0.7152 * self.linear-channel(value.green)
+            + 0.0722 * self.linear-channel(value.blue);
+    }
+
+    public pure function contrast(first: color, second: color) -> float {
+        let first-luminance = self.luminance(first);
+        let second-luminance = self.luminance(second);
+        return (max(first-luminance, second-luminance) + 0.05)
+            / (min(first-luminance, second-luminance) + 0.05);
+    }
+
+    // Keep white where it meets AA, including the built-in button states.
+    // Otherwise black provides at least 4.5:1 against any opaque color.
+    public pure function contrasting-foreground(background: color) -> color {
+        return self.contrast(white, background) >= 4.5 ? white : black;
+    }
+
+    // Rust handles strict #RRGGBB parsing and formatting because Slint has no
+    // integer-to-hex string primitive.
+    pure callback color-to-hex(color) -> string;
+    pure callback parse-color(string, color) -> color;
+    pure callback valid-color(string) -> bool;
+    color-to-hex(value) => { return "#000000"; }
+    parse-color(text, fallback) => { return fallback; }
+    valid-color(text) => { return true; }
+}

@@ -1,0 +1,22 @@
+import { AppTheme } from "design-system.slint";
+
+// Inspecting a sender's design never changes the next message's appearance.
+export global MessageColors {
+    in-out property <string> preference: "system";
+    in-out property <bool> original: false;
+    out property <bool> dark: !original && (preference == "dark"
+        || (preference == "system" && AppTheme.dark));
+    out property <color> background: original ? white
+        : dark ? AppTheme.dark-surface : AppTheme.light-surface;
+    out property <color> foreground: original ? #202120
+        : dark ? AppTheme.dark-text : AppTheme.light-text;
+    out property <color> link: dark ? AppTheme.dark-primary.mix(white, 0.62) : AppTheme.light-primary;
+    callback refresh();
+    callback choose(string);
+    changed preference => { self.original = false; self.refresh(); }
+    changed original => { self.refresh(); }
+    changed dark => { self.refresh(); }
+    changed background => { self.refresh(); }
+    changed foreground => { self.refresh(); }
+    changed link => { self.refresh(); }
+}

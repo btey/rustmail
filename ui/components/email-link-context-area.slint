@@ -1,0 +1,35 @@
+export component EmailLinkContextArea {
+    in property <string> url;
+    in property <bool> enabled: true;
+    callback open-link;
+    callback copy-link;
+
+    // Keep the left-click target below ContextMenuArea. The context item
+    // forwards left clicks but consumes right clicks, which gives us both
+    // normal link activation and a link-specific context menu.
+    TouchArea {
+        width: parent.width;
+        height: parent.height;
+        enabled: root.enabled;
+        clicked => { root.open-link(); }
+        mouse-cursor: pointer;
+    }
+
+    ContextMenuArea {
+        width: parent.width;
+        height: parent.height;
+        enabled: root.enabled;
+
+        Menu {
+            MenuItem {
+                title: @tr("Open link");
+                activated => { root.open-link(); }
+            }
+            MenuItem {
+                title: @tr("Copy link");
+                activated => { root.copy-link(); }
+            }
+        }
+    }
+}
+

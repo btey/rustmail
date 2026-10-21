@@ -1,0 +1,108 @@
+diff --git a/crates/blitz-dom/Cargo.lock b/crates/blitz-dom/Cargo.lock
+index 4ff6834..b17bc6d 100644
+--- a/crates/blitz-dom/Cargo.lock
++++ b/crates/blitz-dom/Cargo.lock
+@@ -105,6 +105,7 @@ dependencies = [
+  "icu_properties",
+  "icu_segmenter",
+  "image",
++ "jpeg-decoder",
+  "keyboard-types",
+  "kurbo",
+  "linebender_resource_handle",
+@@ -837,6 +838,12 @@ version = "1.0.18"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
+ 
++[[package]]
++name = "jpeg-decoder"
++version = "0.3.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "00810f1d8b74be64b13dbf3db89ac67740615d6c891f0e7b6179326533011a07"
++
+ [[package]]
+ name = "js-sys"
+ version = "0.3.106"
+diff --git a/crates/blitz-dom/Cargo.toml b/crates/blitz-dom/Cargo.toml
+index 6a8b9c9..682831a 100644
+--- a/crates/blitz-dom/Cargo.toml
++++ b/crates/blitz-dom/Cargo.toml
+@@ -134,6 +134,10 @@ default-features = false
+ version = "0.25.6"
+ default-features = false
+ 
++[dependencies.jpeg-decoder]
++version = "0.3.2"
++default-features = false
++
+ [dependencies.keyboard-types]
+ version = "0.7"
+ 
+@@ -243,3 +247,8 @@ optional = true
+ [target.'cfg(any(target_vendor = "apple"))'.dependencies.objc2]
+ version = "0.6"
+ features = ["disable-encoding-assertions"]
++
++# The direct dependency exists solely to unify this objc2 safety feature into
++# the Apple font stack; Blitz does not import objc2 itself.
++[package.metadata.cargo-machete]
++ignored = ["objc2"]
+diff --git a/crates/blitz-dom/Cargo.toml.orig b/crates/blitz-dom/Cargo.toml.orig
+index a36fdfa..a7146d9 100644
+--- a/crates/blitz-dom/Cargo.toml.orig
++++ b/crates/blitz-dom/Cargo.toml.orig
+@@ -90,6 +90,7 @@ rayon = { workspace = true }
+ 
+ # Media & Decoding
+ image = { workspace = true }
++jpeg-decoder = { version = "0.3.2", default-features = false }
+ usvg = { workspace = true, optional = true }
+ svgtypes = { workspace = true, optional = true }
+ wuff = { workspace = true, optional = true }
+@@ -111,3 +112,8 @@ web-time = { workspace = true }
+ # to prevent debug builds from panicking.
+ [target.'cfg(any(target_vendor = "apple"))'.dependencies]
+ objc2 = { version = "0.6", features = ["disable-encoding-assertions"] }
++
++# The direct dependency exists solely to unify this objc2 safety feature into
++# the Apple font stack; Blitz does not import objc2 itself.
++[package.metadata.cargo-machete]
++ignored = ["objc2"]
+diff --git a/crates/blitz-paint/Cargo.lock b/crates/blitz-paint/Cargo.lock
+index 706dc5c..e9135d2 100644
+--- a/crates/blitz-paint/Cargo.lock
++++ b/crates/blitz-paint/Cargo.lock
+@@ -149,7 +149,6 @@ dependencies = [
+  "blitz-traits",
+  "bytemuck",
+  "color",
+- "euclid",
+  "kurbo",
+  "parley",
+  "peniko",
+diff --git a/crates/blitz-paint/Cargo.toml b/crates/blitz-paint/Cargo.toml
+index 13773b7..8828735 100644
+--- a/crates/blitz-paint/Cargo.toml
++++ b/crates/blitz-paint/Cargo.toml
+@@ -67,9 +67,6 @@ version = "1"
+ [dependencies.color]
+ version = "0.3"
+ 
+-[dependencies.euclid]
+-version = "0.22"
+-
+ [dependencies.kurbo]
+ version = "0.13.1"
+ 
+diff --git a/crates/blitz-paint/Cargo.toml.orig b/crates/blitz-paint/Cargo.toml.orig
+index 7fb7d04..d48fee2 100644
+--- a/crates/blitz-paint/Cargo.toml.orig
++++ b/crates/blitz-paint/Cargo.toml.orig
+@@ -31,7 +31,6 @@ blitz-dom = { workspace = true }
+ 
+ # Servo dependencies
+ style = { workspace = true }
+-euclid = { workspace = true }
+ 
+ # DioxusLabs dependencies
+ taffy = { workspace = true }

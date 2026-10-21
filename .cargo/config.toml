@@ -1,0 +1,16 @@
+# Keep every Cargo workspace and supported Rust target in this repository on
+# one disposable build tree. Cargo resolves this relative path to <repo>/target.
+[build]
+target-dir = "target"
+# Compiling Slint's generated library and test harness together can exhaust
+# memory on a 16 GiB development host, including editor background checks.
+# Larger builders can opt into more parallelism with Cargo's -j option.
+jobs = 1
+
+# Slint's desktop guide recommends matching Linux's larger main-thread stack on
+# Windows. This prevents stack overflows in debug builds with deep UI trees.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/STACK:8000000"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/STACK:8000000"]

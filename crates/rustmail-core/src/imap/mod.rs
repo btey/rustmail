@@ -1,0 +1,2176 @@
+//! Thin wrapper around async-imap. Everything the sync engine needs goes
+//! through `ImapSession`, so async-imap API churn stays contained here.
+//!
+//! v1 keeps the protocol surface small: no CONDSTORE/QRESYNC - incremental
+//! sync is done with new-UID fetches, windowed flag polls, and UID-set
+//! reconciliation, which is correct on every server.
+
+use crate::error::{CoreError, Result};
+use crate::mime::{self, MimePlan};
+use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD};
+use futures::StreamExt;
+use std::future::Future;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::net::TcpStream;
+use tokio_rustls::TlsConnector;
+
+// async-imap with runtime-tokio speaks tokio's AsyncRead/AsyncWrite natively.
+/// A TLS stream, or a plain TCP stream when the account opts out of encryption.
+#[derive(Debug)]
+pub enum ImapStreamKind {
+    Tls(Box<tokio_rustls::client::TlsStream<TcpStream>>),
+    Plain(TcpStream),
+}
+
+/// The wire stream plus the per-account connection-limit slot it occupies.
+/// Dropping the session drops the permit and frees the slot.
+#[derive(Debug)]
+pub struct ImapStream {
+    kind: ImapStreamKind,
+    _slot: Option<tokio::sync::OwnedSemaphorePermit>,
+}
+
+impl ImapStream {
+    fn new(kind: ImapStreamKind, slot: Option<tokio::sync::OwnedSemaphorePermit>) -> Self {
+        Self { kind, _slot: slot }
+    }
+}
+
+/// Upper bound accepted for the per-account connection limit.
+pub const MAX_CONNECTIONS_LIMIT: u32 = 20;
+
+/// One semaphore per account endpoint and limit, so changing the limit takes
+/// effect on the next connection without disturbing existing sessions.
+fn connection_slots(host: &str, port: u16, user: &str, limit: u32) -> Arc<tokio::sync::Semaphore> {
+    static SLOTS: std::sync::OnceLock<
+        std::sync::Mutex<std::collections::HashMap<String, Arc<tokio::sync::Semaphore>>>,
+    > = std::sync::OnceLock::new();
+    let key = format!("{host}:{port}/{user}/{limit}");
+    let mut slots = SLOTS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    slots
+        .entry(key)
+        .or_insert_with(|| Arc::new(tokio::sync::Semaphore::new(limit as usize)))
+        .clone()
+}
+
+impl tokio::io::AsyncRead for ImapStream {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match &mut self.get_mut().kind {
+            ImapStreamKind::Tls(stream) => std::pin::Pin::new(stream).poll_read(cx, buf),
+            ImapStreamKind::Plain(stream) => std::pin::Pin::new(stream).poll_read(cx, buf),
+        }
+    }
+}
+
+impl tokio::io::AsyncWrite for ImapStream {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        match &mut self.get_mut().kind {
+            ImapStreamKind::Tls(stream) => std::pin::Pin::new(stream).poll_write(cx, buf),
+            ImapStreamKind::Plain(stream) => std::pin::Pin::new(stream).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match &mut self.get_mut().kind {
+            ImapStreamKind::Tls(stream) => std::pin::Pin::new(stream).poll_flush(cx),
+            ImapStreamKind::Plain(stream) => std::pin::Pin::new(stream).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match &mut self.get_mut().kind {
+            ImapStreamKind::Tls(stream) => std::pin::Pin::new(stream).poll_shutdown(cx),
+            ImapStreamKind::Plain(stream) => std::pin::Pin::new(stream).poll_shutdown(cx),
+        }
+    }
+}
+pub type Session = async_imap::Session<ImapStream>;
+
+/// Metadata and mutation commands must never be able to wedge a sync actor.
+pub const METADATA_TIMEOUT: Duration = Duration::from_secs(30);
+/// Background message-content reads are allowed a little longer, but remain
+/// bounded so a throttled server cannot pin a worker forever.
+pub const CONTENT_TIMEOUT: Duration = Duration::from_secs(60);
+/// User-requested attachment reads may be large and get a larger deadline.
+pub const ATTACHMENT_TIMEOUT: Duration = Duration::from_secs(120);
+
+async fn with_deadline<T, F>(label: &'static str, timeout: Duration, future: F) -> Result<T>
+where
+    F: Future<Output = Result<T>>,
+{
+    tokio::time::timeout(timeout, future).await.map_err(|_| {
+        tracing::warn!(
+            operation = label,
+            seconds = timeout.as_secs(),
+            "imap operation timed out"
+        );
+        CoreError::Imap(format!("{label} timed out after {}s", timeout.as_secs()))
+    })?
+}
+
+/// Dev/self-hosted escape hatch: RUSTMAIL_TLS_INSECURE=1 disables certificate
+/// verification (e.g. self-signed Dovecot). Off by default; never set it for
+/// real accounts.
+pub fn tls_insecure() -> bool {
+    std::env::var("RUSTMAIL_TLS_INSECURE")
+        .map(|v| v == "1")
+        .unwrap_or(false)
+}
+
+#[derive(Debug)]
+struct NoVerify(Arc<rustls::crypto::CryptoProvider>);
+
+impl rustls::client::danger::ServerCertVerifier for NoVerify {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &rustls::pki_types::CertificateDer<'_>,
+        _intermediates: &[rustls::pki_types::CertificateDer<'_>],
+        _server_name: &rustls::pki_types::ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: rustls::pki_types::UnixTime,
+    ) -> std::result::Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &rustls::pki_types::CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &rustls::pki_types::CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.0.signature_verification_algorithms.supported_schemes()
+    }
+}
+
+/// Verify normal PKI chains first, then allow an imported certificate to act
+/// as an explicitly pinned endpoint when it is the exact CA-marked certificate
+/// presented by Proton Bridge. The narrow fallback preserves expiry and name
+/// validation while the exact DER match supplies the endpoint identity check.
+#[derive(Debug)]
+struct ImportedCertificateVerifier {
+    standard: Arc<rustls::client::WebPkiServerVerifier>,
+    imported: Vec<rustls::pki_types::CertificateDer<'static>>,
+}
+
+impl ImportedCertificateVerifier {
+    fn is_ca_used_as_end_entity(error: &rustls::Error) -> bool {
+        let rustls::Error::InvalidCertificate(rustls::CertificateError::Other(other)) = error
+        else {
+            return false;
+        };
+        other
+            .0
+            .downcast_ref::<webpki::Error>()
+            .is_some_and(|error| matches!(error, webpki::Error::CaUsedAsEndEntity))
+    }
+}
+
+impl rustls::client::danger::ServerCertVerifier for ImportedCertificateVerifier {
+    fn verify_server_cert(
+        &self,
+        end_entity: &rustls::pki_types::CertificateDer<'_>,
+        intermediates: &[rustls::pki_types::CertificateDer<'_>],
+        server_name: &rustls::pki_types::ServerName<'_>,
+        ocsp_response: &[u8],
+        now: rustls::pki_types::UnixTime,
+    ) -> std::result::Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        match self.standard.verify_server_cert(
+            end_entity,
+            intermediates,
+            server_name,
+            ocsp_response,
+            now,
+        ) {
+            Ok(verified) => Ok(verified),
+            Err(error)
+                if Self::is_ca_used_as_end_entity(&error)
+                    && self
+                        .imported
+                        .iter()
+                        .any(|certificate| certificate.as_ref() == end_entity.as_ref()) =>
+            {
+                // WebPKI checked validity before reporting CaUsedAsEndEntity.
+                // Check the name separately because chain validation failed
+                // before the standard verifier reached its name check. rustls
+                // verifies proof of possession in verify_tls{12,13}_signature.
+                let certificate = rustls::server::ParsedCertificate::try_from(end_entity)?;
+                rustls::client::verify_server_name(&certificate, server_name)?;
+                Ok(rustls::client::danger::ServerCertVerified::assertion())
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &rustls::pki_types::CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        self.standard.verify_tls12_signature(message, cert, dss)
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &rustls::pki_types::CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        self.standard.verify_tls13_signature(message, cert, dss)
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.standard.supported_verify_schemes()
+    }
+}
+
+pub fn tls_connector() -> TlsConnector {
+    static CONFIG: once_cell::sync::Lazy<Arc<rustls::ClientConfig>> =
+        once_cell::sync::Lazy::new(|| {
+            // Multiple rustls backends may be enabled via the dependency
+            // graph; pick ring explicitly so there's always a default.
+            let _ = rustls::crypto::ring::default_provider().install_default();
+            let mut roots = rustls::RootCertStore::empty();
+            roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+            let mut config = rustls::ClientConfig::builder()
+                .with_root_certificates(roots)
+                .with_no_client_auth();
+            if tls_insecure() {
+                tracing::warn!("RUSTMAIL_TLS_INSECURE=1: TLS certificate verification is DISABLED");
+                let provider = rustls::crypto::CryptoProvider::get_default()
+                    .cloned()
+                    .unwrap_or_else(|| Arc::new(rustls::crypto::ring::default_provider()));
+                config
+                    .dangerous()
+                    .set_certificate_verifier(Arc::new(NoVerify(provider)));
+            }
+            Arc::new(config)
+        });
+    TlsConnector::from(CONFIG.clone())
+}
+
+/// Parse a bounded PEM bundle and reject private keys or non-certificate data.
+pub fn trusted_certificates(pem: &str) -> Result<Vec<rustls::pki_types::CertificateDer<'static>>> {
+    use rustls::pki_types::pem::PemObject;
+    if pem.is_empty() {
+        return Ok(Vec::new());
+    }
+    if pem.len() > 256 * 1024 || pem.contains("PRIVATE KEY") {
+        return Err(CoreError::Tls(
+            "Import a public PEM certificate, not a private key (maximum 256 KiB).".into(),
+        ));
+    }
+    let certificates = rustls::pki_types::CertificateDer::pem_slice_iter(pem.as_bytes())
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|_| CoreError::Tls("The imported file is not a valid PEM certificate.".into()))?;
+    if certificates.is_empty() {
+        return Err(CoreError::Tls(
+            "No certificates found in the PEM file.".into(),
+        ));
+    }
+    let mut roots = rustls::RootCertStore::empty();
+    for cert in &certificates {
+        roots
+            .add(cert.clone())
+            .map_err(|_| CoreError::Tls("The imported certificate is invalid.".into()))?;
+    }
+    Ok(certificates)
+}
+
+/// Parse the account's mutual-TLS identity, if one is configured. Encrypted
+/// private keys are rejected with an actionable message: rustls cannot decrypt
+/// them, and silently ignoring the key would fail the handshake mysteriously.
+pub(crate) fn client_identity(
+    settings: &crate::models::MailConnectionSettings,
+) -> Result<
+    Option<(
+        Vec<rustls::pki_types::CertificateDer<'static>>,
+        rustls::pki_types::PrivateKeyDer<'static>,
+    )>,
+> {
+    use rustls::pki_types::{PrivateKeyDer, pem::PemObject};
+    let cert_pem = settings.client_certificate_pem.trim();
+    let key_pem = settings.client_key_pem.expose().trim();
+    if cert_pem.is_empty() && key_pem.is_empty() {
+        return Ok(None);
+    }
+    if cert_pem.is_empty() || key_pem.is_empty() {
+        return Err(CoreError::Tls(
+            "A client certificate needs both the certificate and its private key.".into(),
+        ));
+    }
+    if cert_pem.len() > 256 * 1024 || key_pem.len() > 64 * 1024 || cert_pem.contains("PRIVATE KEY")
+    {
+        return Err(CoreError::Tls(
+            "The client certificate file must contain only certificates (maximum 256 KiB).".into(),
+        ));
+    }
+    if key_pem.contains("ENCRYPTED") || key_pem.contains("Proc-Type: 4,ENCRYPTED") {
+        return Err(CoreError::Tls(
+            "Passphrase-protected private keys are not supported. Remove the passphrase first, for example with `openssl pkey -in key.pem -out key-plain.pem`.".into(),
+        ));
+    }
+    let chain = rustls::pki_types::CertificateDer::pem_slice_iter(cert_pem.as_bytes())
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|_| CoreError::Tls("The client certificate is not valid PEM.".into()))?;
+    if chain.is_empty() {
+        return Err(CoreError::Tls(
+            "No certificate found in the client certificate PEM.".into(),
+        ));
+    }
+    let key = PrivateKeyDer::from_pem_slice(key_pem.as_bytes())
+        .map_err(|_| CoreError::Tls("The client private key is not valid PEM.".into()))?;
+    Ok(Some((chain, key)))
+}
+
+pub(crate) fn account_tls_connector(
+    settings: &crate::models::MailConnectionSettings,
+) -> Result<TlsConnector> {
+    let pem = settings.trusted_certificate_pem.as_str();
+    let identity = client_identity(settings)?;
+    if settings.accept_invalid_certs {
+        tracing::warn!("certificate verification is disabled for this account");
+        let provider = Arc::new(rustls::crypto::ring::default_provider());
+        let builder = rustls::ClientConfig::builder_with_provider(provider.clone())
+            .with_safe_default_protocol_versions()
+            .map_err(|e| CoreError::Tls(e.to_string()))?
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(NoVerify(provider)));
+        let config = match identity {
+            Some((chain, key)) => builder
+                .with_client_auth_cert(chain, key)
+                .map_err(|e| CoreError::Tls(format!("client certificate rejected: {e}")))?,
+            None => builder.with_no_client_auth(),
+        };
+        return Ok(TlsConnector::from(Arc::new(config)));
+    }
+    if pem.is_empty() && identity.is_none() {
+        return Ok(tls_connector());
+    }
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let mut roots = rustls::RootCertStore::empty();
+    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let imported = trusted_certificates(pem)?;
+    for cert in &imported {
+        roots
+            .add(cert.clone())
+            .map_err(|e| CoreError::Tls(e.to_string()))?;
+    }
+    let verifier = rustls::client::WebPkiServerVerifier::builder_with_provider(
+        Arc::new(roots),
+        provider.clone(),
+    )
+    .build()
+    .map_err(|e| CoreError::Tls(e.to_string()))?;
+    let builder = rustls::ClientConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()
+        .map_err(|e| CoreError::Tls(e.to_string()))?
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(ImportedCertificateVerifier {
+            standard: verifier,
+            imported,
+        }));
+    let config = match identity {
+        Some((chain, key)) => builder
+            .with_client_auth_cert(chain, key)
+            .map_err(|e| CoreError::Tls(format!("client certificate rejected: {e}")))?,
+        None => builder.with_no_client_auth(),
+    };
+    Ok(TlsConnector::from(Arc::new(config)))
+}
+
+/// Open the TCP connection to `host:port`, directly or through the account's
+/// SOCKS5 or HTTP CONNECT proxy. The destination is always resolved by the
+/// proxy, so DNS lookups do not leak around it.
+pub(crate) async fn open_tcp(
+    host: &str,
+    port: u16,
+    settings: &crate::models::MailConnectionSettings,
+) -> Result<TcpStream> {
+    use crate::models::ProxyKind;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let fail = |what: &str| CoreError::Imap(format!("proxy {what}"));
+    if settings.proxy == ProxyKind::None {
+        return TcpStream::connect((host, port))
+            .await
+            .map_err(|e| CoreError::Imap(format!("connect {host}:{port}: {e}")));
+    }
+    if settings.proxy_host.trim().is_empty() || settings.proxy_port == 0 {
+        return Err(fail("host and port are required"));
+    }
+    let valid_host = !host.is_empty()
+        && host.len() <= 253
+        && host.bytes().all(|b| {
+            b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b':' | b'[' | b']')
+        });
+    if !valid_host {
+        return Err(fail("cannot be used with this server name"));
+    }
+    let proxy = (settings.proxy_host.trim(), settings.proxy_port);
+    let mut stream = TcpStream::connect(proxy)
+        .await
+        .map_err(|e| CoreError::Imap(format!("connect to proxy {}:{}: {e}", proxy.0, proxy.1)))?;
+    stream.set_nodelay(true).ok();
+    match settings.proxy {
+        ProxyKind::None => unreachable!(),
+        ProxyKind::Socks5 => {
+            stream
+                .write_all(&[5, 1, 0])
+                .await
+                .map_err(|e| fail(&e.to_string()))?;
+            let mut reply = [0u8; 2];
+            stream
+                .read_exact(&mut reply)
+                .await
+                .map_err(|e| fail(&e.to_string()))?;
+            if reply != [5, 0] {
+                return Err(fail(
+                    "SOCKS5 server requires authentication, which is not supported",
+                ));
+            }
+            let mut request = vec![5, 1, 0, 3, host.len() as u8];
+            request.extend_from_slice(host.as_bytes());
+            request.extend_from_slice(&port.to_be_bytes());
+            stream
+                .write_all(&request)
+                .await
+                .map_err(|e| fail(&e.to_string()))?;
+            let mut head = [0u8; 4];
+            stream
+                .read_exact(&mut head)
+                .await
+                .map_err(|e| fail(&e.to_string()))?;
+            if head[0] != 5 || head[1] != 0 {
+                return Err(fail(&format!("SOCKS5 connect refused (code {})", head[1])));
+            }
+            let skip = match head[3] {
+                1 => 4 + 2,
+                4 => 16 + 2,
+                3 => {
+                    let mut len = [0u8; 1];
+                    stream
+                        .read_exact(&mut len)
+                        .await
+                        .map_err(|e| fail(&e.to_string()))?;
+                    usize::from(len[0]) + 2
+                }
+                _ => return Err(fail("SOCKS5 reply is malformed")),
+            };
+            let mut rest = vec![0u8; skip];
+            stream
+                .read_exact(&mut rest)
+                .await
+                .map_err(|e| fail(&e.to_string()))?;
+        }
+        ProxyKind::Http => {
+            let request = format!("CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n\r\n");
+            stream
+                .write_all(request.as_bytes())
+                .await
+                .map_err(|e| fail(&e.to_string()))?;
+            let mut response = Vec::new();
+            let mut byte = [0u8; 1];
+            while !response.ends_with(b"\r\n\r\n") {
+                if response.len() > 8192 {
+                    return Err(fail("HTTP response is too long"));
+                }
+                stream
+                    .read_exact(&mut byte)
+                    .await
+                    .map_err(|e| fail(&e.to_string()))?;
+                response.push(byte[0]);
+            }
+            let status = String::from_utf8_lossy(&response);
+            let ok = status
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .is_some_and(|code| code == "200");
+            if !ok {
+                return Err(fail("HTTP proxy refused the CONNECT request"));
+            }
+        }
+    }
+    Ok(stream)
+}
+
+#[derive(Clone)]
+pub enum ImapCredentials {
+    Password { user: String, password: String },
+    XOAuth2 { user: String, access_token: String },
+}
+
+/// SASL PLAIN (RFC 4616): `\0user\0password`, sent once as the initial response.
+struct PlainAuthenticator {
+    response: Vec<u8>,
+    sent_initial: bool,
+}
+
+impl async_imap::Authenticator for PlainAuthenticator {
+    type Response = Vec<u8>;
+    fn process(&mut self, _challenge: &[u8]) -> Self::Response {
+        if self.sent_initial {
+            Vec::new()
+        } else {
+            self.sent_initial = true;
+            self.response.clone()
+        }
+    }
+}
+
+struct XOAuth2Authenticator {
+    response: String,
+    /// The initial client response is sent exactly once. Any further challenge
+    /// is the server's SASL *error* response, which must be answered per RFC.
+    sent_initial: bool,
+}
+
+/// Exchange Online sometimes accepts the OAuth identity but fails to attach
+/// the resulting IMAP session to the mailbox, returning this exact response.
+/// That is a transient mailbox/backend failure, not evidence that the refresh
+/// token was revoked. Keep it out of `Auth` so the sync actor uses its normal
+/// reconnect backoff instead of pausing indefinitely in `needs_reauth`.
+fn xoauth2_error(detail: String) -> CoreError {
+    let message = format!("imap xoauth2: {detail}");
+    if detail
+        .to_ascii_lowercase()
+        .contains("user is authenticated but not connected")
+    {
+        CoreError::Imap(message)
+    } else {
+        CoreError::Auth(message)
+    }
+}
+
+impl async_imap::Authenticator for XOAuth2Authenticator {
+    type Response = String;
+    fn process(&mut self, challenge: &[u8]) -> Self::Response {
+        if !self.sent_initial {
+            // First challenge (empty `+`): send the base64 XOAUTH2 credential.
+            self.sent_initial = true;
+            return self.response.clone();
+        }
+        // Auth failed: the server sent an error challenge (a base64 JSON blob
+        // like {"status":"...","schemes":"Bearer",...}). Per SASL XOAUTH2
+        // (RFC 7628) the client MUST reply with an EMPTY response so the server
+        // can emit the tagged `NO <reason>`. Echoing the credential again makes
+        // Gmail/Outlook keep issuing error challenges, deadlocking the exchange
+        // until the socket times out (the "sync never starts" hang).
+        tracing::warn!(
+            challenge = %String::from_utf8_lossy(challenge),
+            "imap xoauth2: server rejected token; replying empty to surface the error"
+        );
+        String::new()
+    }
+}
+
+pub async fn connect(host: &str, port: u16, creds: ImapCredentials) -> Result<Session> {
+    connect_with_settings(
+        host,
+        port,
+        creds,
+        &crate::models::MailConnectionSettings::default(),
+    )
+    .await
+}
+
+pub async fn connect_with_settings(
+    host: &str,
+    port: u16,
+    creds: ImapCredentials,
+    settings: &crate::models::MailConnectionSettings,
+) -> Result<Session> {
+    // Bound the whole handshake so a silent stall (server never sends the
+    // greeting, or an AUTHENTICATE that never gets a tagged response) surfaces
+    // as an error instead of hanging the sync actor forever.
+    let connect_timeout = settings.timeout();
+    tokio::time::timeout(connect_timeout, connect_inner(host, port, creds, settings))
+        .await
+        .map_err(|_| {
+            tracing::warn!(%host, port, seconds = connect_timeout.as_secs(), "imap connect: timed out");
+            CoreError::Imap(format!("connect {host}:{port}: timed out"))
+        })?
+}
+
+async fn connect_inner(
+    host: &str,
+    port: u16,
+    creds: ImapCredentials,
+    settings: &crate::models::MailConnectionSettings,
+) -> Result<Session> {
+    use crate::models::ConnectionSecurity;
+    // Queue behind the per-account connection limit. The surrounding connect
+    // deadline bounds the wait, so a limit that is too low fails visibly
+    // instead of stalling sync.
+    let slot = match settings.max_connections {
+        0 => None,
+        limit => {
+            let user = match &creds {
+                ImapCredentials::Password { user, .. } | ImapCredentials::XOAuth2 { user, .. } => {
+                    user.as_str()
+                }
+            };
+            Some(
+                connection_slots(host, port, user, limit.min(MAX_CONNECTIONS_LIMIT))
+                    .acquire_owned()
+                    .await
+                    .map_err(|_| CoreError::Imap("connection limit closed".into()))?,
+            )
+        }
+    };
+    let connector = account_tls_connector(settings)?;
+    let tcp = open_tcp(host, port, settings).await?;
+    tcp.set_nodelay(true).ok();
+    let starttls = match settings.imap_security {
+        ConnectionSecurity::Starttls => true,
+        ConnectionSecurity::Tls | ConnectionSecurity::None => false,
+        ConnectionSecurity::Auto => port == 143,
+    };
+    let plain = settings.imap_security == ConnectionSecurity::None;
+    let tcp = if starttls {
+        let mut client = async_imap::Client::new(tcp);
+        if client
+            .read_response()
+            .await
+            .map_err(|e| CoreError::Imap(e.to_string()))?
+            .is_none()
+        {
+            return Err(CoreError::Imap(
+                "Server closed before the IMAP greeting.".into(),
+            ));
+        }
+        // Required upgrade: never send credentials if STARTTLS is rejected.
+        client
+            .run_command_and_check_ok("STARTTLS", None)
+            .await
+            .map_err(|e| {
+                CoreError::Tls(format!(
+                    "IMAP STARTTLS was rejected: {e}. Check the server port and security mode."
+                ))
+            })?;
+        client.into_inner()
+    } else {
+        tcp
+    };
+    let kind = if plain {
+        tracing::warn!(%host, port, "imap connect: encryption disabled for this account");
+        ImapStreamKind::Plain(tcp)
+    } else {
+        let server_name = rustls::pki_types::ServerName::try_from(host.to_string())
+            .map_err(|e| CoreError::Tls(e.to_string()))?;
+        let tls = connector.connect(server_name, tcp).await
+            .map_err(|e| CoreError::Tls(format!("IMAP {host}:{port}: {e}. Check SSL/TLS versus STARTTLS and use the hostname on the server certificate. For Proton Bridge, import its exported certificate. If you trust this server, enable \"Accept untrusted certificate\" under Connection security.")))?;
+        ImapStreamKind::Tls(Box::new(tls))
+    };
+    let mut client = async_imap::Client::new(ImapStream::new(kind, slot));
+    // STARTTLS has already consumed the greeting; no second greeting follows.
+    if !starttls
+        && client
+            .read_response()
+            .await
+            .map_err(|e| CoreError::Imap(e.to_string()))?
+            .is_none()
+    {
+        return Err(CoreError::Imap(
+            "Server closed before the IMAP greeting.".into(),
+        ));
+    }
+
+    let mut session = match creds {
+        ImapCredentials::Password { user, password }
+            if settings.imap_auth == crate::models::ImapAuthMethod::Plain =>
+        {
+            let auth = PlainAuthenticator {
+                response: format!("\0{user}\0{password}").into_bytes(),
+                sent_initial: false,
+            };
+            client
+                .authenticate("PLAIN", auth)
+                .await
+                .map_err(|(e, _)| CoreError::Auth(format!("imap plain: {e}")))?
+        }
+        ImapCredentials::Password { user, password } => client
+            .login(&user, &password)
+            .await
+            .map_err(|(e, _)| CoreError::Auth(format!("imap login: {e}")))?,
+        ImapCredentials::XOAuth2 { user, access_token } => {
+            let auth = XOAuth2Authenticator {
+                response: crate::oauth::xoauth2::raw_response(&user, &access_token),
+                sent_initial: false,
+            };
+            client
+                .authenticate("XOAUTH2", auth)
+                .await
+                .map_err(|(e, _)| xoauth2_error(e.to_string()))?
+        }
+    };
+    identify_client(&mut session).await;
+    tracing::debug!(%host, "imap connect: authenticated");
+    Ok(session)
+}
+
+/// Identify Rustmail to servers that implement RFC 2971. Some services
+/// accept authentication but reject mailbox access until the client sends this
+/// command. Keep the payload limited to public application metadata.
+async fn identify_client(session: &mut Session) {
+    // The surrounding connection deadline bounds these best-effort commands.
+    // A standards-compliant server should answer CAPABILITY, but failure to
+    // identify must not make an otherwise usable account incompatible.
+    let capabilities = match session.capabilities().await {
+        Ok(capabilities) => capabilities,
+        Err(error) => {
+            tracing::warn!(%error, "imap connect: could not query ID capability");
+            return;
+        }
+    };
+    if !capabilities.has_str("ID") {
+        return;
+    }
+
+    match session
+        .id([
+            ("name", Some("Rustmail")),
+            ("version", Some(env!("CARGO_PKG_VERSION"))),
+            ("vendor", Some("Rustmail")),
+        ])
+        .await
+    {
+        Ok(_) => tracing::debug!("imap connect: client identity accepted"),
+        Err(error) => tracing::warn!(%error, "imap connect: server rejected client identity"),
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RemoteFolder {
+    pub name: String,
+    pub delimiter: Option<String>,
+    /// Lowercased attributes, e.g. "\\sent", "\\noselect".
+    pub attributes: Vec<String>,
+}
+
+/// Decode the modified UTF-7 form used by traditional IMAP mailbox names.
+/// Servers that advertise UTF8=ACCEPT may already return UTF-8; text without
+/// modified UTF-7 runs passes through unchanged.
+pub fn decode_mailbox_name(name: &str) -> String {
+    let mut decoded = String::with_capacity(name.len());
+    let mut rest = name;
+    while let Some(start) = rest.find('&') {
+        decoded.push_str(&rest[..start]);
+        rest = &rest[start + 1..];
+        let Some(end) = rest.find('-') else {
+            decoded.push('&');
+            decoded.push_str(rest);
+            return decoded;
+        };
+        let encoded = &rest[..end];
+        rest = &rest[end + 1..];
+        if encoded.is_empty() {
+            decoded.push('&');
+            continue;
+        }
+        let standard = encoded.replace(',', "/");
+        let Ok(bytes) = STANDARD_NO_PAD.decode(standard) else {
+            decoded.push('&');
+            decoded.push_str(encoded);
+            decoded.push('-');
+            continue;
+        };
+        if !bytes.len().is_multiple_of(2) {
+            decoded.push('&');
+            decoded.push_str(encoded);
+            decoded.push('-');
+            continue;
+        }
+        let units = bytes
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_be_bytes(*pair));
+        let text = char::decode_utf16(units).collect::<std::result::Result<String, _>>();
+        match text {
+            Ok(text) => decoded.push_str(&text),
+            Err(_) => {
+                decoded.push('&');
+                decoded.push_str(encoded);
+                decoded.push('-');
+            }
+        }
+    }
+    decoded.push_str(rest);
+    decoded
+}
+
+/// Encode a user-entered mailbox name for an IMAP server that uses modified
+/// UTF-7. Printable ASCII is kept verbatim, except `&`, which is represented
+/// by the special `&-` sequence.
+pub fn encode_mailbox_name(name: &str) -> String {
+    let mut encoded = String::with_capacity(name.len());
+    let mut unicode_run = String::new();
+    let flush = |run: &mut String, output: &mut String| {
+        if run.is_empty() {
+            return;
+        }
+        let bytes = run
+            .encode_utf16()
+            .flat_map(u16::to_be_bytes)
+            .collect::<Vec<_>>();
+        output.push('&');
+        output.push_str(&STANDARD_NO_PAD.encode(bytes).replace('/', ","));
+        output.push('-');
+        run.clear();
+    };
+    for character in name.chars() {
+        if (' '..='~').contains(&character) {
+            flush(&mut unicode_run, &mut encoded);
+            if character == '&' {
+                encoded.push_str("&-");
+            } else {
+                encoded.push(character);
+            }
+        } else {
+            unicode_run.push(character);
+        }
+    }
+    flush(&mut unicode_run, &mut encoded);
+    encoded
+}
+
+pub async fn list_folders(session: &mut Session) -> Result<Vec<RemoteFolder>> {
+    with_deadline("LIST", METADATA_TIMEOUT, list_folders_inner(session)).await
+}
+
+async fn list_folders_inner(session: &mut Session) -> Result<Vec<RemoteFolder>> {
+    let mut out = Vec::new();
+    {
+        let mut stream = session
+            .list(Some(""), Some("*"))
+            .await
+            .map_err(|e| CoreError::Imap(e.to_string()))?;
+        while let Some(item) = stream.next().await {
+            let name = item.map_err(|e| CoreError::Imap(e.to_string()))?;
+            let attributes = name
+                .attributes()
+                .iter()
+                .map(|a| format!("{a:?}").to_lowercase())
+                .collect();
+            out.push(RemoteFolder {
+                name: name.name().to_string(),
+                delimiter: name.delimiter().map(|d| d.to_string()),
+                attributes,
+            });
+        }
+    }
+    Ok(out)
+}
+
+#[derive(Debug, Clone)]
+pub struct SelectedFolder {
+    pub uid_validity: Option<i64>,
+    pub uid_next: Option<i64>,
+    pub exists: u32,
+}
+
+pub async fn select(session: &mut Session, folder: &str) -> Result<SelectedFolder> {
+    with_deadline("SELECT", METADATA_TIMEOUT, select_inner(session, folder)).await
+}
+
+async fn select_inner(session: &mut Session, folder: &str) -> Result<SelectedFolder> {
+    let mb = session
+        .select(folder)
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))?;
+    Ok(SelectedFolder {
+        uid_validity: mb.uid_validity.map(|v| v as i64),
+        uid_next: mb.uid_next.map(|v| v as i64),
+        exists: mb.exists,
+    })
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct FetchedFlags {
+    pub seen: bool,
+    pub flagged: bool,
+    pub draft: bool,
+    pub deleted: bool,
+    /// Custom IMAP keywords (used to round-trip user labels).
+    pub keywords: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct FetchedHeader {
+    pub uid: u32,
+    pub flags: FetchedFlags,
+    pub internal_date_ms: Option<i64>,
+    pub size: Option<u32>,
+    pub header_bytes: Vec<u8>,
+    /// Derived from BODYSTRUCTURE so the list can flag attachments before the
+    /// full body is ever downloaded.
+    pub has_attachments: bool,
+    /// Selective-fetch plan derived from BODYSTRUCTURE. `None` means the
+    /// server omitted or could not parse BODYSTRUCTURE; callers may retry or
+    /// fall back only when the user explicitly opens the message.
+    pub mime_plan: Option<MimePlan>,
+}
+
+fn flags_of(fetch: &async_imap::types::Fetch) -> FetchedFlags {
+    let mut f = FetchedFlags::default();
+    for flag in fetch.flags() {
+        match flag {
+            async_imap::types::Flag::Seen => f.seen = true,
+            async_imap::types::Flag::Flagged => f.flagged = true,
+            async_imap::types::Flag::Draft => f.draft = true,
+            async_imap::types::Flag::Deleted => f.deleted = true,
+            async_imap::types::Flag::Custom(name) => f.keywords.push(name.to_string()),
+            _ => {}
+        }
+    }
+    f
+}
+
+const HEADER_FIELDS: &str = "BODY.PEEK[HEADER.FIELDS (MESSAGE-ID X-RUSTMAIL-SUBMISSION-ID IN-REPLY-TO REFERENCES SUBJECT FROM TO CC BCC DATE LIST-ID LIST-UNSUBSCRIBE LIST-UNSUBSCRIBE-POST PRECEDENCE AUTO-SUBMITTED AUTHENTICATION-RESULTS)]";
+
+/// Fetch envelope headers + flags for a UID set (e.g. "100:200" or "5,7,9").
+pub async fn fetch_headers(session: &mut Session, uid_set: &str) -> Result<Vec<FetchedHeader>> {
+    with_deadline(
+        "UID FETCH headers",
+        METADATA_TIMEOUT,
+        fetch_headers_inner(session, uid_set),
+    )
+    .await
+}
+
+async fn fetch_headers_inner(session: &mut Session, uid_set: &str) -> Result<Vec<FetchedHeader>> {
+    // Keep header sync independent from BODYSTRUCTURE: an incompatible MIME
+    // response must not prevent historical headers from being stored. MIME
+    // plans are fetched separately when preparing or opening message bodies.
+    let query = format!("(UID FLAGS INTERNALDATE RFC822.SIZE {HEADER_FIELDS})");
+    let mut out = Vec::new();
+    {
+        let mut stream = session
+            .uid_fetch(uid_set, &query)
+            .await
+            .map_err(|e| CoreError::Imap(e.to_string()))?;
+        while let Some(item) = stream.next().await {
+            let fetch = item.map_err(|e| CoreError::Imap(e.to_string()))?;
+            let Some(uid) = fetch.uid else { continue };
+            let mime_plan = fetch.bodystructure().map(mime::plan_bodystructure);
+            out.push(FetchedHeader {
+                uid,
+                flags: flags_of(&fetch),
+                internal_date_ms: fetch.internal_date().map(|d| d.timestamp_millis()),
+                size: fetch.size,
+                header_bytes: fetch.header().map(|h| h.to_vec()).unwrap_or_default(),
+                has_attachments: mime_plan
+                    .as_ref()
+                    .is_some_and(MimePlan::has_file_attachments),
+                mime_plan,
+            });
+        }
+    }
+    Ok(out)
+}
+
+/// A BODYSTRUCTURE-derived selective-fetch plan for one remote UID.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FetchedMimePlan {
+    pub uid: u32,
+    pub plan: MimePlan,
+}
+
+const MIME_PLAN_QUERY: &str = "(UID BODYSTRUCTURE)";
+
+fn selective_fetch_error(error: async_imap::error::Error) -> CoreError {
+    match error {
+        // Do not include response bytes: they can contain private headers.
+        async_imap::error::Error::Parse(_) => {
+            CoreError::ImapParse("could not parse selective FETCH response".into())
+        }
+        // async-imap 0.11.3 wraps its wire decoder's nom errors in Io(Other)
+        // rather than Parse. Match that decoder format only, never NO/BAD or
+        // an arbitrary transport error. Keep the embedded response private.
+        async_imap::error::Error::Io(ref detail)
+            if detail.kind() == std::io::ErrorKind::Other
+                && (detail.to_string().starts_with("Error(")
+                    || detail.to_string().starts_with("Failure("))
+                && detail.to_string().contains(" during parsing of ") =>
+        {
+            CoreError::ImapParse("could not parse selective FETCH response".into())
+        }
+        error => CoreError::Imap(error.to_string()),
+    }
+}
+
+/// async-imap's FETCH stream discards the tagged completion status. Read
+/// selective responses directly so NO/BAD cannot masquerade as missing MIME.
+/// The main actor independently reconciles unsolicited flags and expunges.
+async fn selective_fetch(
+    session: &mut Session,
+    uid_set: &str,
+    query: &str,
+    mut consume: impl FnMut(u32, &[async_imap::imap_proto::AttributeValue<'_>]),
+) -> Result<()> {
+    use async_imap::imap_proto::{AttributeValue, Response, Status};
+    let tag = session
+        .run_command(format!("UID FETCH {uid_set} {query}"))
+        .await
+        .map_err(selective_fetch_error)?;
+    loop {
+        let response = session
+            .read_response()
+            .await
+            .map_err(|error| selective_fetch_error(error.into()))?
+            .ok_or_else(|| CoreError::Imap("connection closed before FETCH completed".into()))?;
+        match response.parsed() {
+            Response::Done {
+                tag: received,
+                status,
+                code,
+                information,
+            } if *received == tag => {
+                return match status {
+                    Status::Ok => Ok(()),
+                    _ => Err(CoreError::Imap(format!(
+                        "FETCH rejected: {status:?}, {code:?}, {information:?}"
+                    ))),
+                };
+            }
+            Response::Done { .. } => {
+                return Err(CoreError::ImapParse(
+                    "unexpected FETCH completion tag".into(),
+                ));
+            }
+            Response::Data {
+                status: Status::Bye,
+                ..
+            } => return Err(CoreError::Imap("server closed FETCH session".into())),
+            Response::Fetch(_, attributes) => {
+                if let Some(uid) = attributes.iter().find_map(|attr| match attr {
+                    AttributeValue::Uid(uid) => Some(*uid),
+                    _ => None,
+                }) {
+                    consume(uid, attributes);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+async fn fetch_mime_plans_batch_inner(
+    session: &mut Session,
+    uids: &[u32],
+) -> Result<Vec<FetchedMimePlan>> {
+    let uid_set = normalized_uid_set(uids)?;
+    if uid_set.is_empty() {
+        return Ok(Vec::new());
+    }
+    let requested: std::collections::HashSet<u32> = uids.iter().copied().collect();
+    let mut result = std::collections::BTreeMap::<u32, MimePlan>::new();
+    selective_fetch(session, &uid_set, MIME_PLAN_QUERY, |uid, attributes| {
+        if requested.contains(&uid) {
+            for attribute in attributes {
+                if let async_imap::imap_proto::AttributeValue::BodyStructure(bodystructure) =
+                    attribute
+                {
+                    result.insert(uid, mime::plan_bodystructure(bodystructure));
+                }
+            }
+        }
+    })
+    .await?;
+    Ok(result
+        .into_iter()
+        .map(|(uid, plan)| FetchedMimePlan { uid, plan })
+        .collect())
+}
+
+/// Fetch only UID + BODYSTRUCTURE for several messages in one metadata
+/// command. Results are sorted by UID; vanished UIDs or responses without a
+/// usable BODYSTRUCTURE are absent.
+pub async fn fetch_mime_plans_batch(
+    session: &mut Session,
+    uids: &[u32],
+) -> Result<Vec<FetchedMimePlan>> {
+    with_deadline(
+        "UID FETCH MIME plans batch",
+        METADATA_TIMEOUT,
+        fetch_mime_plans_batch_inner(session, uids),
+    )
+    .await
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FetchedSection {
+    pub section: String,
+    /// The bytes returned for `BODY.PEEK[<section>.MIME]`.
+    pub mime_header: Vec<u8>,
+    /// The still-transfer-encoded bytes returned for `BODY.PEEK[<section>]`.
+    pub body: Vec<u8>,
+}
+
+/// Selectively fetched MIME sections for one UID in a multi-message FETCH.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FetchedMessageSections {
+    pub uid: u32,
+    pub sections: Vec<FetchedSection>,
+}
+
+fn section_numbers(section: &str) -> Result<Vec<u32>> {
+    if section.is_empty() {
+        return Err(CoreError::Imap("empty IMAP body section".into()));
+    }
+    section
+        .split('.')
+        .map(|part| {
+            part.parse::<u32>()
+                .ok()
+                .filter(|value| *value > 0)
+                .ok_or_else(|| CoreError::Imap(format!("invalid IMAP body section: {section}")))
+        })
+        .collect()
+}
+
+fn section_paths(sections: &[String]) -> Result<Vec<(String, Vec<u32>)>> {
+    sections
+        .iter()
+        .map(|section| Ok((section.clone(), section_numbers(section)?)))
+        .collect()
+}
+
+fn section_fetch_query(paths: &[(String, Vec<u32>)]) -> String {
+    format!(
+        "(UID {})",
+        paths
+            .iter()
+            .flat_map(|(section, _)| {
+                [
+                    format!("BODY.PEEK[{section}.MIME]"),
+                    format!("BODY.PEEK[{section}]"),
+                ]
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
+    )
+}
+
+fn normalized_uid_set(uids: &[u32]) -> Result<String> {
+    if uids.contains(&0) {
+        return Err(CoreError::Imap("IMAP UID must be greater than zero".into()));
+    }
+    let mut sorted = uids.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    Ok(uid_set(&sorted))
+}
+
+async fn fetch_sections_batch_inner(
+    session: &mut Session,
+    uids: &[u32],
+    sections: &[String],
+) -> Result<Vec<FetchedMessageSections>> {
+    use async_imap::imap_proto::{MessageSection, SectionPath};
+
+    // Validate both interpolated command components before touching the
+    // session. UIDs are numeric, sorted, and de-duplicated; sections accept
+    // only positive dot-separated integers.
+    let paths = section_paths(sections)?;
+    let uid_set = normalized_uid_set(uids)?;
+    if paths.is_empty() || uid_set.is_empty() {
+        return Ok(Vec::new());
+    }
+    let query = section_fetch_query(&paths);
+    let requested: std::collections::HashSet<u32> = uids.iter().copied().collect();
+
+    let mut result = std::collections::BTreeMap::<u32, Vec<FetchedSection>>::new();
+    selective_fetch(session, &uid_set, &query, |uid, attributes| {
+        if !requested.contains(&uid) {
+            return;
+        }
+        let section_bytes = |path: &SectionPath| {
+            attributes.iter().find_map(|attribute| match attribute {
+                async_imap::imap_proto::AttributeValue::BodySection {
+                    section: Some(section),
+                    data: Some(data),
+                    ..
+                } if section == path => Some(data.to_vec()),
+                _ => None,
+            })
+        };
+        let fetched = result.entry(uid).or_default();
+        for (section, numbers) in &paths {
+            let body_path = SectionPath::Part(numbers.clone(), None);
+            let mime_path = SectionPath::Part(numbers.clone(), Some(MessageSection::Mime));
+            if let Some(body) = section_bytes(&body_path) {
+                if fetched.iter().any(|item| item.section == *section) {
+                    continue;
+                }
+                fetched.push(FetchedSection {
+                    section: section.clone(),
+                    mime_header: section_bytes(&mime_path).unwrap_or_default(),
+                    body,
+                });
+            }
+        }
+    })
+    .await?;
+    Ok(result
+        .into_iter()
+        .map(|(uid, sections)| FetchedMessageSections { uid, sections })
+        .collect())
+}
+
+/// Fetch the same planned readable MIME sections for several messages in one
+/// UID FETCH command. Missing/expunged UIDs are absent from the result.
+pub async fn fetch_content_sections_batch(
+    session: &mut Session,
+    uids: &[u32],
+    sections: &[String],
+) -> Result<Vec<FetchedMessageSections>> {
+    with_deadline(
+        "UID FETCH content sections batch",
+        CONTENT_TIMEOUT,
+        fetch_sections_batch_inner(session, uids, sections),
+    )
+    .await
+}
+
+/// Fetch only the planned readable MIME sections for one message. Callers
+/// should pass `MimePlan::text_section_ids()`; non-text attachment sections
+/// are never added implicitly.
+pub async fn fetch_content_sections(
+    session: &mut Session,
+    uid: u32,
+    sections: &[String],
+) -> Result<Vec<FetchedSection>> {
+    let mut messages = fetch_content_sections_batch(session, &[uid], sections).await?;
+    Ok(messages
+        .pop()
+        .map(|message| message.sections)
+        .unwrap_or_default())
+}
+
+/// Fetch one attachment/inline section on demand. The section is validated as
+/// a numeric BODY path before being interpolated into the IMAP command.
+pub async fn fetch_attachment_section(
+    session: &mut Session,
+    uid: u32,
+    section: &str,
+) -> Result<Option<FetchedSection>> {
+    let sections = [section.to_owned()];
+    let mut messages = with_deadline(
+        "UID FETCH attachment section",
+        ATTACHMENT_TIMEOUT,
+        fetch_sections_batch_inner(session, &[uid], &sections),
+    )
+    .await?;
+    Ok(messages
+        .pop()
+        .and_then(|mut message| message.sections.pop()))
+}
+
+/// Fetch flags only, for a UID window (change detection without CONDSTORE).
+pub async fn fetch_flags(session: &mut Session, uid_set: &str) -> Result<Vec<(u32, FetchedFlags)>> {
+    with_deadline(
+        "UID FETCH flags",
+        METADATA_TIMEOUT,
+        fetch_flags_inner(session, uid_set),
+    )
+    .await
+}
+
+async fn fetch_flags_inner(
+    session: &mut Session,
+    uid_set: &str,
+) -> Result<Vec<(u32, FetchedFlags)>> {
+    let mut out = Vec::new();
+    {
+        let mut stream = session
+            .uid_fetch(uid_set, "(UID FLAGS)")
+            .await
+            .map_err(|e| CoreError::Imap(e.to_string()))?;
+        while let Some(item) = stream.next().await {
+            let fetch = item.map_err(|e| CoreError::Imap(e.to_string()))?;
+            if let Some(uid) = fetch.uid {
+                out.push((uid, flags_of(&fetch)));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Full raw RFC 5322 bytes of one message.
+pub async fn fetch_full(session: &mut Session, uid: u32) -> Result<Option<Vec<u8>>> {
+    with_deadline(
+        "UID FETCH message",
+        CONTENT_TIMEOUT,
+        fetch_full_inner(session, uid),
+    )
+    .await
+}
+
+async fn fetch_full_inner(session: &mut Session, uid: u32) -> Result<Option<Vec<u8>>> {
+    let mut body = None;
+    {
+        let mut stream = session
+            .uid_fetch(uid.to_string(), "(UID BODY.PEEK[])")
+            .await
+            .map_err(|e| CoreError::Imap(e.to_string()))?;
+        while let Some(item) = stream.next().await {
+            let fetch = item.map_err(|e| CoreError::Imap(e.to_string()))?;
+            if let Some(b) = fetch.body() {
+                body = Some(b.to_vec());
+            }
+        }
+    }
+    Ok(body)
+}
+
+/// Full raw bytes for a whole UID set in a single FETCH round-trip, returned as
+/// (uid, bytes) pairs. Backfill fetches bodies in bulk this way: one command
+/// for a chunk of messages instead of one round-trip per message.
+pub async fn fetch_full_batch(session: &mut Session, uid_set: &str) -> Result<Vec<(u32, Vec<u8>)>> {
+    with_deadline(
+        "UID FETCH message batch",
+        CONTENT_TIMEOUT,
+        fetch_full_batch_inner(session, uid_set),
+    )
+    .await
+}
+
+async fn fetch_full_batch_inner(
+    session: &mut Session,
+    uid_set: &str,
+) -> Result<Vec<(u32, Vec<u8>)>> {
+    let mut out = Vec::new();
+    {
+        let mut stream = session
+            .uid_fetch(uid_set, "(UID BODY.PEEK[])")
+            .await
+            .map_err(|e| CoreError::Imap(e.to_string()))?;
+        while let Some(item) = stream.next().await {
+            let fetch = item.map_err(|e| CoreError::Imap(e.to_string()))?;
+            if let (Some(uid), Some(b)) = (fetch.uid, fetch.body()) {
+                out.push((uid, b.to_vec()));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// All UIDs currently in the selected folder, including `\\Deleted` messages.
+pub async fn uid_search_all(session: &mut Session) -> Result<Vec<u32>> {
+    with_deadline(
+        "UID SEARCH ALL",
+        METADATA_TIMEOUT,
+        uid_search_all_inner(session),
+    )
+    .await
+}
+
+async fn uid_search_all_inner(session: &mut Session) -> Result<Vec<u32>> {
+    let set = session
+        .uid_search("ALL")
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))?;
+    let mut v: Vec<u32> = set.into_iter().collect();
+    v.sort_unstable();
+    Ok(v)
+}
+
+/// UIDs visible in the selected folder, excluding messages awaiting expunge.
+pub async fn uid_search_undeleted(session: &mut Session) -> Result<Vec<u32>> {
+    with_deadline("UID SEARCH UNDELETED", METADATA_TIMEOUT, async {
+        let set = session
+            .uid_search("UNDELETED")
+            .await
+            .map_err(|e| CoreError::Imap(e.to_string()))?;
+        let mut uids: Vec<u32> = set.into_iter().collect();
+        uids.sort_unstable();
+        Ok(uids)
+    })
+    .await
+}
+
+/// Find messages by one RFC 5322 header in the selected mailbox. This is used
+/// to make retrying Sent-folder APPEND idempotent after a connection loss.
+pub async fn uid_search_header(
+    session: &mut Session,
+    header: &str,
+    value: &str,
+) -> Result<Vec<u32>> {
+    if header.is_empty()
+        || !header
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        || value.len() > 998
+        || value.bytes().any(|byte| matches!(byte, b'\r' | b'\n' | 0))
+    {
+        return Err(CoreError::Imap("invalid header search criterion".into()));
+    }
+    let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
+    let query = format!("HEADER {header} \"{escaped}\"");
+    with_deadline("UID SEARCH header", METADATA_TIMEOUT, async move {
+        let set = session
+            .uid_search(&query)
+            .await
+            .map_err(|error| CoreError::Imap(error.to_string()))?;
+        let mut uids: Vec<u32> = set.into_iter().collect();
+        uids.sort_unstable();
+        uids.dedup();
+        Ok(uids)
+    })
+    .await
+}
+
+/// Undeleted UIDs greater than `last_seen` in the currently selected mailbox.
+///
+/// `UIDNEXT` is only a prediction in IMAP4rev1 and older/quirky servers may
+/// omit it from SELECT entirely. SEARCH is the interoperable source of truth
+/// for incremental discovery. Keep the client-side filter even though the
+/// criterion contains the same lower bound: IMAP's `n:*` range reverses when
+/// `n` is above the mailbox's highest UID and can therefore return that older
+/// highest UID.
+pub async fn uid_search_after(session: &mut Session, last_seen: u32) -> Result<Vec<u32>> {
+    if last_seen == u32::MAX {
+        return Ok(Vec::new());
+    }
+    with_deadline(
+        "UID SEARCH newer messages",
+        METADATA_TIMEOUT,
+        uid_search_after_inner(session, last_seen),
+    )
+    .await
+}
+
+async fn uid_search_after_inner(session: &mut Session, last_seen: u32) -> Result<Vec<u32>> {
+    let query = format!("UID {}:* UNDELETED", last_seen + 1);
+    let set = session
+        .uid_search(&query)
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))?;
+    let mut uids: Vec<u32> = set.into_iter().filter(|uid| *uid > last_seen).collect();
+    uids.sort_unstable();
+    uids.dedup();
+    Ok(uids)
+}
+
+pub async fn uid_search_since(session: &mut Session, date: chrono::NaiveDate) -> Result<Vec<u32>> {
+    with_deadline(
+        "UID SEARCH SINCE",
+        METADATA_TIMEOUT,
+        uid_search_since_inner(session, date),
+    )
+    .await
+}
+
+async fn uid_search_since_inner(
+    session: &mut Session,
+    date: chrono::NaiveDate,
+) -> Result<Vec<u32>> {
+    // IMAP date format: 1-Jan-2024
+    let q = format!("SINCE {} UNDELETED", date.format("%-d-%b-%Y"));
+    let set = session
+        .uid_search(&q)
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))?;
+    let mut v: Vec<u32> = set.into_iter().collect();
+    v.sort_unstable();
+    Ok(v)
+}
+
+pub async fn store_flag(session: &mut Session, uid: u32, flag: &str, add: bool) -> Result<()> {
+    with_deadline(
+        "UID STORE",
+        METADATA_TIMEOUT,
+        store_flag_inner(session, uid, flag, add),
+    )
+    .await
+}
+
+async fn store_flag_inner(session: &mut Session, uid: u32, flag: &str, add: bool) -> Result<()> {
+    store_flag_set_inner(session, &uid.to_string(), flag, add).await
+}
+
+async fn store_flag_set_inner(
+    session: &mut Session,
+    uid_set: &str,
+    flag: &str,
+    add: bool,
+) -> Result<()> {
+    let op = if add {
+        "+FLAGS.SILENT"
+    } else {
+        "-FLAGS.SILENT"
+    };
+    let mut stream = session
+        .uid_store(uid_set, format!("{op} ({flag})"))
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))?;
+    while let Some(item) = stream.next().await {
+        item.map_err(|e| CoreError::Imap(e.to_string()))?;
+    }
+    Ok(())
+}
+
+/// Move one UID without guessing at unsupported server extensions.
+///
+/// RFC 6851 only permits `UID MOVE` when `MOVE` is advertised. Legacy IMAP
+/// servers use COPY + \Deleted instead. Prefer UID EXPUNGE for that fallback;
+/// without UIDPLUS, leave the source marked \Deleted because mailbox-wide
+/// EXPUNGE could remove another client's deleted mail.
+pub async fn uid_move(session: &mut Session, uid: u32, target: &str) -> Result<()> {
+    with_deadline(
+        "UID MOVE",
+        METADATA_TIMEOUT,
+        uid_move_inner(session, uid, target),
+    )
+    .await
+}
+
+async fn uid_move_inner(session: &mut Session, uid: u32, target: &str) -> Result<()> {
+    if uid == 0 {
+        return Err(CoreError::Imap("IMAP UID must be greater than zero".into()));
+    }
+
+    let capabilities = session
+        .capabilities()
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))?;
+    if capabilities.has_str("MOVE") {
+        // A failed RFC 6851 MOVE may already have moved this UID. Falling back
+        // after such a failure can duplicate the message, so propagate it and
+        // let the durable action reconcile before retrying.
+        return session
+            .uid_mv(uid.to_string(), target)
+            .await
+            .map_err(|e| CoreError::Imap(e.to_string()));
+    }
+
+    session
+        .uid_copy(uid.to_string(), target)
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))?;
+    store_flag_set_inner(session, &uid.to_string(), "\\Deleted", true).await?;
+
+    if capabilities.has_str("UIDPLUS") {
+        let stream = session
+            .uid_expunge(uid.to_string())
+            .await
+            .map_err(|e| CoreError::Imap(e.to_string()))?;
+        futures::pin_mut!(stream);
+        while let Some(item) = stream.next().await {
+            item.map_err(|e| CoreError::Imap(e.to_string()))?;
+        }
+        return Ok(());
+    }
+
+    // There is no race-free way to expunge one UID in base IMAP. Even a
+    // SEARCH immediately before EXPUNGE cannot prevent another client from
+    // marking a different message \Deleted between those commands.
+    tracing::debug!(
+        uid,
+        "legacy IMAP move left source marked deleted because UIDPLUS is unavailable"
+    );
+    Ok(())
+}
+
+/// UIDPLUS receipt; a UID is meaningful only within this UIDVALIDITY.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AppendReceipt {
+    pub uid_validity: u32,
+    pub uid: u32,
+}
+
+pub async fn append(session: &mut Session, folder: &str, raw: &[u8], seen: bool) -> Result<()> {
+    append_with_receipt(session, folder, raw, seen)
+        .await
+        .map(|_| ())
+}
+
+pub async fn append_with_receipt(
+    session: &mut Session,
+    folder: &str,
+    raw: &[u8],
+    seen: bool,
+) -> Result<Option<AppendReceipt>> {
+    with_deadline(
+        "APPEND",
+        CONTENT_TIMEOUT,
+        append_inner(session, folder, raw, seen),
+    )
+    .await
+}
+
+async fn append_inner(
+    session: &mut Session,
+    folder: &str,
+    raw: &[u8],
+    seen: bool,
+) -> Result<Option<AppendReceipt>> {
+    use async_imap::imap_proto::{Response, ResponseCode, Status, UidSetMember};
+    use tokio::io::AsyncWriteExt;
+
+    if folder.chars().any(|c| matches!(c, '\r' | '\n' | '\0')) {
+        return Err(CoreError::Imap("invalid APPEND mailbox".into()));
+    }
+    let folder = folder.replace('\\', "\\\\").replace('"', "\\\"");
+    let flags = if seen { " (\\Seen)" } else { "" };
+    let tag = session
+        .run_command(format!("APPEND \"{folder}\"{flags} {{{}}}", raw.len()))
+        .await
+        .map_err(|e| CoreError::Imap(format!("APPEND connection failed: {e}")))?;
+    let mut sent_literal = false;
+    loop {
+        let response = session
+            .read_response()
+            .await
+            .map_err(|e| CoreError::Imap(format!("APPEND connection failed: {e}")))?
+            .ok_or_else(|| CoreError::Imap("connection closed before APPEND completed".into()))?;
+        match response.parsed() {
+            Response::Continue { .. } if !sent_literal => {
+                let stream = session.as_mut();
+                stream
+                    .write_all(raw)
+                    .await
+                    .map_err(|e| CoreError::Imap(format!("APPEND connection failed: {e}")))?;
+                stream
+                    .write_all(b"\r\n")
+                    .await
+                    .map_err(|e| CoreError::Imap(format!("APPEND connection failed: {e}")))?;
+                stream
+                    .flush()
+                    .await
+                    .map_err(|e| CoreError::Imap(format!("APPEND connection failed: {e}")))?;
+                sent_literal = true;
+            }
+            Response::Done {
+                tag: received,
+                status,
+                code,
+                ..
+            } if *received == tag => {
+                if *status != Status::Ok {
+                    return Err(CoreError::Imap(format!("{status:?}: APPEND rejected")));
+                }
+                if !sent_literal {
+                    return Err(CoreError::Imap(
+                        "APPEND completed before literal was sent".into(),
+                    ));
+                }
+                return Ok(match code {
+                    Some(ResponseCode::AppendUid(validity, uids)) if *validity > 0 => {
+                        match uids.as_slice() {
+                            [UidSetMember::Uid(uid)] if *uid > 0 => Some(AppendReceipt {
+                                uid_validity: *validity,
+                                uid: *uid,
+                            }),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                });
+            }
+            Response::Done { .. } | Response::Continue { .. } => {
+                return Err(CoreError::Imap(
+                    "unexpected APPEND response; connection must close".into(),
+                ));
+            }
+            Response::Data {
+                status: Status::Bye,
+                ..
+            } => {
+                return Err(CoreError::Imap("server closed APPEND session".into()));
+            }
+            // Flags and expunges are reconciled by the sync actor.
+            _ => {}
+        }
+    }
+}
+
+pub async fn create_folder(session: &mut Session, name: &str) -> Result<()> {
+    with_deadline(
+        "CREATE",
+        METADATA_TIMEOUT,
+        create_folder_inner(session, name),
+    )
+    .await
+}
+
+pub async fn rename_folder(session: &mut Session, from: &str, to: &str) -> Result<()> {
+    with_deadline("RENAME", METADATA_TIMEOUT, async {
+        session
+            .rename(from, to)
+            .await
+            .map_err(|error| CoreError::Imap(error.to_string()))
+    })
+    .await
+}
+
+pub async fn delete_folder(session: &mut Session, name: &str) -> Result<()> {
+    with_deadline("DELETE", METADATA_TIMEOUT, async {
+        session
+            .delete(name)
+            .await
+            .map_err(|error| CoreError::Imap(error.to_string()))
+    })
+    .await
+}
+
+async fn create_folder_inner(session: &mut Session, name: &str) -> Result<()> {
+    session
+        .create(name)
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))
+}
+
+/// Expunge all \Deleted messages in the selected folder.
+pub async fn expunge_all(session: &mut Session) -> Result<()> {
+    with_deadline("EXPUNGE", METADATA_TIMEOUT, expunge_all_inner(session)).await
+}
+
+/// Expunge only the selected UID. A mailbox-wide EXPUNGE could also erase
+/// messages another client has marked deleted, so UIDPLUS is required.
+pub async fn uid_delete_permanently(session: &mut Session, uid: u32) -> Result<()> {
+    with_deadline("UID EXPUNGE", METADATA_TIMEOUT, async {
+        if uid == 0 {
+            return Err(CoreError::Imap("IMAP UID must be greater than zero".into()));
+        }
+        let capabilities = session.capabilities().await
+            .map_err(|error| CoreError::Imap(error.to_string()))?;
+        if !capabilities.has_str("UIDPLUS") {
+            return Err(CoreError::Imap(
+                "this IMAP server does not support safe permanent deletion of individual messages (UIDPLUS)".into(),
+            ));
+        }
+        store_flag_inner(session, uid, "\\Deleted", true).await?;
+        let stream = session.uid_expunge(uid.to_string()).await
+            .map_err(|error| CoreError::Imap(error.to_string()))?;
+        futures::pin_mut!(stream);
+        while let Some(item) = stream.next().await {
+            item.map_err(|error| CoreError::Imap(error.to_string()))?;
+        }
+        Ok(())
+    }).await
+}
+
+/// Empty the selected Trash mailbox. Mailbox-wide EXPUNGE is appropriate here
+/// because the user explicitly chose to remove every message in that mailbox.
+pub async fn empty_selected_trash(session: &mut Session) -> Result<()> {
+    with_deadline("EMPTY TRASH", METADATA_TIMEOUT, async {
+        if uid_search_all(session).await?.is_empty() {
+            return Ok(());
+        }
+        store_flag_set_inner(session, "1:*", "\\Deleted", true).await?;
+        expunge_all_inner(session).await
+    })
+    .await
+}
+
+async fn expunge_all_inner(session: &mut Session) -> Result<()> {
+    let stream = session
+        .expunge()
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))?;
+    futures::pin_mut!(stream);
+    while let Some(item) = stream.next().await {
+        item.map_err(|e| CoreError::Imap(e.to_string()))?;
+    }
+    Ok(())
+}
+
+pub async fn noop(session: &mut Session) -> Result<()> {
+    with_deadline("NOOP", METADATA_TIMEOUT, noop_inner(session)).await
+}
+
+async fn noop_inner(session: &mut Session) -> Result<()> {
+    session
+        .noop()
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))
+}
+
+pub async fn logout(mut session: Session) {
+    // Logout is best-effort cleanup; a broken server must not hold actor
+    // shutdown or reconnect hostage indefinitely.
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(5), session.logout()).await;
+}
+
+/// Whether the server advertises the IDLE extension (RFC 2177). Issues a
+/// CAPABILITY command; callers cache the result for the connection's lifetime.
+pub async fn supports_idle(session: &mut Session) -> Result<bool> {
+    with_deadline("CAPABILITY", METADATA_TIMEOUT, supports_idle_inner(session)).await
+}
+
+async fn supports_idle_inner(session: &mut Session) -> Result<bool> {
+    let caps = session
+        .capabilities()
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))?;
+    Ok(caps.has_str("IDLE"))
+}
+
+/// Why an `idle_wait` returned. Generic over the actor's command type `C` so
+/// this module stays free of any `sync::engine` dependency.
+pub enum IdleOutcome<C> {
+    /// The server pushed unsolicited data (likely new mail): run a sync.
+    Activity,
+    /// The max-idle cap elapsed with no activity: run a sync as a backstop.
+    Timeout,
+    /// A command arrived on the actor channel; hand it back to the caller.
+    Command(C),
+    /// The command channel closed (sender dropped): caller should shut down.
+    ChannelClosed,
+}
+
+/// Enter IDLE on the currently-selected mailbox and wait until the server
+/// reports activity, `max` elapses, or a command arrives on `rx` - whichever
+/// comes first. Always leaves IDLE (`DONE`) on the happy path so the returned
+/// session is reusable. On any IMAP/IO error the session is consumed and `Err`
+/// is returned; the caller must reconnect.
+pub async fn idle_wait<C>(
+    session: Session,
+    rx: &mut tokio::sync::mpsc::Receiver<C>,
+    max: std::time::Duration,
+) -> Result<(Session, IdleOutcome<C>)> {
+    use async_imap::extensions::idle::IdleResponse;
+
+    let mut idle = session.idle();
+    idle.init()
+        .await
+        .map_err(|e| CoreError::Imap(e.to_string()))?;
+
+    // The wait future borrows `idle` mutably and `done()` consumes it, so the
+    // future and its StopSource must live only inside this block and be dropped
+    // before we call `done()`. `_stop` is named (not a bare `_`) so it is NOT
+    // dropped early - dropping it would interrupt the wait immediately.
+    let outcome = {
+        let (wait_fut, _stop) = idle.wait_with_timeout(max);
+        tokio::pin!(wait_fut);
+        tokio::select! {
+            res = &mut wait_fut => match res {
+                Ok(IdleResponse::NewData(_)) => IdleOutcome::Activity,
+                // We interrupt via `rx.recv()`, not the StopSource, so a
+                // ManualInterrupt here is unexpected; treat it as a backstop.
+                Ok(IdleResponse::Timeout) | Ok(IdleResponse::ManualInterrupt) => IdleOutcome::Timeout,
+                // Connection broke mid-IDLE: don't attempt DONE on a dead
+                // socket. Dropping `idle` closes it; the caller reconnects.
+                Err(e) => return Err(CoreError::Imap(e.to_string())),
+            },
+            cmd = rx.recv() => match cmd {
+                Some(c) => IdleOutcome::Command(c),
+                None => IdleOutcome::ChannelClosed,
+            },
+        }
+    };
+
+    // Leave IDLE. Bound DONE so a server that never acks can't wedge the actor.
+    let session = match tokio::time::timeout(std::time::Duration::from_secs(10), idle.done()).await
+    {
+        Ok(r) => r.map_err(|e| CoreError::Imap(e.to_string()))?,
+        Err(_) => return Err(CoreError::Imap("IDLE DONE timed out".into())),
+    };
+    Ok((session, outcome))
+}
+
+/// Compress a sorted UID list into an IMAP set string ("1:5,8,10:12").
+pub fn uid_set(uids: &[u32]) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < uids.len() {
+        let start = uids[i];
+        let mut end = start;
+        while i + 1 < uids.len() && end.checked_add(1) == Some(uids[i + 1]) {
+            i += 1;
+            end = uids[i];
+        }
+        if start == end {
+            parts.push(start.to_string());
+        } else {
+            parts.push(format!("{start}:{end}"));
+        }
+        i += 1;
+    }
+    parts.join(",")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MIME_PLAN_QUERY, normalized_uid_set, section_fetch_query, section_paths};
+    use crate::error::CoreError;
+
+    #[test]
+    fn exchange_authenticated_but_not_connected_is_retryable() {
+        let error = super::xoauth2_error(
+            "no response: code: None, info: Some(\"User is authenticated but not connected.\")"
+                .into(),
+        );
+        assert!(matches!(error, CoreError::Imap(_)));
+    }
+
+    #[test]
+    fn ordinary_xoauth2_rejection_still_requires_reauth() {
+        let error = super::xoauth2_error("authentication failed".into());
+        assert!(matches!(error, CoreError::Auth(_)));
+    }
+
+    #[test]
+    fn uid_set_compresses() {
+        assert_eq!(super::uid_set(&[1, 2, 3, 5, 7, 8]), "1:3,5,7:8");
+        assert_eq!(super::uid_set(&[]), "");
+        assert_eq!(super::uid_set(&[42]), "42");
+        assert_eq!(super::uid_set(&[u32::MAX]), u32::MAX.to_string());
+    }
+
+    #[test]
+    fn modified_utf7_round_trips_unicode_and_ampersands() {
+        for name in ["Inbox", "A & B", "📁 Projects", "🚗🚙", "旅行/東京", "😀"] {
+            assert_eq!(
+                super::decode_mailbox_name(&super::encode_mailbox_name(name)),
+                name
+            );
+        }
+        assert_eq!(super::decode_mailbox_name("Envoy&AOk-"), "Envoyé");
+        assert_eq!(super::decode_mailbox_name("&Jjo-"), "☺");
+    }
+
+    #[test]
+    fn malformed_modified_utf7_is_preserved() {
+        for name in ["broken&", "broken&ab-", "broken&!!!!-"] {
+            assert_eq!(super::decode_mailbox_name(name), name);
+        }
+    }
+
+    #[test]
+    fn batch_uid_set_is_sorted_deduplicated_and_rejects_zero() {
+        assert_eq!(normalized_uid_set(&[9, 2, 3, 2, 4]).unwrap(), "2:4,9");
+        assert_eq!(normalized_uid_set(&[]).unwrap(), "");
+        assert!(normalized_uid_set(&[1, 0, 2]).is_err());
+    }
+
+    #[test]
+    fn selective_section_query_accepts_only_numeric_paths() {
+        let sections = vec!["1".to_string(), "2.3".to_string()];
+        let paths = section_paths(&sections).unwrap();
+        assert_eq!(
+            section_fetch_query(&paths),
+            "(UID BODY.PEEK[1.MIME] BODY.PEEK[1] BODY.PEEK[2.3.MIME] BODY.PEEK[2.3])"
+        );
+
+        for invalid in ["", "0", "1.0", "1..2", "1] BODY.PEEK[]", "-1", "1.a"] {
+            assert!(
+                section_paths(&[invalid.to_string()]).is_err(),
+                "accepted invalid section {invalid:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn mime_plan_batch_query_is_bodystructure_only() {
+        assert_eq!(MIME_PLAN_QUERY, "(UID BODYSTRUCTURE)");
+        for excluded in ["FLAGS", "INTERNALDATE", "RFC822.SIZE", "HEADER.FIELDS"] {
+            assert!(!MIME_PLAN_QUERY.contains(excluded));
+        }
+    }
+}
+
+#[cfg(test)]
+mod connection_limit_tests {
+    use super::connection_slots;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn slots_are_shared_per_endpoint_and_enforce_the_limit() {
+        let a = connection_slots("mail.example", 993, "me", 2);
+        let b = connection_slots("mail.example", 993, "me", 2);
+        assert!(Arc::ptr_eq(&a, &b));
+        assert!(!Arc::ptr_eq(
+            &a,
+            &connection_slots("mail.example", 993, "you", 2)
+        ));
+        let first = a.clone().acquire_owned().await.unwrap();
+        let _second = a.clone().acquire_owned().await.unwrap();
+        assert!(a.clone().try_acquire_owned().is_err());
+        drop(first);
+        assert!(a.try_acquire_owned().is_ok());
+    }
+}
+
+#[cfg(test)]
+mod transport_option_tests {
+    use super::*;
+    use crate::models::{MailConnectionSettings, ProxyKind, SecretString};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    fn through(kind: ProxyKind, port: u16) -> MailConnectionSettings {
+        MailConnectionSettings {
+            proxy: kind,
+            proxy_host: "127.0.0.1".into(),
+            proxy_port: port,
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn socks5_proxy_receives_the_destination_name_not_an_address() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tokio::spawn(async move {
+            let (mut s, _) = listener.accept().await.unwrap();
+            let mut greeting = [0u8; 3];
+            s.read_exact(&mut greeting).await.unwrap();
+            assert_eq!(greeting, [5, 1, 0]);
+            s.write_all(&[5, 0]).await.unwrap();
+            let mut head = [0u8; 5];
+            s.read_exact(&mut head).await.unwrap();
+            assert_eq!(&head[..4], &[5, 1, 0, 3]);
+            let mut rest = vec![0u8; usize::from(head[4]) + 2];
+            s.read_exact(&mut rest).await.unwrap();
+            let (name, dest_port) = rest.split_at(rest.len() - 2);
+            assert_eq!(name, b"imap.example.com");
+            assert_eq!(u16::from_be_bytes([dest_port[0], dest_port[1]]), 993);
+            s.write_all(&[5, 0, 0, 1, 0, 0, 0, 0, 0, 0]).await.unwrap();
+            s.write_all(b"ready").await.unwrap();
+        });
+        let mut stream = open_tcp("imap.example.com", 993, &through(ProxyKind::Socks5, port))
+            .await
+            .unwrap();
+        let mut buffer = [0u8; 5];
+        stream.read_exact(&mut buffer).await.unwrap();
+        assert_eq!(&buffer, b"ready");
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn http_proxy_uses_connect_and_reports_refusal() {
+        for (status, expect_ok) in [
+            ("200 Connection established", true),
+            ("403 Forbidden", false),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port = listener.local_addr().unwrap().port();
+            let server = tokio::spawn(async move {
+                let (mut s, _) = listener.accept().await.unwrap();
+                let mut request = Vec::new();
+                let mut byte = [0u8; 1];
+                while !request.ends_with(b"\r\n\r\n") {
+                    s.read_exact(&mut byte).await.unwrap();
+                    request.push(byte[0]);
+                }
+                let text = String::from_utf8(request).unwrap();
+                assert!(text.starts_with("CONNECT smtp.example.com:465 HTTP/1.1\r\n"));
+                s.write_all(format!("HTTP/1.1 {status}\r\n\r\n").as_bytes())
+                    .await
+                    .unwrap();
+            });
+            let result = open_tcp("smtp.example.com", 465, &through(ProxyKind::Http, port)).await;
+            assert_eq!(result.is_ok(), expect_ok);
+            server.await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn proxy_rejects_hostile_names_and_missing_proxy_address() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        for host in ["a b", "evil\r\nHost: x", ""] {
+            assert!(
+                open_tcp(host, 25, &through(ProxyKind::Http, port))
+                    .await
+                    .is_err()
+            );
+        }
+        assert!(
+            open_tcp("mail.example", 25, &through(ProxyKind::Socks5, 0))
+                .await
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn client_identity_validation_is_strict_and_keys_never_print() {
+        let mut settings = MailConnectionSettings::default();
+        assert!(client_identity(&settings).unwrap().is_none());
+
+        settings.client_certificate_pem =
+            "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----".into();
+        assert!(
+            client_identity(&settings).is_err(),
+            "certificate without a key"
+        );
+
+        settings.client_key_pem = SecretString::new(
+            "-----BEGIN ENCRYPTED PRIVATE KEY-----\nAAAA\n-----END ENCRYPTED PRIVATE KEY-----",
+        );
+        let message = client_identity(&settings).unwrap_err().to_string();
+        assert!(message.contains("Passphrase"), "{message}");
+
+        settings.client_certificate_pem =
+            "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----".into();
+        assert!(
+            client_identity(&settings).is_err(),
+            "key pasted into the certificate field"
+        );
+
+        let printed = format!("{:?}", SecretString::new("hunter2"));
+        assert!(!printed.contains("hunter2"));
+        let json = serde_json::to_string(&MailConnectionSettings {
+            client_key_pem: SecretString::new("hunter2"),
+            ..Default::default()
+        })
+        .unwrap();
+        assert!(!json.contains("hunter2") && !json.contains("clientKey"));
+    }
+
+    #[test]
+    fn plain_authenticator_sends_the_initial_response_once() {
+        use async_imap::Authenticator;
+        let mut auth = PlainAuthenticator {
+            response: b"\0me\0pw".to_vec(),
+            sent_initial: false,
+        };
+        assert_eq!(auth.process(b""), b"\0me\0pw");
+        assert!(auth.process(b"").is_empty());
+    }
+}

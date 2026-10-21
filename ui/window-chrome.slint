@@ -1,0 +1,337 @@
+import { AppTheme, MotionSettings } from "design-system.slint";
+import { TypeScale } from "typography.slint";
+
+// Window frame state shared by the window controls, the toolbars that make
+// room for them, the settings page, and Rust. The "integrated" frame places
+// the window controls in the application's own top toolbars; each platform
+// keeps its native window-manager behavior.
+export global WindowChrome {
+    // "windows" | "macos" | "linux"; empty where the platform always owns the
+    // window frame.
+    in property <string> platform;
+    // Saved preference ("system" | "integrated") and the frame in effect.
+    in property <string> preference: "system";
+    in property <bool> integrated: false;
+    in property <bool> active: true;
+    // Linux button order from the GTK or KWin decoration layout. Entries are
+    // "minimize", "maximize" and "close".
+    in property <[string]> leading-controls: [];
+    in property <[string]> trailing-controls: ["minimize", "maximize", "close"];
+    // Linux button style: "breeze" on KDE Plasma, "adwaita" elsewhere.
+    in property <string> linux-style: "adwaita";
+    // Windows reports caption-button input as non-client messages, so Rust
+    // forwards hover and press state for the drawn buttons.
+    in property <string> hovered-control;
+    in property <string> pressed-control;
+    // Window geometry, kept current by AppWindow.
+    in property <length> window-width;
+    in property <bool> full-screen;
+    in property <bool> compact;
+    // Desktop layouts with accounts carry the controls in the top bar with
+    // the tabs; other layouts place them in the toolbar corners.
+    in property <bool> top-bar;
+
+    out property <bool> available: root.platform != "";
+    out property <bool> controls-visible: root.available && root.integrated && !root.full-screen;
+    // The controls share the top bar, or the toolbars' row: 64px on
+    // desktop, 60px compact.
+    out property <length> band-height: root.top-bar ? 44px : root.compact ? 60px : 64px;
+    out property <length> caption-button-width: 46px;
+    // Space toolbars leave free at the window's top corners. Windows uses
+    // full-height Fluent caption buttons; Linux uses 34px Adwaita targets with
+    // 3px spacing; macOS draws its traffic lights in a 28px title-bar area.
+    out property <length> trailing-width: !root.controls-visible ? 0px
+        : root.platform == "windows" ? 3 * root.caption-button-width + 8px
+        : root.platform == "linux" ? root.linux-cluster-width(root.trailing-controls.length)
+        : 0px;
+    // Leading controls sit in the window's top-left corner, above the
+    // product rail, centred on the toolbar row like the trailing controls.
+    out property <length> leading-width: !root.controls-visible ? 0px
+        // The gap after the traffic lights matches their inset from the
+        // window edge, so the cluster sits evenly before the tabs.
+        : root.platform == "macos" ? 2 * root.traffic-light-x + 2 * root.traffic-light-spacing + root.traffic-light-size
+        : root.platform == "linux" ? root.linux-cluster-width(root.leading-controls.length)
+        : 0px;
+    // Rust moves the macOS traffic lights here, keeping AppKit's own button
+    // pitch and size, and reports both: 14pt buttons 20pt apart before
+    // macOS 26, 14pt buttons 23pt apart from macOS 26 Tahoe.
+    out property <length> traffic-light-x: 20px;
+    in property <length> traffic-light-spacing: 23px;
+    in property <length> traffic-light-size: 14px;
+
+    pure function linux-cluster-width(count: int) -> length {
+        // 8px from the window edge and 8px before the toolbar content.
+        return count == 0 ? 0px : 16px + count * 34px + (count - 1) * 3px;
+    }
+
+    // Minimum leading padding for a toolbar whose left edge is at `left` and
+    // whose top is at `top`, both in window coordinates. Toolbars use the
+    // larger of this and their own padding.
+    // Without visible controls nothing is reserved, so toolbars never depend
+    // on window geometry that only the main window keeps current.
+    public pure function leading-reserve(left: length, top: length) -> length {
+        return !root.controls-visible || root.top-bar || top >= root.band-height ? 0px
+            : max(0px, root.leading-width - left);
+    }
+
+    // Minimum trailing padding for a toolbar whose right edge is at `right`.
+    public pure function trailing-reserve(right: length, top: length) -> length {
+        return !root.controls-visible || root.trailing-width == 0px || root.top-bar
+            || top >= root.band-height ? 0px
+            : max(0px, right - (root.window-width - root.trailing-width));
+    }
+
+    callback choose(bool);
+    callback minimize();
+    callback toggle-maximize();
+    callback close();
+    // Title-bar gestures at window-relative logical coordinates: "double",
+    // "middle", "secondary-press", "secondary-release".
+    callback title-bar-gesture(string, length, length);
+    // Rust mirrors the control geometry for Windows non-client hit-testing.
+    callback geometry-changed();
+}
+
+// Measures how far the window controls reach into the element it fills.
+// Place it as a direct, non-layout child sized to its parent, then pad the
+// parent's content by `leading` and `trailing`. The values are copied rather
+// than bound because padding feeds back into layout position.
+export component WindowControlsClearance inherits Rectangle {
+    out property <length> leading;
+    out property <length> trailing;
+    private property <length> leading-now: WindowChrome.leading-reserve(root.absolute-position.x, root.absolute-position.y);
+    private property <length> trailing-now: WindowChrome.trailing-reserve(root.absolute-position.x + root.width, root.absolute-position.y);
+
+    init => {
+        root.leading = root.leading-now;
+        root.trailing = root.trailing-now;
+    }
+    changed leading-now => { root.leading = root.leading-now; }
+    changed trailing-now => { root.trailing = root.trailing-now; }
+}
+
+// Empty toolbar space that moves the window and answers title-bar clicks.
+// Interactive toolbar content placed above it keeps receiving its input.
+export component WindowDragArea inherits WindowMoveArea {
+    TouchArea {
+        double-clicked => {
+            WindowChrome.title-bar-gesture(
+                "double",
+                self.absolute-position.x + self.mouse-x,
+                self.absolute-position.y + self.mouse-y,
+            );
+        }
+        pointer-event(event) => {
+            if event.button == PointerEventButton.middle && event.kind == PointerEventKind.down {
+                WindowChrome.title-bar-gesture(
+                    "middle",
+                    self.absolute-position.x + self.mouse-x,
+                    self.absolute-position.y + self.mouse-y,
+                );
+            } else if event.button == PointerEventButton.right
+                && (event.kind == PointerEventKind.down || event.kind == PointerEventKind.up) {
+                WindowChrome.title-bar-gesture(
+                    event.kind == PointerEventKind.down ? "secondary-press" : "secondary-release",
+                    self.absolute-position.x + self.mouse-x,
+                    self.absolute-position.y + self.mouse-y,
+                );
+            }
+        }
+    }
+}
+
+// 10px Fluent caption glyphs and 16px Adwaita and Breeze glyphs drawn as
+// paths, so they stay crisp without depending on icon fonts or themes.
+component WindowControlGlyph inherits Path {
+    in property <string> kind;
+    in property <bool> maximized;
+    in property <bool> fluent;
+    in property <bool> breeze;
+
+    viewbox-width: root.fluent ? 10 : 16;
+    viewbox-height: root.fluent ? 10 : 16;
+    stroke-width: root.fluent ? 1px : 1.5px;
+    stroke-line-cap: root.fluent ? butt : round;
+    stroke-line-join: root.fluent ? miter : round;
+    fill: transparent;
+    // Breeze uses chevrons for minimize and maximize and a diamond for restore.
+    commands: root.breeze
+        ? (root.kind == "minimize" ? "M 4 6.5 L 8 10.5 L 12 6.5"
+            : root.kind == "maximize" && root.maximized ? "M 8 3.5 L 12.5 8 L 8 12.5 L 3.5 8 Z"
+            : root.kind == "maximize" ? "M 4 10 L 8 6 L 12 10"
+            : "M 4.5 4.5 L 11.5 11.5 M 11.5 4.5 L 4.5 11.5")
+        : root.fluent
+        ? (root.kind == "minimize" ? "M 0 5.5 L 10 5.5"
+            : root.kind == "maximize" && root.maximized
+                ? "M 2.5 0.5 L 8 0.5 Q 9.5 0.5 9.5 2 L 9.5 7.5 M 1.5 2.5 L 6.5 2.5 Q 7.5 2.5 7.5 3.5 L 7.5 8.5 Q 7.5 9.5 6.5 9.5 L 1.5 9.5 Q 0.5 9.5 0.5 8.5 L 0.5 3.5 Q 0.5 2.5 1.5 2.5 Z"
+            : root.kind == "maximize"
+                ? "M 1.5 0.5 L 8.5 0.5 Q 9.5 0.5 9.5 1.5 L 9.5 8.5 Q 9.5 9.5 8.5 9.5 L 1.5 9.5 Q 0.5 9.5 0.5 8.5 L 0.5 1.5 Q 0.5 0.5 1.5 0.5 Z"
+            : "M 0.5 0.5 L 9.5 9.5 M 9.5 0.5 L 0.5 9.5")
+        : (root.kind == "minimize" ? "M 4.5 8 L 11.5 8"
+            : root.kind == "maximize" && root.maximized
+                ? "M 6.5 3.75 L 11 3.75 Q 12.25 3.75 12.25 5 L 12.25 9.5 M 4.75 6 L 9 6 Q 10 6 10 7 L 10 11.25 Q 10 12.25 9 12.25 L 4.75 12.25 Q 3.75 12.25 3.75 11.25 L 3.75 7 Q 3.75 6 4.75 6 Z"
+            : root.kind == "maximize"
+                ? "M 5.25 4.25 L 10.75 4.25 Q 11.75 4.25 11.75 5.25 L 11.75 10.75 Q 11.75 11.75 10.75 11.75 L 5.25 11.75 Q 4.25 11.75 4.25 10.75 L 4.25 5.25 Q 4.25 4.25 5.25 4.25 Z"
+            : "M 4.75 4.75 L 11.25 11.25 M 11.25 4.75 L 4.75 11.25");
+    accessible-role: none;
+}
+
+// Windows 11 caption button: full-bleed 46px backplate, red close hover.
+component FluentCaptionButton inherits Rectangle {
+    in property <string> kind;
+    in property <bool> maximized;
+    in property <color> foreground;
+    private property <bool> hovered: WindowChrome.hovered-control == root.kind;
+    private property <bool> pressed: WindowChrome.pressed-control == root.kind;
+    private property <bool> close: root.kind == "close";
+
+    width: WindowChrome.caption-button-width;
+    background: root.close
+        ? (root.pressed ? #c42b1ce6 : root.hovered ? #c42b1c : #c42b1c00)
+        // Fluent SubtleFillColorTertiary and SubtleFillColorSecondary.
+        : root.pressed ? (AppTheme.dark ? #ffffff0a : #00000006)
+        : root.hovered ? (AppTheme.dark ? #ffffff0f : #00000009)
+        : transparent;
+    animate background {
+        duration: MotionSettings.enabled && !root.hovered ? 150ms : 0ms;
+        easing: ease-out;
+    }
+    accessible-role: button;
+    accessible-label: root.kind == "minimize" ? @tr("Minimize")
+        : root.kind == "close" ? @tr("Close")
+        : root.maximized ? @tr("Restore") : @tr("Maximize");
+    accessible-action-default => {
+        if root.kind == "minimize" { WindowChrome.minimize(); }
+        else if root.kind == "close" { WindowChrome.close(); }
+        else { WindowChrome.toggle-maximize(); }
+    }
+
+    WindowControlGlyph {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 10px;
+        height: 10px;
+        fluent: true;
+        kind: root.kind;
+        maximized: root.maximized;
+        stroke: root.close && (root.hovered || root.pressed)
+            ? (root.pressed ? #ffffffb3 : white)
+            : root.foreground;
+    }
+}
+
+// Linux window control in a 34px target. Adwaita (GNOME and most GTK
+// desktops) always shows a tinted 24px circle; Breeze (KDE Plasma) shows a
+// bare glyph and fills the circle on hover, red for close.
+component LinuxWindowButton inherits Rectangle {
+    in property <string> kind;
+    in property <bool> maximized;
+    in property <color> foreground;
+    in property <color> background-color;
+    private property <bool> breeze: WindowChrome.linux-style == "breeze";
+    private property <bool> close: root.kind == "close";
+
+    width: 34px;
+    height: 34px;
+    accessible-role: button;
+    accessible-label: root.kind == "minimize" ? @tr("Minimize")
+        : root.kind == "close" ? @tr("Close")
+        : root.maximized ? @tr("Restore") : @tr("Maximize");
+    accessible-action-default => { root.activate(); }
+
+    function activate() {
+        if root.kind == "minimize" { WindowChrome.minimize(); }
+        else if root.kind == "maximize" { WindowChrome.toggle-maximize(); }
+        else if root.kind == "close" { WindowChrome.close(); }
+    }
+
+    if root.kind == "minimize" || root.kind == "maximize" || root.kind == "close" : Rectangle {
+        x: 5px;
+        y: 5px;
+        width: 24px;
+        height: 24px;
+        border-radius: 12px;
+        private property <bool> lit: hit.has-hover || hit.pressed;
+        // libadwaita tints the circle with 10%, 15% and 30% of the text
+        // color. Breeze fills it with the text color, or its negative red.
+        background: root.breeze
+            ? (!self.lit ? transparent
+                : root.close ? (hit.pressed ? #da4453b3 : #da4453)
+                : root.foreground.with-alpha(hit.pressed ? 0.7 : 1))
+            : root.foreground.with-alpha(hit.pressed ? 0.30 : hit.has-hover ? 0.15 : 0.10);
+        animate background {
+            duration: MotionSettings.enabled ? (root.breeze ? 120ms : 200ms) : 0ms;
+            easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        WindowControlGlyph {
+            x: 4px;
+            y: 4px;
+            width: 16px;
+            height: 16px;
+            kind: root.kind;
+            maximized: root.maximized;
+            breeze: root.breeze;
+            stroke: root.breeze && parent.lit
+                ? (root.close ? white : root.background-color)
+                : root.foreground;
+        }
+    }
+    hit := TouchArea {
+        clicked => { root.activate(); }
+    }
+}
+
+// Window controls drawn over the top corners of the application. Toolbars
+// reserve the space through WindowChrome.leading-reserve/trailing-reserve.
+export component WindowControls inherits Rectangle {
+    in property <bool> maximized;
+    in property <color> foreground;
+    // Toolbar surface behind the controls; Breeze draws hover glyphs in it.
+    in property <color> background-color;
+    // Native controls dim while the window is inactive.
+    private property <float> content-opacity: WindowChrome.active ? 1 : 0.5;
+    private property <color> glyph-color: root.foreground.with-alpha(root.content-opacity);
+
+    // Inactive windows dim the glyphs; hover and press stay at full strength.
+    if WindowChrome.platform == "windows" : HorizontalLayout {
+        x: parent.width - self.width;
+        y: 0px;
+        width: 3 * WindowChrome.caption-button-width;
+        height: WindowChrome.band-height;
+
+        FluentCaptionButton { kind: "minimize"; foreground: root.glyph-color; }
+        FluentCaptionButton { kind: "maximize"; maximized: root.maximized; foreground: root.glyph-color; }
+        FluentCaptionButton { kind: "close"; foreground: root.glyph-color; }
+    }
+
+    if WindowChrome.platform == "linux" : HorizontalLayout {
+        x: 8px;
+        y: (WindowChrome.band-height - 34px) / 2;
+        height: 34px;
+        spacing: 3px;
+        opacity: root.content-opacity;
+        animate opacity { duration: MotionSettings.enabled ? 200ms : 0ms; easing: ease-out; }
+        for control in WindowChrome.leading-controls : LinuxWindowButton {
+            kind: control;
+            maximized: root.maximized;
+            foreground: root.foreground;
+            background-color: root.background-color;
+        }
+    }
+
+    if WindowChrome.platform == "linux" : HorizontalLayout {
+        x: parent.width - self.preferred-width - 8px;
+        y: (WindowChrome.band-height - 34px) / 2;
+        height: 34px;
+        spacing: 3px;
+        opacity: root.content-opacity;
+        animate opacity { duration: MotionSettings.enabled ? 200ms : 0ms; easing: ease-out; }
+        for control in WindowChrome.trailing-controls : LinuxWindowButton {
+            kind: control;
+            maximized: root.maximized;
+            foreground: root.foreground;
+            background-color: root.background-color;
+        }
+    }
+}

@@ -1,0 +1,189 @@
+import { VerticalBox, HorizontalBox, ComboBox, TextEdit, CheckBox } from "std-widgets.slint";
+import { Button } from "button.slint";
+import { LineEdit } from "controls.slint";
+import { AdvancedOptions } from "../models.slint";
+import { AppTheme } from "../design-system.slint";
+import { TypeScale } from "../typography.slint";
+
+// One group of account options. The account form shows a single group at a
+// time (`section`), chosen from its sidebar. Setup and editing share it.
+export component MailSecurityFields inherits VerticalBox {
+    in property <string> section: "security";
+    in-out property <string> imap-security: "auto";
+    in-out property <string> smtp-security: "auto";
+    in-out property <string> certificate-pem;
+    in-out property <AdvancedOptions> advanced;
+    in property <bool> enabled: true;
+    // Local accounts have no IMAP side, so its options are hidden.
+    in property <bool> local: false;
+    // News accounts have a single server and no SMTP side.
+    in property <bool> news: false;
+    callback import-certificate();
+    private property <bool> certificate-expanded: false;
+    spacing: 8px;
+    padding: 0px;
+    vertical-stretch: 0;
+    if root.section == "security" : VerticalBox {
+        padding: 0px;
+        spacing: 8px;
+        Text { text: @tr("Connection security"); color: AppTheme.heading; font-size: TypeScale.secondary; font-weight: 600; }
+        HorizontalBox {
+            height: 58px;
+            min-width: 0px;
+            padding: 0px;
+            spacing: 8px;
+            if !root.local : VerticalBox {
+                min-width: 0px;
+                padding: 0px;
+                spacing: 4px;
+                Text { text: @tr("IMAP encryption"); color: AppTheme.secondary; font-size: TypeScale.caption; }
+                ComboBox {
+                    height: 36px;
+                    min-width: 0px;
+                    enabled: root.enabled;
+                    model: [@tr("Automatic"), "SSL/TLS", "STARTTLS", @tr("None (unencrypted)")];
+                    current-index: root.imap-security == "tls" ? 1 : root.imap-security == "starttls" ? 2 : root.imap-security == "none" ? 3 : 0;
+                    selected(value) => { root.imap-security = self.current-index == 1 ? "tls" : self.current-index == 2 ? "starttls" : self.current-index == 3 ? "none" : "auto"; }
+                }
+            }
+            if !root.news : VerticalBox {
+                min-width: 0px;
+                padding: 0px;
+                spacing: 4px;
+                Text { text: @tr("SMTP encryption"); color: AppTheme.secondary; font-size: TypeScale.caption; }
+                ComboBox {
+                    height: 36px;
+                    min-width: 0px;
+                    enabled: root.enabled;
+                    model: [@tr("Automatic"), "SSL/TLS", "STARTTLS", @tr("None (unencrypted)")];
+                    current-index: root.smtp-security == "tls" ? 1 : root.smtp-security == "starttls" ? 2 : root.smtp-security == "none" ? 3 : 0;
+                    selected(value) => { root.smtp-security = self.current-index == 1 ? "tls" : self.current-index == 2 ? "starttls" : self.current-index == 3 ? "none" : "auto"; }
+                }
+            }
+        }
+        if root.news : Text {
+            text: @tr("Automatic: STARTTLS on port 119, SSL/TLS otherwise (usually 563).");
+            color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+        }
+        if !root.news : Text {
+            text: @tr("Automatic: IMAP uses STARTTLS on 143, SSL/TLS otherwise. SMTP uses SSL/TLS on 465, STARTTLS otherwise.");
+            color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+        }
+        CheckBox {
+            text: @tr("Accept untrusted certificate (insecure)");
+            enabled: root.enabled;
+            checked: root.advanced.accept-invalid-certs;
+            toggled => { root.advanced.accept-invalid-certs = self.checked; }
+        }
+        if root.advanced.accept-invalid-certs : Text {
+            text: @tr("Warning: the server's identity will not be verified, so anyone on the network could impersonate it and read your mail and password. Use this only for a server you control, such as localhost or a self-signed server; for Proton Bridge, importing its certificate is safer.");
+            color: AppTheme.destructive; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+        }
+        if root.imap-security == "none" || root.smtp-security == "none" : Text {
+            text: @tr("Warning: with no encryption your password and messages cross the network in readable form. Use this only on a trusted local network or with a server that cannot offer TLS.");
+            color: AppTheme.destructive; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+        }
+        Button {
+            height: 36px;
+            text: root.certificate-pem != "" ? @tr("Manage trusted certificate") : @tr("Custom server certificate…");
+            label-overflow: elide;
+            enabled: root.enabled;
+            clicked => { root.certificate-expanded = !root.certificate-expanded; }
+        }
+        if root.certificate-expanded : VerticalBox {
+            padding: 0px;
+            spacing: 8px;
+            Text {
+                text: @tr("For Proton Bridge, export its certificate from Bridge settings and import it here. Only trust certificates from your server administrator. Server names and expiry dates are still checked.");
+                color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+            }
+            Button { height: 36px; text: @tr("Import certificate file"); label-overflow: elide; enabled: root.enabled; clicked => { root.import-certificate(); } }
+            TextEdit { height: 90px; enabled: root.enabled; text <=> root.certificate-pem; wrap: word-wrap; }
+            Text { text: @tr("PEM certificate only. Do not paste a private key."); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            if root.certificate-pem != "" : Button { height: 36px; text: @tr("Remove certificate"); label-overflow: elide; enabled: root.enabled; clicked => { root.certificate-pem = ""; } }
+        }
+        if root.certificate-pem != "" && !root.certificate-expanded : Text {
+            text: @tr("Custom certificate added for this account."); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+        }
+            Text { text: @tr("Client certificate (PEM) for servers that require one"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            TextEdit { height: 70px; enabled: root.enabled; text: root.advanced.client-certificate-pem; edited(value) => { root.advanced.client-certificate-pem = value; } wrap: word-wrap; }
+            Text { text: @tr("Client private key (PEM, without passphrase). It is stored in the system keychain; enter it again when editing this account."); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            TextEdit { height: 70px; enabled: root.enabled; text: root.advanced.client-key-pem; edited(value) => { root.advanced.client-key-pem = value; } wrap: word-wrap; }
+    }
+    if root.section == "sign-in" : VerticalBox {
+        padding: 0px;
+        spacing: 8px;
+            if root.news : Text { text: @tr("News servers use the account login (AUTHINFO). Leave the username empty for anonymous access."); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            if !root.local && !root.news : Text { text: @tr("IMAP authentication"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            if !root.local && !root.news : ComboBox {
+                height: 36px;
+                min-width: 0px;
+                enabled: root.enabled;
+                model: [@tr("Automatic (LOGIN)"), "LOGIN", "PLAIN"];
+                current-index: root.advanced.imap-auth == "login" ? 1 : root.advanced.imap-auth == "plain" ? 2 : 0;
+                selected(value) => { root.advanced.imap-auth = self.current-index == 1 ? "login" : self.current-index == 2 ? "plain" : "auto"; }
+            }
+            if !root.news : Text { text: @tr("SMTP authentication"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            if !root.news : ComboBox {
+                height: 36px;
+                min-width: 0px;
+                enabled: root.enabled;
+                model: [@tr("Automatic"), "PLAIN", "LOGIN", @tr("None (no authentication)")];
+                current-index: root.advanced.smtp-auth == "plain" ? 1 : root.advanced.smtp-auth == "login" ? 2 : root.advanced.smtp-auth == "none" ? 3 : 0;
+                selected(value) => { root.advanced.smtp-auth = self.current-index == 1 ? "plain" : self.current-index == 2 ? "login" : self.current-index == 3 ? "none" : "auto"; }
+            }
+            if !root.news : Text { text: @tr("SMTP user name (leave empty to use the account login)"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            if !root.news : LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.smtp-username; edited(value) => { root.advanced.smtp-username = value; } }
+            if !root.news : Text { text: @tr("SMTP password (leave empty to use the account password)"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            if !root.news : LineEdit { height: 36px; enabled: root.enabled; input-type: password; text: root.advanced.smtp-password; edited(value) => { root.advanced.smtp-password = value; } }
+    }
+    if root.section == "identity" : VerticalBox {
+        padding: 0px;
+        spacing: 8px;
+            Text { text: @tr("Your name (shown as the sender and account label)"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.display-name; edited(value) => { root.advanced.display-name = value; } }
+            Text { text: @tr("Organization header"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.organization; edited(value) => { root.advanced.organization = value; } }
+            Text { text: @tr("Message-ID domain (empty = sender's domain)"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.message-id-fqdn; edited(value) => { root.advanced.message-id-fqdn = value; } }
+            Text { text: @tr("Extra headers added to outgoing mail, one \"Name: value\" per line"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            TextEdit { height: 80px; enabled: root.enabled; text: root.advanced.extra-headers; edited(value) => { root.advanced.extra-headers = value; } wrap: word-wrap; }
+    }
+    if root.section == "folders" : VerticalBox {
+        padding: 0px;
+        spacing: 8px;
+            Text { text: @tr("Type an existing IMAP folder name to override automatic detection, e.g. \"INBOX.Sent\". Leave empty to detect automatically."); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            Text { text: @tr("Sent folder"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.sent-folder; edited(value) => { root.advanced.sent-folder = value; } }
+            Text { text: @tr("Drafts folder"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.drafts-folder; edited(value) => { root.advanced.drafts-folder = value; } }
+            Text { text: @tr("Trash folder"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.trash-folder; edited(value) => { root.advanced.trash-folder = value; } }
+            Text { text: @tr("Junk/Spam folder"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.spam-folder; edited(value) => { root.advanced.spam-folder = value; } }
+            Text { text: @tr("Archive folder"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.archive-folder; edited(value) => { root.advanced.archive-folder = value; } }
+    }
+    if root.section == "network" : VerticalBox {
+        padding: 0px;
+        spacing: 8px;
+            Text { text: @tr("Connection timeout in seconds (empty = 30)"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; input-type: number; text: root.advanced.timeout-secs; edited(value) => { root.advanced.timeout-secs = value; } }
+            if !root.local && !root.news : Text { text: @tr("Maximum simultaneous IMAP connections (empty = unlimited; 1–20)"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            if !root.local && !root.news : LineEdit { height: 36px; enabled: root.enabled; input-type: number; text: root.advanced.max-connections; edited(value) => { root.advanced.max-connections = value; } }
+            Text { text: @tr("Proxy"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            ComboBox {
+                height: 36px;
+                min-width: 0px;
+                enabled: root.enabled;
+                model: [@tr("None"), "SOCKS5", "HTTP (CONNECT)"];
+                current-index: root.advanced.proxy == "socks5" ? 1 : root.advanced.proxy == "http" ? 2 : 0;
+                selected(value) => { root.advanced.proxy = self.current-index == 1 ? "socks5" : self.current-index == 2 ? "http" : "none"; }
+            }
+            Text { text: @tr("Proxy host"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.proxy-host; edited(value) => { root.advanced.proxy-host = value; } }
+            Text { text: @tr("Proxy port"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; input-type: number; text: root.advanced.proxy-port; edited(value) => { root.advanced.proxy-port = value; } }
+            Text { text: @tr("The proxy applies to IMAP and SMTP only, and must not require a login."); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+    }
+}

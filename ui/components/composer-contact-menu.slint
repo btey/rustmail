@@ -1,0 +1,78 @@
+import { ComposeContact } from "../models.slint";
+import { Avatar } from "avatar.slint";
+import { TypeScale } from "../typography.slint";
+
+export component ComposerContactMenu inherits Rectangle {
+    in property <[ComposeContact]> contacts: [];
+    in property <int> highlighted-contact: 0;
+    in property <color> accent-background;
+    in property <color> accent-color;
+    in property <color> background-color;
+    in property <color> frame-border-color;
+    in property <color> hover-color;
+    in property <color> muted-color;
+    in property <color> title-color;
+    in property <length> row-pitch: 46px;
+    callback selected(int);
+
+    height: root.contacts.length * root.row-pitch + 8px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: root.frame-border-color;
+    background: root.background-color;
+    drop-shadow-blur: 18px;
+    drop-shadow-offset-y: 5px;
+    drop-shadow-color: #0000002e;
+    clip: true;
+
+    for contact[index] in root.contacts : Rectangle {
+        x: 4px;
+        y: 4px + index * root.row-pitch;
+        width: parent.width - 8px;
+        height: root.row-pitch - 4px;
+        border-radius: 6px;
+        background: index == root.highlighted-contact || contact-hit.has-hover
+            ? root.hover-color : transparent;
+
+        Avatar {
+            x: 8px;
+            y: (parent.height - self.height) / 2;
+            size: 26px;
+            fallback: contact.initials;
+            background-color: root.accent-background;
+            foreground-color: root.accent-color;
+        }
+
+        suggestion-name := Text {
+            x: 43px;
+            y: 4px;
+            width: parent.width - 54px;
+            height: max(18px, self.preferred-height);
+            text: contact.name == "" ? contact.email : contact.name;
+            color: root.title-color;
+            font-size: TypeScale.secondary;
+            font-weight: 600;
+            overflow: elide;
+        }
+
+        Text {
+            x: 43px;
+            y: suggestion-name.y + suggestion-name.height - 1px;
+            width: parent.width - 54px;
+            height: max(15px, self.preferred-height);
+            visible: contact.name != "";
+            text: contact.email;
+            color: root.muted-color;
+            font-size: TypeScale.caption;
+            overflow: elide;
+        }
+
+        contact-hit := TouchArea {
+            accessible-role: button;
+            accessible-label: @tr("Select {}", contact.name == "" ? contact.email : contact.name);
+            accessible-action-default => { root.selected(index); }
+            clicked => { root.selected(index); }
+            mouse-cursor: pointer;
+        }
+    }
+}

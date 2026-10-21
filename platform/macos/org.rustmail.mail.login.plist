@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Sign-in agent registered through SMAppService (src/autostart.rs).
+     Installed at Contents/Library/LaunchAgents by scripts/package-macos.sh. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>org.rustmail.mail.login</string>
+  <key>BundleProgram</key>
+  <string>Contents/MacOS/rustmail</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>rustmail</string>
+    <string>--background</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+</dict>
+</plist>

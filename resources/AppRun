@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+app_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+
+integrate_appimage() {
+  if [[ -z "${APPIMAGE:-}" || ! -f "$APPIMAGE" ]]; then
+    printf 'Desktop integration must be run from the packaged AppImage.\n' >&2
+    exit 1
+  fi
+
+  local data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
+  if [[ -e "$data_home/appimagekit/no_desktopintegration" \
+    || -e /usr/share/appimagekit/no_desktopintegration \
+    || -e /etc/appimagekit/no_desktopintegration \
+    || -n "${DESKTOPINTEGRATION:-}" ]]; then
+    printf 'Desktop integration is disabled or already managed on this system.\n' >&2
+    exit 1
+  fi
+  if command -v pgrep >/dev/null 2>&1 && pgrep -x appimaged >/dev/null 2>&1; then
+    printf 'Desktop integration is already managed by appimaged.\n' >&2
+    exit 1
+  fi
+
+  local applications_dir="$HOME/Applications"
+  local installed_appimage="$applications_dir/rustmail.AppImage"
+  local desktop_dir="$data_home/applications"
+  local icon_root="$data_home/icons/hicolor"
+  local desktop_file="$desktop_dir/org.rustmail.mail.desktop"
+  local desktop_exec
+
+  if [[ "$(readlink -f "$APPIMAGE")" != "$(readlink -m "$installed_appimage")" ]]; then
+    install -Dm755 "$APPIMAGE" "$installed_appimage.new"
+    mv -f "$installed_appimage.new" "$installed_appimage"
+  else
+    chmod 0755 "$installed_appimage"
+  fi
+  install -Dm644 \
+    "$app_dir/usr/share/icons/hicolor/512x512/apps/org.rustmail.mail.png" \
+    "$icon_root/512x512/apps/org.rustmail.mail.png"
+  install -Dm644 \
+    "$app_dir/usr/share/icons/hicolor/scalable/apps/org.rustmail.mail.svg" \
+    "$icon_root/scalable/apps/org.rustmail.mail.svg"
+  install -d "$desktop_dir"
+
+  # A Wayland compositor resolves the xdg app-id from this exact desktop-file
+  # basename. Point Exec at the installed AppImage without changing that ID.
+  desktop_exec=${installed_appimage//\\/\\\\}
+  desktop_exec=${desktop_exec//\"/\\\"}
+  desktop_exec=${desktop_exec//\`/\\\`}
+  desktop_exec=${desktop_exec//\$/\\\$}
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" == Exec=* ]]; then
+      printf 'Exec="%s"\n' "$desktop_exec"
+    else
+      printf '%s\n' "$line"
+    fi
+  done < "$app_dir/usr/share/applications/org.rustmail.mail.desktop" \
+    > "$desktop_file.new"
+  chmod 0644 "$desktop_file.new"
+  mv -f "$desktop_file.new" "$desktop_file"
+
+  if command -v desktop-file-validate >/dev/null 2>&1; then
+    desktop-file-validate "$desktop_file"
+  fi
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$desktop_dir"
+  fi
+  if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t "$icon_root" >/dev/null 2>&1 || true
+  fi
+
+  printf 'Integrated Rustmail at %s\n' "$installed_appimage"
+  printf 'Launch it from the desktop application menu.\n'
+}
+
+if [[ "${1:-}" == "--integrate" ]]; then
+  integrate_appimage
+  exit 0
+fi
+
+# The mail shell has a small number of worker threads. One glibc allocation
+# arena is enough and prevents per-thread arenas from retaining render/sync
+# scratch memory after a burst of work. Respect an explicit user override.
+export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-1}"
+export MALLOC_TRIM_THRESHOLD_="${MALLOC_TRIM_THRESHOLD_:-65536}"
+
+# Preserve the host search path for external programs such as the browser.
+export RUSTMAIL_HOST_LD_LIBRARY_PATH="${LD_LIBRARY_PATH-}"
+export RUSTMAIL_BUNDLED=1
+
+# linuxdeploy places any non-system ELF dependencies here.
+export LD_LIBRARY_PATH="$app_dir/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+# The Linux binary supports Slint's Wayland and X11 winit integrations. Slint
+# paints every application control while the window system owns window chrome.
+export SLINT_BACKEND="${SLINT_BACKEND:-winit-software}"
+
+# Keep the process name stable. Some native UI/runtime discovery code uses
+# argv[0], while the generic cargo-appimage runner passes "AppRun" here.
+exec -a rustmail "$app_dir/usr/bin/rustmail" "$@"

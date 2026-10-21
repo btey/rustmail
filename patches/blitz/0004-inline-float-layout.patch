@@ -1,0 +1,97 @@
+diff --git a/crates/blitz-dom/src/layout/construct.rs b/crates/blitz-dom/src/layout/construct.rs
+index a1b07ff..777cc97 100644
+--- a/crates/blitz-dom/src/layout/construct.rs
++++ b/crates/blitz-dom/src/layout/construct.rs
+@@ -1159,7 +1159,11 @@ pub(crate) fn build_inline_layout_into(
+                 let float = style.map(|s| s.clone_float()).unwrap_or(Float::None);
+                 let box_kind = if position.is_absolutely_positioned() {
+                     InlineBoxKind::OutOfFlow
+-                } else if float.is_floating() {
++                } else if cfg!(feature = "floats") && float.is_floating() {
++                    // Custom boxes yield until the caller places them. Only the
++                    // float-aware line breaker handles that yield; break_all_lines
++                    // would keep retrying the same box forever. Without floats,
++                    // measure and place these boxes in flow like other inline boxes.
+                     InlineBoxKind::CustomOutOfFlow
+                 } else {
+                     InlineBoxKind::InFlow
+diff --git a/crates/blitz-dom/src/layout/inline.rs b/crates/blitz-dom/src/layout/inline.rs
+index 226243b..090e49a 100644
+--- a/crates/blitz-dom/src/layout/inline.rs
++++ b/crates/blitz-dom/src/layout/inline.rs
+@@ -16,7 +16,7 @@ use taffy::{
+ #[cfg(feature = "floats")]
+ use parley::YieldData;
+ #[cfg(feature = "floats")]
+-use taffy::{BlockItemStyle as _, Clear, Float, prelude::TaffyMaxContent};
++use taffy::{BlockItemStyle as _, Clear, Float};
+ 
+ use stylo_taffy::StyleFlags;
+ 
+@@ -391,7 +391,13 @@ impl LayoutPassState<'_> {
+         };
+         #[cfg(feature = "floats")]
+         let float_child_inputs = taffy::tree::LayoutInput {
+-            available_space: Size::MAX_CONTENT,
++            // Auto-width floats shrink to the available inline width. Asking
++            // for max-content here lets long text force a newsletter wider
++            // than its containing cell, even though that text could wrap.
++            available_space: Size {
++                width: available_space.width,
++                height: AvailableSpace::MaxContent,
++            },
+             ..child_inputs
+         };
+ 
+@@ -400,7 +406,7 @@ impl LayoutPassState<'_> {
+             let style = self.child_layout_style(&self.nodes[NodeId::from_u64(ibox.id)]);
+             let margin = style
+                 .margin()
+-                .resolve_or_zero(inputs.parent_size, resolve_calc_value);
++                .resolve_or_zero(child_inputs.parent_size, resolve_calc_value);
+ 
+             #[cfg(feature = "floats")]
+             let is_floated = style.float().is_floated();
+@@ -512,7 +518,7 @@ impl LayoutPassState<'_> {
+                                     style.float().is_floated(),
+                                     style
+                                         .margin()
+-                                        .resolve_or_zero(inputs.parent_size, resolve_calc_value),
++                                        .resolve_or_zero(child_inputs.parent_size, resolve_calc_value),
+                                 )
+                             };
+ 
+@@ -548,7 +554,7 @@ impl LayoutPassState<'_> {
+                                     style.clear(),
+                                     style
+                                         .margin()
+-                                        .resolve_or_zero(inputs.parent_size, resolve_calc_value),
++                                        .resolve_or_zero(child_inputs.parent_size, resolve_calc_value),
+                                 )
+                             };
+ 
+@@ -707,9 +713,12 @@ impl LayoutPassState<'_> {
+ 
+                         continue;
+                     }
+-                    YieldData::MaxHeightExceeded(_data) => {
+-                        // TODO
+-                        continue;
++                    YieldData::MaxHeightExceeded(_) => {
++                        // We never constrain line height, so this means the
++                        // measured content is unrepresentable. Retrying without
++                        // changing breaker state would loop forever. Let the
++                        // embedding application recover from the layout failure.
++                        panic!("Inline content exceeded the line breaker's height limit");
+                     }
+                     YieldData::InlineBoxBreak(box_break_data) => {
+                         let state = breaker.state_mut();
+@@ -728,7 +737,7 @@ impl LayoutPassState<'_> {
+                                 style.clear(),
+                                 style
+                                     .margin()
+-                                    .resolve_or_zero(inputs.parent_size, resolve_calc_value),
++                                    .resolve_or_zero(child_inputs.parent_size, resolve_calc_value),
+                             )
+                         };
+ 

@@ -1,0 +1,423 @@
+#!/usr/bin/env python3
+"""Exercise release validation and publishing without contacting GitHub."""
+
+import importlib.util
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import tomllib
+import unittest
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from unittest.mock import patch
+
+SCRIPTS = Path(__file__).resolve().parent
+sys.dont_write_bytecode = True
+
+
+def load_script(name):
+    spec = importlib.util.spec_from_file_location(name, SCRIPTS / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+metadata = load_script("release-metadata").metadata
+release_assets = load_script("prepare-release")
+prepare = release_assets.prepare
+linux_metadata = load_script("stage-linux-metadata")
+stage_linux_metadata = linux_metadata.stage
+
+
+class ReleaseTests(unittest.TestCase):
+    def test_flatpak_pdfium_archive_keeps_expected_layout(self):
+        manifest = (
+            SCRIPTS.parent / "packaging/flatpak/org.rustmail.mail.yml"
+        ).read_text()
+        self.assertIn(
+            "install -Dm0755 pdfium-runtime/lib/libpdfium.so "
+            "/app/lib/rustmail/libpdfium.so",
+            manifest,
+        )
+        self.assertRegex(
+            manifest,
+            r"(?s)url: .*pdfium-linux-x64\.tgz\n"
+            r"\s+sha256: [0-9a-f]{64}\n"
+            r"\s+dest: pdfium-runtime\n"
+            r"\s+strip-components: 0\n",
+        )
+
+    def test_flatpak_cargo_sources_match_lockfile(self):
+        project = SCRIPTS.parent
+        packages = tomllib.loads((project / "Cargo.lock").read_text())["package"]
+        expected = {
+            f"cargo/vendor/{package['name']}-{package['version']}": package
+            for package in packages
+            if package.get("source", "").startswith("registry+")
+        }
+        sources = json.loads(
+            (project / "packaging/flatpak/cargo-sources.json").read_text()
+        )
+        self.assertEqual(len(sources), len(expected) * 2 + 1)
+
+        archives = {source["dest"]: source for source in sources if source["type"] == "archive"}
+        checksums = {
+            source["dest"]: json.loads(source["contents"])["package"]
+            for source in sources
+            if source["type"] == "inline" and source.get("dest-filename") == ".cargo-checksum.json"
+        }
+        self.assertEqual(set(archives), set(expected))
+        self.assertEqual(
+            checksums,
+            {destination: package["checksum"] for destination, package in expected.items()},
+        )
+        for destination, package in expected.items():
+            name = package["name"]
+            version = package["version"]
+            source = archives[destination]
+            self.assertEqual(source["archive-type"], "tar-gzip")
+            self.assertEqual(source["sha256"], package["checksum"])
+            self.assertEqual(
+                source["url"],
+                f"https://static.crates.io/crates/{name}/{name}-{version}.crate",
+            )
+        self.assertEqual(
+            sources[-1],
+            {
+                "type": "inline",
+                "contents": (
+                    '[source.vendored-sources]\n'
+                    'directory = "cargo/vendor"\n\n'
+                    '[source.crates-io]\n'
+                    'replace-with = "vendored-sources"\n'
+                ),
+                "dest": "cargo",
+                "dest-filename": "config",
+            },
+        )
+
+    def test_linux_metadata_versions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "resources").mkdir()
+            for name in ("org.rustmail.mail.desktop", "org.rustmail.mail.metainfo.xml"):
+                shutil.copyfile(SCRIPTS.parent / "resources" / name, root / "resources" / name)
+            for version in ("0.2.0-alpha.1", "0.2.0-beta.2", "0.2.0-rc.3", "0.2.0"):
+                with self.subTest(version=version):
+                    (root / "Cargo.toml").write_text(f'[package]\nversion = "{version}"\n')
+                    destination = root / version
+                    with patch.dict(os.environ, {"SOURCE_DATE_EPOCH": "1767225600"}):
+                        stage_linux_metadata(root, destination)
+                    desktop = (destination / "usr/share/applications/org.rustmail.mail.desktop").read_text()
+                    self.assertIn(f"X-AppImage-Version={version}\n", desktop)
+                    release = ET.parse(destination / "usr/share/metainfo/org.rustmail.mail.metainfo.xml").find("./releases/release")
+                    self.assertEqual(release.get("version"), version)
+                    self.assertEqual(release.get("date"), "2026-01-01")
+                    self.assertEqual(release.get("type"), "development" if "-" in version else "stable")
+                    # Repackaging the same source must produce identical metadata
+                    # without consulting the current date.
+                    repeated = root / f"{version}-repeated"
+                    with patch.dict(os.environ, {"SOURCE_DATE_EPOCH": "1767225600"}):
+                        with patch.object(linux_metadata, "datetime", wraps=linux_metadata.datetime) as clock:
+                            clock.now.side_effect = AssertionError("Metadata must use the source date")
+                            stage_linux_metadata(root, repeated)
+                    for path in destination.rglob("*"):
+                        if path.is_file():
+                            self.assertEqual(path.read_bytes(), (repeated / path.relative_to(destination)).read_bytes())
+                flatpak = root / f"{version}-flatpak"
+                with patch.dict(os.environ, {"SOURCE_DATE_EPOCH": "1767225600"}):
+                    stage_linux_metadata(root, flatpak, flatpak=True)
+                desktop = (flatpak / "usr/share/applications/org.rustmail.mail.desktop").read_text()
+                self.assertNotIn("X-AppImage-", desktop)
+            for name in ("org.rustmail.mail.desktop", "org.rustmail.mail.metainfo.xml"):
+                self.assertEqual((root / "resources" / name).read_bytes(), (SCRIPTS.parent / "resources" / name).read_bytes())
+
+    def test_linux_package_metadata(self):
+        # Exercise the actual shell packager and dpkg with a tiny existing ELF,
+        # so shell expansion bugs cannot hide behind Python-only asset tests.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = (
+                "scripts/build-deb.sh", "scripts/build-appimage.sh",
+                "scripts/stage-linux-metadata.py", "resources/AppRun",
+                "LICENSE", "THIRD_PARTY_NOTICES.md",
+                "resources/org.rustmail.mail.desktop", "resources/org.rustmail.mail.metainfo.xml",
+                "resources/app-icon/rustmail-masked-512.png",
+                "resources/app-icon/rustmail-masked.svg",
+                "resources/fonts/google-sans-flex/OFL.txt",
+                "resources/fonts/google-sans-flex/README.md",
+                "resources/debian/source-control.in", "resources/debian/control.in",
+            )
+            for name in paths:
+                destination = root / name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(SCRIPTS.parent / name, destination)
+            shutil.copytree(SCRIPTS.parent / "LICENSES", root / "LICENSES")
+            (root / "Cargo.toml").write_text('[package]\nversion = "0.1.0-alpha.1"\n')
+            (root / "target/release").mkdir(parents=True)
+            shutil.copyfile("/bin/true", root / "target/release/rustmail")
+            # This test checks package metadata using fixture ELFs. Stub only
+            # the download/renderer helpers in the disposable checkout; actual
+            # native PDF rendering is exercised by the dedicated smoke tests.
+            (root / "scripts/stage-pdfium.py").write_text(
+                "import pathlib, shutil, sys\n"
+                "destination = pathlib.Path(sys.argv[2])\n"
+                "destination.mkdir(parents=True, exist_ok=True)\n"
+                "shutil.copyfile('/bin/true', destination / 'libpdfium.so')\n"
+            )
+            (root / "scripts/test-pdf-preview.py").write_text(
+                "import pathlib, sys\n"
+                "assert pathlib.Path(sys.argv[1]).is_file()\n"
+            )
+            (root / "bin").mkdir()
+            cargo = root / "bin/cargo"
+            cargo.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, pathlib, sys\n"
+                "with pathlib.Path('cargo-args.jsonl').open('a') as output:\n"
+                "    output.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+            )
+            cargo.chmod(0o755)
+            result = subprocess.run(
+                ["bash", str(root / "scripts/build-deb.sh")], cwd=root,
+                env={**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
+                     "RUSTMAIL_SKIP_BUILD": "0", "RUSTMAIL_APP_FEATURES": ""},
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            package = root / "target/deb/rustmail_0.1.0~alpha.1_amd64.deb"
+            self.assertTrue(package.is_file())
+            version = subprocess.check_output(["dpkg-deb", "--field", str(package), "Version"], text=True)
+            self.assertEqual(version.strip(), "0.1.0~alpha.1")
+            extracted = root / "extracted"
+            subprocess.run(["dpkg-deb", "--extract", str(package), str(extracted)], check=True)
+            desktop_path = "usr/share/applications/org.rustmail.mail.desktop"
+            metainfo_path = "usr/share/metainfo/org.rustmail.mail.metainfo.xml"
+            self.assertIn("X-AppImage-Version=0.1.0-alpha.1\n", (extracted / desktop_path).read_text())
+            release = ET.parse(extracted / metainfo_path).find("./releases/release")
+            self.assertEqual(release.get("version"), "0.1.0-alpha.1")
+            self.assertEqual(release.get("type"), "development")
+
+            # Exercise the AppImage shell packager up to its tool boundary,
+            # without downloading deployment tools or compiling the application.
+            # Model the explicitly bundled X11 libraries without depending on
+            # the host's development packages or invoking real deployment tools.
+            libraries = root / "fixture-libs"
+            libraries.mkdir()
+            for name in ("libxkbcommon-x11.so.0", "libxkbcommon.so.0"):
+                shutil.copyfile("/bin/true", libraries / name)
+            pkg_config = root / "bin/pkg-config"
+            pkg_config.write_text(
+                "#!/usr/bin/env python3\n"
+                "import sys\n"
+                "assert sys.argv[1:] == ['--variable=libdir', 'xkbcommon-x11']\n"
+                f"print({str(libraries)!r})\n"
+            )
+            pkg_config.chmod(0o755)
+            deploy = root / "bin/linuxdeploy"
+            deploy.write_text('''#!/usr/bin/env python3
+import pathlib, shutil, sys
+appdir = pathlib.Path(sys.argv[sys.argv.index("--appdir") + 1])
+library = pathlib.Path(sys.argv[sys.argv.index("--library") + 1])
+assert library.name == "libxkbcommon-x11.so.0"
+for name in ("libxkbcommon-x11.so.0", "libxkbcommon.so.0"):
+    shutil.copyfile(library.parent / name, appdir / "usr/lib" / name)
+(appdir / "org.rustmail.mail.desktop").symlink_to("usr/share/applications/org.rustmail.mail.desktop")
+''')
+            pack = root / "bin/appimagetool"
+            pack.write_text('''#!/usr/bin/env python3
+import json, os, pathlib, sys
+appdir = pathlib.Path(sys.argv[1])
+pathlib.Path(sys.argv[2]).write_text(json.dumps({
+    "version": os.environ.get("VERSION"),
+    "desktop": (appdir / "org.rustmail.mail.desktop").read_text(),
+    "metainfo": (appdir / "usr/share/metainfo/org.rustmail.mail.metainfo.xml").read_text(),
+}))
+''')
+            deploy.chmod(0o755)
+            pack.chmod(0o755)
+            result = subprocess.run(
+                ["bash", str(root / "scripts/build-appimage.sh")], cwd=root,
+                env={**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
+                     "LINUXDEPLOY": str(deploy), "APPIMAGETOOL": str(pack), "VERSION": "stale",
+                     "RUSTMAIL_SKIP_BUILD": "0", "RUSTMAIL_APP_FEATURES": ""},
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            packaged = json.loads((root / "target/appimage/rustmail.AppImage").read_text())
+            self.assertEqual(packaged["version"], "0.1.0-alpha.1")
+            self.assertIn("X-AppImage-Version=0.1.0-alpha.1\n", packaged["desktop"])
+            release = ET.fromstring(packaged["metainfo"]).find("./releases/release")
+            self.assertEqual(release.get("version"), "0.1.0-alpha.1")
+            self.assertEqual(release.get("type"), "development")
+
+            # Both normal package commands must include the optional runtime
+            # choice, even though their builds disable Cargo's default features.
+            invocations = [
+                json.loads(line)
+                for line in (root / "cargo-args.jsonl").read_text().splitlines()
+            ]
+            self.assertEqual(len(invocations), 2)
+            for args in invocations:
+                enabled = {
+                    feature
+                    for index, arg in enumerate(args)
+                    if arg == "--features"
+                    for feature in args[index + 1].split(",")
+                }
+                self.assertTrue({"remote-content", "gpu-renderer"} <= enabled)
+
+    def test_versions_and_tags(self):
+        for version in ("0.1.0", "1.2.3-alpha.1", "1.2.3-beta.2", "1.2.3-rc.3"):
+            with self.subTest(version=version):
+                result = metadata(version, f"v{version}")
+                self.assertEqual(result["prerelease"], str("-" in version).lower())
+                self.assertEqual(result["native_version"], version.split("-")[0])
+        for version, tag in (
+            ("0.1.0", "v0.2.0"), ("0.1.0-beta.1", "v0.1.0"),
+            ("0.1.0-beta.01", None), ("0.1.0-beta.0", None),
+            ("01.2.3", None), ("1.2.3-nightly", None), ("1.2.3+build", None),
+        ):
+            with self.subTest(version=version, tag=tag), self.assertRaises(ValueError):
+                metadata(version, tag)
+
+    def test_staging_and_checksums(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "assets"
+            source.mkdir()
+            names = (
+                "linux/appimage/rustmail.AppImage",
+                "linux/deb/rustmail_0.1.0~beta.1_amd64.deb",
+                "linux/rpm/rustmail.rpm",
+                "linux/flatpak/rustmail.flatpak",
+                "windows/rustmail-windows-x64.zip",
+                "windows/rustmail-windows-x64-setup.exe",
+                "macos/rustmail-macos-arm64.zip",
+                "macos/rustmail-macos-arm64.dmg",
+                "macos/rustmail-macos-x64.zip",
+                "macos/rustmail-macos-x64.dmg",
+            )
+            for name in names:
+                path = source / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(name.encode())
+            (source / "benchmark.json").write_text("{}")
+            dist = root / "dist"
+            prepare(source, dist, "0.1.0-beta.1")
+            self.assertEqual(len(list(dist.iterdir())), 11)
+            # GitHub must not rewrite a download name after we checksum it.
+            deb = dist / "rustmail_0.1.0.beta.1_amd64.deb"
+            self.assertEqual(deb.read_bytes(), (source / names[1]).read_bytes())
+            for path in dist.iterdir():
+                self.assertRegex(path.name, r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+            result = subprocess.run(
+                ["sha256sum", "--check", "SHA256SUMS"], cwd=dist,
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            missing = source / names[-1]
+            missing.unlink()
+            with self.assertRaises(ValueError):
+                prepare(source, root / "missing", "0.1.0-beta.1")
+            self.assertFalse((root / "missing").exists())
+            missing.write_bytes(b"")
+            with self.assertRaises(ValueError):
+                prepare(source, root / "empty", "0.1.0-beta.1")
+            missing.write_bytes(b"dmg")
+            (source / missing.name).write_bytes(b"duplicate")
+            with self.assertRaises(ValueError):
+                prepare(source, root / "duplicate", "0.1.0-beta.1")
+
+            # Stable releases carry the same ten desktop downloads.
+            (source / missing.name).unlink()
+            (source / "linux/deb/rustmail_0.1.0~beta.1_amd64.deb").rename(
+                source / "linux/deb/rustmail_0.1.0_amd64.deb"
+            )
+            stable_dist = root / "stable"
+            prepare(source, stable_dist, "0.1.0")
+            self.assertEqual(len(list(stable_dist.iterdir())), 11)
+            self.assertTrue((stable_dist / "rustmail_0.1.0_amd64.deb").is_file())
+
+    def test_release_notes(self):
+        self.assertIn("does not receive Flathub updates", release_assets.release_notes("0.1.0-beta.1"))
+        self.assertIn("build-provenance attestations", release_assets.release_notes("0.1.0-beta.1"))
+        self.assertIn("Apple silicon and Intel", release_assets.release_notes("0.1.0-beta.1"))
+
+    def test_metadata_rejects_stale_lockfile(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Cargo.toml").write_text('[package]\nversion = "0.2.0-beta.1"\n')
+            lock = '[[package]]\nname = "rustmail"\nversion = "0.2.0-beta.1"\n'
+            (root / "Cargo.lock").write_text(lock)
+            (root / "Cargo.lock").write_text(lock.replace("0.2.0-beta.1", "0.1.0"))
+            command = [sys.executable, str(SCRIPTS / "release-metadata.py"), "--tag", "v0.2.0-beta.1"]
+            result = subprocess.run(command, cwd=root, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Cargo.lock", result.stderr)
+            (root / "Cargo.lock").write_text(lock)
+            result = subprocess.run(command, cwd=root, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("prerelease=true", result.stdout)
+
+    def publish(self, *, existing="missing", prerelease="true", fail_upload=False):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "dist").mkdir()
+            (root / "dist" / "package.zip").write_bytes(b"package")
+            (root / "release-notes.md").write_text("Notes")
+            gh = root / "gh"
+            gh.write_text('''#!/usr/bin/env python3
+import json, os, sys
+with open("calls.jsonl", "a") as stream:
+    stream.write(json.dumps(sys.argv[1:]) + "\\n")
+command = sys.argv[2]
+if command == "view":
+    existing = os.environ["EXISTING"]
+    if existing == "missing":
+        sys.exit(1)
+    print(existing)
+if command == "upload" and os.environ["FAIL_UPLOAD"] == "true":
+    sys.exit(1)
+''')
+            gh.chmod(0o755)
+            result = subprocess.run(
+                ["bash", str(SCRIPTS / "publish-release.sh")], cwd=root,
+                env={**os.environ, "PATH": f"{root}:{os.environ['PATH']}",
+                     "GITHUB_REF_NAME": "v0.1.0-beta.1" if prerelease == "true" else "v0.1.0",
+                     "RELEASE_PRERELEASE": prerelease, "EXISTING": existing,
+                     "FAIL_UPLOAD": str(fail_upload).lower()},
+                capture_output=True, text=True,
+            )
+            calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
+            return result, calls
+
+    def test_preview_and_stable_publication(self):
+        for prerelease in ("true", "false"):
+            with self.subTest(prerelease=prerelease):
+                result, calls = self.publish(prerelease=prerelease)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual([c[1] for c in calls], ["view", "create", "upload", "edit"])
+                self.assertIn("--draft", calls[1])
+                self.assertIn(f"--prerelease={prerelease}", calls[-1])
+                self.assertIn("--latest=" + str(prerelease == "false").lower(), calls[-1])
+
+    def test_failed_upload_does_not_publish(self):
+        result, calls = self.publish(fail_upload=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("edit", [c[1] for c in calls])
+
+    def test_resume_draft_and_reject_published_replacement(self):
+        result, calls = self.publish(existing="true")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([c[1] for c in calls], ["view", "upload", "edit"])
+        result, calls = self.publish(existing="false")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual([c[1] for c in calls], ["view"])
+
+
+if __name__ == "__main__":
+    unittest.main()

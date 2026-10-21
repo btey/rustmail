@@ -1,0 +1,45 @@
+// A shared, non-interactive overlay for scrollable list surfaces. Consumers
+// decide when each edge is active from their viewport position, while this
+// component keeps the visual treatment identical across workspaces.
+export component ScrollFade inherits Rectangle {
+    in property <color> surface-color;
+    in property <length> content-y: 0px;
+    in property <length> content-height: 0px;
+    in property <length> visible-height: root.height;
+    in property <length> fade-height: 48px;
+    private property <bool> show-top: root.content-y < -1px;
+    private property <bool> show-bottom: root.content-height + root.content-y
+        > root.visible-height + 1px;
+
+    background: transparent;
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: min(root.fade-height, parent.height / 2);
+        background: @linear-gradient(
+            180deg,
+            root.surface-color 0%,
+            root.surface-color.with-alpha(0.82) 38%,
+            root.surface-color.with-alpha(0) 100%
+        );
+        opacity: root.show-top ? 1 : 0;
+        animate opacity { duration: 140ms; easing: ease-out; }
+    }
+
+    Rectangle {
+        x: 0px;
+        y: parent.height - self.height;
+        width: parent.width;
+        height: min(root.fade-height, parent.height / 2);
+        background: @linear-gradient(
+            180deg,
+            root.surface-color.with-alpha(0) 0%,
+            root.surface-color.with-alpha(0.82) 62%,
+            root.surface-color 100%
+        );
+        opacity: root.show-bottom ? 1 : 0;
+        animate opacity { duration: 140ms; easing: ease-out; }
+    }
+}

@@ -1,0 +1,492 @@
+import { HorizontalBox, ScrollView } from "std-widgets.slint";
+import { ComposeAttachment } from "../models.slint";
+import { Button } from "button.slint";
+import { IconButton } from "controls.slint";
+import { TypeScale } from "../typography.slint";
+import { UserActions } from "user-actions.slint";
+import { LayoutMetrics } from "../design-system.slint";
+
+export component ComposerToolbar inherits Rectangle {
+    in property <bool> compact: false;
+    in property <color> accent-background;
+    in property <color> accent-color;
+    in property <color> control-hover-color;
+    in property <color> muted-color;
+    in property <color> raised-color;
+    in property <color> secondary-color;
+    in property <color> subtle-border-color;
+    in property <bool> bold-active: false;
+    in property <bool> italic-active: false;
+    in property <bool> underline-active: false;
+    in property <bool> strike-active: false;
+    in property <bool> code-active: false;
+    in property <bool> link-active: false;
+    in property <bool> can-link: false;
+    callback apply-format(string);
+    callback open-templates();
+    callback undo();
+    callback redo();
+
+    height: 44px;
+    background: root.raised-color;
+    border-width: 1px;
+    border-color: root.subtle-border-color;
+
+    toolbar-scroll := ScrollView {
+        x: 8px;
+        y: 6px;
+        width: parent.width - 16px;
+        height: 32px;
+        content-width: max(self.visible-width, toolbar-row.preferred-width);
+        content-height: self.visible-height;
+        // A native horizontal scrollbar consumes part of this 32px viewport
+        // and clips the buttons. Compact toolbars remain pannable by touch.
+        horizontal-scrollbar-policy: always-off;
+        vertical-scrollbar-policy: always-off;
+        mouse-drag-pan-enabled: root.compact;
+
+        toolbar-row := HorizontalLayout {
+            height: 32px;
+            spacing: 2px;
+
+            IconButton { icon: root.bold-active ? @image-url("../icons/lucide/filled/bold.svg") : @image-url("../icons/lucide/outline/bold.svg"); icon-color: root.bold-active ? root.accent-color : root.secondary-color; active: root.bold-active; hover-background: root.control-hover-color; active-background: root.accent-background; tooltip-text: @tr("Bold · Ctrl+B"); clicked => { root.apply-format("bold"); } }
+            IconButton { icon: root.italic-active ? @image-url("../icons/lucide/filled/italic.svg") : @image-url("../icons/lucide/outline/italic.svg"); icon-color: root.italic-active ? root.accent-color : root.secondary-color; active: root.italic-active; hover-background: root.control-hover-color; active-background: root.accent-background; tooltip-text: @tr("Italic · Ctrl+I"); clicked => { root.apply-format("italic"); } }
+            IconButton { icon: root.underline-active ? @image-url("../icons/lucide/filled/typography.svg") : @image-url("../icons/lucide/outline/typography.svg"); icon-color: root.underline-active ? root.accent-color : root.secondary-color; active: root.underline-active; hover-background: root.control-hover-color; active-background: root.accent-background; tooltip-text: @tr("Underline · Ctrl+U"); clicked => { root.apply-format("underline"); } }
+            IconButton { icon: root.strike-active ? @image-url("../icons/lucide/filled/strikethrough.svg") : @image-url("../icons/lucide/outline/strikethrough.svg"); icon-color: root.strike-active ? root.accent-color : root.secondary-color; active: root.strike-active; hover-background: root.control-hover-color; active-background: root.accent-background; tooltip-text: @tr("Strikethrough"); clicked => { root.apply-format("strike"); } }
+
+            Rectangle { width: 1px; height: 18px; background: root.subtle-border-color; }
+
+            IconButton { icon: @image-url("../icons/lucide/outline/list-unordered.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Bulleted list"); clicked => { root.apply-format("bullet"); } }
+            IconButton { icon: @image-url("../icons/lucide/outline/list-ordered.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Numbered list"); clicked => { root.apply-format("number"); } }
+            IconButton { icon: @image-url("../icons/lucide/outline/quote.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Quote"); clicked => { root.apply-format("quote"); } }
+            IconButton { icon: root.code-active ? @image-url("../icons/lucide/filled/code.svg") : @image-url("../icons/lucide/outline/code.svg"); icon-color: root.code-active ? root.accent-color : root.secondary-color; active: root.code-active; hover-background: root.control-hover-color; active-background: root.accent-background; tooltip-text: @tr("Inline code"); clicked => { root.apply-format("code"); } }
+            IconButton { icon: root.link-active ? @image-url("../icons/lucide/filled/link.svg") : @image-url("../icons/lucide/outline/link.svg"); icon-color: root.link-active ? root.accent-color : root.secondary-color; active: root.link-active; active-background: root.accent-background; interactive: root.can-link; hover-background: root.control-hover-color; tooltip-text: root.can-link ? @tr("Add or edit link") : @tr("Select text to add a link"); clicked => { root.apply-format("link"); } }
+
+            Rectangle { width: 1px; height: 18px; background: root.subtle-border-color; }
+
+            IconButton { icon: @image-url("../icons/lucide/outline/book.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Email templates"); clicked => { root.open-templates(); } }
+            if UserActions.editor-available : IconButton { icon: @image-url("../icons/lucide/outline/pencil.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Edit in external editor"); clicked => { UserActions.edit-externally(); } }
+
+            Rectangle { horizontal-stretch: 1; }
+
+            IconButton { icon: @image-url("../icons/lucide/outline/undo.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Undo · Ctrl+Z"); clicked => { root.undo(); } }
+            IconButton { icon: @image-url("../icons/lucide/outline/redo.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Redo · Ctrl+Shift+Z"); clicked => { root.redo(); } }
+        }
+    }
+}
+
+export component ComposerAttachments inherits Rectangle {
+    in property <bool> compact: false;
+    in property <[ComposeAttachment]> attachments: [];
+    in property <color> accent-color;
+    in property <color> background-color;
+    in property <color> body-color;
+    in property <color> control-hover-color;
+    in property <color> muted-color;
+    in property <color> raised-color;
+    in property <color> subtle-border-color;
+    callback remove-attachment(int);
+    // Chips hold a name and a detail line; both grow with the platform font.
+    private property <length> chip-growth: max(16px, attachment-name-probe.preferred-height)
+        + max(13px, attachment-detail-probe.preferred-height) - 29px;
+
+            visible: root.attachments.length > 0;
+            height: root.attachments.length > 0 ? 62px + root.chip-growth : 0px;
+            background: root.raised-color;
+            border-width: 1px;
+            border-color: root.subtle-border-color;
+
+            attachment-name-probe := Text { visible: false; text: "Ag"; font-size: TypeScale.caption; font-weight: 600; }
+            attachment-detail-probe := Text { visible: false; text: "Ag"; font-size: TypeScale.caption; }
+
+            attachments-scroll := ScrollView {
+                x: 10px;
+                y: 8px;
+                width: parent.width - 20px;
+                height: 46px + root.chip-growth;
+                content-width: max(self.visible-width, attachment-row.preferred-width);
+                content-height: self.visible-height;
+                horizontal-scrollbar-policy: as-needed;
+                vertical-scrollbar-policy: always-off;
+                mouse-drag-pan-enabled: root.compact;
+
+                attachment-row := HorizontalBox {
+                    height: 38px + root.chip-growth;
+                    spacing: 7px;
+
+                    for attachment[index] in root.attachments : Rectangle {
+                        width: 194px;
+                        height: 36px + root.chip-growth;
+                        border-radius: 7px;
+                        border-width: 1px;
+                        border-color: root.subtle-border-color;
+                        background: root.background-color;
+
+                        Image {
+                            x: 17px - self.width / 2;
+                            y: (parent.height - self.height) / 2;
+                            width: LayoutMetrics.icon-size;
+                            height: LayoutMetrics.icon-size;
+                            source: @image-url("../icons/lucide/outline/file-added.svg");
+                            colorize: root.accent-color;
+                            image-fit: contain;
+                            accessible-role: none;
+                        }
+
+                        attachment-name := Text {
+                            x: 32px;
+                            y: 4px;
+                            width: parent.width - 64px;
+                            height: max(16px, self.preferred-height);
+                            text: attachment.name;
+                            color: root.body-color;
+                            font-size: TypeScale.caption;
+                            font-weight: 600;
+                            overflow: elide;
+                        }
+
+                        Text {
+                            x: 32px;
+                            y: attachment-name.y + attachment-name.height - 1px;
+                            width: parent.width - 64px;
+                            height: max(13px, self.preferred-height);
+                            text: attachment.detail;
+                            color: root.muted-color;
+                            font-size: TypeScale.caption;
+                            overflow: elide;
+                        }
+
+                        IconButton {
+                            x: parent.width - 29px;
+                            y: (parent.height - self.height) / 2;
+                            width: 28px;
+                            height: 28px;
+                            icon: @image-url("../icons/lucide/outline/x.svg");
+                            icon-color: root.muted-color;
+                            hover-background: root.control-hover-color;
+                            tooltip-text: @tr("Remove attachment");
+                            clicked => { root.remove-attachment(index); }
+                        }
+                    }
+                }
+            }
+}
+
+export component ComposerNotice inherits Rectangle {
+    in property <string> notice: "";
+    in property <bool> notice-is-error: false;
+    in property <color> accent-background;
+    in property <color> accent-color;
+
+            visible: root.notice != "";
+            height: root.notice == "" ? 0px : 24px;
+            background: root.notice-is-error ? #d73a4920 : root.accent-background;
+
+            Text {
+                x: 14px;
+                width: parent.width - 28px;
+                height: parent.height;
+                text: root.notice;
+                color: root.notice-is-error ? #d73a49 : root.accent-color;
+                font-size: TypeScale.caption;
+                font-weight: 600;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+}
+
+export component ComposerFooter inherits Rectangle {
+    in property <bool> compact: false;
+    in property <bool> attachment-picker-supported: true;
+    in property <string> attachment-summary: "";
+    in property <bool> can-send: false;
+    in property <bool> has-content: false;
+    in property <bool> sending: false;
+    in property <color> control-hover-color;
+    in property <color> muted-color;
+    in property <color> raised-color;
+    in property <color> secondary-color;
+    in property <color> subtle-border-color;
+    callback submit(bool);
+    callback pick-attachments();
+    callback request-close();
+
+            height: 54px;
+            background: root.raised-color;
+
+            Rectangle {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: 1px;
+                background: root.subtle-border-color;
+            }
+
+            send-button := Button {
+                x: root.compact ? 8px : 12px;
+                y: 10px;
+                width: max(root.compact ? 96px : 106px, self.content-width);
+                height: 34px;
+                text: root.sending ? @tr("Sending…") : @tr("Send");
+                icon: @image-url("../icons/lucide/filled/paper-airplane.svg");
+                has-icon: true;
+                primary: true;
+                enabled: root.can-send && !root.sending;
+                clicked => { root.submit(true); }
+            }
+
+            attach-button := IconButton {
+                visible: root.attachment-picker-supported;
+                x: send-button.x + send-button.width + (root.compact ? 4px : 8px);
+                y: root.compact ? 5px : 11px;
+                width: root.compact ? 44px : 32px;
+                height: root.compact ? 44px : 32px;
+                icon: @image-url("../icons/lucide/outline/paperclip.svg");
+                icon-color: root.secondary-color;
+                hover-background: root.control-hover-color;
+                tooltip-text: @tr("Attach files");
+                clicked => { root.pick-attachments(); }
+            }
+
+            Text {
+                visible: !root.compact && root.attachment-picker-supported;
+                x: attach-button.x + attach-button.width + 8px;
+                width: max(0px, save-draft.x - self.x - 42px);
+                height: parent.height;
+                text: root.attachment-summary == "" ? @tr("Attach files") : root.attachment-summary;
+                color: root.muted-color;
+                font-size: TypeScale.caption;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            save-draft := Button {
+                x: parent.width - (root.compact ? 54px : 90px) - self.width;
+                y: 11px;
+                width: max(root.compact ? 104px : 112px, self.content-width);
+                height: 32px;
+                text: @tr("Save draft");
+                enabled: root.has-content;
+                clicked => { root.submit(false); }
+            }
+
+            IconButton {
+                x: parent.width - (root.compact ? 48px : 78px);
+                y: root.compact ? 5px : 11px;
+                width: root.compact ? 44px : 32px;
+                height: root.compact ? 44px : 32px;
+                icon: @image-url("../icons/lucide/outline/trash.svg");
+                icon-color: root.secondary-color;
+                hover-background: root.control-hover-color;
+                tooltip-text: @tr("Discard");
+                clicked => { root.request-close(); }
+            }
+
+}
+
+export component LinkEditor inherits Rectangle {
+    in property <bool> compact: false;
+    in property <bool> open: false;
+    in-out property <string> url: "";
+    in property <bool> has-existing-link: false;
+    in property <color> background-color;
+    in property <color> body-color;
+    in property <color> frame-border-color;
+    in property <color> muted-color;
+    in property <color> title-color;
+    in property <color> accent-color;
+    callback cancel();
+    callback apply(string);
+    callback remove();
+
+    visible: root.open;
+    background: #00000066;
+    z: 6000;
+    TouchArea { }
+
+    changed open => {
+        if (root.open) {
+            link-input.focus();
+            link-input.select-all();
+        }
+    }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: root.compact ? min(380px, parent.width - 32px) : 420px;
+        height: link-field.y + 124px;
+        border-radius: 10px;
+        border-width: 1px;
+        border-color: root.frame-border-color;
+        background: root.background-color;
+
+        link-heading := Text {
+            x: 20px;
+            y: 18px;
+            width: parent.width - 40px;
+            height: max(24px, self.preferred-height);
+            text: root.has-existing-link ? @tr("Edit link") : @tr("Add link");
+            color: root.title-color;
+            font-size: TypeScale.heading-small;
+            font-weight: 700;
+        }
+
+        link-note := Text {
+            x: 20px;
+            y: link-heading.y + link-heading.height + 6px;
+            width: parent.width - 40px;
+            height: max(20px, self.preferred-height);
+            text: @tr("The selected text will open this address.");
+            color: root.muted-color;
+            font-size: TypeScale.secondary;
+            wrap: word-wrap;
+        }
+
+        link-field := Rectangle {
+            x: 20px;
+            y: link-note.y + link-note.height + 10px;
+            width: parent.width - 40px;
+            height: 38px;
+            border-radius: 7px;
+            border-width: 1px;
+            border-color: link-input.has-focus ? root.accent-color : root.frame-border-color;
+            background: root.background-color;
+
+            Text {
+                x: 11px;
+                width: parent.width - 22px;
+                height: parent.height;
+                visible: root.url == "";
+                text: @tr("https://example.com");
+                color: root.muted-color;
+                font-size: TypeScale.body;
+                vertical-alignment: center;
+            }
+
+            link-input := TextInput {
+                x: 11px;
+                width: parent.width - 22px;
+                height: parent.height;
+                text <=> root.url;
+                color: root.body-color;
+                selection-background-color: root.accent-color;
+                selection-foreground-color: white;
+                font-size: TypeScale.body;
+                single-line: true;
+                vertical-alignment: center;
+                key-pressed(event) => {
+                    if (event.text == Key.Escape) {
+                        root.cancel();
+                        return accept;
+                    }
+                    if (event.text == Key.Return && root.url != "") {
+                        root.apply(root.url);
+                        return accept;
+                    }
+                    reject
+                }
+            }
+        }
+
+        if root.has-existing-link : Button {
+            x: 20px;
+            y: link-field.y + 68px;
+            width: max(104px, self.content-width);
+            height: 34px;
+            text: @tr("Remove link");
+            clicked => { root.remove(); }
+        }
+
+        Button {
+            x: link-apply.x - self.width - 8px;
+            y: link-apply.y;
+            width: max(78px, self.content-width);
+            height: 34px;
+            text: @tr("Cancel");
+            clicked => { root.cancel(); }
+        }
+
+        link-apply := Button {
+            x: parent.width - self.width - 20px;
+            y: link-field.y + 68px;
+            width: max(82px, self.content-width);
+            height: 34px;
+            text: @tr("Apply");
+            primary: true;
+            enabled: root.url != "";
+            clicked => { root.apply(root.url); }
+        }
+    }
+}
+
+export component DiscardConfirmation inherits Rectangle {
+    in property <bool> compact: false;
+    in property <bool> open: false;
+    in property <color> background-color;
+    in property <color> frame-border-color;
+    in property <color> secondary-color;
+    in property <color> title-color;
+    callback keep();
+    callback discard();
+
+    visible: root.open;
+    background: #00000066;
+    z: 5000;
+    TouchArea { }
+
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: root.compact ? min(360px, parent.width - 32px) : 360px;
+            height: discard-message.y + discard-message.height + 75px;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: root.frame-border-color;
+            background: root.background-color;
+
+            discard-heading := Text {
+                x: 20px;
+                y: 20px;
+                width: parent.width - 40px;
+                height: max(24px, self.preferred-height);
+                text: @tr("Discard this draft?");
+                color: root.title-color;
+                font-size: TypeScale.heading-small;
+                font-weight: 700;
+            }
+
+            discard-message := Text {
+                x: 20px;
+                y: discard-heading.y + discard-heading.height + 7px;
+                width: parent.width - 40px;
+                height: max(38px, self.preferred-height);
+                text: @tr("The message and its attachments will be removed from this composer.");
+                color: root.secondary-color;
+                font-size: TypeScale.secondary;
+                wrap: word-wrap;
+            }
+
+            Button {
+                x: discard-button.x - self.width - 8px;
+                y: discard-button.y;
+                width: max(78px, self.content-width);
+                height: 34px;
+                text: @tr("Keep");
+                clicked => { root.keep(); }
+            }
+
+            discard-button := Button {
+                x: parent.width - self.width - 20px;
+                y: discard-message.y + discard-message.height + 19px;
+                width: max(86px, self.content-width);
+                height: 34px;
+                text: @tr("Discard");
+                primary: true;
+                clicked => {
+                    root.keep();
+                    root.discard();
+                }
+            }
+        }
+}

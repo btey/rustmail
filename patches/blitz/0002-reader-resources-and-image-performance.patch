@@ -1,0 +1,382 @@
+diff --git a/crates/blitz-dom/src/config.rs b/crates/blitz-dom/src/config.rs
+index f1a9a5e..cd6d9d0 100644
+--- a/crates/blitz-dom/src/config.rs
++++ b/crates/blitz-dom/src/config.rs
+@@ -31,6 +31,8 @@ pub enum StyleThreading {
+ /// Options used when constructing a [`BaseDocument`](crate::BaseDocument)
+ #[derive(Default)]
+ pub struct DocumentConfig {
++    /// Optional bounded raster decoding for untrusted email content.
++    pub image_decode_limits: Option<crate::net::ImageDecodeLimits>,
+     /// The initial `Viewport`
+     pub viewport: Option<Viewport>,
+     /// The base url which relative URLs are resolved against
+diff --git a/crates/blitz-dom/src/document.rs b/crates/blitz-dom/src/document.rs
+index 1db0b4d..e301989 100644
+--- a/crates/blitz-dom/src/document.rs
++++ b/crates/blitz-dom/src/document.rs
+@@ -194,7 +194,31 @@ pub enum DocumentEvent {
+     },
+ }
+ 
++/// Damage from delivered resources. Paint-only updates preserve resolved layout.
++#[derive(Default, Debug)]
++pub struct ResourceUpdates {
++    pub changed: bool,
++    pub layout: bool,
++    pub paint_nodes: Vec<NodeId>,
++}
++
++fn image_has_fixed_size(node: &Node) -> bool {
++    use taffy::CoreStyle as _;
++    if node.primary_styles().is_none() {
++        return false;
++    }
++    let size = node.layout_style().size();
++    size.width
++        .into_option()
++        .is_some_and(|v| v.is_finite() && v > 0.0)
++        && size
++            .height
++            .into_option()
++            .is_some_and(|v| v.is_finite() && v > 0.0)
++}
++
+ pub struct BaseDocument {
++    pub(crate) image_decode_limits: Option<crate::net::ImageDecodeLimits>,
+     /// ID of the document
+     id: usize,
+ 
+@@ -440,6 +464,7 @@ impl BaseDocument {
+         let (tx, rx) = sync_channel(DOCUMENT_EVENT_QUEUE_CAPACITY);
+ 
+         let mut doc = Self {
++            image_decode_limits: config.image_decode_limits,
+             id,
+             tx,
+             rx: Some(rx),
+@@ -1231,16 +1256,58 @@ impl BaseDocument {
+     }
+ 
+     pub fn handle_messages(&mut self) {
++        self.drain_pending_messages();
++    }
++
++    /// Drain resource events, reporting whether layout may have changed.
++    pub fn drain_pending_messages(&mut self) -> bool {
++        self.drain_pending_updates().changed
++    }
++
++    pub fn drain_pending_updates(&mut self) -> ResourceUpdates {
++        let mut updates = ResourceUpdates::default();
+         // Remove event Reciever from the Document so that we can process events
+         // without holding a borrow to the Document
+         let rx = self.rx.take().unwrap();
+ 
+         while let Ok(msg) = rx.try_recv() {
++            updates.changed = true;
++            match &msg {
++                DocumentEvent::ResourceLoad(res) => {
++                    updates.layout |= self.pending_critical_resources.contains(&res.request_id);
++                    match &res.result {
++                        Ok(Resource::Image(..) | Resource::Raster(..)) => {
++                            if let Some(waiting) = res
++                                .resolved_url
++                                .as_ref()
++                                .and_then(|url| self.pending_images.get(url))
++                            {
++                                for &(id, kind) in waiting {
++                                    if matches!(kind, ImageType::Image)
++                                        && self
++                                            .get_node(id)
++                                            .is_some_and(|node| !image_has_fixed_size(node))
++                                    {
++                                        updates.layout = true;
++                                    }
++                                    updates.paint_nodes.push(id);
++                                }
++                            }
++                        }
++                        Ok(Resource::None) | Err(_) => {}
++                        _ => updates.layout = true,
++                    }
++                }
++                _ => updates.layout = true,
++            }
+             self.handle_message(msg);
+         }
+ 
+         // Put Reciever back
+         self.rx = Some(rx);
++        updates.paint_nodes.sort_unstable();
++        updates.paint_nodes.dedup();
++        updates
+     }
+ 
+     pub fn handle_message(&mut self, msg: DocumentEvent) {
+@@ -1283,6 +1350,11 @@ impl BaseDocument {
+         };
+ 
+         match resource {
++            Resource::Raster(_, image) => {
++                if let Some(url) = res.resolved_url.as_ref() {
++                    self.apply_loaded_image(url, ImageData::Raster(image));
++                }
++            }
+             Resource::Css(css) => {
+                 let node_id = res.node_id.unwrap();
+                 self.add_stylesheet_for_node(css, node_id);
+@@ -1390,6 +1462,7 @@ impl BaseDocument {
+ 
+             match image_type {
+                 ImageType::Image => {
++                    let fixed_size = image_has_fixed_size(node);
+                     let element = node.element_data_mut().unwrap();
+                     #[cfg(feature = "custom-widget")]
+                     if element.custom_widget_data().is_some() {
+@@ -1398,8 +1471,10 @@ impl BaseDocument {
+                     element.special_data = SpecialElementData::Image(Box::new(image.clone()));
+ 
+                     // Clear layout cache
+-                    node.clear_layout_cache();
+-                    node.insert_damage(ALL_DAMAGE);
++                    if !fixed_size {
++                        node.clear_layout_cache();
++                        node.insert_damage(ALL_DAMAGE);
++                    }
+                 }
+                 ImageType::Background(idx) | ImageType::Mask(idx) => {
+                     let layer_image = node.element_data_mut().and_then(|el| {
+@@ -2620,9 +2695,11 @@ impl BaseDocument {
+             }
+ 
+             if !result.is_empty() {
+-                result.push(' ');
++                result.push('\n');
++            }
++            if let Some(text) = inline_layout.text.get(*start..*end) {
++                result.push_str(text);
+             }
+-            result.push_str(&inline_layout.text[*start..*end]);
+         }
+ 
+         if result.is_empty() {
+diff --git a/crates/blitz-dom/src/iframe.rs b/crates/blitz-dom/src/iframe.rs
+index 6fa0f02..03520ae 100644
+--- a/crates/blitz-dom/src/iframe.rs
++++ b/crates/blitz-dom/src/iframe.rs
+@@ -55,6 +55,7 @@ impl BaseDocument {
+         abort_signal: AbortSignal,
+     ) -> DocumentConfig {
+         DocumentConfig {
++            image_decode_limits: self.image_decode_limits,
+             viewport: None,
+             base_url,
+             ua_stylesheets: None,
+diff --git a/crates/blitz-dom/src/layout/damage.rs b/crates/blitz-dom/src/layout/damage.rs
+index aaa5f5e..a48384e 100644
+--- a/crates/blitz-dom/src/layout/damage.rs
++++ b/crates/blitz-dom/src/layout/damage.rs
+@@ -611,7 +611,8 @@ impl BaseDocument {
+                                 doc_id,
+                                 None, // Don't pass node_id, we'll handle via pending_images
+                                 self.shell_provider.clone(),
+-                                ImageHandler::new(kind.image_type(idx)),
++                                ImageHandler::new(kind.image_type(idx))
++                                    .with_limits(self.image_decode_limits),
+                             ),
+                         );
+ 
+diff --git a/crates/blitz-dom/src/mutator.rs b/crates/blitz-dom/src/mutator.rs
+index 8bd4f9f..2cb27d4 100644
+--- a/crates/blitz-dom/src/mutator.rs
++++ b/crates/blitz-dom/src/mutator.rs
+@@ -1192,7 +1192,8 @@ impl<'doc> DocumentMutator<'doc> {
+                         self.doc.id(),
+                         None, // Don't pass node_id, we'll handle it via pending_images
+                         self.doc.shell_provider.clone(),
+-                        ImageHandler::new(ImageType::Image),
++                        ImageHandler::new(ImageType::Image)
++                            .with_limits(self.doc.image_decode_limits),
+                     ),
+                 );
+             }
+diff --git a/crates/blitz-dom/src/net.rs b/crates/blitz-dom/src/net.rs
+index a24ee9f..e9765fa 100644
+--- a/crates/blitz-dom/src/net.rs
++++ b/crates/blitz-dom/src/net.rs
+@@ -24,6 +24,9 @@ use blitz_traits::shell::ShellProvider;
+ 
+ use url::Url;
+ 
++mod image_decode;
++pub use image_decode::ImageDecodeLimits;
++
+ use crate::{document::DocumentEvent, util::ImageType};
+ 
+ pub(crate) fn stamped_request(url: Url, signal: Option<&AbortSignal>) -> Request {
+@@ -56,6 +59,7 @@ pub struct FontFaceOverrides {
+ 
+ #[derive(Clone, Debug)]
+ pub enum Resource {
++    Raster(ImageType, crate::node::RasterImageData),
+     Image(ImageType, u32, u32, Arc<Vec<u8>>),
+     #[cfg(feature = "svg")]
+     Svg(ImageType, crate::node::SvgImageData),
+@@ -553,10 +557,15 @@ impl NetHandler for ResourceHandler<DocumentSrcHandler> {
+ 
+ pub struct ImageHandler {
+     kind: ImageType,
++    limits: Option<ImageDecodeLimits>,
+ }
+ impl ImageHandler {
+     pub fn new(kind: ImageType) -> Self {
+-        Self { kind }
++        Self { kind, limits: None }
++    }
++    pub fn with_limits(mut self, limits: Option<ImageDecodeLimits>) -> Self {
++        self.limits = limits;
++        self
+     }
+ }
+ 
+@@ -569,6 +578,11 @@ impl NetHandler for ResourceHandler<ImageHandler> {
+ 
+ impl ImageHandler {
+     fn parse(&self, bytes: Bytes) -> Result<Resource, String> {
++        if let Some(limits) = self.limits {
++            return limits
++                .decode(&bytes)
++                .map(|image| Resource::Raster(self.kind, image));
++        }
+         let image_err = match image::ImageReader::new(Cursor::new(&bytes))
+             .with_guessed_format()
+             .expect("IO errors impossible with Cursor")
+diff --git a/crates/blitz-dom/src/net/image_decode.rs b/crates/blitz-dom/src/net/image_decode.rs
+new file mode 100644
+index 0000000..92aebeb
+--- /dev/null
++++ b/crates/blitz-dom/src/net/image_decode.rs
+@@ -0,0 +1,122 @@
++use crate::node::RasterImageData;
++use image::metadata::Orientation;
++use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader};
++use std::{io::Cursor, sync::Arc};
++
++#[derive(Clone, Copy, Debug)]
++pub struct ImageDecodeLimits {
++    pub max_source_dimension: u32,
++    pub max_source_pixels: u64,
++    /// JPEGs can be admitted at a larger source size because the decoder uses
++    /// native IDCT scaling before allocating the retained pixel buffer.
++    pub max_jpeg_source_dimension: u32,
++    pub max_jpeg_source_pixels: u64,
++    pub max_alloc: u64,
++    pub target_dimension: u32,
++}
++
++impl ImageDecodeLimits {
++    /// Bound decoding and retain intrinsic dimensions independently of pixels.
++    /// JPEG uses native IDCT scaling; other formats are resized after their
++    /// bounded decode. The first frame is used for animated formats.
++    ///
++    /// EXIF orientation is applied, as `image-orientation: from-image` is the
++    /// CSS default, so the intrinsic size is that of the upright image.
++    pub fn decode(self, bytes: &[u8]) -> Result<RasterImageData, String> {
++        let reader = ImageReader::new(Cursor::new(bytes))
++            .with_guessed_format()
++            .map_err(|e| e.to_string())?;
++        let is_jpeg = reader.format() == Some(ImageFormat::Jpeg);
++        let mut decoder = reader.into_decoder().map_err(|e| e.to_string())?;
++        let (width, height) = decoder.dimensions();
++        let (max_source_dimension, max_source_pixels) = if is_jpeg {
++            (self.max_jpeg_source_dimension, self.max_jpeg_source_pixels)
++        } else {
++            (self.max_source_dimension, self.max_source_pixels)
++        };
++        if width == 0
++            || height == 0
++            || width > max_source_dimension
++            || height > max_source_dimension
++            || u64::from(width) * u64::from(height) > max_source_pixels
++            || self.target_dimension == 0
++        {
++            return Err("Image dimensions exceed the document decoder limits".into());
++        }
++        // Malformed metadata must not lose an otherwise valid image.
++        let orientation = decoder.orientation().unwrap_or(Orientation::NoTransforms);
++
++        let target = self.target_dimension;
++        let scaled_jpeg = (is_jpeg && width.max(height) > target)
++            .then(|| self.decode_scaled_jpeg(bytes, width, height))
++            .flatten();
++        let decoded = match scaled_jpeg {
++            Some(image) => image,
++            None => {
++                // The general decoder allocates the full source, so the
++                // allocation limit still bounds JPEGs that could not be scaled.
++                let mut limits = image::Limits::default();
++                limits.max_image_width = Some(max_source_dimension);
++                limits.max_image_height = Some(max_source_dimension);
++                limits.max_alloc = Some(self.max_alloc);
++                decoder.set_limits(limits).map_err(|e| e.to_string())?;
++                DynamicImage::from_decoder(decoder).map_err(|e| e.to_string())?
++            }
++        };
++        let mut decoded = if decoded.width().max(decoded.height()) > target {
++            decoded.thumbnail(target, target)
++        } else {
++            decoded
++        };
++        decoded.apply_orientation(orientation);
++        let (width, height) = match orientation {
++            Orientation::Rotate90
++            | Orientation::Rotate270
++            | Orientation::Rotate90FlipH
++            | Orientation::Rotate270FlipH => (height, width),
++            _ => (width, height),
++        };
++
++        let pixel_width = decoded.width();
++        let pixel_height = decoded.height();
++        let mut image =
++            RasterImageData::new(width, height, Arc::new(decoded.into_rgba8().into_raw()));
++        image.pixel_width = pixel_width;
++        image.pixel_height = pixel_height;
++        Ok(image)
++    }
++
++    /// Decode a large RGB or greyscale JPEG at a reduced size using the
++    /// decoder's IDCT scaling. `None` defers to the general decoder, which
++    /// handles everything else (CMYK, streams this decoder rejects).
++    fn decode_scaled_jpeg(self, bytes: &[u8], width: u32, height: u32) -> Option<DynamicImage> {
++        let mut decoder = jpeg_decoder::Decoder::new(Cursor::new(bytes));
++        decoder.set_max_decoding_buffer_size(self.max_alloc.min(usize::MAX as u64) as usize);
++        decoder.read_info().ok()?;
++        let info = decoder.info()?;
++        if !matches!(
++            info.pixel_format,
++            jpeg_decoder::PixelFormat::RGB24 | jpeg_decoder::PixelFormat::L8
++        ) {
++            return None;
++        }
++        let divisor = width
++            .max(height)
++            .div_ceil(self.target_dimension)
++            .next_power_of_two()
++            .min(8);
++        let (w, h) = decoder
++            .scale(
++                width.div_ceil(divisor) as u16,
++                height.div_ceil(divisor) as u16,
++            )
++            .ok()?;
++        let pixels = decoder.decode().ok()?;
++        Some(match info.pixel_format {
++            jpeg_decoder::PixelFormat::RGB24 => {
++                DynamicImage::ImageRgb8(image::RgbImage::from_raw(w.into(), h.into(), pixels)?)
++            }
++            _ => DynamicImage::ImageLuma8(image::GrayImage::from_raw(w.into(), h.into(), pixels)?),
++        })
++    }
++}

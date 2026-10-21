@@ -1,0 +1,280 @@
+import { VerticalBox, HorizontalBox, ScrollView, ComboBox } from "std-widgets.slint";
+import { Button } from "button.slint";
+import { FormField, SettingsNavItem } from "settings-components.slint";
+import { MailSecurityFields } from "mail-security-fields.slint";
+import { AdvancedOptions } from "../models.slint";
+import { AppTheme } from "../design-system.slint";
+import { TypeScale } from "../typography.slint";
+
+// The account form used when connecting and when editing an account. A
+// sidebar (a dropdown in compact windows) groups the options so nothing needs
+// long scrolling; `limited` offers only the groups that can decide whether a
+// first account connects at all, leaving the rest for Settings afterwards.
+export component AccountSetupForm inherits Rectangle {
+    in-out property <string> account-email;
+    in-out property <string> account-username;
+    in-out property <string> account-password;
+    in-out property <string> account-protocol: "imap";
+    in-out property <string> jmap-url;
+    in-out property <string> imap-host;
+    in-out property <string> imap-port: "993";
+    in-out property <string> smtp-host;
+    in-out property <string> smtp-port: "465";
+    in-out property <string> imap-security: "auto";
+    in-out property <string> smtp-security: "auto";
+    in-out property <string> trusted-certificate-pem;
+    in-out property <AdvancedOptions> advanced;
+    in property <bool> enabled: true;
+    in property <bool> compact: false;
+    in property <bool> limited: false;
+    in property <color> label-color;
+    in property <color> heading-color;
+    in property <color> body-text;
+    in property <color> muted-text;
+    in property <color> accent;
+    in property <color> accent-soft;
+    in property <length> field-height: 58px;
+    callback email-edited(string);
+    callback import-certificate();
+    // Opens a file chooser; the argument says whether to pick a single file (mbox).
+    callback browse-local-folder(bool);
+
+    in-out property <string> picked: "account";
+    private property <[string]> ids: root.limited
+        ? ["account", "security", "sign-in", "network"]
+        : ["account", "security", "sign-in", "identity", "folders", "network"];
+    private property <[string]> labels: root.limited
+        ? [@tr("Account"), @tr("Security"), @tr("Sign-in"), @tr("Network")]
+        : [@tr("Account"), @tr("Security"), @tr("Sign-in"), @tr("Identity"), @tr("Folders"), @tr("Network")];
+    // JMAP discovers everything itself, so only the account group applies.
+    private property <bool> grouped: root.account-protocol != "jmap";
+    private property <bool> local: root.account-protocol == "local";
+    private property <bool> news: root.account-protocol == "news";
+    private property <string> section: root.grouped ? root.picked : "account";
+    private property <int> picked-index: root.section == "security" ? 1 : root.section == "sign-in" ? 2
+        : root.limited ? (root.section == "network" ? 3 : 0)
+        : root.section == "identity" ? 3 : root.section == "folders" ? 4 : root.section == "network" ? 5 : 0;
+
+    HorizontalBox {
+        padding: 0px;
+        spacing: 16px;
+
+        if root.grouped && !root.compact : VerticalBox {
+            width: 170px;
+            padding: 0px;
+            spacing: 4px;
+            alignment: start;
+            for id[index] in root.ids : SettingsNavItem {
+                text: root.labels[index];
+                icon: id == "account" ? @image-url("../icons/lucide/filled/account.svg")
+                    : id == "security" ? @image-url("../icons/lucide/filled/link.svg")
+                    : id == "sign-in" ? @image-url("../icons/lucide/filled/person-add.svg")
+                    : id == "identity" ? @image-url("../icons/lucide/filled/contacts.svg")
+                    : id == "folders" ? @image-url("../icons/lucide/filled/folders.svg")
+                    : @image-url("../icons/lucide/filled/cloud.svg");
+                selected: root.section == id;
+                accent: root.accent;
+                accent-soft: root.accent-soft;
+                body-text: root.body-text;
+                muted-text: root.muted-text;
+                clicked => { root.picked = id; }
+            }
+        }
+
+        VerticalBox {
+            horizontal-stretch: 1;
+            padding: 0px;
+            spacing: 10px;
+
+            if root.grouped && root.compact : ComboBox {
+                height: 36px;
+                model: root.labels;
+                current-index: root.picked-index;
+                selected(value) => { root.picked = root.ids[self.current-index]; }
+            }
+
+            form-scroll := ScrollView {
+                vertical-stretch: 1;
+                content-width: self.visible-width;
+                mouse-drag-pan-enabled: root.compact;
+
+                VerticalBox {
+                    x: 0px;
+                    y: 0px;
+                    padding: 0px;
+                    width: max(0px, form-scroll.visible-width - 16px);
+                    height: self.preferred-height;
+                    padding-right: 4px;
+                    spacing: 10px;
+
+                    if root.section == "account" : VerticalBox {
+                        padding: 0px;
+                        spacing: 10px;
+                            if !root.compact : HorizontalBox {
+                            padding: 0px;
+                            height: root.field-height;
+                            spacing: 10px;
+                            FormField {
+                                enabled: root.enabled;
+                                horizontal-stretch: 1;
+                                label: @tr("Email address");
+                                value: root.account-email;
+                                placeholder: @tr("name@example.com");
+                                label-color: root.label-color;
+                                edited(value) => { root.account-email = value; root.email-edited(value); }
+                            }
+                            FormField {
+                                enabled: root.enabled;
+                                horizontal-stretch: 1;
+                                label: @tr("Username");
+                                value: root.account-username;
+                                placeholder: root.news ? @tr("Empty for anonymous access") : @tr("Usually your email address");
+                                label-color: root.label-color;
+                                edited(value) => { root.account-username = value; }
+                            }
+                        }
+                        if root.compact : VerticalBox {
+                            padding: 0px;
+                            spacing: 10px;
+                            FormField {
+                                enabled: root.enabled;
+                                height: root.field-height;
+                                label: @tr("Email address");
+                                value: root.account-email;
+                                placeholder: @tr("name@example.com");
+                                label-color: root.label-color;
+                                edited(value) => { root.account-email = value; root.email-edited(value); }
+                            }
+                            FormField {
+                                enabled: root.enabled;
+                                height: root.field-height;
+                                label: @tr("Username");
+                                value: root.account-username;
+                                placeholder: root.news ? @tr("Empty for anonymous access") : @tr("Usually your email address");
+                                label-color: root.label-color;
+                                edited(value) => { root.account-username = value; }
+                            }
+                        }
+                        FormField {
+                            enabled: root.enabled;
+                            height: root.field-height;
+                            label: root.account-protocol == "jmap" ? @tr("Password, app password, or API token") : root.local ? @tr("SMTP password · Optional") : root.news ? @tr("Password · Optional") : @tr("Password or app password");
+                            value: root.account-password;
+                            input-type: password;
+                            placeholder: root.account-protocol == "jmap" ? @tr("Password, app password, or API token") : root.local ? @tr("Only needed to send mail") : root.news ? @tr("Only if the server asks for a login") : @tr("Password or app password");
+                            label-color: root.label-color;
+                            edited(value) => { root.account-password = value; }
+                        }
+                        HorizontalBox {
+                            padding: 0px;
+                            height: 40px;
+                            spacing: 8px;
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("IMAP"); enabled: root.enabled; primary: root.account-protocol == "imap"; clicked => { root.account-protocol = "imap"; if root.imap-port == "563" { root.imap-port = "993"; } } }
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("JMAP"); enabled: root.enabled; primary: root.account-protocol == "jmap"; clicked => { root.account-protocol = "jmap"; } }
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("Local"); enabled: root.enabled; primary: root.local; clicked => { root.account-protocol = "local"; } }
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("News"); enabled: root.enabled; primary: root.news; clicked => { root.account-protocol = "news"; if root.imap-port == "993" { root.imap-port = "563"; } } }
+                        }
+                        if root.local : HorizontalBox {
+                            padding: 0px;
+                            height: root.field-height;
+                            spacing: 10px;
+                            FormField { enabled: root.enabled; horizontal-stretch: 1; label: @tr("Mail folder"); value: root.advanced.local-path; placeholder: @tr("/home/you/Mail"); label-color: root.label-color; edited(value) => { root.advanced.local-path = value; } }
+                            VerticalBox {
+                                padding: 0px;
+                                alignment: end;
+                                width: 156px;
+                                browse := Button { height: 36px; text: root.advanced.local-format == "mbox" ? @tr("Choose file…") : @tr("Choose folder…"); enabled: root.enabled; clicked => { root.browse-local-folder(root.advanced.local-format == "mbox"); } }
+                            }
+                        }
+                        if root.local : HorizontalBox {
+                            padding: 0px;
+                            height: 40px;
+                            spacing: 8px;
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("Maildir"); enabled: root.enabled; primary: root.advanced.local-format != "mbox" && root.advanced.local-format != "mh"; clicked => { root.advanced.local-format = "maildir"; } }
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("MH"); enabled: root.enabled; primary: root.advanced.local-format == "mh"; clicked => { root.advanced.local-format = "mh"; } }
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("mbox (read only)"); enabled: root.enabled; primary: root.advanced.local-format == "mbox"; clicked => { root.advanced.local-format = "mbox"; } }
+                        }
+                        if root.local : Text {
+                            text: root.advanced.local-format == "mbox" ? @tr("mbox files are only read, never changed. Moving or deleting messages is not available; read and starred marks stay in Rustmail.") : root.advanced.local-format == "mh" ? @tr("MH folders with numbered message files. Moves and deletions are written to the files; read and starred marks go in each folder's .mh_sequences file.") : @tr("Maildir or Maildir++ folders. Flags, moves and deletions are written back to the files, so other mail programs stay in sync.");
+                            color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+                        }
+                        if root.local : Text {
+                            text: @tr("Sending is optional: enter an SMTP server below to send mail from this account.");
+                            color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+                        }
+                        if root.local : HorizontalBox {
+                            padding: 0px;
+                            height: root.field-height;
+                            spacing: 10px;
+                            FormField { enabled: root.enabled; horizontal-stretch: 1; label: @tr("SMTP server · Optional"); value: root.smtp-host; placeholder: @tr("smtp.example.com"); label-color: root.label-color; edited(value) => { root.smtp-host = value; } }
+                            FormField { enabled: root.enabled; width: max(88px, self.preferred-width); label: @tr("Port"); value: root.smtp-port; input-type: number; placeholder: @tr("465"); label-color: root.label-color; edited(value) => { root.smtp-port = value; } }
+                        }
+                        if root.news : HorizontalBox {
+                            padding: 0px;
+                            height: root.field-height;
+                            spacing: 10px;
+                            FormField { enabled: root.enabled; horizontal-stretch: 1; label: @tr("News server"); value: root.imap-host; placeholder: @tr("news.example.com"); label-color: root.label-color; edited(value) => { root.imap-host = value; } }
+                            FormField { enabled: root.enabled; width: max(88px, self.preferred-width); label: @tr("Port"); value: root.imap-port; input-type: number; placeholder: @tr("563"); label-color: root.label-color; edited(value) => { root.imap-port = value; } }
+                        }
+                        if root.news : FormField {
+                            enabled: root.enabled;
+                            height: root.field-height;
+                            label: @tr("Newsgroups");
+                            value: root.advanced.news-groups;
+                            placeholder: @tr("comp.lang.rust, alt.test");
+                            label-color: root.label-color;
+                            edited(value) => { root.advanced.news-groups = value; }
+                        }
+                        if root.news : Text {
+                            text: @tr("Separate groups with commas or spaces. To start a new discussion, address the message to group.name@news; replies go to the group they answer.");
+                            color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+                        }
+                        if root.account-protocol == "jmap" : FormField {
+                            enabled: root.enabled;
+                            height: root.field-height;
+                            label: @tr("Server address · Optional");
+                            value: root.jmap-url;
+                            placeholder: @tr("Discovered from your email domain");
+                            label-color: root.label-color;
+                            edited(value) => { root.jmap-url = value; }
+                        }
+                        if root.account-protocol == "jmap" : Text {
+                            text: @tr("Leave blank to discover /.well-known/jmap from your email domain.");
+                            color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+                        }
+                        if root.account-protocol == "imap" : HorizontalBox {
+                            padding: 0px;
+                            height: root.field-height;
+                            spacing: 10px;
+                            FormField { enabled: root.enabled; horizontal-stretch: 1; label: @tr("IMAP server"); value: root.imap-host; placeholder: @tr("imap.example.com"); label-color: root.label-color; edited(value) => { root.imap-host = value; } }
+                            FormField { enabled: root.enabled; width: max(88px, self.preferred-width); label: @tr("Port"); value: root.imap-port; input-type: number; placeholder: @tr("993"); label-color: root.label-color; edited(value) => { root.imap-port = value; } }
+                        }
+                        if root.account-protocol == "imap" : HorizontalBox {
+                            padding: 0px;
+                            height: root.field-height;
+                            spacing: 10px;
+                            FormField { enabled: root.enabled; horizontal-stretch: 1; label: @tr("SMTP server"); value: root.smtp-host; placeholder: @tr("smtp.example.com"); label-color: root.label-color; edited(value) => { root.smtp-host = value; } }
+                            FormField { enabled: root.enabled; width: max(88px, self.preferred-width); label: @tr("Port"); value: root.smtp-port; input-type: number; placeholder: @tr("465"); label-color: root.label-color; edited(value) => { root.smtp-port = value; } }
+                        }
+                        if root.account-protocol == "imap" : Text {
+                            text: @tr("Proton Bridge: use the local servers, ports and password shown in Bridge, and match its encryption settings.");
+                            color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+                        }
+                    }
+
+                    if root.account-protocol != "jmap" && root.section != "account" : MailSecurityFields {
+                        section: root.section;
+                        local: root.local;
+                        news: root.news;
+                        imap-security <=> root.imap-security;
+                        smtp-security <=> root.smtp-security;
+                        enabled: root.enabled;
+                        certificate-pem <=> root.trusted-certificate-pem;
+                        advanced <=> root.advanced;
+                        import-certificate => { root.import-certificate(); }
+                    }
+                }
+            }
+        }
+    }
+}

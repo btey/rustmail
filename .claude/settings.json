@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(crates/rustmail-core/src/accounts/**)",
+      "Edit(crates/rustmail-core/src/accounts/**)"
+    ]
+  }
+}

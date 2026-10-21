@@ -1,0 +1,313 @@
+//! Secrets live in the platform credential service and never in SQLite.
+//! Desktop builds use the system keychain; mobile hosts inject their own
+//! `CredentialStore`. Debug builds may explicitly inject a plaintext file
+//! backend for isolated development containers; release builds never enable
+//! that backend.
+
+use crate::error::{CoreError, Result};
+use std::sync::Arc;
+
+#[cfg(desktop)]
+#[path = "system.rs"]
+mod system;
+#[cfg(all(desktop, any(test, debug_assertions)))]
+pub use system::DevelopmentFileCredentialStore;
+#[cfg(desktop)]
+pub use system::SystemCredentialStore;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Slot {
+    Password,
+    RefreshToken,
+    AccessToken,
+    /// OAuth application registration that issued this account's refresh
+    /// token. Keeping it per-account prevents a later custom-app override from
+    /// invalidating accounts connected with the bundled registration.
+    OAuthClientId,
+    OAuthClientSecret,
+    /// Versioned, atomically replaced OAuth refresh token and application
+    /// registration. The older individual OAuth slots remain readable for
+    /// migration and are removed when an account is deleted.
+    OAuthBundle,
+    /// App-level AI API key (stored under account id 0).
+    AiApiKey,
+    /// Generic-CalDAV app password (Google CalDAV reuses the OAuth tokens).
+    CaldavPassword,
+    /// CardDAV app password. Kept separate because a user may configure
+    /// different DAV providers for calendars and contacts.
+    CarddavPassword,
+    /// SMTP password when it differs from the mail account password.
+    SmtpPassword,
+    /// Private key for the account's mutual-TLS client certificate.
+    ClientKey,
+}
+
+impl Slot {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Slot::Password => "password",
+            Slot::RefreshToken => "refresh_token",
+            Slot::AccessToken => "access_token",
+            Slot::OAuthClientId => "oauth_client_id",
+            Slot::OAuthClientSecret => "oauth_client_secret",
+            Slot::OAuthBundle => "oauth_bundle",
+            Slot::AiApiKey => "ai_api_key",
+            Slot::CaldavPassword => "caldav_password",
+            Slot::CarddavPassword => "carddav_password",
+            Slot::SmtpPassword => "smtp_password",
+            Slot::ClientKey => "client_key",
+        }
+    }
+}
+
+/// Platform-owned secret persistence. Implementations must be durable across
+/// process death and must never put secret material in SQLite or logs.
+pub trait CredentialStore: Send + Sync {
+    fn store(&self, account_id: i64, slot: Slot, secret: &str) -> Result<()>;
+    fn load(&self, account_id: i64, slot: Slot) -> Result<String>;
+    fn delete(&self, account_id: i64, slot: Slot) -> Result<()>;
+    fn delete_all(&self, account_id: i64) -> Result<()>;
+
+    /// Verify that this backend can complete a write/read/delete cycle before
+    /// an external OAuth grant or a remote account check begins.
+    fn check_available(&self) -> Result<()> {
+        static PROBE_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+        let _guard = PROBE_LOCK
+            .get_or_init(|| std::sync::Mutex::new(()))
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let account_id = i64::MIN;
+        let secret = "rustmail-credential-probe-v1";
+        self.store(account_id, Slot::Password, secret)
+            .map_err(as_unavailable)?;
+        let loaded = self.load(account_id, Slot::Password);
+        let deleted = self.delete(account_id, Slot::Password);
+
+        let loaded = loaded.map_err(as_unavailable)?;
+        deleted.map_err(as_unavailable)?;
+        if loaded != secret {
+            return Err(CoreError::CredentialStoreUnavailable(
+                "credential verification returned different data".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn as_unavailable(error: CoreError) -> CoreError {
+    match error {
+        CoreError::CredentialStoreUnavailable(_) => error,
+        other => CoreError::CredentialStoreUnavailable(other.to_string()),
+    }
+}
+
+pub type CredentialStoreHandle = Arc<dyn CredentialStore>;
+
+/// For hosts that have not integrated secure storage yet. Every operation
+/// fails, so account setup reports the gap instead of persisting secrets
+/// anywhere else.
+#[derive(Debug, Default)]
+pub struct UnavailableCredentialStore;
+
+impl UnavailableCredentialStore {
+    fn error() -> CoreError {
+        CoreError::CredentialStoreUnavailable(
+            "this platform host does not provide secure credential storage".into(),
+        )
+    }
+}
+
+impl CredentialStore for UnavailableCredentialStore {
+    fn store(&self, _: i64, _: Slot, _: &str) -> Result<()> {
+        Err(Self::error())
+    }
+
+    fn load(&self, _: i64, _: Slot) -> Result<String> {
+        Err(Self::error())
+    }
+
+    fn delete(&self, _: i64, _: Slot) -> Result<()> {
+        Err(Self::error())
+    }
+
+    fn delete_all(&self, _: i64) -> Result<()> {
+        Err(Self::error())
+    }
+}
+
+pub async fn store_async(
+    store: CredentialStoreHandle,
+    account_id: i64,
+    slot: Slot,
+    secret: String,
+) -> Result<()> {
+    tokio::task::spawn_blocking(move || store.store(account_id, slot, &secret))
+        .await
+        .map_err(|e| CoreError::Other(e.to_string()))?
+}
+
+pub async fn load_async(
+    store: CredentialStoreHandle,
+    account_id: i64,
+    slot: Slot,
+) -> Result<String> {
+    tokio::task::spawn_blocking(move || store.load(account_id, slot))
+        .await
+        .map_err(|e| CoreError::Other(e.to_string()))?
+}
+
+pub async fn delete_all_async(store: CredentialStoreHandle, account_id: i64) -> Result<()> {
+    tokio::task::spawn_blocking(move || {
+        // Clear the SMTP slot explicitly so it never outlives the account,
+        // whatever the backend's `delete_all` enumerates.
+        let _ = store.delete(account_id, Slot::SmtpPassword);
+        let _ = store.delete(account_id, Slot::ClientKey);
+        store.delete_all(account_id)
+    })
+    .await
+    .map_err(|e| CoreError::Other(e.to_string()))?
+}
+
+/// The password for SMTP submission: the dedicated SMTP secret when one is
+/// stored, otherwise the account password.
+pub async fn load_smtp_password_async(
+    store: CredentialStoreHandle,
+    account_id: i64,
+) -> Result<String> {
+    match load_async(store.clone(), account_id, Slot::SmtpPassword).await {
+        Ok(password) if !password.is_empty() => Ok(password),
+        _ => load_async(store, account_id, Slot::Password).await,
+    }
+}
+
+/// Copy of `config` with runtime-only secrets (the client-certificate key)
+/// filled in from the credential store. They are never written to SQLite.
+pub async fn hydrate_account(
+    store: &CredentialStoreHandle,
+    config: &crate::models::AccountConfig,
+) -> crate::models::AccountConfig {
+    let mut hydrated = config.clone();
+    if !hydrated
+        .settings
+        .connection
+        .client_certificate_pem
+        .trim()
+        .is_empty()
+        && let Ok(key) = load_async(store.clone(), config.id, Slot::ClientKey).await
+    {
+        hydrated.settings.connection.client_key_pem = crate::models::SecretString::new(key);
+    }
+    hydrated
+}
+
+pub async fn delete_async(store: CredentialStoreHandle, account_id: i64, slot: Slot) -> Result<()> {
+    tokio::task::spawn_blocking(move || store.delete(account_id, slot))
+        .await
+        .map_err(|e| CoreError::Other(e.to_string()))?
+}
+
+pub async fn check_available_async(store: CredentialStoreHandle) -> Result<()> {
+    tokio::task::spawn_blocking(move || store.check_available())
+        .await
+        .map_err(|e| CoreError::Other(e.to_string()))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Default)]
+    struct MemoryStore(std::sync::Mutex<std::collections::HashMap<(i64, Slot), String>>);
+
+    impl CredentialStore for MemoryStore {
+        fn store(&self, account_id: i64, slot: Slot, secret: &str) -> Result<()> {
+            self.0
+                .lock()
+                .unwrap()
+                .insert((account_id, slot), secret.into());
+            Ok(())
+        }
+
+        fn load(&self, account_id: i64, slot: Slot) -> Result<String> {
+            self.0
+                .lock()
+                .unwrap()
+                .get(&(account_id, slot))
+                .cloned()
+                .ok_or_else(|| CoreError::Auth("no stored credential".into()))
+        }
+
+        fn delete(&self, account_id: i64, slot: Slot) -> Result<()> {
+            self.0.lock().unwrap().remove(&(account_id, slot));
+            Ok(())
+        }
+
+        fn delete_all(&self, account_id: i64) -> Result<()> {
+            self.0
+                .lock()
+                .unwrap()
+                .retain(|(id, _), _| *id != account_id);
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn unavailable_store_reports_the_missing_backend() {
+        let store: CredentialStoreHandle = Arc::new(UnavailableCredentialStore);
+        assert!(matches!(
+            check_available_async(store.clone()).await,
+            Err(CoreError::CredentialStoreUnavailable(_))
+        ));
+        assert!(
+            store_async(store.clone(), 1, Slot::Password, "secret".into())
+                .await
+                .is_err()
+        );
+        assert!(load_async(store, 1, Slot::Password).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn smtp_password_prefers_the_dedicated_secret_and_is_cleared_with_the_account() {
+        let store: CredentialStoreHandle = Arc::new(MemoryStore::default());
+        store_async(store.clone(), 4, Slot::Password, "imap".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            load_smtp_password_async(store.clone(), 4).await.unwrap(),
+            "imap"
+        );
+        store_async(store.clone(), 4, Slot::SmtpPassword, "smtp".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            load_smtp_password_async(store.clone(), 4).await.unwrap(),
+            "smtp"
+        );
+        delete_all_async(store.clone(), 4).await.unwrap();
+        assert!(load_async(store, 4, Slot::SmtpPassword).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn injected_store_contract_round_trips_and_deletes_an_account() {
+        let memory = Arc::new(MemoryStore::default());
+        let store: CredentialStoreHandle = memory.clone();
+        check_available_async(store.clone()).await.unwrap();
+        assert!(memory.0.lock().unwrap().is_empty());
+        store_async(store.clone(), 9, Slot::Password, "secret".into())
+            .await
+            .unwrap();
+        store_async(store.clone(), 10, Slot::Password, "other".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            load_async(store.clone(), 9, Slot::Password).await.unwrap(),
+            "secret"
+        );
+        delete_all_async(store.clone(), 9).await.unwrap();
+        assert!(load_async(store.clone(), 9, Slot::Password).await.is_err());
+        assert_eq!(
+            load_async(store, 10, Slot::Password).await.unwrap(),
+            "other"
+        );
+    }
+}

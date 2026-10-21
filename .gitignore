@@ -1,0 +1,32 @@
+# Rust build output and locally packaged artifacts
+/target/
+/.flatpak-builder/
+/libs/
+/.artifacts/
+/tmp/
+/.devcontainer/
+*.AppImage
+/platform/android/gradle/.gradle/
+/platform/android/gradle/app/build/
+/platform/android/gradle/build/
+/platform/ios/*.xcodeproj/
+
+# Local OAuth application registrations (see .env.example)
+/.env
+
+# Editor and operating-system files
+*~
+.vscode/
+.idea/
+.DS_Store
+.Trash-*/
+
+# Temporary UI previews and local review captures
+/ui/.*.slint
+/settings-accounts-*.png
+
+# Candle is tested through the application workspace lockfile.
+/crates/candle-core/Cargo.lock
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/

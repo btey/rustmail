@@ -1,0 +1,485 @@
+// Shared UI-facing data types live outside app.slint so feature components can
+// consume the same models without depending on the application window.
+import "../resources/fonts/noto-emoji/NotoEmoji[wght].ttf";
+
+export struct LocalizedMessage {
+    key: string,
+    argument: string,
+    second_argument: string,
+    third_argument: string,
+}
+
+// Computed only while the Storage settings page is open. `offset` and
+// `fraction` let the view paint one proportional bar without doing byte math
+// in Slint's 32-bit integer type.
+export struct StorageUsageRow {
+    kind: string,
+    size: string,
+    fraction: float,
+    offset: float,
+    color: color,
+}
+
+// Drag payloads are opaque to Slint and stay application-internal. Keeping
+// the transfer construction, validation, and mutation on one shared global
+// lets the list and every responsive sidebar use the same DnD contract.
+export global MailDragApi {
+    pure callback make-transfer(int, int) -> data-transfer;
+    pure callback can-drop-on-mailbox(data-transfer, string, int, int) -> bool;
+    callback drop-on-mailbox(data-transfer, string, int, int) -> bool;
+}
+
+export struct MailboxRow {
+    account_id: int,
+    folder_id: int,
+    parent_folder_id: int,
+    depth: int,
+    has_children: bool,
+    expanded: bool,
+    is_standard: bool,
+    is_selectable: bool,
+    can_create_children: bool,
+    can_rename: bool,
+    can_delete: bool,
+    label_has_emoji: bool,
+    label: string,
+    scope: string,
+    context: string,
+    detail: string,
+    avatar: string,
+    avatar_image: image,
+    has_avatar: bool,
+    is_account: bool,
+    count: string,
+    color: color,
+    has_custom_color: bool,
+}
+
+// Provider labels and local auto-categories share one presentation model.
+// `applied` is projected for the currently selected thread so menus and chips
+// update from the same source of truth after every action.
+export struct MailLabelRow {
+    id: int,
+    account_id: int,
+    account_name: string,
+    name: string,
+    display_name: string,
+    depth: int,
+    has_children: bool,
+    expanded: bool,
+    can_create_children: bool,
+    name_has_emoji: bool,
+    color: color,
+    applied: bool,
+    is_auto: bool,
+    is_global: bool,
+}
+
+// One visible navigation entry per list row; stable keys also identify sections.
+export enum SidebarRowKind {
+    unified-heading, unified-section, unified-inbox, unified-mailbox,
+    categories-section, important, other, category,
+    global-labels-section, global-label,
+    accounts-heading, account, folder, account-labels-section, account-label,
+    new-folder, new-label,
+}
+
+export struct SidebarRow {
+    key: string,
+    kind: SidebarRowKind,
+    mailbox: MailboxRow,
+    label: MailLabelRow,
+    open: bool,
+    show_row: bool,
+    reveal_row: bool,
+}
+
+export struct EmailRow {
+    id: int,
+    account_id: int,
+    account: string,
+    account_color: color,
+    account_profile: string,
+    show_account_marker: bool,
+    folder: string,
+    sender: string,
+    address: string,
+    initials: string,
+    favicon: image,
+    favicon_small: image,
+    has_favicon: bool,
+    subject: string,
+    preview: string,
+    time: string,
+    unread: bool,
+    starred: bool,
+    has_attachments: bool,
+    has_replied: bool,
+    message_count: int,
+    label_summary: string,
+    labels: [MailLabelRow],
+    selected: bool,
+    checked: bool,
+}
+
+// Section controls and messages share a virtualized ListView. Closing rows
+// stay in the model briefly at zero height so the accordion can settle.
+export struct MailListEntry {
+    is_header: bool,
+    group_key: string,
+    group_kind: string,
+    group_month: int,
+    group_year: int,
+    group_count: int,
+    expanded: bool,
+    show_row: bool,
+    reveal_row: bool,
+    email_index: int,
+    email: EmailRow,
+}
+
+// Resolve keyboard movement against the entire model, including messages
+// outside the virtualized viewport. Geometry stays in the Slint component.
+export struct MailNavigationTarget {
+    id: int,
+    entry_index: int,
+    preceding_headers: int,
+    preceding_messages: int,
+    checked: bool,
+}
+
+export global MailListNavigation {
+    pure callback target([MailListEntry], int, string, int) -> MailNavigationTarget;
+}
+
+export struct MailProfileRow {
+    id: string,
+    name: string,
+    color: color,
+    account_count: int,
+}
+
+// Messages remain separate inside a conversation. The native side keeps the
+// bodies and renderer state; this lightweight model is safe to virtualize even
+// for long threads.
+export struct ThreadMessageRow {
+    index: int,
+    sender: string,
+    address: string,
+    initials: string,
+    favicon: image,
+    favicon_small: image,
+    has_favicon: bool,
+    preview: string,
+    time: string,
+    to: string,
+    unread: bool,
+    outgoing: bool,
+    body_pending: bool,
+    selected: bool,
+}
+
+// Per-account options beyond host, port and encryption. Empty strings mean
+// "default"; the Rust side parses them back into MailConnectionSettings.
+export struct AdvancedOptions {
+    smtp_auth: string,
+    smtp_username: string,
+    // Never persisted in the account row; entered again when editing.
+    smtp_password: string,
+    timeout_secs: string,
+    organization: string,
+    extra_headers: string,
+    message_id_fqdn: string,
+    max_connections: string,
+    sent_folder: string,
+    drafts_folder: string,
+    trash_folder: string,
+    spam_folder: string,
+    archive_folder: string,
+    display_name: string,
+    imap_auth: string,
+    client_certificate_pem: string,
+    // Never persisted in the account row; entered again when editing.
+    client_key_pem: string,
+    proxy: string,
+    proxy_host: string,
+    proxy_port: string,
+    accept_invalid_certs: bool,
+    // Local accounts: the Maildir/mbox location and its format ("maildir" or "mbox").
+    local_path: string,
+    local_format: string,
+    // News accounts: subscribed newsgroups, separated by commas, spaces or new lines.
+    news_groups: string,
+}
+
+export struct AccountRow {
+    id: int,
+    drag_key: string,
+    name: string,
+    email: string,
+    provider: string,
+    mail_protocol: string,
+    status: string,
+    sync_error: string,
+    initials: string,
+    avatar: image,
+    avatar_small: image,
+    has_avatar: bool,
+    profile_id: string,
+    profile_name: string,
+    profile_color: color,
+    has_profile: bool,
+    has_account_color: bool,
+    username: string,
+    jmap_url: string,
+    imap_security: string,
+    smtp_security: string,
+    trusted_certificate_pem: string,
+    advanced: AdvancedOptions,
+    imap_host: string,
+    imap_port: string,
+    smtp_host: string,
+    smtp_port: string,
+    mail_history: string,
+    sent_copy_policy: string,
+    calendar_connected: bool,
+    calendar_enabled: bool,
+    calendar_status: string,
+    caldav_url: string,
+    caldav_username: string,
+    carddav_connected: bool,
+    carddav_enabled: bool,
+    carddav_status: string,
+    carddav_url: string,
+    carddav_username: string,
+}
+
+export struct EmailLink {
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    url: string,
+    name: string
+}
+
+// Email HTML is rasterized into bounded vertical tiles. Coordinates are
+// normalized against the reading-pane width so HiDPI scaling stays in Slint
+// and no single full-message bitmap has to move on every scroll frame.
+export struct EmailTile {
+    image: image,
+    y: float,
+    height: float,
+}
+
+// The composer uses the same bounded-tile strategy as the message renderer,
+// but these coordinates are logical pixels because cosmic-text owns the
+// editor's exact wrapping and caret geometry.
+export struct ComposeEditorTile {
+    image: image,
+    y: float,
+    height: float,
+}
+
+export struct EmailTemplateRow {
+    id: int,
+    name: string,
+    shortcut: string,
+    subject: string,
+    body_text: string,
+}
+
+export struct CalendarDay {
+    day: string,
+    iso_date: string,
+    outside_month: bool,
+    is_today: bool,
+    is_selected: bool,
+    has_events: bool,
+}
+
+export struct CalendarWeekDay {
+    weekday: string,
+    day: string,
+    iso_date: string,
+    is_today: bool,
+}
+
+export struct CalendarEventRow {
+    id: int,
+    editable: bool,
+    title: string,
+    detail: string,
+    iso_date: string,
+    day_index: int,
+    month_index: int,
+    start_minutes: int,
+    duration_minutes: int,
+    color_index: int,
+    all_day: bool,
+    provider: string,
+    account: string,
+    calendar: string,
+    location: string,
+    organizer: string,
+    description: string,
+    attendees: string,
+    join_url: string,
+    rsvp_status: string,
+    recurrence: string,
+    status: string,
+    source: string,
+}
+
+// A flat model lets ListView virtualize individual events, including busy days.
+export struct CalendarAgendaRow {
+    key: string,
+    kind: string,
+    iso_date: string,
+    date_label: string,
+    is_today: bool,
+    count: int,
+    time_label: string,
+    end_label: string,
+    offset: float,
+    previous_event: int,
+    next_event: int,
+    event: CalendarEventRow,
+}
+
+export struct CalendarAgendaFilterRow {
+    id: int,
+    name: string,
+    account: string,
+    color_index: int,
+    checked: bool,
+}
+
+// Provider calendar collections are kept separate from events so the
+// calendar sidebar can mirror mail's account-aware navigation without
+// inventing local placeholder rows.
+export struct CalendarSourceRow {
+    id: int,
+    account_id: int,
+    group_start: bool,
+    name: string,
+    account_name: string,
+    email: string,
+    provider: string,
+    color: string,
+    color_index: int,
+    read_only: bool,
+    enabled: bool,
+    is_default: bool,
+    last_synced: string,
+}
+
+// Compose attachments intentionally expose display metadata only. Absolute
+// paths stay in Rust so the UI cannot accidentally render or persist local
+// filesystem details in a message.
+export struct ComposeAttachment {
+    name: string,
+    detail: string,
+}
+
+// A deliberately small contact shape for compose autocomplete. The core
+// keeps affinity/account scoping private and only exposes what the menu needs.
+export struct ComposeContact {
+    name: string,
+    email: string,
+    initials: string,
+}
+
+export struct ContactRow {
+    id: int,
+    name: string,
+    email: string,
+    initials: string,
+    avatar_tone: int,
+    company: string,
+    detail: string,
+    last_contacted: string,
+    favorite: bool,
+    suggested: bool,
+    selected: bool,
+}
+
+// Account-aware contact navigation is projected separately from ContactRow so
+// list rows stay small and the sidebar can update counts independently.
+export struct ContactAccountRow {
+    id: int,
+    name: string,
+    email: string,
+    initials: string,
+    avatar: image,
+    has_avatar: bool,
+    count: string,
+    selected: bool,
+}
+
+export enum ContactSidebarRowKind { unified-heading, unified-section, all, favorites, suggestions, accounts-heading, account, contacts, hint }
+export struct ContactSidebarRow {
+    key: string,
+    kind: ContactSidebarRowKind,
+    account: ContactAccountRow,
+    open: bool,
+}
+
+// Email document controls are shared directly with the native renderer.
+export struct ReaderItem { name: string, url: string, kind: string, y: float }
+export struct ReaderImage { x: float, y: float, width: float, height: float, alt: string, state: string }
+export struct ReaderCaret { x: float, y: float, height: float, valid: bool }
+export global EmailReader {
+    in-out property <bool> available: false;
+    in-out property <bool> body-pending: false;
+    in-out property <ReaderCaret> selection-start;
+    in-out property <ReaderCaret> selection-end;
+    in-out property <[ReaderImage]> images;
+    in-out property <int> revision: -1;
+    in-out property <int> message-id: -1;
+    callback ensure-body(int);
+    callback retry-images();
+    in-out property <int> failed-images;
+    pure callback link-at(float, float) -> string;
+    callback command(string);
+    callback find(string, int);
+    in-out property <bool> auto-fit: true;
+    in-out property <float> zoom: 1;
+    in-out property <int> zoom-revision: 0;
+    in-out property <float> width-ratio: 1;
+    in-out property <string> destination;
+    in-out property <string> context-link;
+    in-out property <string> query;
+    in-out property <string> find-status;
+    in-out property <string> notice;
+    in-out property <bool> find-open: false;
+    in-out property <bool> reader-mode: false;
+    in-out property <bool> caret-mode: false;
+    in-out property <[ReaderItem]> items;
+    in-out property <string> authored-text;
+    in-out property <bool> use-authored-text: false;
+}
+
+export struct MailAttachment {
+    id: string,
+    name: string,
+    detail: string,
+    previewable: bool,
+    thumbnail: image,
+    has_thumbnail: bool,
+}
+export global MailAttachments {
+    callback deliver();
+    in-out property <[MailAttachment]> rows;
+    in-out property <bool> open: false;
+    in-out property <bool> busy: false;
+    in-out property <string> name;
+    in-out property <string> status;
+    in-out property <image> image;
+    in-out property <string> text;
+    in-out property <bool> is-image: false;
+    in-out property <int> page: 0;
+    in-out property <int> pages: 0;
+    in-out property <int> revision: 0;
+    callback command(string, string);
+}

@@ -1,0 +1,30 @@
+// Keep the non-visual tray in its own Slint compilation unit. app.slint embeds
+// the UI font; compiling a SystemTrayIcon alongside it makes Slint create
+// a window adapter just to register that font, which leaks an empty 800x600
+// "Slint Window" into Linux task switchers.
+export component RustmailTray inherits SystemTrayIcon {
+    in-out property <bool> enabled: false;
+    visible: root.enabled;
+    // Trays draw at 16-44 px. The tray backends keep several decoded copies
+    // and Linux sends the pixels over D-Bus, so the full app icon would cost
+    // megabytes for the whole time the app sits in the tray.
+    icon: @image-url("../resources/app-icon/rustmail-tray.png");
+    title: @tr("Rustmail");
+    tooltip: @tr("Rustmail");
+
+    callback show_window();
+    callback quit_app();
+
+    clicked => { root.show_window(); }
+
+    Menu {
+        MenuItem {
+            title: @tr("Show Rustmail");
+            activated => { root.show_window(); }
+        }
+        MenuItem {
+            title: @tr("Quit");
+            activated => { root.quit_app(); }
+        }
+    }
+}
