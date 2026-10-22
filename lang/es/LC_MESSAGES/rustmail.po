@@ -2094,7 +2094,7 @@ msgstr "Local"
 
 #: ui/components/account-setup-form.slint:175
 msgid "News"
-msgstr "Noticias"
+msgstr "Usenet"
 
 #: ui/components/account-setup-form.slint:181
 msgid "Mail folder"
