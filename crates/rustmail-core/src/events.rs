@@ -118,6 +118,8 @@ pub enum CoreEvent {
     ContactsUpdated {
         account_id: i64,
     },
+    /// A task, project, column, context, label, checklist item or link changed.
+    TasksChanged,
 }
 
 #[derive(Clone)]

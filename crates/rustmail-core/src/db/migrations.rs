@@ -19,6 +19,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/014_local_mail.sql"),
     include_str!("migrations/015_nntp.sql"),
     include_str!("migrations/016_local_kept_meta.sql"),
+    include_str!("migrations/017_tasks.sql"),
 ];
 pub const LATEST_VERSION: i64 = MIGRATIONS.len() as i64;
 
@@ -150,6 +151,16 @@ mod tests {
             "snoozes",
             "split_rules",
             "sync_failures",
+            "task_activity",
+            "task_changes",
+            "task_checklist_items",
+            "task_columns",
+            "task_contexts",
+            "task_label_links",
+            "task_labels",
+            "task_links",
+            "task_projects",
+            "tasks",
             "threads",
         ]
         .into_iter()

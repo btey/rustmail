@@ -84,6 +84,134 @@ automations (`AiAutomationRule`). Signatures were stored text only.
 - [ ] Local mail: import Claws `.claws_mark`, avoid the second cached copy
 - [ ] Try local (Maildir/mbox/MH) and news accounts in the real app and against real programs and servers (Dovecot, mutt, nmh, Claws, a live news server); only fixtures and a fake server so far
 
+## Phases 6-11: Tasks module and mail-to-task — Phase 6 done, 7-11 todo
+
+Source: four HTML design prototypes in `/home/ben/Projects/` (reference mockups, not code to copy; replicate their values in Slint): `Tasks · Board (GTD kanban)-html`, `Tasks · Timeline (Gantt)-html`, `Mail · Create task from email-html`, `Task · Send email from task-html`. Each folder has one `*.dc.html` whose inline styles and `rmTheme()` carry the colours, sizes and spacing. Work through the phases in order; each phase should leave the app building and verified (see AGENTS.md checklist).
+
+Product decisions taken from the designs (change them here first if they are wrong):
+- A new top-level product "Tasks" next to Mail, Calendar, Files and Contacts (`active_view == "tasks"`), icon in the product rail, own tab titled "Tasks · <project>".
+- GTD model: statuses Inbox, Next actions, Waiting for, Scheduled, Done, plus a collapsible Someday / Maybe column; projects, contexts (`@computer`), labels, checklist, due date, optional start date, priority flag, description, activity log. Statuses are user-editable columns (name, icon, colour, optional WIP limit); the five above are the defaults.
+- Tasks are local-first and stored in Rustmail's own database. No backend service is provided. Assignees are local names or contacts (no multi-user sync); the avatars in the designs are initials of local contacts.
+- A task links to mails (received or sent, by thread id and Message-ID), calendar events, and other tasks (blocks / depends on).
+- The design shows "Dependabot…" and other sample data only as examples; none of it is shipped.
+
+Decisions (confirmed by the user):
+- Local-first, no backend services.
+- The ⌘T shortcut in the design was only a sample from the designer. Choose a free shortcut when Phase 8 is implemented (Ctrl+T is probably taken by new tab), make it configurable and list it with the other shortcuts in settings.
+- Tasks do not sync now, but the code must be sync-ready so a sync backend can be added later without reworking the model, the UI or the migrations (see "Sync-ready architecture" in Phase 6).
+- Assignee is picked from the contacts (CardDAV and learned contacts), stored locally as the contact's email plus a display-name snapshot so it survives contact changes; no free text and no multi-user sync. Phase 7 builds the picker (reuse the contacts model and the composer's address autocomplete).
+
+### Phase 6: task engine (`rustmail-core`) — done (see limits)
+| Item | Status |
+|---|---|
+| Migration `017_tasks.sql` (+ update the schema test): `task_projects`, `task_columns` (status columns: id, project_id, name, icon, colour, wip_limit, position, collapsed, kind inbox/next/waiting/scheduled/done/someday/custom), `tasks` (id, project_id, column_id, title, description, due_at, start_at, priority, context_id, assignee, position, completed_at, created_at, updated_at, source `manual`/`mail`), `task_contexts`, `task_labels` + `task_label_links`, `task_checklist_items`, `task_links` (task_id, kind mail_received/mail_sent/event/task_blocks/task_depends, account_id, thread_id, message_id, event uid, other task id, created_at), `task_activity` (task_id, text, at) | done |
+| Rust types in `models.rs`/new `tasks/` module: `Task`, `TaskProject`, `TaskColumn`, `TaskLink`, `TaskFilter`, `TaskGroupBy` | done |
+| `Core` API: create/update/delete/move task (column + position, WIP limit reported not enforced), complete/reopen, reorder columns, collapse column, CRUD for projects, contexts, labels, checklist items, links; activity entries written by every mutation | done |
+| Queries: by project, by focus list (Inbox, Today, Upcoming, Waiting for, From email, Someday), by context, by label, text search over title/description and linked mail subjects; counts for the sidebar | done |
+| Linked-mail resolution: a link survives mail moves (resolve by Message-ID when the thread id is gone); a deleted mail leaves a "mail not found" link instead of breaking the task | done |
+| Events through `events.rs` so UI controllers refresh when tasks change | done |
+| Seed: on first open create the default project "Personal" and the default columns; no sample data | done |
+| Sync-ready architecture (no sync is built now): every synced table (projects, columns, tasks, contexts, labels, checklist items, links) gets a stable `uid` (UUID, also the future iCalendar `UID`), `created_at`, `updated_at`, a soft-delete `deleted_at` tombstone (hard purge only after a retention period) and a `sync_state` column (`local`, `dirty`, `synced`) plus nullable `remote_id` / `etag` columns; ordering uses fractional or string position keys (not dense integers) so reorders touch one row; timestamps are UTC with the user's zone applied only in the UI | done |
+| Storage behind a `TaskStore` trait (SQLite implementation now) so the UI and `Core` API never touch SQL directly; mutations go through one change path that stamps `updated_at`, sets `dirty` and appends to a `task_changes` log (entity, uid, op, at) that a future sync engine can drain, as `sync::engine::spawn_account` does for mail; the activity log stays separate (it is user-visible history, not the sync log) | done |
+| Links store durable identifiers (account, Message-ID, thread key, event UID) rather than local row ids, so they stay valid on another device or after a re-import | done |
+| Model kept mappable to iCalendar VTODO (title→SUMMARY, description, due→DUE, start→DTSTART, status/column→STATUS + a category or `X-` property, priority→PRIORITY, checklist→sub-VTODOs or `X-` items, labels→CATEGORIES, dependencies→RELATED-TO); document in `tasks/` which fields have no standard mapping (WIP limit, column colour/icon, links) and would need `X-` properties or a Rustmail-only sidecar | done |
+| Conflict policy decided and written down for the future (per-field last-writer-wins by `updated_at`, deletes lose to edits); not implemented | done |
+| Tests: migration, CRUD, move/reorder, WIP count, counts query, link resolution, filter/search, tombstones and change-log entries | done |
+| Limits (see below) | done |
+
+Limits and notes:
+- WIP limits are advisory: `move_task` reports `wip_exceeded`, never refuses. Counts cover open tasks only.
+- Local only, no multi-user, nothing syncs. `sync_state`, `remote_id`, `etag` and `task_changes` are only written/ready; no engine drains them. `task_changes` and tombstones are purged after 90 days (`Core::tasks_open`), so a future sync must treat `sync_state = 'dirty'` rows as the source of truth after a long offline gap.
+- Tasks live in the mail database (migration 017). Conflict policy is documented in `tasks/mod.rs`, not implemented.
+- Position keys are base-36 strings; repeated appends grow them slowly and there is no rebalance pass.
+- A task moves only within its project (no cross-project move yet). Deleting a column requires a target column for its tasks.
+- Links store account e-mail + Message-ID (thread id is only a hint). `task_blocks`/`task_depends` are stored on one side only, with no cycle check or inverse listing (Phase 10). Text search matches linked mail subjects only for links that carry an account e-mail.
+- Activity entries have a stable `kind` plus an English fallback `text`; the UI should localise by `kind` in Phase 7.
+- `TaskGroupBy` is only the type; the board view does the grouping. "Today" uses `today_end_ms` supplied by the UI (zone applied only there).
+- Default column icons/colours are placeholders; Phase 7 should match them to the designs.
+- No UI yet: `Core::task_*` methods and `CoreEvent::TasksChanged` exist but nothing consumes them.
+- Tests: `tasks/tests.rs` (16 task/schema tests incl. position keys, links, search, tombstones, change log).
+
+
+
+### Phase 7: Tasks module and board view — todo
+Design: `Tasks · Board (GTD kanban)-html/Main.dc.html`.
+| Item | Status |
+|---|---|
+| Product rail: add Tasks item (icon, label, `product-changed("tasks")`), `active_view == "tasks"` plumbing, Escape/back handling like files/contacts, compact (phone-width) layout without the sidebar | todo |
+| New `ui/views/tasks-view.slint` plus a `src/tasks_controller.rs` (own `TasksUi` global like `FilesUi`); register the `ui-message-*` callbacks it uses | todo |
+| Tab: "Tasks · <project>" tab in the title bar, reuse `tabs.rs` | todo |
+| Sidebar (230 px): primary "New task" button; search "Find list, project or context"; sections FOCUS (Inbox, Today, Upcoming, Waiting for, From email, Someday / Maybe) with count badges (Inbox badge in accent colour), PROJECTS (colour dot, count, "New project"), CONTEXTS (`@computer`, ...); selected row uses the accent-soft background | todo |
+| Toolbar: sidebar toggle, project title + task count, view switch Board / Timeline / List (Timeline = Phase 10, List = simple sortable list), search "Search tasks and linked mail", "Group: Status" (also by project, context, label, due), "Display" menu, overflow menu | todo |
+| Filter chip row (Assignee, Label, Linked to ...), "Add filter", removable chips, date + "GTD workflow" caption on the right | todo |
+| Columns: 272 px wide, header with icon, name, count badge, "limit N / M" when a WIP limit is set, add-task (+) and column options (rename, colour, icon, WIP limit, collapse, delete); horizontal scroll; collapsed column (46 px, vertical title, count) for Someday / Maybe; "Add column" | todo |
+| Cards: label chips, title (struck through when done, 75 % opacity), linked-item rows (Mail / Sent / Event icon + kind + text), status pill (e.g. "No reply · 2 days" warn, "Reply received" ok, "Quick capture" neutral), due date (warn colour when today or overdue), checklist count, High-priority flag, avatars; selected state with accent border and ring | todo |
+| Drag and drop of cards between and inside columns (updates status, position, `completed_at`); keyboard alternative (move to column menu) because Slint DnD is limited | todo |
+| Inline "Add task" at the bottom of a column and in the column header; Enter creates, Esc cancels | todo |
+| Detail drawer (392 px, overlay at phone width): breadcrumb "Project / Status", expand-to-tab, more actions, close; editable title; labels with add; property grid (Status, Due, Project, Context, Assignee) each opening a picker (date picker reuses the calendar one); description; LINKED ITEMS list with kind, title, sub-line, optional status pill and a "Link" button (link a mail via the mail search, link an event, link a task); "Move back to Next actions when a reply arrives" checkbox in Waiting for; checklist with progress; activity log; footer with primary action ("Reply from task" / "Email from task" / "Follow up by email"), "Schedule" and "Complete" | todo |
+| Clicking a linked mail opens that thread in Mail; a linked event opens the calendar event; a linked task selects it | todo |
+| Theme: use the existing Rustmail theme tokens; the designs' dark/light and teal/green/purple presets map to the app's own theme setting (do not add a second theme system) | todo |
+| Translations: all strings in `@tr`, regenerate catalogs (`update-translations` skill) | todo |
+| Tests: `text_fit` at phone width, controller tests for create/move/complete, on-screen smoke test | todo |
+
+### Phase 8: create a task from an email (Mail module) — todo
+Design: `Mail · Create task from email-html/MailToTask.dc.html`.
+| Item | Status |
+|---|---|
+| "Create task" toolbar button in the reading pane (accent-highlighted while the dialog is open), shortcut from the open question above, entry in the message context menu and in the multi-select toolbar (one task per thread) | todo |
+| New dialog `ui/dialogs/task-from-mail-dialog.slint` "New task from email": title prefilled from the subject and editable, linked-mail chip (sender · subject, "Linked to the whole thread · later replies show on the task", remove-link button), "Add to" segmented choice Inbox / Next actions / Waiting for / Scheduled, field rows Due, Project, Context (pickers, defaults from a settings rule), Labels (copied from the mail's labels / folder, editable), checkbox "Block time in Calendar" with a date/time slot and target calendar, checkbox "Archive email once the task exists", footer hint "Enter to create · Esc to cancel", Cancel / Create task; at phone width the dialog uses 12 px side margins | todo |
+| Create path: `Core::create_task_from_thread(thread_id, TaskDraft)` creating the task, the mail link by thread id + Message-ID, an activity entry "Created from email", optionally a calendar event (through the calendar module) and an Archive action via `Core::perform_action` | todo |
+| After creation: inline banner under the mail header "Linked task: <title> · <status> · <due>" with "Open on board" and "Undo" (undo deletes the task, its event and un-archives); the thread keeps working with later replies shown on the task | todo |
+| Message list: per-row task chip (status name: Inbox, Next actions, Done ...) with the amber task icon | todo |
+| Mail sidebar smart folders "With tasks" and "Waiting on reply" with counts (virtual folders over the task links; "Waiting on reply" = threads linked to a Waiting-for task with no reply yet) | todo |
+| Reading-pane tool strip aligned with the design (Archive, Star, Mark unread, Report spam, Delete, Move to folder, Create task) | todo |
+| Rules and filters: filter action "Create task" (Phase 3 filters) with project/status/context parameters; limit: runs on receive only | todo |
+| Reply tracking: when a new message arrives in a linked thread, record it in the task activity and, if the task is in Waiting for with "move back when a reply arrives" on, move it to Next actions and update the status pill ("Reply received") | todo |
+| Tests: dialog default values, create/undo round trip, archive-on-create, reply-tracking against the local backend fixtures, text_fit | todo |
+
+### Phase 9: send email from a task — todo
+Design: `Task · Send email from task-html/TaskCompose.dc.html`.
+| Item | Status |
+|---|---|
+| Task page (opens in its own tab from the drawer's "Email from task" / "Reply from task" / "Follow up by email" or the expand button): left column with breadcrumb "Project / Status", "Show on timeline", title, property list (Status, Due, Project, Context, Assignee, Labels), description, LINK TRAIL (vertical timeline: task created, dependency added, draft in progress, email sent, follow-up event, reply from X with pending items greyed out), checklist | todo |
+| Right column composer "New email from task" (becomes "Email from task" after sending): From (account/identity picker, reuse sender identities), To, Subject (prefilled from the task title, editable), body editor reusing the compose editor and signature, note "This email and every reply in its thread will be linked to the task."; pop-out into the normal compose window | todo |
+| Options row: "After sending, move task to" (Waiting for / Keep in Next actions / Done) and "If there's no reply, add a follow-up in" (4 days / 2 days / 1 week / Never) with the computed date shown | todo |
+| Actions: "Send and link", schedule send (reuse the existing send-later), attach file, discard draft, "Draft saved locally" indicator (draft stored in Rustmail's database like other drafts) | todo |
+| Send path: send through the existing compose pipeline (`ActionKind::Send`), then link the sent message (thread id + Message-ID) to the task, move the task, create the follow-up calendar event if requested, and write activity entries | todo |
+| Result card "Sent and linked" listing what happened (email, task moved, follow-up event), "Back to board", "Undo send" (only while the send is still in the undo window; afterwards it is hidden) | todo |
+| Follow-up behaviour: when the follow-up date passes with no reply, the board card shows "No reply · N days" (warn) and the task is listed under Today; optional desktop notification | todo |
+| Reply handling: a reply to the linked sent thread links the received mail, shows "Reply received" and moves the task as configured (shares the Phase 8 reply tracker) | todo |
+| Checklist items can be ticked automatically for "Send to ..." steps only if the user links them; no text parsing | todo |
+| Tests: send/link/move round trip with the local SMTP stub, follow-up date maths, undo window, text_fit | todo |
+
+### Phase 10: timeline (Gantt) view — todo
+Design: `Tasks · Timeline (Gantt)-html/Timeline.dc.html`.
+| Item | Status |
+|---|---|
+| Timeline view in the Tasks module (the toolbar switch), same sidebar and filters as the board; toolbar with title (month and year), project + task count, ISO week badge, previous / next period, zoom Day / Week / Month, Today, toggles "Calendar events" and "Dependencies" | todo |
+| Left grid: columns TASK, START, DUE, LINKS (link icons per mail / sent / event); hidden meta columns at phone width; group rows (project sections or task groups) with summary bars, indented child rows, status icon and strikethrough for done; row selection syncs with the chart | todo |
+| Chart: scrollable day columns with weekend shading, week header (W36 ...), day letters and numbers (today circled), "Today" line with label, vertical grid lines per week | todo |
+| Bars: coloured per group, progress fill (from the checklist or manual %), percentage or status tag at the bar end ("No reply · 2 days" warn), hatched section for the waiting-on-reply span, milestones (diamond) for zero-length tasks, link pins (mail / sent / event) at the day they happened | todo |
+| Dependencies: finish-to-start arrows between bars (blocks / depends on links from Phase 6); cycle check on creation; arrows drawn with Slint `Path`/`Rectangle` segments | todo |
+| Calendar events lane: events of the chosen calendars shown above the tasks (from the calendar module, read only) | todo |
+| Interaction: drag a bar to reschedule, drag an edge to change start or due, drop updates the task and writes activity; click a bar opens the summary popover (status pill, date range and day count, links, "Open on board", "Email from task"); keyboard nudge with arrow keys | todo |
+| Legend row: done portion, waiting on a reply, milestone, link pin kinds, depends on, hint "Drag a bar to reschedule · drag its edge to change the due date" | todo |
+| Performance: virtualise rows and day columns; cap at a visible window; test with 1000 tasks | todo |
+| Tests: date/pixel mapping, zoom levels, dependency routing, drag rescheduling, text_fit | todo |
+
+### Phase 11: polish and optional extras — todo
+- [ ] Task List view (flat table with sort and grouping), reached from the same view switch
+- [ ] Settings page "Tasks": default project, default columns and WIP limits, default context, default calendar for blocked time, follow-up delay, create-task shortcut, auto-archive-on-create default
+- [ ] Notifications: due-today and follow-up reminders (reuse the notification outbox)
+- [ ] Tray / title badge with the number of tasks due today
+- [ ] Import / export tasks (JSON; optional iCalendar VTODO file)
+- [ ] Optional task sync (`optional`): first backend CalDAV VTODO (reuse `caldav/`), draining the Phase 6 `task_changes` log; deadlines, status and checklist mapping, links via `X-` properties; a Settings switch per account; needs the conflict policy from Phase 6
+- [ ] Optional: attach a task from the calendar event dialog ("Create task from event")
+- [ ] Data controller: count task data in storage usage and in account removal tests (removing a mail account must not delete tasks; links to its mail become "mail not found")
+- [ ] Accessibility pass: keyboard navigation of the board, screen-reader labels for cards and bars
+- [ ] Update `README`/docs and the `add-backend`-style skill note for the tasks module; record limits in this file
+- [ ] Try the whole flow in the real app with a throwaway profile (`run-app` skill) against a real IMAP account copy; only unit tests until then
+
 ## Other pending items
 - [ ] Setting "Reverse scroll direction" (global, window-level wheel hook) for natural-scrolling devices such as the Apple Magic Mouse
 - [ ] IMAP CRAM-MD5/DIGEST-MD5, proxy login, proxying of non-mail traffic
