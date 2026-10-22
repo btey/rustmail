@@ -1030,64 +1030,66 @@ msgstr "Sincronizando cuentas…"
 
 #: ui/app.slint:404
 msgid "Select a message first."
-msgstr ""
+msgstr "Primero selecciona un mensaje."
 
 #: ui/app.slint:405
 msgid "Running action “{}”…"
-msgstr ""
+msgstr "Ejecutando la acción «{}»…"
 
 #: ui/app.slint:406
 msgid "Action “{}” finished."
-msgstr ""
+msgstr "Acción «{}» terminada."
 
 #: ui/app.slint:407
 msgid "Action “{}” finished: {}"
-msgstr ""
+msgstr "Acción «{}» terminada: {}"
 
 #: ui/app.slint:408
 msgid "Action “{}” failed: {}"
-msgstr ""
+msgstr "Acción «{}» fallida: {}"
 
 #: ui/app.slint:409
 msgid "Action “{}” failed (exit {}): {}"
-msgstr ""
+msgstr "Acción «{}» fallida (código {}): {}"
 
 #: ui/app.slint:410
 msgid "Action “{}” ran on {} messages: {}"
-msgstr ""
+msgstr "Acción «{}» ejecutada en {} mensajes: {}"
 
 #: ui/app.slint:411
 msgid "Action “{}” could not run: {}"
-msgstr ""
+msgstr "No se pudo ejecutar la acción «{}»: {}"
 
 #: ui/app.slint:412
 msgid ""
 "Editing in your external editor. Save and close it to bring the text back."
 msgstr ""
+"Editando en tu editor externo. Guarda y ciérralo para recuperar el texto."
 
 #: ui/app.slint:413
 msgid "Text updated from your editor."
-msgstr ""
+msgstr "Texto actualizado desde tu editor."
 
 #: ui/app.slint:414
 msgid "External editor: {}"
-msgstr ""
+msgstr "Editor externo: {}"
 
 #: ui/app.slint:415
 msgid "Connection timeout must be between 1 and 600 seconds."
-msgstr ""
+msgstr "El tiempo de espera de conexión debe estar entre 1 y 600 segundos."
 
 #: ui/app.slint:416
 msgid "Maximum connections must be between 1 and 20."
-msgstr ""
+msgstr "El máximo de conexiones debe estar entre 1 y 20."
 
 #: ui/app.slint:417
 msgid "Proxy port must be between 1 and 65535."
-msgstr ""
+msgstr "El puerto del proxy debe estar entre 1 y 65535."
 
 #: ui/app.slint:418
 msgid "Enter the proxy host and port, or set the proxy to None."
 msgstr ""
+"Introduce el host y el puerto del proxy, o establece el proxy en Ninguno."
 
 #: ui/app.slint:423
 msgid "Message action completed."
@@ -1335,7 +1337,7 @@ msgstr "El puerto IMAP debe estar entre 1 y 65535."
 
 #: ui/app.slint:486
 msgid "News server port must be between 1 and 65535."
-msgstr ""
+msgstr "El puerto del servidor de noticias debe estar entre 1 y 65535."
 
 #: ui/app.slint:487
 msgid "SMTP port must be between 1 and 65535."
@@ -1381,11 +1383,11 @@ msgstr "Comprobando las conexiones IMAP y SMTP…"
 
 #: ui/app.slint:496
 msgid "Checking the mail folder…"
-msgstr ""
+msgstr "Comprobando la carpeta de correo…"
 
 #: ui/app.slint:497
 msgid "Connecting to the news server…"
-msgstr ""
+msgstr "Conectando con el servidor de noticias…"
 
 #: ui/app.slint:502
 msgid ""
@@ -1745,11 +1747,11 @@ msgstr "Texto"
 
 #: ui/components/account-mail-preferences.slint:199
 msgid "Text file"
-msgstr ""
+msgstr "Archivo de texto"
 
 #: ui/components/account-mail-preferences.slint:199
 msgid "Command output"
-msgstr ""
+msgstr "Salida de un comando"
 
 #: ui/components/account-mail-preferences.slint:203
 msgid ""
@@ -1763,31 +1765,35 @@ msgstr ""
 
 #: ui/components/account-mail-preferences.slint:204
 msgid "File path"
-msgstr ""
+msgstr "Ruta del archivo"
 
 #: ui/components/account-mail-preferences.slint:204
 msgid "Command"
-msgstr ""
+msgstr "Comando"
 
 #: ui/components/account-mail-preferences.slint:204
 msgid "~/.signature"
-msgstr ""
+msgstr "~/.signature"
 
 #: ui/components/account-mail-preferences.slint:204
 msgid "fortune -s"
-msgstr ""
+msgstr "fortune -s"
 
 #: ui/components/account-mail-preferences.slint:205
 msgid ""
 "The file is read again each time you write a message. Use plain text up to "
 "32 KiB."
 msgstr ""
+"El archivo se vuelve a leer cada vez que escribes un mensaje. Usa texto sin "
+"formato de hasta 32 KiB."
 
 #: ui/components/account-mail-preferences.slint:205
 msgid ""
 "The command runs through your shell each time you write a message, with no "
 "input and a 3 second limit. Only enter commands you trust."
 msgstr ""
+"El comando se ejecuta en tu shell cada vez que escribes un mensaje, sin "
+"entrada y con un límite de 3 segundos. Introduce solo comandos de confianza."
 
 #: ui/components/account-mail-preferences.slint:206
 msgid ""
@@ -1890,7 +1896,7 @@ msgstr ""
 
 #: ui/components/account-mail-preferences.slint:243
 msgid "Privacy system"
-msgstr ""
+msgstr "Sistema de privacidad"
 
 #: ui/components/account-mail-preferences.slint:243
 msgid ""
@@ -1899,30 +1905,34 @@ msgid ""
 "gpgsm keybox; enter certificate fingerprints below. Revocation is not "
 "checked."
 msgstr ""
+"Valor predeterminado de esta cuenta. PGP en línea coloca la firma o el texto "
+"cifrado en el cuerpo del mensaje (sin adjuntos ni HTML). S/MIME usa "
+"certificados del almacén gpgsm de GnuPG; introduce abajo las huellas de los "
+"certificados. No se comprueba la revocación."
 
 #: ui/components/account-mail-preferences.slint:244
 msgid "OpenPGP (PGP/MIME)"
-msgstr ""
+msgstr "OpenPGP (PGP/MIME)"
 
 #: ui/components/account-mail-preferences.slint:244
 msgid "OpenPGP (inline)"
-msgstr ""
+msgstr "OpenPGP (en línea)"
 
 #: ui/components/account-mail-preferences.slint:244
 msgid "S/MIME"
-msgstr ""
+msgstr "S/MIME"
 
 #: ui/components/account-mail-preferences.slint:249
 msgid "Sign replies to signed mail"
-msgstr ""
+msgstr "Firmar las respuestas a correo firmado"
 
 #: ui/components/account-mail-preferences.slint:249
 msgid "Replies to a signed or encrypted message are signed."
-msgstr ""
+msgstr "Las respuestas a un mensaje firmado o cifrado se firman."
 
 #: ui/components/account-mail-preferences.slint:254
 msgid "Encrypt replies to encrypted mail"
-msgstr ""
+msgstr "Cifrar las respuestas a correo cifrado"
 
 #: ui/components/account-mail-preferences.slint:258
 msgid "Verified recipient keys"
@@ -1975,6 +1985,9 @@ msgid ""
 "Subjects and addresses remain visible. Protected drafts stay on this device. "
 "Existing server drafts are not retroactively protected."
 msgstr ""
+"Los asuntos y las direcciones siguen siendo visibles. Los borradores "
+"protegidos permanecen en este dispositivo. Los borradores que ya están en el "
+"servidor no se protegen con carácter retroactivo."
 
 #: ui/components/account-mail-preferences.slint:279
 msgid "Working…"
@@ -2008,19 +2021,19 @@ msgstr "Cuenta"
 
 #: ui/components/account-setup-form.slint:47
 msgid "Security"
-msgstr ""
+msgstr "Seguridad"
 
 #: ui/components/account-setup-form.slint:47
 msgid "Sign-in"
-msgstr ""
+msgstr "Inicio de sesión"
 
 #: ui/components/account-setup-form.slint:47
 msgid "Network"
-msgstr ""
+msgstr "Red"
 
 #: ui/components/account-setup-form.slint:48
 msgid "Identity"
-msgstr ""
+msgstr "Identidad"
 
 #: ui/components/account-setup-form.slint:48 ui/views/files-view.slint:542
 msgid "Folders"
@@ -2037,7 +2050,7 @@ msgstr "Nombre de usuario"
 
 #: ui/components/account-setup-form.slint:131
 msgid "Empty for anonymous access"
-msgstr ""
+msgstr "Vacío para acceso anónimo"
 
 #: ui/components/account-setup-form.slint:131
 msgid "Usually your email address"
@@ -2049,11 +2062,11 @@ msgstr "Contraseña, contraseña de aplicación o token de API"
 
 #: ui/components/account-setup-form.slint:161
 msgid "SMTP password · Optional"
-msgstr ""
+msgstr "Contraseña SMTP · Opcional"
 
 #: ui/components/account-setup-form.slint:161
 msgid "Password · Optional"
-msgstr ""
+msgstr "Contraseña · Opcional"
 
 #: ui/components/account-setup-form.slint:161
 msgid "Password or app password"
@@ -2061,15 +2074,15 @@ msgstr "Contraseña o contraseña de aplicación"
 
 #: ui/components/account-setup-form.slint:164
 msgid "Only needed to send mail"
-msgstr ""
+msgstr "Solo necesario para enviar correo"
 
 #: ui/components/account-setup-form.slint:164
 msgid "Only if the server asks for a login"
-msgstr ""
+msgstr "Solo si el servidor pide iniciar sesión"
 
 #: ui/components/account-setup-form.slint:172
 msgid "IMAP"
-msgstr ""
+msgstr "IMAP"
 
 #: ui/components/account-setup-form.slint:173
 msgid "JMAP"
@@ -2081,63 +2094,74 @@ msgstr "Local"
 
 #: ui/components/account-setup-form.slint:175
 msgid "News"
-msgstr ""
+msgstr "Noticias"
 
 #: ui/components/account-setup-form.slint:181
 msgid "Mail folder"
-msgstr ""
+msgstr "Carpeta de correo"
 
 #: ui/components/account-setup-form.slint:181
 msgid "/home/you/Mail"
-msgstr ""
+msgstr "/home/tu/Mail"
 
 #: ui/components/account-setup-form.slint:186
 msgid "Choose file…"
-msgstr ""
+msgstr "Elegir archivo…"
 
 #: ui/components/account-setup-form.slint:186
 msgid "Choose folder…"
-msgstr ""
+msgstr "Elegir carpeta…"
 
 #: ui/components/account-setup-form.slint:193
 msgid "Maildir"
-msgstr ""
+msgstr "Maildir"
 
 #: ui/components/account-setup-form.slint:194
 msgid "MH"
-msgstr ""
+msgstr "MH"
 
 #: ui/components/account-setup-form.slint:195
 msgid "mbox"
-msgstr ""
+msgstr "mbox"
 
 #: ui/components/account-setup-form.slint:198
 msgid ""
 "mbox files. Read and starred marks, moves and deletions rewrite the whole "
 "file, so close other mail programs that use it first."
 msgstr ""
+"Archivos mbox. Las marcas de leído y destacado, los movimientos y las "
+"eliminaciones reescriben todo el archivo, así que cierra antes otros "
+"programas de correo que lo usen."
 
 #: ui/components/account-setup-form.slint:198
 msgid ""
 "MH folders with numbered message files. Moves and deletions are written to "
 "the files; read and starred marks go in each folder's .mh_sequences file."
 msgstr ""
+"Carpetas MH con archivos de mensaje numerados. Los movimientos y las "
+"eliminaciones se escriben en los archivos; las marcas de leído y destacado "
+"van en el archivo .mh_sequences de cada carpeta."
 
 #: ui/components/account-setup-form.slint:198
 msgid ""
 "Maildir or Maildir++ folders. Flags, moves and deletions are written back to "
 "the files, so other mail programs stay in sync."
 msgstr ""
+"Carpetas Maildir o Maildir++. Los indicadores, los movimientos y las "
+"eliminaciones se escriben en los archivos, de modo que otros programas de "
+"correo siguen sincronizados."
 
 #: ui/components/account-setup-form.slint:202
 msgid ""
 "Sending is optional: enter an SMTP server below to send mail from this "
 "account."
 msgstr ""
+"El envío es opcional: introduce abajo un servidor SMTP para enviar correo "
+"desde esta cuenta."
 
 #: ui/components/account-setup-form.slint:209
 msgid "SMTP server · Optional"
-msgstr ""
+msgstr "Servidor SMTP · Opcional"
 
 #: ui/components/account-setup-form.slint:209
 msgid "smtp.example.com"
@@ -2153,29 +2177,32 @@ msgstr "465"
 
 #: ui/components/account-setup-form.slint:216
 msgid "News server"
-msgstr ""
+msgstr "Servidor de noticias"
 
 #: ui/components/account-setup-form.slint:216
 msgid "news.example.com"
-msgstr ""
+msgstr "noticias.ejemplo.com"
 
 #: ui/components/account-setup-form.slint:217
 msgid "563"
-msgstr ""
+msgstr "563"
 
 #: ui/components/account-setup-form.slint:222
 msgid "Newsgroups"
-msgstr ""
+msgstr "Grupos de noticias"
 
 #: ui/components/account-setup-form.slint:224
 msgid "comp.lang.rust, alt.test"
-msgstr ""
+msgstr "comp.lang.rust, alt.test"
 
 #: ui/components/account-setup-form.slint:229
 msgid ""
 "Separate groups with commas or spaces. To start a new discussion, address "
 "the message to group.name@news; replies go to the group they answer."
 msgstr ""
+"Separa los grupos con comas o espacios. Para iniciar una discusión nueva, "
+"dirige el mensaje a nombre.del.grupo@news; las respuestas van al grupo al "
+"que responden."
 
 #: ui/components/account-setup-form.slint:235
 msgid "Server address · Optional"
@@ -2497,7 +2524,7 @@ msgstr "Plantillas de correo"
 
 #: ui/components/composer-actions.slint:68
 msgid "Edit in external editor"
-msgstr ""
+msgstr "Editar en el editor externo"
 
 #: ui/components/composer-actions.slint:72
 msgid "Undo · Ctrl+Z"
@@ -2744,15 +2771,15 @@ msgstr "¿Eliminar esta plantilla de este dispositivo?"
 
 #: ui/components/filter-rules.slint:71
 msgid "Header"
-msgstr ""
+msgstr "Encabezado"
 
 #: ui/components/filter-rules.slint:71
 msgid "Body"
-msgstr ""
+msgstr "Cuerpo"
 
 #: ui/components/filter-rules.slint:71
 msgid "Age"
-msgstr ""
+msgstr "Antigüedad"
 
 #: ui/components/filter-rules.slint:71 ui/views/files-view.slint:543
 msgid "Size"
@@ -2760,95 +2787,95 @@ msgstr "Tamaño"
 
 #: ui/components/filter-rules.slint:71
 msgid "Is read"
-msgstr ""
+msgstr "Está leído"
 
 #: ui/components/filter-rules.slint:71
 msgid "Is starred"
-msgstr ""
+msgstr "Está destacado"
 
 #: ui/components/filter-rules.slint:71
 msgid "Has attachment"
-msgstr ""
+msgstr "Tiene adjunto"
 
 #: ui/components/filter-rules.slint:71
 msgid "Mailing list"
-msgstr ""
+msgstr "Lista de correo"
 
 #: ui/components/filter-rules.slint:80
 msgid "contains"
-msgstr ""
+msgstr "contiene"
 
 #: ui/components/filter-rules.slint:80
 msgid "does not contain"
-msgstr ""
+msgstr "no contiene"
 
 #: ui/components/filter-rules.slint:80
 msgid "is exactly"
-msgstr ""
+msgstr "es exactamente"
 
 #: ui/components/filter-rules.slint:80
 msgid "starts with"
-msgstr ""
+msgstr "empieza por"
 
 #: ui/components/filter-rules.slint:80
 msgid "ends with"
-msgstr ""
+msgstr "termina en"
 
 #: ui/components/filter-rules.slint:80
 msgid "matches regex"
-msgstr ""
+msgstr "coincide con la expresión regular"
 
 #: ui/components/filter-rules.slint:89
 msgid "older than (days)"
-msgstr ""
+msgstr "más antiguo que (días)"
 
 #: ui/components/filter-rules.slint:89
 msgid "newer than (days)"
-msgstr ""
+msgstr "más reciente que (días)"
 
 #: ui/components/filter-rules.slint:89
 msgid "larger than (KB)"
-msgstr ""
+msgstr "mayor que (KB)"
 
 #: ui/components/filter-rules.slint:89
 msgid "smaller than (KB)"
-msgstr ""
+msgstr "menor que (KB)"
 
 #: ui/components/filter-rules.slint:98
 msgid "yes"
-msgstr ""
+msgstr "sí"
 
 #: ui/components/filter-rules.slint:98
 msgid "no"
-msgstr ""
+msgstr "no"
 
 #: ui/components/filter-rules.slint:108
 msgid "Header name"
-msgstr ""
+msgstr "Nombre del encabezado"
 
 #: ui/components/filter-rules.slint:109
 msgid "Header, e.g. X-Spam-Flag"
-msgstr ""
+msgstr "Encabezado, p. ej. X-Spam-Flag"
 
 #: ui/components/filter-rules.slint:118
 msgid "Condition value"
-msgstr ""
+msgstr "Valor de la condición"
 
 #: ui/components/filter-rules.slint:119
 msgid "Number of days"
-msgstr ""
+msgstr "Número de días"
 
 #: ui/components/filter-rules.slint:119
 msgid "Size in KB"
-msgstr ""
+msgstr "Tamaño en KB"
 
 #: ui/components/filter-rules.slint:119
 msgid "Regular expression"
-msgstr ""
+msgstr "Expresión regular"
 
 #: ui/components/filter-rules.slint:119
 msgid "Text to look for"
-msgstr ""
+msgstr "Texto que buscar"
 
 #: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:476
 #: ui/views/mail-reading-pane.slint:385 ui/views/mail-reading-pane.slint:771
@@ -2862,7 +2889,7 @@ msgstr "Marcar como no leído"
 
 #: ui/components/filter-rules.slint:145
 msgid "Star"
-msgstr ""
+msgstr "Destacar"
 
 #: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:936
 #: ui/views/mail-reading-pane.slint:403
@@ -2885,7 +2912,7 @@ msgstr "Mover a carpeta"
 
 #: ui/components/filter-rules.slint:145
 msgid "Add label"
-msgstr ""
+msgstr "Añadir etiqueta"
 
 #: ui/components/filter-rules.slint:145 ui/views/files-view.slint:539
 msgid "Copy to folder"
@@ -2893,19 +2920,19 @@ msgstr "Copiar a carpeta"
 
 #: ui/components/filter-rules.slint:145
 msgid "Forward to address"
-msgstr ""
+msgstr "Reenviar a la dirección"
 
 #: ui/components/filter-rules.slint:145
 msgid "Run command"
-msgstr ""
+msgstr "Ejecutar comando"
 
 #: ui/components/filter-rules.slint:155
 msgid "Action value"
-msgstr ""
+msgstr "Valor de la acción"
 
 #: ui/components/filter-rules.slint:156
 msgid "Folder name, for example Receipts"
-msgstr ""
+msgstr "Nombre de carpeta, por ejemplo Recibos"
 
 #: ui/components/filter-rules.slint:156 ui/views/mail-reading-pane.slint:1970
 msgid "Label name"
@@ -2913,15 +2940,15 @@ msgstr "Nombre de la etiqueta"
 
 #: ui/components/filter-rules.slint:156
 msgid "Address, for example me@example.org"
-msgstr ""
+msgstr "Dirección, por ejemplo yo@ejemplo.org"
 
 #: ui/components/filter-rules.slint:156
 msgid "Command; %f is the message file"
-msgstr ""
+msgstr "Comando; %f es el archivo del mensaje"
 
 #: ui/components/filter-rules.slint:179
 msgid "Your filters"
-msgstr ""
+msgstr "Tus filtros"
 
 #: ui/components/filter-rules.slint:185
 msgid ""
@@ -2930,70 +2957,75 @@ msgid ""
 "run-command act on the message itself. Mail already in your account is not "
 "changed unless you run the filters by hand."
 msgstr ""
+"Los filtros se aplican al correo nuevo que llega a una bandeja de entrada, "
+"en el orden mostrado. Las acciones de mover, etiquetar y marcar afectan a "
+"toda la conversación; copiar, reenviar y ejecutar comando actúan sobre el "
+"propio mensaje. El correo que ya está en tu cuenta no cambia a menos que "
+"ejecutes los filtros manualmente."
 
 #: ui/components/filter-rules.slint:193
 msgid "No filters yet."
-msgstr ""
+msgstr "Aún no hay filtros."
 
 #: ui/components/filter-rules.slint:217
 msgid "Turn off"
-msgstr ""
+msgstr "Desactivar"
 
 #: ui/components/filter-rules.slint:217
 msgid "Turn on"
-msgstr ""
+msgstr "Activar"
 
 #: ui/components/filter-rules.slint:227
 msgid "Run filters on the Inboxes now"
-msgstr ""
+msgstr "Ejecutar ahora los filtros en las bandejas de entrada"
 
 #: ui/components/filter-rules.slint:243
 msgid "New filter"
-msgstr ""
+msgstr "Filtro nuevo"
 
 #: ui/components/filter-rules.slint:252
 msgid "Filter name"
-msgstr ""
+msgstr "Nombre del filtro"
 
 #: ui/components/filter-rules.slint:253
 msgid "Name, for example Receipts"
-msgstr ""
+msgstr "Nombre, por ejemplo Recibos"
 
 #: ui/components/filter-rules.slint:260
 msgid "Apply when"
-msgstr ""
+msgstr "Aplicar cuando"
 
 #: ui/components/filter-rules.slint:264
 msgid "all"
-msgstr ""
+msgstr "todas"
 
 #: ui/components/filter-rules.slint:264
 msgid "any"
-msgstr ""
+msgstr "cualquiera"
 
 #: ui/components/filter-rules.slint:268
 msgid "of these match:"
-msgstr ""
+msgstr "de estas coincidan:"
 
 #: ui/components/filter-rules.slint:283
 msgid "Add condition"
-msgstr ""
+msgstr "Añadir condición"
 
 #: ui/components/filter-rules.slint:290
 msgid "Then:"
-msgstr ""
+msgstr "Entonces:"
 
 #: ui/components/filter-rules.slint:307 ui/components/user-actions.slint:147
 msgid "Add action"
-msgstr ""
+msgstr "Añadir acción"
 
 #: ui/components/filter-rules.slint:313
 msgid "Stop: skip the filters below when this one matches"
-msgstr ""
+msgstr "Detener: omitir los filtros siguientes cuando este coincida"
 
 #: ui/components/filter-rules.slint:325
 msgid "Add filter"
-msgstr ""
+msgstr "Añadir filtro"
 
 #: ui/components/mail-security-fields.slint:29
 msgid "Connection security"
@@ -3009,7 +3041,7 @@ msgstr "Automático"
 
 #: ui/components/mail-security-fields.slint:44
 msgid "None (unencrypted)"
-msgstr ""
+msgstr "Ninguno (sin cifrar)"
 
 #: ui/components/mail-security-fields.slint:53
 msgid "SMTP encryption"
@@ -3018,6 +3050,8 @@ msgstr "Cifrado SMTP"
 #: ui/components/mail-security-fields.slint:65
 msgid "Automatic: STARTTLS on port 119, SSL/TLS otherwise (usually 563)."
 msgstr ""
+"Automático: STARTTLS en el puerto 119, SSL/TLS en caso contrario "
+"(normalmente 563)."
 
 #: ui/components/mail-security-fields.slint:69
 msgid ""
@@ -3029,7 +3063,7 @@ msgstr ""
 
 #: ui/components/mail-security-fields.slint:73
 msgid "Accept untrusted certificate (insecure)"
-msgstr ""
+msgstr "Aceptar certificado no confiable (inseguro)"
 
 #: ui/components/mail-security-fields.slint:79
 msgid ""
@@ -3038,6 +3072,10 @@ msgid ""
 "for a server you control, such as localhost or a self-signed server; for "
 "Proton Bridge, importing its certificate is safer."
 msgstr ""
+"Advertencia: no se verificará la identidad del servidor, así que cualquiera "
+"en la red podría suplantarlo y leer tu correo y tu contraseña. Úsalo solo "
+"con un servidor que controles, como localhost o uno con certificado "
+"autofirmado; para Proton Bridge es más seguro importar su certificado."
 
 #: ui/components/mail-security-fields.slint:83
 msgid ""
@@ -3045,6 +3083,9 @@ msgid ""
 "readable form. Use this only on a trusted local network or with a server "
 "that cannot offer TLS."
 msgstr ""
+"Advertencia: sin cifrado, tu contraseña y tus mensajes viajan por la red en "
+"forma legible. Úsalo solo en una red local de confianza o con un servidor "
+"que no pueda ofrecer TLS."
 
 #: ui/components/mail-security-fields.slint:88
 msgid "Manage trusted certificate"
@@ -3083,113 +3124,124 @@ msgstr "Se ha añadido un certificado personalizado para esta cuenta."
 
 #: ui/components/mail-security-fields.slint:108
 msgid "Client certificate (PEM) for servers that require one"
-msgstr ""
+msgstr "Certificado de cliente (PEM) para servidores que lo requieran"
 
 #: ui/components/mail-security-fields.slint:110
 msgid ""
 "Client private key (PEM, without passphrase). It is stored in the system "
 "keychain; enter it again when editing this account."
 msgstr ""
+"Clave privada del cliente (PEM, sin frase de contraseña). Se guarda en el "
+"llavero del sistema; vuelve a introducirla al editar esta cuenta."
 
 #: ui/components/mail-security-fields.slint:116
 msgid ""
 "News servers use the account login (AUTHINFO). Leave the username empty for "
 "anonymous access."
 msgstr ""
+"Los servidores de noticias usan el inicio de sesión de la cuenta (AUTHINFO). "
+"Deja vacío el nombre de usuario para acceso anónimo."
 
 #: ui/components/mail-security-fields.slint:117
 msgid "IMAP authentication"
-msgstr ""
+msgstr "Autenticación IMAP"
 
 #: ui/components/mail-security-fields.slint:122
 msgid "Automatic (LOGIN)"
-msgstr ""
+msgstr "Automática (LOGIN)"
 
 #: ui/components/mail-security-fields.slint:126
 msgid "SMTP authentication"
-msgstr ""
+msgstr "Autenticación SMTP"
 
 #: ui/components/mail-security-fields.slint:131
 msgid "None (no authentication)"
-msgstr ""
+msgstr "Ninguna (sin autenticación)"
 
 #: ui/components/mail-security-fields.slint:135
 msgid "SMTP user name (leave empty to use the account login)"
 msgstr ""
+"Nombre de usuario SMTP (vacío para usar el inicio de sesión de la cuenta)"
 
 #: ui/components/mail-security-fields.slint:137
 msgid "SMTP password (leave empty to use the account password)"
-msgstr ""
+msgstr "Contraseña SMTP (vacía para usar la contraseña de la cuenta)"
 
 #: ui/components/mail-security-fields.slint:143
 msgid "Your name (shown as the sender and account label)"
-msgstr ""
+msgstr "Tu nombre (se muestra como remitente y etiqueta de la cuenta)"
 
 #: ui/components/mail-security-fields.slint:145
 msgid "Organization header"
-msgstr ""
+msgstr "Encabezado Organization"
 
 #: ui/components/mail-security-fields.slint:147
 msgid "Message-ID domain (empty = sender's domain)"
-msgstr ""
+msgstr "Dominio del Message-ID (vacío = dominio del remitente)"
 
 #: ui/components/mail-security-fields.slint:149
 msgid "Extra headers added to outgoing mail, one \"Name: value\" per line"
 msgstr ""
+"Encabezados adicionales añadidos al correo saliente, uno «Nombre: valor» por "
+"línea"
 
 #: ui/components/mail-security-fields.slint:155
 msgid ""
 "Type an existing IMAP folder name to override automatic detection, e.g. "
 "\"INBOX.Sent\". Leave empty to detect automatically."
 msgstr ""
+"Escribe el nombre de una carpeta IMAP existente para anular la detección "
+"automática, p. ej. «INBOX.Sent». Déjalo vacío para detectarla "
+"automáticamente."
 
 #: ui/components/mail-security-fields.slint:156
 msgid "Sent folder"
-msgstr ""
+msgstr "Carpeta de enviados"
 
 #: ui/components/mail-security-fields.slint:158
 msgid "Drafts folder"
-msgstr ""
+msgstr "Carpeta de borradores"
 
 #: ui/components/mail-security-fields.slint:160
 msgid "Trash folder"
-msgstr ""
+msgstr "Carpeta de papelera"
 
 #: ui/components/mail-security-fields.slint:162
 msgid "Junk/Spam folder"
-msgstr ""
+msgstr "Carpeta de correo no deseado"
 
 #: ui/components/mail-security-fields.slint:164
 msgid "Archive folder"
-msgstr ""
+msgstr "Carpeta de archivo"
 
 #: ui/components/mail-security-fields.slint:170
 msgid "Connection timeout in seconds (empty = 30)"
-msgstr ""
+msgstr "Tiempo de espera de conexión en segundos (vacío = 30)"
 
 #: ui/components/mail-security-fields.slint:172
 msgid "Maximum simultaneous IMAP connections (empty = unlimited; 1–20)"
-msgstr ""
+msgstr "Máximo de conexiones IMAP simultáneas (vacío = sin límite; 1–20)"
 
 #: ui/components/mail-security-fields.slint:174
 msgid "Proxy"
-msgstr ""
+msgstr "Proxy"
 
 #: ui/components/mail-security-fields.slint:179
 msgid "None"
-msgstr ""
+msgstr "Ninguno"
 
 #: ui/components/mail-security-fields.slint:183
 msgid "Proxy host"
-msgstr ""
+msgstr "Host del proxy"
 
 #: ui/components/mail-security-fields.slint:185
 msgid "Proxy port"
-msgstr ""
+msgstr "Puerto del proxy"
 
 #: ui/components/mail-security-fields.slint:187
 msgid "The proxy applies to IMAP and SMTP only, and must not require a login."
 msgstr ""
+"El proxy se aplica solo a IMAP y SMTP, y no debe requerir inicio de sesión."
 
 #: ui/components/oauth-browser-help.slint:43
 msgid "Browser did not open — show sign-in help"
@@ -3527,15 +3579,15 @@ msgstr "Guardar paleta"
 
 #: ui/components/user-actions.slint:49
 msgid "External editor"
-msgstr ""
+msgstr "Editor externo"
 
 #: ui/components/user-actions.slint:58
 msgid "Editor command"
-msgstr ""
+msgstr "Comando del editor"
 
 #: ui/components/user-actions.slint:59
 msgid "alacritty -e nvim %f"
-msgstr ""
+msgstr "alacritty -e nvim %f"
 
 #: ui/components/user-actions.slint:62
 msgid ""
@@ -3544,14 +3596,18 @@ msgid ""
 "graphical editors so the command stays running until you close them. Leave "
 "empty to hide the composer button."
 msgstr ""
+"Abre el texto del mensaje en tu editor desde el redactor. %f es el archivo "
+"que editar; usa un comando de terminal para editores de terminal y la opción "
+"--wait para editores gráficos, de modo que el comando siga en ejecución "
+"hasta que los cierres. Déjalo vacío para ocultar el botón del redactor."
 
 #: ui/components/user-actions.slint:74
 msgid "Save editor command"
-msgstr ""
+msgstr "Guardar comando del editor"
 
 #: ui/components/user-actions.slint:83
 msgid "Message actions"
-msgstr ""
+msgstr "Acciones de mensaje"
 
 #: ui/components/user-actions.slint:89
 msgid ""
@@ -3560,22 +3616,27 @@ msgid ""
 "and sender are available as $RUSTMAIL_SUBJECT and $RUSTMAIL_FROM; quote them "
 "in your command. Commands stop after 60 seconds. Only add commands you trust."
 msgstr ""
+"Comandos que puedes ejecutar sobre el mensaje abierto desde el botón "
+"Acciones del lector. %f es una copia temporal privada del mensaje (.eml). El "
+"asunto y el remitente están disponibles como $RUSTMAIL_SUBJECT y "
+"$RUSTMAIL_FROM; ponlos entre comillas en tu comando. Los comandos se "
+"detienen tras 60 segundos. Añade solo comandos de confianza."
 
 #: ui/components/user-actions.slint:97
 msgid "No actions yet."
-msgstr ""
+msgstr "Aún no hay acciones."
 
 #: ui/components/user-actions.slint:130
 msgid "Action name"
-msgstr ""
+msgstr "Nombre de la acción"
 
 #: ui/components/user-actions.slint:131
 msgid "Name, for example Open in Thunderbird"
-msgstr ""
+msgstr "Nombre, por ejemplo Abrir en Thunderbird"
 
 #: ui/components/user-actions.slint:138
 msgid "thunderbird -file %f"
-msgstr ""
+msgstr "thunderbird -file %f"
 
 #: ui/components/workspace-navigation.slint:104
 #: ui/dialogs/settings-dialog.slint:2082
@@ -4162,11 +4223,15 @@ msgid ""
 "filters rules mail incoming move label star archive trash spam sender "
 "subject automatic"
 msgstr ""
+"filtros reglas correo entrante mover etiqueta destacar archivar papelera "
+"spam remitente asunto automático"
 
 #: ui/dialogs/settings-dialog.slint:579
 msgid ""
 "actions external editor commands scripts run message open editor compose"
 msgstr ""
+"acciones editor externo comandos scripts ejecutar mensaje abrir editor "
+"redactar"
 
 #: ui/dialogs/settings-dialog.slint:581
 msgid ""
@@ -4210,12 +4275,12 @@ msgstr "Atajos"
 #: ui/dialogs/settings-dialog.slint:836 ui/dialogs/settings-dialog.slint:1895
 #: ui/dialogs/settings-dialog.slint:2312
 msgid "Filters"
-msgstr ""
+msgstr "Filtros"
 
 #: ui/dialogs/settings-dialog.slint:837 ui/dialogs/settings-dialog.slint:1926
 #: ui/dialogs/settings-dialog.slint:2313
 msgid "Actions"
-msgstr ""
+msgstr "Acciones"
 
 #: ui/dialogs/settings-dialog.slint:838 ui/dialogs/settings-dialog.slint:1958
 #: ui/dialogs/settings-dialog.slint:2314
@@ -4800,10 +4865,14 @@ msgid ""
 "Sort incoming mail automatically: mark, star, archive or move it by sender, "
 "recipient, subject or size."
 msgstr ""
+"Ordena el correo entrante automáticamente: márcalo, destácalo, archívalo o "
+"muévelo según remitente, destinatario, asunto o tamaño."
 
 #: ui/dialogs/settings-dialog.slint:1929
 msgid "Run your own commands on messages and write in the editor you prefer."
 msgstr ""
+"Ejecuta tus propios comandos sobre los mensajes y escribe en el editor que "
+"prefieras."
 
 #: ui/dialogs/settings-dialog.slint:1961
 msgid "See what Rustmail stores locally and manage the data on this device."
@@ -4964,18 +5033,20 @@ msgid ""
 "A modified version of Flectar Mail, copyright © Flectar and contributors. "
 "Changes by Rustmail contributors."
 msgstr ""
+"Una versión modificada de Flectar Mail, copyright © Flectar y colaboradores. "
+"Cambios de los colaboradores de Rustmail."
 
 #: ui/dialogs/settings-dialog.slint:2177
 msgid "Source code of this version"
-msgstr ""
+msgstr "Código fuente de esta versión"
 
 #: ui/dialogs/settings-dialog.slint:2187
 msgid "Flectar Mail"
-msgstr ""
+msgstr "Flectar Mail"
 
 #: ui/dialogs/settings-dialog.slint:2188
 msgid "Original project, © Flectar and contributors"
-msgstr ""
+msgstr "Proyecto original, © Flectar y colaboradores"
 
 #: ui/dialogs/settings-dialog.slint:2197
 msgid "Open-source contributors"
@@ -5005,6 +5076,8 @@ msgid ""
 "This program comes with ABSOLUTELY NO WARRANTY. Third-party components "
 "retain their own licenses and notices."
 msgstr ""
+"Este programa se ofrece SIN NINGUNA GARANTÍA. Los componentes de terceros "
+"conservan sus propias licencias y avisos."
 
 #: ui/dialogs/settings-dialog.slint:2246
 msgid "Settings sections"
@@ -5074,6 +5147,8 @@ msgstr "Usa JMAP para sincronizar y enviar correo, con detección automática."
 msgid ""
 "Reads mail stored on this computer. An SMTP server is only needed to send."
 msgstr ""
+"Lee el correo almacenado en este equipo. Solo se necesita un servidor SMTP "
+"para enviar."
 
 #: ui/dialogs/settings-dialog.slint:2508
 msgid "Uses separate IMAP and SMTP servers for mail sync and sending."
@@ -6262,7 +6337,7 @@ msgstr "Conecta mediante JMAP para sincronizar y enviar correo."
 
 #: ui/views/onboarding-view.slint:256
 msgid "Read mail stored on this computer in Maildir or mbox folders."
-msgstr ""
+msgstr "Lee el correo almacenado en este equipo en carpetas Maildir o mbox."
 
 #: ui/views/onboarding-view.slint:256
 msgid "Connect using IMAP and SMTP. POP3 is not supported."
