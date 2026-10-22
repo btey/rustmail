@@ -560,6 +560,8 @@ impl Smime {
 
 #[cfg(test)]
 mod tests {
+    // The OpenSSL/gpgsm fixtures are only used by the unix tests.
+    #![cfg_attr(not(unix), allow(dead_code, unused_imports))]
     use super::*;
     use std::{collections::BTreeMap, path::Path, process::Command};
 
