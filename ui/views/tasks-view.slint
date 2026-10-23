@@ -103,6 +103,7 @@ export global TasksUi {
     // Drawer pickers: "ctx:<id>" / "ctx:none" and "lbl:<id>" entries.
     in-out property <bool> list-mode: false;
     in-out property <bool> can-switch-view: false;
+    in-out property <[ActionMenuEntry]> group-menu;
     in-out property <[TaskChipRow]> filter-chips;
     in-out property <[ActionMenuEntry]> filter-menu;
     in-out property <[ActionMenuEntry]> context-menu;
@@ -983,6 +984,16 @@ export component TasksView inherits Rectangle {
                     text: TasksUi.list-mode ? @tr("Board") : @tr("List");
                     width: max(72px, self.content-width + 28px);
                     clicked => { TasksUi.command("view", TasksUi.list-mode ? "board" : "list", ""); }
+                }
+                if TasksUi.group-menu.length > 0 : ActionMenu {
+                    width: 28px;
+                    height: 28px;
+                    icon: @image-url("../icons/lucide/outline/list-unordered.svg");
+                    entries: TasksUi.group-menu;
+                    menu-width: 220px;
+                    align-right: false;
+                    tooltip-text: @tr("Group");
+                    activated(id) => { TasksUi.command("group", id, ""); }
                 }
                 if TasksUi.filter-menu.length > 0 : ActionMenu {
                     width: 28px;

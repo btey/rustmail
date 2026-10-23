@@ -23,6 +23,45 @@ use std::{
 
 const DEFAULT_COLOUR: &str = "#6b7280";
 
+/// How a flat task list is split into sections.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum Group {
+    #[default]
+    None,
+    Status,
+    Project,
+    Context,
+    Label,
+    Due,
+}
+
+impl Group {
+    fn parse(token: &str) -> Self {
+        match token {
+            "status" => Self::Status,
+            "project" => Self::Project,
+            "context" => Self::Context,
+            "label" => Self::Label,
+            "due" => Self::Due,
+            _ => Self::None,
+        }
+    }
+
+    fn token(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Status => "status",
+            Self::Project => "project",
+            Self::Context => "context",
+            Self::Label => "label",
+            Self::Due => "due",
+        }
+    }
+}
+
+const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+
+
 #[derive(Default)]
 struct Session {
     selection: String,
@@ -35,6 +74,7 @@ struct Session {
     list: bool,
     /// Sidebar search over project and context names.
     nav: String,
+    group: Group,
 }
 
 struct DetailSnap {
@@ -59,6 +99,7 @@ struct DetailSnap {
     activity: Vec<(String, String)>,
 }
 
+#[derive(Clone)]
 struct CardSnap {
     id: i64,
     title: String,
@@ -113,6 +154,8 @@ struct Snapshot {
     chips: Vec<(String, String)>,
     list_mode: bool,
     can_switch_view: bool,
+    /// `(menu id, title)` for the Group menu; empty when the view is a board.
+    group_menu: Vec<(String, String)>,
     filter_menu: Vec<(String, String)>,
 }
 
@@ -201,6 +244,49 @@ fn initials(name: Option<&str>, email: Option<&str>) -> String {
         .or_else(|| email.and_then(|e| e.chars().next()).map(String::from))
         .unwrap_or_default()
         .to_uppercase()
+}
+
+const DUE_ORDER: [&str; 5] = ["Overdue", "Today", "Next 7 days", "Later", "No due date"];
+
+struct GroupNames<'a> {
+    columns: &'a HashMap<i64, String>,
+    projects: &'a HashMap<i64, String>,
+    contexts: &'a HashMap<i64, String>,
+    labels: &'a HashMap<i64, TaskLabel>,
+}
+
+/// The sections a task belongs to. A task with several labels appears in
+/// each label's section; an empty key list never happens.
+fn group_keys(task: &Task, group: Group, names: &GroupNames, today_end: i64) -> Vec<String> {
+    let one = |text: String| vec![text];
+    match group {
+        Group::None => one(String::new()),
+        Group::Status => one(names.columns.get(&task.column_id).cloned().unwrap_or_default()),
+        Group::Project => one(names.projects.get(&task.project_id).cloned().unwrap_or_default()),
+        Group::Context => one(
+            task.context_id
+                .and_then(|c| names.contexts.get(&c))
+                .map_or_else(|| "No context".to_owned(), |n| format!("@{n}")),
+        ),
+        Group::Label => {
+            let found: Vec<String> = task
+                .label_ids
+                .iter()
+                .filter_map(|l| names.labels.get(l).map(|l| l.name.clone()))
+                .collect();
+            if found.is_empty() { one("No label".to_owned()) } else { found }
+        }
+        Group::Due => one(
+            match task.due_at {
+                None => "No due date",
+                Some(d) if d < today_end - DAY_MS + 1 => "Overdue",
+                Some(d) if d <= today_end => "Today",
+                Some(d) if d <= today_end + 7 * DAY_MS => "Next 7 days",
+                Some(_) => "Later",
+            }
+            .to_owned(),
+        ),
+    }
 }
 
 fn column_count(column: &TaskColumn) -> String {
@@ -309,7 +395,7 @@ async fn load(
     selection: &str,
     query: &str,
     detail_id: Option<i64>,
-    chips: (Option<i64>, Option<i64>, bool),
+    chips: (Option<i64>, Option<i64>, bool, Group),
 ) -> rustmail_core::error::Result<Snapshot> {
     core.tasks_open().await?;
     let today_end = today_end_ms();
@@ -338,7 +424,7 @@ async fn load(
         text: Some(query.to_owned()).filter(|q| !q.trim().is_empty()),
         ..Default::default()
     };
-    let (label_chip, context_chip, list_mode) = chips;
+    let (label_chip, context_chip, list_mode, group) = chips;
     filter.label_id = label_chip.filter(|l| label_map.contains_key(l));
     if kind != "context" {
         filter.context_id = context_chip.filter(|c| context_map.contains_key(c));
@@ -451,36 +537,84 @@ async fn load(
             })
             .collect();
     } else if !tasks.is_empty() || kind != "project" {
-        // Focus, context and search views are one flat list.
-        snap.columns = vec![ColumnSnap {
-            id: -1,
-            name: String::new(),
-            colour: DEFAULT_COLOUR.into(),
-            count: tasks.len().to_string(),
-            over_wip: false,
-            collapsed: false,
-            wip: 0,
-            fixed: true,
-            cards: {
-                let names: HashMap<i64, String> = match (snap.list_mode, project_id) {
-                    (true, Some(p)) => core
-                        .task_columns(p)
-                        .await?
-                        .into_iter()
-                        .map(|c| (c.id, c.name))
-                        .collect(),
-                    _ => HashMap::new(),
-                };
-                tasks
-                    .iter()
-                    .map(|t| {
-                        let mut k = card(t, &label_map, &context_map, today_end);
-                        k.status = names.get(&t.column_id).cloned().unwrap_or_default();
-                        k
-                    })
-                    .collect()
-            },
-        }];
+        // Focus, context and search views are one flat list, optionally
+        // split into sections.
+        let column_names: HashMap<i64, String> = match (kind == "project", project_id) {
+            (true, Some(p)) => core
+                .task_columns(p)
+                .await?
+                .into_iter()
+                .map(|c| (c.id, c.name))
+                .collect(),
+            _ => HashMap::new(),
+        };
+        let project_names: HashMap<i64, String> =
+            projects.iter().map(|p| (p.id, p.name.clone())).collect();
+        let mut options = vec![Group::None];
+        if kind == "project" {
+            options.push(Group::Status);
+        } else {
+            options.push(Group::Project);
+        }
+        options.extend([Group::Context, Group::Label, Group::Due]);
+        let group = if options.contains(&group) { group } else { Group::None };
+        let titles = |g: Group| match g {
+            Group::None => "No grouping",
+            Group::Status => "Group by status",
+            Group::Project => "Group by project",
+            Group::Context => "Group by context",
+            Group::Label => "Group by label",
+            Group::Due => "Group by due date",
+        };
+        snap.group_menu = options
+            .iter()
+            .map(|g| {
+                let tick = if *g == group { "✓ " } else { "" };
+                (g.token().to_owned(), format!("{tick}{}", titles(*g)))
+            })
+            .collect();
+        let cards: Vec<(&Task, CardSnap)> = tasks
+            .iter()
+            .map(|t| {
+                let mut k = card(t, &label_map, &context_map, today_end);
+                if list_mode {
+                    k.status = column_names.get(&t.column_id).cloned().unwrap_or_default();
+                }
+                (t, k)
+            })
+            .collect();
+        let names = GroupNames {
+            columns: &column_names,
+            projects: &project_names,
+            contexts: &context_map,
+            labels: &label_map,
+        };
+        let mut sections: Vec<(String, Vec<CardSnap>)> = Vec::new();
+        for (task, snap_card) in cards {
+            for key in group_keys(task, group, &names, today_end) {
+                match sections.iter_mut().find(|(k, _)| *k == key) {
+                    Some((_, list)) => list.push(snap_card.clone()),
+                    None => sections.push((key, vec![snap_card.clone()])),
+                }
+            }
+        }
+        if group == Group::Due {
+            sections.sort_by_key(|(k, _)| DUE_ORDER.iter().position(|d| d == k));
+        }
+        snap.columns = sections
+            .into_iter()
+            .map(|(name, cards)| ColumnSnap {
+                id: -1,
+                name,
+                colour: DEFAULT_COLOUR.into(),
+                count: cards.len().to_string(),
+                over_wip: false,
+                collapsed: false,
+                wip: 0,
+                fixed: true,
+                cards,
+            })
+            .collect();
     }
     if let Some(id) = detail_id
         && let Some((detail, targets)) = load_detail(core, id, &projects).await
@@ -529,6 +663,18 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
     ui.set_contexts(nav_rows(snap.contexts));
     ui.set_list_mode(snap.list_mode);
     ui.set_can_switch_view(snap.can_switch_view);
+    ui.set_group_menu(ModelRc::new(VecModel::from(
+        snap.group_menu
+            .into_iter()
+            .map(|(id, title)| crate::ActionMenuEntry {
+                id: id.into(),
+                title: title.into(),
+                icon: Default::default(),
+                disabled: false,
+                destructive: false,
+            })
+            .collect::<Vec<_>>(),
+    )));
     ui.set_filter_chips(ModelRc::new(VecModel::from(
         snap.chips
             .into_iter()
@@ -729,6 +875,7 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             },
             "view" => s.list = arg(0) == "list",
             "nav-filter" => s.nav = arg(0),
+            "group" => s.group = Group::parse(&arg(0)),
             "filter-remove" => match arg(0).as_str() {
                 "label" => s.label = None,
                 "context" => s.context = None,
@@ -750,7 +897,7 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             s.selection.clone(),
             s.query.clone(),
             s.detail_id,
-            (s.label, s.context, s.list),
+            (s.label, s.context, s.list, s.group),
             s.nav.clone(),
         )
     };
@@ -1141,35 +1288,83 @@ mod tests {
     #[tokio::test]
     async fn list_mode_flattens_a_project_and_names_each_status() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         assert!(snap.can_switch_view && !snap.list_mode);
         let inbox = snap.columns[0].clone_id_name();
         run(&core, &sel, "add-task", &inbox.0.to_string(), "One").await.unwrap();
 
-        let snap = load(&core, &sel, "", None, (None, None, true)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, true, Group::None)).await.unwrap();
         assert!(snap.list_mode);
         assert_eq!(snap.columns.len(), 1);
         assert_eq!(snap.columns[0].id, -1);
         assert_eq!(snap.columns[0].cards[0].status, inbox.1);
 
         // Focus lists have no board to switch to.
-        let snap = load(&core, "focus:inbox", "", None, (None, None, true)).await.unwrap();
+        let snap = load(&core, "focus:inbox", "", None, (None, None, true, Group::None)).await.unwrap();
         assert!(!snap.can_switch_view && !snap.list_mode);
+    }
+
+    #[tokio::test]
+    async fn grouping_splits_the_list_into_sections() {
+        let (_tmp, core, sel) = board().await;
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let inbox = snap.columns[0].id.to_string();
+        for title in ["Soon", "Whenever", "Tagged"] {
+            run(&core, &sel, "add-task", &inbox, title).await.unwrap();
+        }
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
+        run(&core, &sel, "detail-due", &id_of("Soon").to_string(), "today").await.unwrap();
+        run(&core, &sel, "detail-label-new", &id_of("Tagged").to_string(), "urgent")
+            .await
+            .unwrap();
+
+        let names = |snap: &Snapshot| {
+            snap.columns
+                .iter()
+                .map(|c| (c.name.clone(), c.cards.len()))
+                .collect::<Vec<_>>()
+        };
+        let by_due = load(&core, &sel, "", None, (None, None, true, Group::Due)).await.unwrap();
+        assert_eq!(
+            names(&by_due),
+            [("Today".to_owned(), 1), ("No due date".to_owned(), 2)]
+        );
+        let by_label = load(&core, &sel, "", None, (None, None, true, Group::Label))
+            .await
+            .unwrap();
+        assert_eq!(
+            names(&by_label),
+            [("No label".to_owned(), 2), ("urgent".to_owned(), 1)]
+        );
+        let by_status = load(&core, &sel, "", None, (None, None, true, Group::Status))
+            .await
+            .unwrap();
+        assert_eq!(by_status.columns.len(), 1);
+        assert!(by_status.group_menu.iter().any(|(id, t)| id == "status" && t.starts_with("✓")));
+        // A group that does not fit the view falls back to no grouping.
+        let focus = load(&core, "focus:inbox", "", None, (None, None, false, Group::Status))
+            .await
+            .unwrap();
+        assert!(focus.group_menu.iter().all(|(id, _)| id != "status"));
+        // The board has no Group menu.
+        let board = load(&core, &sel, "", None, (None, None, false, Group::Due)).await.unwrap();
+        assert!(board.group_menu.is_empty());
     }
 
     #[tokio::test]
     async fn task_links_are_added_by_title_and_removed() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         run(&core, &sel, "add-task", &inbox, "Draft").await.unwrap();
         run(&core, &sel, "add-task", &inbox, "Publish").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
         let (draft, publish) = (id_of("Draft"), id_of("Publish"));
 
         run(&core, &sel, "link-task", &publish.to_string(), "depends:draft").await.unwrap();
-        let snap = load(&core, &sel, "", Some(publish), (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None)).await.unwrap();
         let links = &snap.detail.as_ref().unwrap().links;
         assert_eq!(links.len(), 1);
         assert_eq!(links[0].1, "task_depends");
@@ -1180,7 +1375,7 @@ mod tests {
         assert!(own.is_err());
 
         run(&core, &sel, "link-remove", &links[0].0.to_string(), "").await.unwrap();
-        let snap = load(&core, &sel, "", Some(publish), (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None)).await.unwrap();
         assert!(snap.detail.unwrap().links.is_empty());
     }
 
@@ -1267,7 +1462,7 @@ mod tests {
     async fn column_commands_validate_and_apply() {
         let (_tmp, core, sel) = board().await;
         run(&core, &sel, "add-column", "Review", "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         let review = first_column(&snap, "Review");
         assert!(!review.fixed);
         let id = review.id.to_string();
@@ -1275,7 +1470,7 @@ mod tests {
         run(&core, &sel, "column-rename", &id, "QA").await.unwrap();
         run(&core, &sel, "column-wip", &id, "3").await.unwrap();
         run(&core, &sel, "column-colour", &id, "colour:#ef4444").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         let qa = first_column(&snap, "QA");
         assert_eq!((qa.wip, qa.colour.as_str()), (3, "#ef4444"));
 
@@ -1285,7 +1480,7 @@ mod tests {
 
         let before: Vec<_> = snap.columns.iter().map(|c| c.id).collect();
         run(&core, &sel, "column-move", &id, "left").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         let after: Vec<_> = snap.columns.iter().map(|c| c.id).collect();
         let at = |v: &[i64]| v.iter().position(|c| c.to_string() == id).unwrap();
         assert_eq!(at(&after) + 1, at(&before));
@@ -1294,7 +1489,7 @@ mod tests {
         let refused = run(&core, &sel, "column-delete", &built_in, "").await;
         assert_eq!(refused, Err("Built-in columns cannot be deleted".into()));
         run(&core, &sel, "column-delete", &id, "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         assert!(snap.columns.iter().all(|c| c.name != "QA"));
     }
 
@@ -1302,60 +1497,60 @@ mod tests {
     async fn card_move_due_and_assignee_commands() {
         let (_tmp, core, sel) = board().await;
         run(&core, &sel, "add-column", "Review", "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         let review = first_column(&snap, "Review").id.to_string();
         run(&core, &sel, "add-task", &inbox, "Write report").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         let task = snap.columns[0].cards[0].id;
         let tid = task.to_string();
 
         // What a drop sends: the card menu's move command.
         run(&core, &sel, "card-menu", &tid, &format!("move:{review}")).await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         assert_eq!(first_column(&snap, "Review").cards[0].id, task);
 
         run(&core, &sel, "detail-due", &tid, "tomorrow").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().due, iso_date(today_end_ms() + 1000));
         run(&core, &sel, "detail-due", &tid, "none").await.unwrap();
 
         run(&core, &sel, "detail-assignee", &tid, "Ana Diaz <ana@example.org>")
             .await
             .unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "Ana Diaz <ana@example.org>");
         run(&core, &sel, "detail-assignee", &tid, "bob@example.org").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "bob@example.org");
         assert!(run(&core, &sel, "detail-assignee", &tid, "nobody known").await.is_err());
         run(&core, &sel, "detail-assignee", &tid, "").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "");
     }
 
     #[tokio::test]
     async fn label_and_context_chips_filter_the_board() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         run(&core, &sel, "add-task", &inbox, "Tagged").await.unwrap();
         run(&core, &sel, "add-task", &inbox, "Plain").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
         let tagged = snap.columns[0].cards.iter().find(|c| c.title == "Tagged").unwrap().id;
         run(&core, &sel, "detail-label-new", &tagged.to_string(), "urgent")
             .await
             .unwrap();
         let label = core.task_labels().await.unwrap()[0].id;
 
-        let snap = load(&core, &sel, "", None, (Some(label), None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (Some(label), None, false, Group::None)).await.unwrap();
         let titles: Vec<_> = snap.columns.iter().flat_map(|c| &c.cards).map(|c| c.title.as_str()).collect();
         assert_eq!(titles, ["Tagged"]);
         assert_eq!(snap.chips, [("label".to_owned(), "Label: urgent".to_owned())]);
         // The label is active, so it is no longer offered in the menu.
         assert!(snap.filter_menu.iter().all(|(id, _)| !id.starts_with("label:")));
         // An unknown label id is ignored instead of emptying the board.
-        let snap = load(&core, &sel, "", None, (Some(9999), None, false)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (Some(9999), None, false, Group::None)).await.unwrap();
         assert!(snap.chips.is_empty());
     }
 }
