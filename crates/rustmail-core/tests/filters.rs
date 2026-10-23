@@ -231,3 +231,46 @@ async fn copy_and_forward_are_refused_safely() {
     }];
     assert!(core.save_filter_rules(vec![bad]).await.is_err());
 }
+
+#[tokio::test]
+async fn the_create_task_action_makes_one_linked_task_per_conversation() {
+    // No rules while the mail is set up, so the background filter loop has
+    // nothing to race with; the rules are saved and run explicitly after.
+    let (_temp, core) = setup(vec![]).await;
+    core.db
+        .write(|conn| {
+            conn.execute("UPDATE messages SET message_id = '<m' || id || '@x>'", [])?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    core.save_filter_rules(vec![rule(
+        "Eve",
+        "eve@",
+        &[("create_task", "waiting")],
+        false,
+    )])
+    .await
+    .unwrap();
+    core.run_filters_now(1).await.unwrap();
+    let linked = core.task_threads(None).await.unwrap();
+    assert_eq!(linked.len(), 1, "only the matching conversation");
+    assert_eq!(linked[0].thread_id, 1);
+    assert_eq!(linked[0].status, "Waiting for");
+    assert!(linked[0].waiting_on_reply);
+
+    // Running the filters again must not add a second task.
+    core.run_filters_now(1).await.unwrap();
+    let tasks = core
+        .task_list(rustmail_core::tasks::TaskFilter::default())
+        .await
+        .unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0].title, "Hello");
+
+    // A bad value is rejected when the rules are saved.
+    let bad = rule("Bad", "eve@", &[("create_task", "someday-maybe")], false);
+    assert!(core.save_filter_rules(vec![bad]).await.is_err());
+    let none = rule("None", "eve@", &[("create_task", "")], false);
+    assert!(core.save_filter_rules(vec![none]).await.is_err());
+}

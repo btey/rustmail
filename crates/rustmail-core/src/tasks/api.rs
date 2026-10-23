@@ -64,6 +64,30 @@ impl Core {
         Ok(task)
     }
 
+    /// Like `task_create_from_thread`, but does nothing when the thread
+    /// already has a task. The check and the insert share one database write,
+    /// so two filter passes cannot both create one.
+    pub async fn task_create_from_thread_once(
+        &self,
+        thread_id: i64,
+        draft: TaskDraft,
+    ) -> Result<Option<Task>> {
+        let task = self
+            .db
+            .write(move |conn| {
+                let mut store = SqliteTaskStore::new(conn);
+                if !store.threads_with_tasks(Some(&[thread_id]))?.is_empty() {
+                    return Ok(None);
+                }
+                store.create_from_thread(thread_id, draft).map(Some)
+            })
+            .await?;
+        if task.is_some() {
+            self.bus.emit(CoreEvent::TasksChanged);
+        }
+        Ok(task)
+    }
+
     /// New mail arrived in these threads (see `SqliteTaskStore::note_replies`).
     pub async fn task_note_replies(&self, thread_ids: Vec<i64>) -> Result<Vec<i64>> {
         let touched = self

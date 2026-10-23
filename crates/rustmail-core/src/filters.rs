@@ -32,7 +32,7 @@ const MAX_HEADER_BYTES: usize = 64 * 1024;
 const MAX_BODY_BYTES: usize = 1024 * 1024;
 const MAX_PARSED_BYTES: usize = 4 * 1024 * 1024;
 
-pub const ACTION_KINDS: [&str; 11] = [
+pub const ACTION_KINDS: [&str; 12] = [
     "mark_read",
     "mark_unread",
     "star",
@@ -44,7 +44,28 @@ pub const ACTION_KINDS: [&str; 11] = [
     "copy",
     "forward",
     "run_command",
+    "create_task",
 ];
+
+/// The value of a `create_task` action: `status[;project[;context]]`, where
+/// status is the kind of column the task lands in.
+fn parse_task_action(
+    value: &str,
+) -> Option<(crate::tasks::ColumnKind, Option<&str>, Option<&str>)> {
+    use crate::tasks::ColumnKind;
+    let mut parts = value.split(';').map(str::trim);
+    let status = match parts.next()? {
+        "inbox" => ColumnKind::Inbox,
+        "next" => ColumnKind::Next,
+        "waiting" => ColumnKind::Waiting,
+        "scheduled" => ColumnKind::Scheduled,
+        _ => return None,
+    };
+    let mut named = || parts.next().filter(|n| !n.is_empty());
+    let project = named();
+    let context = named();
+    Some((status, project, context))
+}
 
 /// Actions that work on the matched message, not on its whole conversation.
 fn is_message_action(kind: &str) -> bool {
@@ -309,6 +330,13 @@ fn validate_rule(rule: &mut FilterRule) -> Result<()> {
             return Err(CoreError::Other(
                 "Move, copy, label, forward and command actions need a folder, label, address \
                  or command; other actions take none"
+                    .into(),
+            ));
+        }
+        if action.kind == "create_task" && parse_task_action(&action.value).is_none() {
+            return Err(CoreError::Other(
+                "Create task needs inbox, next, waiting or scheduled, optionally followed by \
+                 ;project and ;context"
                     .into(),
             ));
         }
@@ -682,6 +710,14 @@ impl Core {
                     continue;
                 }
                 let Some(thread_id) = thread_id else { continue };
+                if action.kind == "create_task" {
+                    if let Err(error) = self.filter_create_task(thread_id, &action.value).await {
+                        tracing::warn!(
+                            "filter action create_task failed for thread {thread_id}: {error}"
+                        );
+                    }
+                    continue;
+                }
                 let Some((kind, params)) = self.resolve_filter_action(account_id, &action).await?
                 else {
                     tracing::warn!(
@@ -910,6 +946,49 @@ impl Core {
             }
             _ => Ok(None),
         }
+    }
+
+    /// The `create_task` filter action: one task per conversation. A thread
+    /// that already has a task is left alone (checked atomically with the
+    /// insert), so later replies, re-runs and concurrent passes do not pile
+    /// up tasks.
+    async fn filter_create_task(&self, thread_id: i64, value: &str) -> Result<()> {
+        use crate::tasks::TaskDraft;
+        let (status, project, context) = parse_task_action(value)
+            .ok_or_else(|| CoreError::Other("invalid create_task value".into()))?;
+        let (project, context) = (project.map(str::to_owned), context.map(str::to_owned));
+        self.tasks_open().await?;
+        let project_id = match project {
+            Some(name) => self
+                .task_projects()
+                .await?
+                .into_iter()
+                .find(|p| p.name.eq_ignore_ascii_case(&name))
+                .map(|p| p.id),
+            None => None,
+        };
+        let context_id = match context {
+            Some(name) => self
+                .task_contexts()
+                .await?
+                .into_iter()
+                .find(|c| c.name.eq_ignore_ascii_case(name.trim_start_matches('@')))
+                .map(|c| c.id),
+            None => None,
+        };
+        self.task_create_from_thread_once(
+            thread_id,
+            TaskDraft {
+                title: None,
+                project_id,
+                status,
+                due_at: None,
+                context_id,
+                label_ids: Vec::new(),
+            },
+        )
+        .await?;
+        Ok(())
     }
 
     /// Long-lived loop: filter new inbox mail whenever the mailbox changes.
