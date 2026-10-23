@@ -627,11 +627,30 @@ component TaskDrawer inherits Rectangle {
                 }
             }
             DetailSection { text: @tr("DUE DATE"); }
-            LineEdit {
-                text <=> root.due-draft;
-                placeholder-text: @tr("YYYY-MM-DD");
-                input-label: @tr("Due date");
-                accepted(text) => { TasksUi.save-detail("" + TasksUi.detail.id, root.title-draft, root.description-draft, root.due-draft); }
+            HorizontalLayout {
+                height: 34px;
+                spacing: 6px;
+                LineEdit {
+                    horizontal-stretch: 1;
+                    text <=> root.due-draft;
+                    placeholder-text: @tr("YYYY-MM-DD");
+                    input-label: @tr("Due date");
+                    accepted(text) => { TasksUi.save-detail("" + TasksUi.detail.id, root.title-draft, root.description-draft, root.due-draft); }
+                }
+                ActionMenu {
+                    width: 34px;
+                    height: 34px;
+                    icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
+                    entries: [
+                        { id: "today", title: @tr("Today") },
+                        { id: "tomorrow", title: @tr("Tomorrow") },
+                        { id: "week", title: @tr("In a week") },
+                        { id: "none", title: @tr("No date") },
+                    ];
+                    menu-width: 180px;
+                    tooltip-text: @tr("Quick due date");
+                    activated(id) => { TasksUi.command("detail-due", "" + TasksUi.detail.id, id); }
+                }
             }
             DetailSection { text: @tr("DESCRIPTION"); }
             TextEdit {

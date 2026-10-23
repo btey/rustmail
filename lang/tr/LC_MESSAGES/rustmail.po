@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-23 12:34+0000\n"
+"POT-Creation-Date: 2026-10-23 12:59+0000\n"
 "PO-Revision-Date: 2026-09-15 12:00+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Turkish\n"
@@ -2192,7 +2192,7 @@ msgid "Filters only affect this agenda."
 msgstr "Filtreler yalnızca bu ajandayı etkiler."
 
 #: ui/components/calendar-agenda.slint:212 ui/components/calendar.slint:577
-#: ui/views/mail-list-pane.slint:322
+#: ui/views/mail-list-pane.slint:322 ui/views/tasks-view.slint:645
 msgid "Today"
 msgstr "Bugün"
 
@@ -2946,7 +2946,7 @@ msgstr ""
 msgid "Stop: skip the filters below when this one matches"
 msgstr ""
 
-#: ui/components/filter-rules.slint:325 ui/views/tasks-view.slint:841
+#: ui/components/filter-rules.slint:325 ui/views/tasks-view.slint:860
 msgid "Add filter"
 msgstr ""
 
@@ -3663,7 +3663,7 @@ msgstr "TEKRAR"
 msgid "ATTENDEES"
 msgstr "KATILIMCILAR"
 
-#: ui/dialogs/calendar-details-dialog.slint:188 ui/views/tasks-view.slint:636
+#: ui/dialogs/calendar-details-dialog.slint:188 ui/views/tasks-view.slint:655
 msgid "DESCRIPTION"
 msgstr "AÇIKLAMA"
 
@@ -6250,7 +6250,7 @@ msgstr ""
 msgid "Move to column"
 msgstr ""
 
-#: ui/views/tasks-view.slint:293 ui/views/tasks-view.slint:714
+#: ui/views/tasks-view.slint:293 ui/views/tasks-view.slint:733
 msgid "Delete task"
 msgstr ""
 
@@ -6319,7 +6319,7 @@ msgid "Collapse column"
 msgstr ""
 
 #: ui/views/tasks-view.slint:452 ui/views/tasks-view.slint:453
-#: ui/views/tasks-view.slint:874
+#: ui/views/tasks-view.slint:893
 msgid "Column name"
 msgstr ""
 
@@ -6372,83 +6372,99 @@ msgstr ""
 msgid "DUE DATE"
 msgstr ""
 
-#: ui/views/tasks-view.slint:633
+#: ui/views/tasks-view.slint:637
 msgid "Due date"
 msgstr ""
 
-#: ui/views/tasks-view.slint:640
-msgid "Add a description"
+#: ui/views/tasks-view.slint:646
+msgid "Tomorrow"
 msgstr ""
 
 #: ui/views/tasks-view.slint:647
+msgid "In a week"
+msgstr ""
+
+#: ui/views/tasks-view.slint:648
+msgid "No date"
+msgstr ""
+
+#: ui/views/tasks-view.slint:651
+msgid "Quick due date"
+msgstr ""
+
+#: ui/views/tasks-view.slint:659
+msgid "Add a description"
+msgstr ""
+
+#: ui/views/tasks-view.slint:666
 msgid "CHECKLIST"
 msgstr ""
 
-#: ui/views/tasks-view.slint:655
+#: ui/views/tasks-view.slint:674
 msgid "Uncheck item"
 msgstr ""
 
-#: ui/views/tasks-view.slint:655
+#: ui/views/tasks-view.slint:674
 msgid "Check item"
 msgstr ""
 
-#: ui/views/tasks-view.slint:670
+#: ui/views/tasks-view.slint:689
 msgid "Remove item"
 msgstr ""
 
-#: ui/views/tasks-view.slint:675 ui/views/tasks-view.slint:676
+#: ui/views/tasks-view.slint:694 ui/views/tasks-view.slint:695
 msgid "Add checklist item"
 msgstr ""
 
-#: ui/views/tasks-view.slint:679
+#: ui/views/tasks-view.slint:698
 msgid "LINKED ITEMS"
 msgstr ""
 
-#: ui/views/tasks-view.slint:684
+#: ui/views/tasks-view.slint:703
 msgid "Sent"
 msgstr ""
 
-#: ui/views/tasks-view.slint:685
+#: ui/views/tasks-view.slint:704
 msgid "Event"
 msgstr ""
 
-#: ui/views/tasks-view.slint:686
+#: ui/views/tasks-view.slint:705
 msgid "Blocks"
 msgstr ""
 
-#: ui/views/tasks-view.slint:687
+#: ui/views/tasks-view.slint:706
 msgid "Depends on"
 msgstr ""
 
-#: ui/views/tasks-view.slint:692
+#: ui/views/tasks-view.slint:711
 msgid "Not found"
 msgstr ""
 
-#: ui/views/tasks-view.slint:698
+#: ui/views/tasks-view.slint:717
 msgid "ACTIVITY"
 msgstr ""
 
-#: ui/views/tasks-view.slint:773
+#: ui/views/tasks-view.slint:792
 msgid "Lists"
 msgstr ""
 
-#: ui/views/tasks-view.slint:790
+#: ui/views/tasks-view.slint:809
 msgid "{} tasks"
 msgstr ""
 
-#: ui/views/tasks-view.slint:800 ui/views/tasks-view.slint:801
+#: ui/views/tasks-view.slint:819 ui/views/tasks-view.slint:820
 msgid "Search tasks and linked mail"
 msgstr ""
 
-#: ui/views/tasks-view.slint:830
+#: ui/views/tasks-view.slint:849
 msgid "Remove filter"
 msgstr ""
 
-#: ui/views/tasks-view.slint:853
+#: ui/views/tasks-view.slint:872
 msgid "No tasks"
 msgstr ""
 
-#: ui/views/tasks-view.slint:878
+#: ui/views/tasks-view.slint:897
 msgid "Add column"
 msgstr ""
 

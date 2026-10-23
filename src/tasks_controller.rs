@@ -900,6 +900,27 @@ async fn mutate(
             .await
             .map_err(err)?;
         }
+        "detail-due" => {
+            let days = match b {
+                "today" => Some(0),
+                "tomorrow" => Some(1),
+                "week" => Some(7),
+                _ => None,
+            };
+            let due = days.map(|d| {
+                let day = Local::now().date_naive() + chrono::Duration::days(d);
+                parse_due(&day.format("%Y-%m-%d").to_string())
+            });
+            core.task_update(
+                id.ok_or("bad task")?,
+                TaskPatch {
+                    due_at: Some(due.transpose()?.flatten()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map_err(err)?;
+        }
         "save-detail" => {
             let due = parse_due(args.get(3).map_or("", String::as_str))?;
             core.task_update(
