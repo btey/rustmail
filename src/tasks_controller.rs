@@ -3,12 +3,12 @@
 //! reloads one `Snapshot` (plain `Send` data) that is applied to the models.
 use crate::{
     ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, TaskCardRow, TaskColumnRow,
-    TaskDetailRow, TaskNavRow, TasksUi,
+    TaskChipRow, TaskDetailRow, TaskNavRow, TasksUi,
 };
 use chrono::{Local, TimeZone};
 use rustmail_core::Core;
 use rustmail_core::tasks::{
-    NewTask, Task, TaskColumn, TaskFilter, TaskFocus, TaskLabel, TaskPatch,
+    ColumnKind, ColumnPatch, NewTask, Task, TaskColumn, TaskFilter, TaskFocus, TaskLabel, TaskPatch,
 };
 use slint::{ComponentHandle, ModelRc, VecModel};
 use std::{
@@ -28,6 +28,9 @@ struct Session {
     selection: String,
     query: String,
     detail_id: Option<i64>,
+    /// Filter chips: label and context narrow the current list.
+    label: Option<i64>,
+    context: Option<i64>,
 }
 
 struct DetailSnap {
@@ -39,6 +42,11 @@ struct DetailSnap {
     done: bool,
     project: String,
     column: String,
+    context: String,
+    labels: String,
+    /// `(menu id, title)`: "ctx:<id>" / "ctx:none", "lbl:<id>" (ticked when set).
+    context_menu: Vec<(String, String)>,
+    label_menu: Vec<(String, String)>,
     checklist: Vec<(i64, String, bool)>,
     /// `(kind token, text, target found)`.
     links: Vec<(String, String, bool)>,
@@ -67,6 +75,10 @@ struct ColumnSnap {
     count: String,
     over_wip: bool,
     collapsed: bool,
+    /// 0 = no limit.
+    wip: i64,
+    /// Built-in column (Inbox, Done, ...): it cannot be deleted.
+    fixed: bool,
     cards: Vec<CardSnap>,
 }
 
@@ -89,6 +101,9 @@ struct Snapshot {
     detail: Option<DetailSnap>,
     /// `(entry id, column name)` for the card move menu.
     move_targets: Vec<(i64, String)>,
+    /// Active filter chips `(key, text)` and the "Add filter" entries.
+    chips: Vec<(String, String)>,
+    filter_menu: Vec<(String, String)>,
 }
 
 fn colour(hex: &str) -> slint::Color {
@@ -176,6 +191,31 @@ async fn load_detail(
     let links = core.task_links(id).await.ok()?;
     let activity = core.task_activity(id).await.ok()?;
     let column = columns.iter().find(|c| c.id == task.column_id)?;
+    let contexts = core.task_contexts().await.ok()?;
+    let all_labels = core.task_labels().await.ok()?;
+    let mut context_menu = vec![("ctx:none".to_owned(), "No context".to_owned())];
+    context_menu.extend(contexts.iter().map(|c| {
+        let tick = if task.context_id == Some(c.id) { "✓ " } else { "" };
+        (format!("ctx:{}", c.id), format!("{tick}{}", c.name))
+    }));
+    let label_menu = all_labels
+        .iter()
+        .map(|l| {
+            let tick = if task.label_ids.contains(&l.id) { "✓ " } else { "" };
+            (format!("lbl:{}", l.id), format!("{tick}{}", l.name))
+        })
+        .collect();
+    let labels = all_labels
+        .iter()
+        .filter(|l| task.label_ids.contains(&l.id))
+        .map(|l| l.name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let context = contexts
+        .iter()
+        .find(|c| Some(c.id) == task.context_id)
+        .map(|c| c.name.clone())
+        .unwrap_or_default();
     let links = links
         .into_iter()
         .map(|l| {
@@ -202,6 +242,10 @@ async fn load_detail(
             .map(|p| p.name.clone())
             .unwrap_or_default(),
         column: column.name.clone(),
+        context,
+        labels,
+        context_menu,
+        label_menu,
         checklist: checklist.into_iter().map(|c| (c.id, c.text, c.done)).collect(),
         links,
         activity: activity
@@ -224,6 +268,7 @@ async fn load(
     selection: &str,
     query: &str,
     detail_id: Option<i64>,
+    chips: (Option<i64>, Option<i64>),
 ) -> rustmail_core::error::Result<Snapshot> {
     core.tasks_open().await?;
     let today_end = today_end_ms();
@@ -252,6 +297,11 @@ async fn load(
         text: Some(query.to_owned()).filter(|q| !q.trim().is_empty()),
         ..Default::default()
     };
+    let (label_chip, context_chip) = chips;
+    filter.label_id = label_chip.filter(|l| label_map.contains_key(l));
+    if kind != "context" {
+        filter.context_id = context_chip.filter(|c| context_map.contains_key(c));
+    }
     let mut title = String::new();
     match kind {
         "project" => {
@@ -277,6 +327,22 @@ async fn load(
         title,
         ..Default::default()
     };
+    if let Some(l) = filter.label_id.and_then(|l| label_map.get(&l)) {
+        snap.chips.push(("label".into(), format!("Label: {}", l.name)));
+    }
+    if let Some(n) = filter.context_id.and_then(|c| context_map.get(&c)) {
+        snap.chips.push(("context".into(), format!("Context: @{n}")));
+    }
+    let mut labels_sorted: Vec<&TaskLabel> = label_map.values().collect();
+    labels_sorted.sort_by(|a, b| a.name.cmp(&b.name));
+    if filter.label_id.is_none() {
+        snap.filter_menu
+            .extend(labels_sorted.iter().map(|l| (format!("label:{}", l.id), format!("Label: {}", l.name))));
+    }
+    if kind != "context" && filter.context_id.is_none() {
+        snap.filter_menu
+            .extend(contexts.iter().map(|c| (format!("context:{}", c.id), format!("Context: @{}", c.name))));
+    }
     let focus_count = |key: &str| match key {
         "inbox" => counts.inbox,
         "today" => counts.today,
@@ -332,6 +398,8 @@ async fn load(
                 count: column_count(c),
                 over_wip: c.over_wip,
                 collapsed: c.collapsed,
+                wip: c.wip_limit.unwrap_or(0),
+                fixed: c.kind != ColumnKind::Custom,
                 cards: tasks
                     .iter()
                     .filter(|t| t.column_id == c.id)
@@ -348,6 +416,8 @@ async fn load(
             count: tasks.len().to_string(),
             over_wip: false,
             collapsed: false,
+            wip: 0,
+            fixed: true,
             cards: tasks.iter().map(|t| card(t, &label_map, &context_map, today_end)).collect(),
         }];
     }
@@ -383,6 +453,24 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
     ui.set_focus_rows(nav_rows(snap.focus));
     ui.set_projects(nav_rows(snap.projects));
     ui.set_contexts(nav_rows(snap.contexts));
+    ui.set_filter_chips(ModelRc::new(VecModel::from(
+        snap.chips
+            .into_iter()
+            .map(|(key, text)| TaskChipRow { key: key.into(), text: text.into() })
+            .collect::<Vec<_>>(),
+    )));
+    ui.set_filter_menu(ModelRc::new(VecModel::from(
+        snap.filter_menu
+            .into_iter()
+            .map(|(id, title)| crate::ActionMenuEntry {
+                id: id.into(),
+                title: title.into(),
+                icon: Default::default(),
+                disabled: false,
+                destructive: false,
+            })
+            .collect::<Vec<_>>(),
+    )));
     ui.set_card_menu(ModelRc::new(VecModel::from(
         snap.move_targets
             .into_iter()
@@ -405,6 +493,8 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
             count: c.count.into(),
             over_wip: c.over_wip,
             collapsed: c.collapsed,
+            wip_limit: c.wip as i32,
+            fixed: c.fixed,
             cards: ModelRc::new(VecModel::from(
                 c.cards
                     .into_iter()
@@ -439,7 +529,24 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                 done: d.done,
                 project: d.project.into(),
                 column: d.column.into(),
+                context: d.context.into(),
+                labels: d.labels.into(),
             });
+            let entries = |rows: Vec<(String, String)>| {
+                ModelRc::new(VecModel::from(
+                    rows.into_iter()
+                        .map(|(id, title)| crate::ActionMenuEntry {
+                            id: id.into(),
+                            title: title.into(),
+                            icon: Default::default(),
+                            disabled: false,
+                            destructive: false,
+                        })
+                        .collect::<Vec<_>>(),
+                ))
+            };
+            ui.set_context_menu(entries(d.context_menu));
+            ui.set_label_menu(entries(d.label_menu));
             ui.set_checklist(ModelRc::new(VecModel::from(
                 d.checklist
                     .into_iter()
@@ -529,7 +636,19 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             "select" => {
                 s.selection = arg(0);
                 s.query.clear();
+                s.label = None;
+                s.context = None;
             }
+            "filter-add" => match arg(0).split_once(':') {
+                Some(("label", id)) => s.label = id.parse().ok(),
+                Some(("context", id)) => s.context = id.parse().ok(),
+                _ => {}
+            },
+            "filter-remove" => match arg(0).as_str() {
+                "label" => s.label = None,
+                "context" => s.context = None,
+                _ => {}
+            },
             "search" => s.query = arg(0),
             "open" => s.detail_id = arg(0).parse().ok(),
             "close-detail" => s.detail_id = None,
@@ -537,9 +656,9 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             _ => {}
         }
     }
-    let (selection, query, detail_id) = {
+    let (selection, query, detail_id, chips) = {
         let s = ctx.session.borrow();
-        (s.selection.clone(), s.query.clone(), s.detail_id)
+        (s.selection.clone(), s.query.clone(), s.detail_id, (s.label, s.context))
     };
     let ticket = ctx.generation.fetch_add(1, Ordering::SeqCst) + 1;
     let generation = ctx.generation.clone();
@@ -557,7 +676,7 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             Ok(Some(next)) => next.clone(),
             _ => selection,
         };
-        let snap = load(&core, &selection, &query, detail_id).await;
+        let snap = load(&core, &selection, &query, detail_id, chips).await;
         let _ = weak.upgrade_in_event_loop(move |app| {
             if generation.load(Ordering::SeqCst) != ticket {
                 return;
@@ -649,10 +768,118 @@ async fn mutate(
                     .map_err(err)?;
             }
         }
+        "detail-context" => {
+            let context = match b.strip_prefix("ctx:") {
+                Some("none") => None,
+                Some(c) => Some(c.parse::<i64>().map_err(|_| "bad context")?),
+                None => return Ok(None),
+            };
+            let patch = TaskPatch {
+                context_id: Some(context),
+                ..Default::default()
+            };
+            core.task_update(id.ok_or("bad task")?, patch).await.map_err(err)?;
+        }
+        "detail-label" => {
+            let label = b
+                .strip_prefix("lbl:")
+                .and_then(|l| l.parse::<i64>().ok())
+                .ok_or("bad label")?;
+            let task_id = id.ok_or("bad task")?;
+            let mut ids = core.task_get(task_id).await.map_err(err)?.label_ids;
+            match ids.iter().position(|l| *l == label) {
+                Some(at) => {
+                    ids.remove(at);
+                }
+                None => ids.push(label),
+            }
+            core.task_set_labels(task_id, ids).await.map_err(err)?;
+        }
+        "detail-label-new" if !b.trim().is_empty() => {
+            let task_id = id.ok_or("bad task")?;
+            let label = core
+                .task_label_create(b.trim().to_owned(), String::new())
+                .await
+                .map_err(err)?;
+            let mut ids = core.task_get(task_id).await.map_err(err)?.label_ids;
+            ids.push(label.id);
+            core.task_set_labels(task_id, ids).await.map_err(err)?;
+        }
         "collapse" => {
             core.task_column_collapse(id.ok_or("bad column")?, b == "1")
                 .await
                 .map_err(err)?;
+        }
+        "column-rename" if !b.trim().is_empty() => {
+            let patch = ColumnPatch {
+                name: Some(b.trim().to_owned()),
+                ..Default::default()
+            };
+            core.task_column_update(id.ok_or("bad column")?, patch)
+                .await
+                .map_err(err)?;
+        }
+        "column-wip" => {
+            let limit = match b.trim() {
+                "" => 0,
+                text => text
+                    .parse::<i64>()
+                    .ok()
+                    .filter(|n| (0..=999).contains(n))
+                    .ok_or("The limit must be a number from 0 to 999")?,
+            };
+            let patch = ColumnPatch {
+                wip_limit: Some((limit > 0).then_some(limit)),
+                ..Default::default()
+            };
+            core.task_column_update(id.ok_or("bad column")?, patch)
+                .await
+                .map_err(err)?;
+        }
+        "column-colour" => {
+            let patch = ColumnPatch {
+                colour: Some(b.trim_start_matches("colour:").to_owned()),
+                ..Default::default()
+            };
+            core.task_column_update(id.ok_or("bad column")?, patch)
+                .await
+                .map_err(err)?;
+        }
+        "column-move" => {
+            let id = id.ok_or("bad column")?;
+            let project = selected_project.ok_or("select a project first")?;
+            let ids: Vec<i64> = core
+                .task_columns(project)
+                .await
+                .map_err(err)?
+                .iter()
+                .map(|c| c.id)
+                .collect();
+            let at = ids.iter().position(|c| *c == id).ok_or("bad column")?;
+            // `after` is the column the moved one should follow; None = first.
+            let after = match b {
+                "left" if at > 0 => Some(at.checked_sub(2).map(|i| ids[i])),
+                "right" if at + 1 < ids.len() => Some(Some(ids[at + 1])),
+                _ => None,
+            };
+            if let Some(after) = after {
+                core.task_column_reorder(id, after).await.map_err(err)?;
+            }
+        }
+        "column-delete" => {
+            let id = id.ok_or("bad column")?;
+            let project = selected_project.ok_or("select a project first")?;
+            let columns = core.task_columns(project).await.map_err(err)?;
+            let column = columns.iter().find(|c| c.id == id).ok_or("bad column")?;
+            if column.kind != ColumnKind::Custom {
+                return Err("Built-in columns cannot be deleted".into());
+            }
+            // Its tasks go to the first other column (the project's inbox).
+            let target = columns
+                .iter()
+                .find(|c| c.id != id)
+                .ok_or("a project needs another column")?;
+            core.task_column_delete(id, target.id).await.map_err(err)?;
         }
         "add-column" if !a.trim().is_empty() => {
             let project = selected_project.ok_or("select a project first")?;

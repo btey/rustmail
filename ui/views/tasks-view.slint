@@ -32,7 +32,16 @@ export struct TaskColumnRow {
     count: string,
     over-wip: bool,
     collapsed: bool,
+    // 0 = no limit.
+    wip-limit: int,
+    // Built-in column: cannot be deleted.
+    fixed: bool,
     cards: [TaskCardRow],
+}
+
+export struct TaskChipRow {
+    key: string,
+    text: string,
 }
 
 export struct TaskNavRow {
@@ -51,6 +60,8 @@ export struct TaskDetailRow {
     done: bool,
     project: string,
     column: string,
+    context: string,
+    labels: string,
 }
 
 export struct ChecklistRow {
@@ -84,6 +95,11 @@ export global TasksUi {
     in-out property <[TaskNavRow]> contexts;
     // Card menu: one "move:<column id>" entry per column of the open project.
     in-out property <[ActionMenuEntry]> card-menu;
+    // Drawer pickers: "ctx:<id>" / "ctx:none" and "lbl:<id>" entries.
+    in-out property <[TaskChipRow]> filter-chips;
+    in-out property <[ActionMenuEntry]> filter-menu;
+    in-out property <[ActionMenuEntry]> context-menu;
+    in-out property <[ActionMenuEntry]> label-menu;
     // "focus:<name>", "project:<id>" or "context:<id>".
     in-out property <string> selection: "focus:inbox";
     // Project or context name; empty for the focus lists (named in Slint).
@@ -321,6 +337,20 @@ component TaskColumnView inherits Rectangle {
     in property <TaskColumnRow> column;
     in property <length> column-width: 272px;
     private property <bool> adding: TasksUi.adding-column == root.column.id;
+    // "" | "rename" | "wip": inline editor under the header.
+    private property <string> editing: "";
+    private property <[ActionMenuEntry]> options: [
+        { id: "rename", title: @tr("Rename column") },
+        { id: "wip", title: @tr("Set task limit") },
+        { id: "left", title: @tr("Move left") },
+        { id: "right", title: @tr("Move right") },
+        { id: "colour:#6b7280", title: @tr("Colour: Grey") },
+        { id: "colour:#3b82f6", title: @tr("Colour: Blue") },
+        { id: "colour:#22c55e", title: @tr("Colour: Green") },
+        { id: "colour:#f59e0b", title: @tr("Colour: Orange") },
+        { id: "colour:#ef4444", title: @tr("Colour: Red") },
+        { id: "delete", title: @tr("Delete column"), disabled: root.column.fixed, destructive: true },
+    ];
 
     width: root.column.collapsed ? 46px : root.column-width;
     border-radius: LayoutMetrics.corner-radius;
@@ -393,12 +423,37 @@ component TaskColumnView inherits Rectangle {
                 tooltip-text: @tr("Add task");
                 clicked => { TasksUi.adding-column = root.column.id; }
             }
+            if root.column.id >= 0 : ActionMenu {
+                width: 26px;
+                height: 26px;
+                icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
+                entries: root.options;
+                menu-width: 200px;
+                tooltip-text: @tr("Column options");
+                activated(id) => {
+                    if id == "rename" || id == "wip" {
+                        root.editing = id;
+                    } else {
+                        TasksUi.command("column-" + (id == "delete" ? "delete" : id == "left" || id == "right" ? "move" : "colour"),
+                            "" + root.column.id, id);
+                    }
+                }
+            }
             if root.column.id >= 0 : TasksIconButton {
                 width: 26px;
                 height: 26px;
                 icon: @image-url("../icons/lucide/outline/chevron-left.svg");
                 tooltip-text: @tr("Collapse column");
                 clicked => { TasksUi.command("collapse", "" + root.column.id, "1"); }
+            }
+        }
+        if root.editing != "" : LineEdit {
+            text: root.editing == "rename" ? root.column.name : root.column.wip-limit > 0 ? "" + root.column.wip-limit : "";
+            placeholder-text: root.editing == "rename" ? @tr("Column name") : @tr("Task limit (empty = none)");
+            input-label: root.editing == "rename" ? @tr("Column name") : @tr("Task limit (empty = none)");
+            accepted(text) => {
+                TasksUi.command(root.editing == "rename" ? "column-rename" : "column-wip", "" + root.column.id, text);
+                root.editing = "";
             }
         }
         if root.adding : LineEdit {
@@ -443,10 +498,12 @@ component TaskDrawer inherits Rectangle {
     in-out property <string> title-draft;
     in-out property <string> description-draft;
     in-out property <string> due-draft;
+    in-out property <string> label-draft;
     function reset-drafts() {
         root.title-draft = TasksUi.detail.title;
         root.description-draft = TasksUi.detail.description;
         root.due-draft = TasksUi.detail.due;
+        root.label-draft = "";
     }
     init => { root.reset-drafts(); }
     private property <int> shown-id: -1;
@@ -516,6 +573,57 @@ component TaskDrawer inherits Rectangle {
                     selected: TasksUi.detail.high-priority;
                     width: max(100px, self.content-width + 28px);
                     clicked => { TasksUi.command("toggle-priority", "" + TasksUi.detail.id, ""); }
+                }
+            }
+            DetailSection { text: @tr("CONTEXT"); }
+            HorizontalLayout {
+                spacing: 8px;
+                Text {
+                    horizontal-stretch: 1;
+                    text: TasksUi.detail.context != "" ? TasksUi.detail.context : @tr("No context");
+                    color: AppTheme.heading;
+                    font-size: TypeScale.body;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                ActionMenu {
+                    width: 32px;
+                    height: 32px;
+                    icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
+                    entries: TasksUi.context-menu;
+                    menu-width: 220px;
+                    tooltip-text: @tr("Set context");
+                    activated(id) => { TasksUi.command("detail-context", "" + TasksUi.detail.id, id); }
+                }
+            }
+            DetailSection { text: @tr("LABELS"); }
+            HorizontalLayout {
+                spacing: 8px;
+                Text {
+                    horizontal-stretch: 1;
+                    text: TasksUi.detail.labels != "" ? TasksUi.detail.labels : @tr("No labels");
+                    color: AppTheme.heading;
+                    font-size: TypeScale.body;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                ActionMenu {
+                    width: 32px;
+                    height: 32px;
+                    icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
+                    entries: TasksUi.label-menu;
+                    menu-width: 220px;
+                    tooltip-text: @tr("Toggle labels");
+                    activated(id) => { TasksUi.command("detail-label", "" + TasksUi.detail.id, id); }
+                }
+            }
+            LineEdit {
+                text <=> root.label-draft;
+                placeholder-text: @tr("New label");
+                input-label: @tr("New label");
+                accepted(text) => {
+                    TasksUi.command("detail-label-new", "" + TasksUi.detail.id, text);
+                    root.label-draft = "";
                 }
             }
             DetailSection { text: @tr("DUE DATE"); }
@@ -693,6 +801,45 @@ export component TasksView inherits Rectangle {
                     input-label: @tr("Search tasks and linked mail");
                     text: TasksUi.query;
                     edited(text) => { TasksUi.command("search", text, ""); }
+                }
+            }
+            HorizontalLayout {
+                height: 30px;
+                spacing: 8px;
+                alignment: start;
+                for chip in TasksUi.filter-chips : Rectangle {
+                    width: chip-text.preferred-width + 40px;
+                    height: 28px;
+                    border-radius: 14px;
+                    background: AppTheme.selected-row;
+                    chip-text := Text {
+                        x: 10px;
+                        width: self.preferred-width;
+                        height: parent.height;
+                        text: chip.text;
+                        color: AppTheme.title;
+                        font-size: TypeScale.caption;
+                        vertical-alignment: center;
+                    }
+                    TasksIconButton {
+                        x: parent.width - 26px;
+                        y: 3px;
+                        width: 22px;
+                        height: 22px;
+                        icon: @image-url("../icons/lucide/outline/x.svg");
+                        tooltip-text: @tr("Remove filter");
+                        clicked => { TasksUi.command("filter-remove", chip.key, ""); }
+                    }
+                }
+                if TasksUi.filter-menu.length > 0 : ActionMenu {
+                    width: 28px;
+                    height: 28px;
+                    icon: @image-url("../icons/lucide/outline/list-filter-plus.svg");
+                    entries: TasksUi.filter-menu;
+                    menu-width: 240px;
+                    align-right: false;
+                    tooltip-text: @tr("Add filter");
+                    activated(id) => { TasksUi.command("filter-add", id, ""); }
                 }
             }
             if TasksUi.status != "" : Text {
