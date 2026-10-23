@@ -566,6 +566,58 @@ fn unique_name_error(e: rusqlite::Error, what: &str) -> CoreError {
 }
 
 impl SqliteTaskStore<'_> {
+    /// For each mail thread that has a linked task, the newest such task.
+    /// Links resolve through the Message-ID, like `list_links`, so moved or
+    /// re-threaded mail keeps its chip. `only` limits the answer to those
+    /// threads; `None` answers for every linked thread.
+    pub fn threads_with_tasks(&mut self, only: Option<&[i64]>) -> Result<Vec<ThreadTask>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT m.thread_id, t.id, t.title, c.name, c.kind, t.due_at, l.created_at,
+                    (SELECT MAX(x.date) FROM messages x
+                      WHERE x.thread_id = m.thread_id AND x.is_outgoing = 0)
+             FROM task_links l
+             JOIN tasks t ON t.id = l.task_id AND t.deleted_at IS NULL
+             JOIN task_columns c ON c.id = t.column_id
+             JOIN messages m ON m.message_id = l.message_id
+             JOIN accounts a ON a.id = m.account_id
+              AND (l.account_email IS NULL OR a.email = l.account_email)
+             WHERE l.deleted_at IS NULL AND l.kind IN ('mail_received', 'mail_sent')
+               AND m.thread_id IS NOT NULL
+             ORDER BY t.created_at DESC, t.id DESC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, Option<i64>>(5)?,
+                r.get::<_, i64>(6)?,
+                r.get::<_, Option<i64>>(7)?,
+            ))
+        })?;
+        let mut seen = std::collections::HashSet::new();
+        let mut out = Vec::new();
+        for row in rows {
+            let (thread_id, task_id, title, status, kind, due_at, linked_at, latest) = row?;
+            if only.is_some_and(|ids| !ids.contains(&thread_id)) || !seen.insert(thread_id) {
+                continue;
+            }
+            let status_kind = ColumnKind::parse(&kind).unwrap_or(ColumnKind::Custom);
+            out.push(ThreadTask {
+                thread_id,
+                task_id,
+                title,
+                status,
+                status_kind,
+                due_at,
+                waiting_on_reply: status_kind == ColumnKind::Waiting
+                    && latest.is_none_or(|d| d <= linked_at),
+            });
+        }
+        Ok(out)
+    }
     /// Create a task for a mail thread and link its newest message, so later
     /// replies resolve through the thread. Returns the new task.
     pub fn create_from_thread(&mut self, thread_id: i64, draft: TaskDraft) -> Result<Task> {

@@ -576,3 +576,48 @@ fn a_task_from_a_thread_links_the_newest_message() {
     assert!(s.create_from_thread(1, draft(ColumnKind::Inbox)).is_err());
     assert_eq!(s.list_tasks(&TaskFilter::default()).unwrap().len(), before);
 }
+
+#[test]
+fn threads_report_their_task_status_and_whether_a_reply_is_awaited() {
+    let (mut c, p) = setup();
+    seed_mail(&c, "Invoice", 1, "<a@x>");
+    seed_mail(&c, "Contract", 2, "<b@x>");
+    seed_mail(&c, "Untouched", 3, "<c@x>");
+    let waiting = col(&mut c, p, ColumnKind::Waiting);
+    let mut s = SqliteTaskStore::new(&mut c);
+    let draft = |status| TaskDraft {
+        title: None,
+        project_id: None,
+        status,
+        due_at: None,
+        context_id: None,
+        label_ids: vec![],
+    };
+    let invoice = s.create_from_thread(1, draft(ColumnKind::Waiting)).unwrap();
+    s.create_from_thread(2, draft(ColumnKind::Next)).unwrap();
+
+    let found = s.threads_with_tasks(None).unwrap();
+    assert_eq!(found.len(), 2, "unlinked threads have no chip");
+    let by = |id| found.iter().find(|t| t.thread_id == id).unwrap();
+    assert_eq!(by(1).status, waiting.name);
+    assert!(by(1).waiting_on_reply, "no reply yet");
+    assert!(!by(2).waiting_on_reply, "not in Waiting for");
+    assert_eq!(s.threads_with_tasks(Some(&[2])).unwrap().len(), 1);
+
+    // A reply arrives after the task was made: no longer awaited.
+    s.conn
+        .execute(
+            "INSERT INTO messages (account_id, thread_id, folder_id, uid, message_id, subject,
+                from_addr, to_json, cc_json, date, snippet)
+             VALUES (1, 1, 1, 9, '<r@x>', 'Re: Invoice', 'a@x.dev', '[]', '[]', ?1, '')",
+            [crate::models::now_ms() + 60_000],
+        )
+        .unwrap();
+    let found = s.threads_with_tasks(Some(&[1])).unwrap();
+    assert!(!found[0].waiting_on_reply);
+    assert_eq!(found[0].task_id, invoice.id);
+
+    // A deleted task drops the chip.
+    s.delete_task(invoice.id).unwrap();
+    assert!(s.threads_with_tasks(Some(&[1])).unwrap().is_empty());
+}

@@ -402,6 +402,21 @@ pub trait TaskStore {
     fn purge_tombstones(&mut self, older_than_ms: i64) -> Result<usize>;
 }
 
+/// The task a mail thread is linked to, for the message list and the mail
+/// sidebar's smart folders.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ThreadTask {
+    pub thread_id: i64,
+    pub task_id: i64,
+    pub title: String,
+    /// Name of the task's column ("Inbox", "Next actions", "Done" ...).
+    pub status: String,
+    pub status_kind: ColumnKind,
+    pub due_at: Option<i64>,
+    /// In a Waiting for column and nothing has come in since the link.
+    pub waiting_on_reply: bool,
+}
+
 /// What the user chose in the "New task from email" dialog.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskDraft {

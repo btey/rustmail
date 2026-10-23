@@ -64,6 +64,13 @@ impl Core {
         Ok(task)
     }
 
+    /// Tasks linked to the given mail threads (all linked threads for `None`).
+    pub async fn task_threads(&self, only: Option<Vec<i64>>) -> Result<Vec<ThreadTask>> {
+        self.db
+            .read(move |conn| SqliteTaskStore::new(conn).threads_with_tasks(only.as_deref()))
+            .await
+    }
+
     reads! {
         task_projects() -> Vec<TaskProject>, |s| s.list_projects();
         task_columns(project_id: i64) -> Vec<TaskColumn>, |s| s.list_columns(project_id);
