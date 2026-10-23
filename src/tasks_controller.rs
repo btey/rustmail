@@ -1,11 +1,14 @@
 //! Tasks UI controller. Callbacks only capture input and schedule work on the
 //! runtime; the database is never touched on the UI thread. Every command
 //! reloads one `Snapshot` (plain `Send` data) that is applied to the models.
-use crate::{AppWindow, InboxState, TaskCardRow, TaskColumnRow, TaskNavRow, TasksUi};
+use crate::{
+    ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, TaskCardRow, TaskColumnRow,
+    TaskDetailRow, TaskNavRow, TasksUi,
+};
 use chrono::{Local, TimeZone};
 use rustmail_core::Core;
 use rustmail_core::tasks::{
-    NewTask, Task, TaskColumn, TaskFilter, TaskFocus, TaskLabel,
+    NewTask, Task, TaskColumn, TaskFilter, TaskFocus, TaskLabel, TaskPatch,
 };
 use slint::{ComponentHandle, ModelRc, VecModel};
 use std::{
@@ -24,6 +27,22 @@ const DEFAULT_COLOUR: &str = "#6b7280";
 struct Session {
     selection: String,
     query: String,
+    detail_id: Option<i64>,
+}
+
+struct DetailSnap {
+    id: i64,
+    title: String,
+    description: String,
+    due: String,
+    high: bool,
+    done: bool,
+    project: String,
+    column: String,
+    checklist: Vec<(i64, String, bool)>,
+    /// `(kind token, text, target found)`.
+    links: Vec<(String, String, bool)>,
+    activity: Vec<(String, String)>,
 }
 
 struct CardSnap {
@@ -67,6 +86,7 @@ struct Snapshot {
     projects: Vec<NavSnap>,
     contexts: Vec<NavSnap>,
     columns: Vec<ColumnSnap>,
+    detail: Option<DetailSnap>,
     /// `(entry id, column name)` for the card move menu.
     move_targets: Vec<(i64, String)>,
 }
@@ -145,7 +165,66 @@ fn column_count(column: &TaskColumn) -> String {
     }
 }
 
-async fn load(core: &Core, selection: &str, query: &str) -> rustmail_core::error::Result<Snapshot> {
+async fn load_detail(
+    core: &Core,
+    id: i64,
+    projects: &[rustmail_core::tasks::TaskProject],
+) -> Option<(DetailSnap, Vec<(i64, String)>)> {
+    let task = core.task_get(id).await.ok()?;
+    let columns = core.task_columns(task.project_id).await.ok()?;
+    let checklist = core.task_checklist(id).await.ok()?;
+    let links = core.task_links(id).await.ok()?;
+    let activity = core.task_activity(id).await.ok()?;
+    let column = columns.iter().find(|c| c.id == task.column_id)?;
+    let links = links
+        .into_iter()
+        .map(|l| {
+            use rustmail_core::tasks::LinkTarget;
+            let (text, found) = match &l.target {
+                LinkTarget::Mail { subject, .. } => (subject.clone(), true),
+                LinkTarget::Task { title, .. } => (title.clone(), true),
+                LinkTarget::Event => (l.link.event_uid.clone().unwrap_or_default(), true),
+                LinkTarget::MailNotFound | LinkTarget::TaskNotFound => (String::new(), false),
+            };
+            (l.link.kind.as_str().to_owned(), text, found)
+        })
+        .collect();
+    let detail = DetailSnap {
+        id,
+        title: task.title.clone(),
+        description: task.description.clone(),
+        due: task.due_at.map(iso_date).unwrap_or_default(),
+        high: task.priority >= 3,
+        done: task.completed_at.is_some(),
+        project: projects
+            .iter()
+            .find(|p| p.id == task.project_id)
+            .map(|p| p.name.clone())
+            .unwrap_or_default(),
+        column: column.name.clone(),
+        checklist: checklist.into_iter().map(|c| (c.id, c.text, c.done)).collect(),
+        links,
+        activity: activity
+            .into_iter()
+            .map(|a| {
+                let at = Local
+                    .timestamp_millis_opt(a.at)
+                    .single()
+                    .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+                    .unwrap_or_default();
+                (a.text, at)
+            })
+            .collect(),
+    };
+    Some((detail, columns.into_iter().map(|c| (c.id, c.name)).collect()))
+}
+
+async fn load(
+    core: &Core,
+    selection: &str,
+    query: &str,
+    detail_id: Option<i64>,
+) -> rustmail_core::error::Result<Snapshot> {
     core.tasks_open().await?;
     let today_end = today_end_ms();
     let projects = core.task_projects().await?;
@@ -272,6 +351,15 @@ async fn load(core: &Core, selection: &str, query: &str) -> rustmail_core::error
             cards: tasks.iter().map(|t| card(t, &label_map, &context_map, today_end)).collect(),
         }];
     }
+    if let Some(id) = detail_id
+        && let Some((detail, targets)) = load_detail(core, id, &projects).await
+    {
+        // The drawer's task may live in another project than the board.
+        if snap.move_targets.is_empty() || !board {
+            snap.move_targets = targets;
+        }
+        snap.detail = Some(detail);
+    }
     Ok(snap)
 }
 
@@ -340,6 +428,59 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
         })
         .collect::<Vec<_>>();
     ui.set_columns(ModelRc::new(VecModel::from(columns)));
+    match snap.detail {
+        Some(d) => {
+            ui.set_detail(TaskDetailRow {
+                id: d.id as i32,
+                title: d.title.into(),
+                description: d.description.into(),
+                due: d.due.into(),
+                high_priority: d.high,
+                done: d.done,
+                project: d.project.into(),
+                column: d.column.into(),
+            });
+            ui.set_checklist(ModelRc::new(VecModel::from(
+                d.checklist
+                    .into_iter()
+                    .map(|(id, text, done)| ChecklistRow {
+                        id: id as i32,
+                        text: text.into(),
+                        done,
+                    })
+                    .collect::<Vec<_>>(),
+            )));
+            ui.set_links(ModelRc::new(VecModel::from(
+                d.links
+                    .into_iter()
+                    .map(|(kind, text, found)| LinkRow {
+                        kind: kind.into(),
+                        text: text.into(),
+                        found,
+                    })
+                    .collect::<Vec<_>>(),
+            )));
+            ui.set_activity(ModelRc::new(VecModel::from(
+                d.activity
+                    .into_iter()
+                    .map(|(text, at)| ActivityRow {
+                        text: text.into(),
+                        at: at.into(),
+                    })
+                    .collect::<Vec<_>>(),
+            )));
+            ui.set_detail_open(true);
+        }
+        None => ui.set_detail_open(false),
+    }
+}
+
+struct Ctx {
+    weak: slint::Weak<AppWindow>,
+    state: Rc<RefCell<InboxState>>,
+    session: RefCell<Session>,
+    generation: Arc<AtomicU64>,
+    handle: tokio::runtime::Handle,
 }
 
 pub(crate) fn register(
@@ -347,68 +488,111 @@ pub(crate) fn register(
     state: &Rc<RefCell<InboxState>>,
     runtime: &Rc<tokio::runtime::Runtime>,
 ) {
-    let session = Rc::new(RefCell::new(Session {
-        selection: "focus:inbox".into(),
-        ..Default::default()
-    }));
-    let generation = Arc::new(AtomicU64::new(0));
-    let weak = app.as_weak();
-    let state = Rc::clone(state);
-    let handle = runtime.handle().clone();
+    let ctx = Rc::new(Ctx {
+        weak: app.as_weak(),
+        state: Rc::clone(state),
+        session: RefCell::new(Session {
+            selection: "focus:inbox".into(),
+            ..Default::default()
+        }),
+        generation: Arc::new(AtomicU64::new(0)),
+        handle: runtime.handle().clone(),
+    });
+    let command = Rc::clone(&ctx);
     app.global::<TasksUi>().on_command(move |action, a, b| {
-        let Some(core) = state.borrow().core.as_ref().map(|c| c.file_core()) else {
-            return;
-        };
-        let (action, a, b) = (action.to_string(), a.to_string(), b.to_string());
+        dispatch(&command, action.to_string(), vec![a.to_string(), b.to_string()]);
+    });
+    let save = Rc::clone(&ctx);
+    app.global::<TasksUi>()
+        .on_save_detail(move |id, title, description, due| {
+            dispatch(
+                &save,
+                "save-detail".into(),
+                vec![
+                    id.to_string(),
+                    title.to_string(),
+                    description.to_string(),
+                    due.to_string(),
+                ],
+            );
+        });
+}
+
+fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
+    let Some(core) = ctx.state.borrow().core.as_ref().map(|c| c.file_core()) else {
+        return;
+    };
+    let arg = |i: usize| args.get(i).map_or("", String::as_str).to_owned();
+    {
+        let mut s = ctx.session.borrow_mut();
         match action.as_str() {
             "select" => {
-                let mut s = session.borrow_mut();
-                s.selection = a.clone();
+                s.selection = arg(0);
                 s.query.clear();
             }
-            "search" => session.borrow_mut().query = a.clone(),
+            "search" => s.query = arg(0),
+            "open" => s.detail_id = arg(0).parse().ok(),
+            "close-detail" => s.detail_id = None,
+            "delete" if s.detail_id == arg(0).parse().ok() => s.detail_id = None,
             _ => {}
         }
-        let (selection, query) = {
-            let s = session.borrow();
-            (s.selection.clone(), s.query.clone())
-        };
-        let ticket = generation.fetch_add(1, Ordering::SeqCst) + 1;
-        let generation = generation.clone();
-        let weak = weak.clone();
-        if let Some(app) = weak.upgrade() {
-            app.global::<TasksUi>().set_loading(true);
+    }
+    let (selection, query, detail_id) = {
+        let s = ctx.session.borrow();
+        (s.selection.clone(), s.query.clone(), s.detail_id)
+    };
+    let ticket = ctx.generation.fetch_add(1, Ordering::SeqCst) + 1;
+    let generation = ctx.generation.clone();
+    let weak = ctx.weak.clone();
+    if let Some(app) = weak.upgrade() {
+        app.global::<TasksUi>().set_loading(true);
+    }
+    ctx.handle.spawn(async move {
+        let result = mutate(&core, &action, &args, &selection).await;
+        // A newer command supersedes this reload, never its mutation.
+        if generation.load(Ordering::SeqCst) != ticket {
+            return;
         }
-        handle.spawn(async move {
-            let result = mutate(&core, &action, &a, &b, &selection).await;
-            // A newer command supersedes this reload, never its mutation.
+        let selection = match &result {
+            Ok(Some(next)) => next.clone(),
+            _ => selection,
+        };
+        let snap = load(&core, &selection, &query, detail_id).await;
+        let _ = weak.upgrade_in_event_loop(move |app| {
             if generation.load(Ordering::SeqCst) != ticket {
                 return;
             }
-            let selection = match &result {
-                Ok(Some(next)) => next.clone(),
-                _ => selection,
-            };
-            let snap = load(&core, &selection, &query).await;
-            let _ = weak.upgrade_in_event_loop(move |app| {
-                if generation.load(Ordering::SeqCst) != ticket {
-                    return;
-                }
-                let ui = app.global::<TasksUi>();
-                ui.set_loading(false);
-                ui.set_status(
-                    result
-                        .err()
-                        .or(snap.as_ref().err().map(|e| e.to_string()))
-                        .unwrap_or_default()
-                        .into(),
-                );
-                if let Ok(snap) = snap {
-                    apply(&ui, snap);
-                }
-            });
+            let ui = app.global::<TasksUi>();
+            ui.set_loading(false);
+            ui.set_status(
+                result
+                    .err()
+                    .or(snap.as_ref().err().map(|e| e.to_string()))
+                    .unwrap_or_default()
+                    .into(),
+            );
+            if let Ok(snap) = snap {
+                apply(&ui, snap);
+            }
         });
     });
+}
+
+/// Parse an ISO date into the end of that local day (the same instant
+/// "Today" uses), so a task due today is not overdue until tomorrow.
+fn parse_due(text: &str) -> Result<Option<i64>, String> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Ok(None);
+    }
+    let date = chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d")
+        .map_err(|_| "Due date must look like 2026-12-31".to_owned())?;
+    let end = date.and_hms_opt(23, 59, 59).unwrap();
+    Local
+        .from_local_datetime(&end)
+        .latest()
+        .map(|t| Some(t.timestamp_millis()))
+        .ok_or_else(|| "Due date does not exist in this time zone".to_owned())
 }
 
 /// Run the mutation behind a command. `Some(selection)` asks the view to
@@ -416,12 +600,16 @@ pub(crate) fn register(
 async fn mutate(
     core: &Core,
     action: &str,
-    a: &str,
-    b: &str,
+    args: &[String],
     selection: &str,
 ) -> Result<Option<String>, String> {
+    let a = args.first().map_or("", String::as_str);
+    let b = args.get(1).map_or("", String::as_str);
     let id = a.parse::<i64>().ok();
     let err = |e: rustmail_core::error::CoreError| e.to_string();
+    let selected_project = selection
+        .strip_prefix("project:")
+        .and_then(|p| p.parse::<i64>().ok());
     match action {
         "add-task" => {
             let title = b.trim();
@@ -429,13 +617,10 @@ async fn mutate(
                 return Ok(None);
             }
             let projects = core.task_projects().await.map_err(err)?;
-            let selected_project = selection
-                .strip_prefix("project:")
-                .and_then(|p| p.parse::<i64>().ok());
             let column = id.filter(|c| *c >= 0);
-            let project_id = match (selected_project, column) {
-                (Some(p), _) => p,
-                (None, _) => projects.first().map(|p| p.id).ok_or("no project")?,
+            let project_id = match selected_project {
+                Some(p) => p,
+                None => projects.first().map(|p| p.id).ok_or("no project")?,
             };
             let context_id = selection
                 .strip_prefix("context:")
@@ -469,6 +654,54 @@ async fn mutate(
                 .await
                 .map_err(err)?;
         }
+        "add-column" if !a.trim().is_empty() => {
+            let project = selected_project.ok_or("select a project first")?;
+            core.task_column_create(project, a.to_owned())
+                .await
+                .map_err(err)?;
+        }
+        "toggle-priority" => {
+            let id = id.ok_or("bad task")?;
+            let task = core.task_get(id).await.map_err(err)?;
+            core.task_update(
+                id,
+                TaskPatch {
+                    priority: Some(if task.priority >= 3 { 0 } else { 3 }),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map_err(err)?;
+        }
+        "save-detail" => {
+            let due = parse_due(args.get(3).map_or("", String::as_str))?;
+            core.task_update(
+                id.ok_or("bad task")?,
+                TaskPatch {
+                    title: Some(b.to_owned()),
+                    description: Some(args.get(2).cloned().unwrap_or_default()),
+                    due_at: Some(due),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map_err(err)?;
+        }
+        "check-add" if !b.trim().is_empty() => {
+            core.task_checklist_add(id.ok_or("bad task")?, b.to_owned())
+                .await
+                .map_err(err)?;
+        }
+        "check-toggle" => {
+            core.task_checklist_update(id.ok_or("bad item")?, None, Some(b == "1"))
+                .await
+                .map_err(err)?;
+        }
+        "check-delete" => {
+            core.task_checklist_delete(id.ok_or("bad item")?)
+                .await
+                .map_err(err)?;
+        }
         "create-project" if !a.trim().is_empty() => {
             let project = core
                 .task_project_create(a.to_owned(), String::new())
@@ -493,6 +726,17 @@ mod tests {
     fn colours_parse_and_fall_back() {
         assert_eq!(colour("#2563eb"), slint::Color::from_rgb_u8(0x25, 0x63, 0xeb));
         assert_eq!(colour("bogus"), colour(DEFAULT_COLOUR));
+    }
+
+    #[test]
+    fn due_dates_parse_to_end_of_local_day() {
+        assert_eq!(parse_due("  "), Ok(None));
+        assert!(parse_due("2026-13-40").is_err());
+        assert!(parse_due("tomorrow").is_err());
+        let due = parse_due("2026-12-31").unwrap().unwrap();
+        assert_eq!(iso_date(due), "2026-12-31");
+        let next = parse_due("2027-01-01").unwrap().unwrap();
+        assert_eq!(next - due, 24 * 60 * 60 * 1000);
     }
 
     #[test]

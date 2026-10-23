@@ -38,7 +38,7 @@ import { MailView } from "views/mail-view.slint";
 export { MessageColors } from "message-colors.slint";
 export { FilesUi, FileRow, OperationRow } from "views/files-view.slint";
 import { FilesView, FilesUi } from "views/files-view.slint";
-export { TasksUi, TaskCardRow, TaskColumnRow, TaskNavRow } from "views/tasks-view.slint";
+export { TasksUi, TaskCardRow, TaskColumnRow, TaskNavRow, TaskDetailRow, ChecklistRow, LinkRow, ActivityRow } from "views/tasks-view.slint";
 import { TasksView, TasksUi } from "views/tasks-view.slint";
 import { ContactsView } from "views/contacts-view.slint";
 import { OnboardingView } from "views/onboarding-view.slint";
@@ -1026,7 +1026,7 @@ export component AppWindow inherits Window {
         && !(root.active_view == "mail" && root.mail-folders-open)
         && !(root.active_view == "contacts" && root.contacts-detail-visible)
         && !(root.active_view == "files" && FilesUi.preview-open)
-        && !(root.active_view == "tasks" && TasksUi.navigation-open);
+        && !(root.active_view == "tasks" && (TasksUi.navigation-open || TasksUi.detail-open));
     private property <length> compact-primary-nav-height: LayoutMetrics.compact-navigation-height;
     private property <bool> folder-dialog-open: false;
     private property <bool> trash-delete-open: false;
@@ -1130,9 +1130,11 @@ export component AppWindow inherits Window {
 
     system-back-requested => {
         if MailAttachments.open { MailAttachments.command("close", ""); return true; }
+        if root.active_view == "tasks" && TasksUi.creating != "" { TasksUi.creating = ""; return true; }
         if root.active_view == "tasks" && TasksUi.adding-column != -2 { TasksUi.adding-column = -2; return true; }
         if root.active_view == "tasks" && TasksUi.creating != "" { TasksUi.creating = ""; return true; }
         if root.active_view == "tasks" && TasksUi.navigation-open { TasksUi.navigation-open = false; return true; }
+        if root.active_view == "tasks" && TasksUi.detail-open { TasksUi.command("close-detail", "", ""); return true; }
         if root.active_view == "files" && FilesUi.transfers-open {FilesUi.transfers-open=false;return true;}
         if root.active_view == "files" && FilesUi.dialog != "" { FilesUi.dialog = ""; return true; }
         if root.active_view == "files" && FilesUi.setup-open { FilesUi.setup-open = false; return true; }

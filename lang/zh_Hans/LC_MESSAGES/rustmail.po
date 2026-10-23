@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-22 19:18+0000\n"
+"POT-Creation-Date: 2026-10-23 03:44+0000\n"
 "PO-Revision-Date: 2026-09-24 11:59+0000\n"
 "Last-Translator: 6uu1 <translate.rustmail.org@696988.xyz>\n"
 "Language-Team: Chinese (Simplified Han script) <https://"
@@ -1435,72 +1435,72 @@ msgstr "Rustmail"
 msgid "Global Labels (local only)"
 msgstr "全局标签（仅本地）"
 
-#: ui/app.slint:2008
+#: ui/app.slint:2010
 msgid "Empty Trash?"
 msgstr ""
 
-#: ui/app.slint:2008 ui/views/files-view.slint:539
+#: ui/app.slint:2010 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr "永久删除？"
 
-#: ui/app.slint:2012
+#: ui/app.slint:2014
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 
-#: ui/app.slint:2013
+#: ui/app.slint:2015
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr ""
 
-#: ui/app.slint:2015
+#: ui/app.slint:2017
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr ""
 
-#: ui/app.slint:2016
+#: ui/app.slint:2018
 msgid "Permanently delete this conversation from Trash?"
 msgstr ""
 
-#: ui/app.slint:2017 ui/components/calendar.slint:937
+#: ui/app.slint:2019 ui/components/calendar.slint:937
 msgid "This action cannot be undone."
 msgstr "此操作无法撤销。"
 
-#: ui/app.slint:2018
+#: ui/app.slint:2020
 msgid "Empty Trash"
 msgstr ""
 
-#: ui/app.slint:2018 ui/views/files-view.slint:621
+#: ui/app.slint:2020 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr "永久删除"
 
-#: ui/app.slint:2184
+#: ui/app.slint:2186
 msgid "Mailbox startup failed"
 msgstr "邮箱启动失败"
 
-#: ui/app.slint:2190
+#: ui/app.slint:2192
 msgid "Rustmail could not open local storage"
 msgstr "Rustmail 无法打开本地存储"
 
-#: ui/app.slint:2203
+#: ui/app.slint:2205
 msgid "Diagnostic ID: {}"
 msgstr "诊断 ID：{}"
 
-#: ui/app.slint:2206
+#: ui/app.slint:2208
 msgid "Diagnostic ID {}"
 msgstr "诊断 ID {}"
 
-#: ui/app.slint:2211
+#: ui/app.slint:2213
 msgid "Retry"
 msgstr "重试"
 
-#: ui/app.slint:2219 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2221 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr "复制诊断信息"
 
-#: ui/app.slint:2285 ui/views/files-view.slint:694
+#: ui/app.slint:2287 ui/views/files-view.slint:694
 msgid "Dismiss"
 msgstr "忽略"
 
-#: ui/app.slint:2307 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2309 ui/components/workspace-navigation.slint:126
 msgid "Tasks"
 msgstr ""
 
@@ -1931,7 +1931,8 @@ msgstr "导出解密后的邮件"
 
 #: ui/components/account-mail-preferences.slint:296
 #: ui/dialogs/settings-dialog.slint:2511 ui/views/files-view.slint:455
-#: ui/views/files-view.slint:656 ui/window-chrome.slint:201
+#: ui/views/files-view.slint:656 ui/views/tasks-view.slint:495
+#: ui/window-chrome.slint:238
 msgid "Close"
 msgstr "关闭"
 
@@ -3242,7 +3243,7 @@ msgstr "全部账户"
 msgid "All Inboxes"
 msgstr "所有收件箱"
 
-#: ui/components/sidebar.slint:239 ui/views/tasks-view.slint:71
+#: ui/components/sidebar.slint:239 ui/views/tasks-view.slint:106
 msgid "Inbox"
 msgstr "收件箱"
 
@@ -3629,7 +3630,7 @@ msgstr "重复"
 msgid "ATTENDEES"
 msgstr "参与者"
 
-#: ui/dialogs/calendar-details-dialog.slint:188
+#: ui/dialogs/calendar-details-dialog.slint:188 ui/views/tasks-view.slint:528
 msgid "DESCRIPTION"
 msgstr "描述"
 
@@ -6085,108 +6086,189 @@ msgstr ""
 msgid "Connect using IMAP and SMTP. POP3 is not supported."
 msgstr "使用 IMAP 和 SMTP 连接。不支持 POP3。"
 
-#: ui/views/tasks-view.slint:73
+#: ui/views/tasks-view.slint:108
 msgid "Upcoming"
 msgstr ""
 
-#: ui/views/tasks-view.slint:74
+#: ui/views/tasks-view.slint:109
 msgid "Waiting for"
 msgstr ""
 
-#: ui/views/tasks-view.slint:75
+#: ui/views/tasks-view.slint:110
 msgid "From email"
 msgstr ""
 
-#: ui/views/tasks-view.slint:76
+#: ui/views/tasks-view.slint:111
 msgid "Someday / Maybe"
 msgstr ""
 
-#: ui/views/tasks-view.slint:103
+#: ui/views/tasks-view.slint:144
 msgid "New task"
 msgstr ""
 
-#: ui/views/tasks-view.slint:117
+#: ui/views/tasks-view.slint:158
 msgid "FOCUS"
 msgstr ""
 
-#: ui/views/tasks-view.slint:127
+#: ui/views/tasks-view.slint:168
 msgid "PROJECTS"
 msgstr ""
 
-#: ui/views/tasks-view.slint:138 ui/views/tasks-view.slint:139
+#: ui/views/tasks-view.slint:179 ui/views/tasks-view.slint:180
 msgid "Project name"
 msgstr ""
 
-#: ui/views/tasks-view.slint:143
+#: ui/views/tasks-view.slint:184
 msgid "New project"
 msgstr ""
 
-#: ui/views/tasks-view.slint:148
+#: ui/views/tasks-view.slint:189
 msgid "CONTEXTS"
 msgstr ""
 
-#: ui/views/tasks-view.slint:158 ui/views/tasks-view.slint:159
+#: ui/views/tasks-view.slint:199 ui/views/tasks-view.slint:200
 msgid "Context name"
 msgstr ""
 
-#: ui/views/tasks-view.slint:163
+#: ui/views/tasks-view.slint:204
 msgid "New context"
 msgstr ""
 
-#: ui/views/tasks-view.slint:204
+#: ui/views/tasks-view.slint:251
 msgid "Reopen task"
 msgstr ""
 
-#: ui/views/tasks-view.slint:204
+#: ui/views/tasks-view.slint:251
 msgid "Complete task"
 msgstr ""
 
-#: ui/views/tasks-view.slint:223
+#: ui/views/tasks-view.slint:270 ui/views/tasks-view.slint:488
 msgid "Move to column"
 msgstr ""
 
-#: ui/views/tasks-view.slint:230
+#: ui/views/tasks-view.slint:277 ui/views/tasks-view.slint:606
 msgid "Delete task"
 msgstr ""
 
-#: ui/views/tasks-view.slint:249
+#: ui/views/tasks-view.slint:296
 msgid "{}/{} done"
 msgstr ""
 
-#: ui/views/tasks-view.slint:254
+#: ui/views/tasks-view.slint:301
 msgid "{} linked"
 msgstr ""
 
-#: ui/views/tasks-view.slint:259
+#: ui/views/tasks-view.slint:306
 msgid "High"
 msgstr ""
 
-#: ui/views/tasks-view.slint:346
+#: ui/views/tasks-view.slint:393
 msgid "Add task"
 msgstr ""
 
-#: ui/views/tasks-view.slint:353
+#: ui/views/tasks-view.slint:400
 msgid "Collapse column"
 msgstr ""
 
-#: ui/views/tasks-view.slint:358 ui/views/tasks-view.slint:359
+#: ui/views/tasks-view.slint:405 ui/views/tasks-view.slint:406
+#: ui/views/tasks-view.slint:502
 msgid "Task title"
 msgstr ""
 
-#: ui/views/tasks-view.slint:430
+#: ui/views/tasks-view.slint:509
+msgid "Reopen"
+msgstr ""
+
+#: ui/views/tasks-view.slint:509
+msgid "Complete"
+msgstr ""
+
+#: ui/views/tasks-view.slint:515
+msgid "High priority"
+msgstr ""
+
+#: ui/views/tasks-view.slint:521
+msgid "DUE DATE"
+msgstr ""
+
+#: ui/views/tasks-view.slint:525
+msgid "Due date"
+msgstr ""
+
+#: ui/views/tasks-view.slint:532
+msgid "Add a description"
+msgstr ""
+
+#: ui/views/tasks-view.slint:539
+msgid "CHECKLIST"
+msgstr ""
+
+#: ui/views/tasks-view.slint:547
+msgid "Uncheck item"
+msgstr ""
+
+#: ui/views/tasks-view.slint:547
+msgid "Check item"
+msgstr ""
+
+#: ui/views/tasks-view.slint:562
+msgid "Remove item"
+msgstr ""
+
+#: ui/views/tasks-view.slint:567 ui/views/tasks-view.slint:568
+msgid "Add checklist item"
+msgstr ""
+
+#: ui/views/tasks-view.slint:571
+msgid "LINKED ITEMS"
+msgstr ""
+
+#: ui/views/tasks-view.slint:576
+msgid "Sent"
+msgstr ""
+
+#: ui/views/tasks-view.slint:577
+msgid "Event"
+msgstr ""
+
+#: ui/views/tasks-view.slint:578
+msgid "Blocks"
+msgstr ""
+
+#: ui/views/tasks-view.slint:579
+msgid "Depends on"
+msgstr ""
+
+#: ui/views/tasks-view.slint:584
+msgid "Not found"
+msgstr ""
+
+#: ui/views/tasks-view.slint:590
+msgid "ACTIVITY"
+msgstr ""
+
+#: ui/views/tasks-view.slint:665
 msgid "Lists"
 msgstr ""
 
-#: ui/views/tasks-view.slint:447
+#: ui/views/tasks-view.slint:682
 msgid "{} tasks"
 msgstr ""
 
-#: ui/views/tasks-view.slint:457 ui/views/tasks-view.slint:458
+#: ui/views/tasks-view.slint:692 ui/views/tasks-view.slint:693
 msgid "Search tasks and linked mail"
 msgstr ""
 
-#: ui/views/tasks-view.slint:471
+#: ui/views/tasks-view.slint:706
 msgid "No tasks"
+msgstr ""
+
+#: ui/views/tasks-view.slint:726 ui/views/tasks-view.slint:727
+msgid "Column name"
+msgstr ""
+
+#: ui/views/tasks-view.slint:731
+msgid "Add column"
 msgstr ""
 
 #: ui/window-chrome.slint:200 ui/window-chrome.slint:237
