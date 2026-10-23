@@ -152,7 +152,7 @@ Design: `Tasks · Board (GTD kanban)-html/Main.dc.html`.
 | Clicking a linked mail opens that thread in Mail; a linked event opens the calendar event; a linked task selects it | todo |
 | Theme: use the existing Rustmail theme tokens; the designs' dark/light and teal/green/purple presets map to the app's own theme setting (do not add a second theme system) | done for this slice (only `AppTheme` tokens; the design's colours are not matched) |
 | Translations: all strings in `@tr`, regenerate catalogs (`update-translations` skill) | partial: new `@tr` strings are in the catalogs but untranslated |
-| Tests: `text_fit` at phone width, controller tests for create/move/complete, on-screen smoke test | todo |
+| Tests: `text_fit` at phone width, controller tests for create/move/complete, on-screen smoke test | partial: controller tests run the commands against a throwaway core (columns: rename, limit, colour, move, delete rules; card move as sent by a drop; quick due date; assignee parsing; label chips filtering the board). Missing: create/complete/checklist/links commands, `text_fit` coverage of the tasks view, on-screen smoke test |
 
 First-slice limits:
 - Cards move between columns by dragging onto a column (untested on screen, always dropped at the end) or through the card menu; no reordering inside a column.

@@ -1032,4 +1032,120 @@ mod tests {
         assert_eq!(focus_for("waiting"), Some(TaskFocus::WaitingFor));
         assert_eq!(focus_for("nope"), None);
     }
+
+    async fn board() -> (tempfile::TempDir, Core, String) {
+        let tmp = tempfile::tempdir().unwrap();
+        let core = Core::start(rustmail_core::config::Paths::for_tests(tmp.path()))
+            .await
+            .unwrap();
+        core.tasks_open().await.unwrap();
+        let project = core.task_projects().await.unwrap()[0].id;
+        (tmp, core, format!("project:{project}"))
+    }
+
+    async fn run(core: &Core, sel: &str, action: &str, a: &str, b: &str) -> Result<(), String> {
+        mutate(core, action, &[a.to_owned(), b.to_owned()], sel)
+            .await
+            .map(|_| ())
+    }
+
+    fn first_column<'a>(snap: &'a Snapshot, name: &str) -> &'a ColumnSnap {
+        snap.columns.iter().find(|c| c.name == name).unwrap()
+    }
+
+    #[tokio::test]
+    async fn column_commands_validate_and_apply() {
+        let (_tmp, core, sel) = board().await;
+        run(&core, &sel, "add-column", "Review", "").await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let review = first_column(&snap, "Review");
+        assert!(!review.fixed);
+        let id = review.id.to_string();
+
+        run(&core, &sel, "column-rename", &id, "QA").await.unwrap();
+        run(&core, &sel, "column-wip", &id, "3").await.unwrap();
+        run(&core, &sel, "column-colour", &id, "colour:#ef4444").await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let qa = first_column(&snap, "QA");
+        assert_eq!((qa.wip, qa.colour.as_str()), (3, "#ef4444"));
+
+        assert!(run(&core, &sel, "column-wip", &id, "1000").await.is_err());
+        assert!(run(&core, &sel, "column-wip", &id, "many").await.is_err());
+        run(&core, &sel, "column-wip", &id, "").await.unwrap();
+
+        let before: Vec<_> = snap.columns.iter().map(|c| c.id).collect();
+        run(&core, &sel, "column-move", &id, "left").await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let after: Vec<_> = snap.columns.iter().map(|c| c.id).collect();
+        let at = |v: &[i64]| v.iter().position(|c| c.to_string() == id).unwrap();
+        assert_eq!(at(&after) + 1, at(&before));
+
+        let built_in = snap.columns.iter().find(|c| c.fixed).unwrap().id.to_string();
+        let refused = run(&core, &sel, "column-delete", &built_in, "").await;
+        assert_eq!(refused, Err("Built-in columns cannot be deleted".into()));
+        run(&core, &sel, "column-delete", &id, "").await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        assert!(snap.columns.iter().all(|c| c.name != "QA"));
+    }
+
+    #[tokio::test]
+    async fn card_move_due_and_assignee_commands() {
+        let (_tmp, core, sel) = board().await;
+        run(&core, &sel, "add-column", "Review", "").await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let inbox = snap.columns[0].id.to_string();
+        let review = first_column(&snap, "Review").id.to_string();
+        run(&core, &sel, "add-task", &inbox, "Write report").await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let task = snap.columns[0].cards[0].id;
+        let tid = task.to_string();
+
+        // What a drop sends: the card menu's move command.
+        run(&core, &sel, "card-menu", &tid, &format!("move:{review}")).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        assert_eq!(first_column(&snap, "Review").cards[0].id, task);
+
+        run(&core, &sel, "detail-due", &tid, "tomorrow").await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None)).await.unwrap();
+        assert_eq!(snap.detail.as_ref().unwrap().due, iso_date(today_end_ms() + 1000));
+        run(&core, &sel, "detail-due", &tid, "none").await.unwrap();
+
+        run(&core, &sel, "detail-assignee", &tid, "Ana Diaz <ana@example.org>")
+            .await
+            .unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None)).await.unwrap();
+        assert_eq!(snap.detail.as_ref().unwrap().assignee, "Ana Diaz <ana@example.org>");
+        run(&core, &sel, "detail-assignee", &tid, "bob@example.org").await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None)).await.unwrap();
+        assert_eq!(snap.detail.as_ref().unwrap().assignee, "bob@example.org");
+        assert!(run(&core, &sel, "detail-assignee", &tid, "nobody known").await.is_err());
+        run(&core, &sel, "detail-assignee", &tid, "").await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None)).await.unwrap();
+        assert_eq!(snap.detail.as_ref().unwrap().assignee, "");
+    }
+
+    #[tokio::test]
+    async fn label_and_context_chips_filter_the_board() {
+        let (_tmp, core, sel) = board().await;
+        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let inbox = snap.columns[0].id.to_string();
+        run(&core, &sel, "add-task", &inbox, "Tagged").await.unwrap();
+        run(&core, &sel, "add-task", &inbox, "Plain").await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let tagged = snap.columns[0].cards.iter().find(|c| c.title == "Tagged").unwrap().id;
+        run(&core, &sel, "detail-label-new", &tagged.to_string(), "urgent")
+            .await
+            .unwrap();
+        let label = core.task_labels().await.unwrap()[0].id;
+
+        let snap = load(&core, &sel, "", None, (Some(label), None)).await.unwrap();
+        let titles: Vec<_> = snap.columns.iter().flat_map(|c| &c.cards).map(|c| c.title.as_str()).collect();
+        assert_eq!(titles, ["Tagged"]);
+        assert_eq!(snap.chips, [("label".to_owned(), "Label: urgent".to_owned())]);
+        // The label is active, so it is no longer offered in the menu.
+        assert!(snap.filter_menu.iter().all(|(id, _)| !id.starts_with("label:")));
+        // An unknown label id is ignored instead of emptying the board.
+        let snap = load(&core, &sel, "", None, (Some(9999), None)).await.unwrap();
+        assert!(snap.chips.is_empty());
+    }
 }
