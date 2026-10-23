@@ -129,7 +129,7 @@ Limits and notes:
 - Activity entries have a stable `kind` plus an English fallback `text`; the UI should localise by `kind` in Phase 7.
 - `TaskGroupBy` is only the type; the board view does the grouping. "Today" uses `today_end_ms` supplied by the UI (zone applied only there).
 - Default column icons/colours are placeholders; Phase 7 should match them to the designs.
-- No UI yet: `Core::task_*` methods and `CoreEvent::TasksChanged` exist but nothing consumes them.
+- The Tasks view consumes `Core::task_*` and `CoreEvent::TasksChanged` (Phase 7).
 - Tests: `tasks/tests.rs` (16 task/schema tests incl. position keys, links, search, tombstones, change log).
 
 
@@ -159,7 +159,7 @@ First-slice limits:
 - Focus, context and search views show one flat list instead of columns.
 - Done tasks are all listed in the Done column (no paging).
 - Dates are shown as `YYYY-MM-DD`; default column names are stored in English and not translated.
-- The board reloads after each command; it does not yet react to `CoreEvent::TasksChanged` from other sources.
+- The board reloads after each command and when `CoreEvent::TasksChanged` arrives while the Tasks view is open (a change made in the view causes one extra reload; not exercised by a test, nothing outside the view writes tasks yet). `tasks_open` no longer emits the event, so a reload cannot trigger itself.
 - Filter chips cover Label and Context only; the drawer edits context and labels (⋯ pickers; a new label is created by name, no colour choice; not on screen yet; new strings untranslated), but the assignee cannot be edited in the UI yet. Activity entries are shown in English as stored.
 
 ### Phase 8: create a task from an email (Mail module) — todo

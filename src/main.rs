@@ -3418,6 +3418,14 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 apply_calendar(&app, &calendar, today);
             }
         }
+        if pending.tasks_changed
+            && let Some(app) = mail_update_app.upgrade()
+            && app.get_active_view() == "tasks"
+        {
+            // Reload the open list; commands from the view reload it themselves.
+            app.global::<TasksUi>()
+                .invoke_command("refresh".into(), "".into(), "".into());
+        }
         if pending.contacts_changed
             && let Some(app) = mail_update_app.upgrade()
         {

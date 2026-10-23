@@ -48,7 +48,8 @@ impl Core {
                 Ok(())
             })
             .await?;
-        self.bus.emit(CoreEvent::TasksChanged);
+        // No event here: the UI calls this on every reload, so announcing it
+        // would make each refresh trigger the next one.
         Ok(())
     }
 
