@@ -134,25 +134,33 @@ Limits and notes:
 
 
 
-### Phase 7: Tasks module and board view — todo
+### Phase 7: Tasks module and board view — in progress (first slice done)
 Design: `Tasks · Board (GTD kanban)-html/Main.dc.html`.
 | Item | Status |
 |---|---|
-| Product rail: add Tasks item (icon, label, `product-changed("tasks")`), `active_view == "tasks"` plumbing, Escape/back handling like files/contacts, compact (phone-width) layout without the sidebar | todo |
-| New `ui/views/tasks-view.slint` plus a `src/tasks_controller.rs` (own `TasksUi` global like `FilesUi`); register the `ui-message-*` callbacks it uses | todo |
-| Tab: "Tasks · <project>" tab in the title bar, reuse `tabs.rs` | todo |
-| Sidebar (230 px): primary "New task" button; search "Find list, project or context"; sections FOCUS (Inbox, Today, Upcoming, Waiting for, From email, Someday / Maybe) with count badges (Inbox badge in accent colour), PROJECTS (colour dot, count, "New project"), CONTEXTS (`@computer`, ...); selected row uses the accent-soft background | todo |
-| Toolbar: sidebar toggle, project title + task count, view switch Board / Timeline / List (Timeline = Phase 10, List = simple sortable list), search "Search tasks and linked mail", "Group: Status" (also by project, context, label, due), "Display" menu, overflow menu | todo |
+| Product rail: add Tasks item (icon, label, `product-changed("tasks")`), `active_view == "tasks"` plumbing, Escape/back handling like files/contacts, compact (phone-width) layout without the sidebar | done (rail item, compact nav, Escape/back; not yet checked on a real window) |
+| New `ui/views/tasks-view.slint` plus a `src/tasks_controller.rs` (own `TasksUi` global like `FilesUi`); register the `ui-message-*` callbacks it uses | done (`TasksUi` global, one `command` callback; no `ui-message-*` callbacks needed) |
+| Tab: "Tasks · <project>" tab in the title bar, reuse `tabs.rs` | done (live title "Tasks · <project>"; inactive tab shows "Tasks") |
+| Sidebar (230 px): primary "New task" button; search "Find list, project or context"; sections FOCUS (Inbox, Today, Upcoming, Waiting for, From email, Someday / Maybe) with count badges (Inbox badge in accent colour), PROJECTS (colour dot, count, "New project"), CONTEXTS (`@computer`, ...); selected row uses the accent-soft background | partial: New task, FOCUS with counts, PROJECTS with New project, CONTEXTS with New context. Missing: sidebar search, accent-coloured Inbox badge |
+| Toolbar: sidebar toggle, project title + task count, view switch Board / Timeline / List (Timeline = Phase 10, List = simple sortable list), search "Search tasks and linked mail", "Group: Status" (also by project, context, label, due), "Display" menu, overflow menu | partial: sidebar toggle, title + task count, search. Missing: Board/Timeline/List switch, Group by, Display and overflow menus |
 | Filter chip row (Assignee, Label, Linked to ...), "Add filter", removable chips, date + "GTD workflow" caption on the right | todo |
-| Columns: 272 px wide, header with icon, name, count badge, "limit N / M" when a WIP limit is set, add-task (+) and column options (rename, colour, icon, WIP limit, collapse, delete); horizontal scroll; collapsed column (46 px, vertical title, count) for Someday / Maybe; "Add column" | todo |
-| Cards: label chips, title (struck through when done, 75 % opacity), linked-item rows (Mail / Sent / Event icon + kind + text), status pill (e.g. "No reply · 2 days" warn, "Reply received" ok, "Quick capture" neutral), due date (warn colour when today or overdue), checklist count, High-priority flag, avatars; selected state with accent border and ring | todo |
+| Columns: 272 px wide, header with icon, name, count badge, "limit N / M" when a WIP limit is set, add-task (+) and column options (rename, colour, icon, WIP limit, collapse, delete); horizontal scroll; collapsed column (46 px, vertical title, count) for Someday / Maybe; "Add column" | partial: 272 px columns, name, count (`n / limit` with a WIP limit), collapse/expand, horizontal scroll. Missing: column options menu (rename, colour, icon, WIP limit, delete), Add column |
+| Cards: label chips, title (struck through when done, 75 % opacity), linked-item rows (Mail / Sent / Event icon + kind + text), status pill (e.g. "No reply · 2 days" warn, "Reply received" ok, "Quick capture" neutral), due date (warn colour when today or overdue), checklist count, High-priority flag, avatars; selected state with accent border and ring | partial: complete toggle, title, labels, due (warn colour when due today/overdue), checklist and link counts, High flag, context, delete. Missing: linked-item rows, status pills, avatars, selected state, strike-through |
 | Drag and drop of cards between and inside columns (updates status, position, `completed_at`); keyboard alternative (move to column menu) because Slint DnD is limited | todo |
-| Inline "Add task" at the bottom of a column and in the column header; Enter creates, Esc cancels | todo |
+| Inline "Add task" at the bottom of a column and in the column header; Enter creates, Esc cancels | partial: works in the column header and from New task; Enter creates, Esc cancels |
 | Detail drawer (392 px, overlay at phone width): breadcrumb "Project / Status", expand-to-tab, more actions, close; editable title; labels with add; property grid (Status, Due, Project, Context, Assignee) each opening a picker (date picker reuses the calendar one); description; LINKED ITEMS list with kind, title, sub-line, optional status pill and a "Link" button (link a mail via the mail search, link an event, link a task); "Move back to Next actions when a reply arrives" checkbox in Waiting for; checklist with progress; activity log; footer with primary action ("Reply from task" / "Email from task" / "Follow up by email"), "Schedule" and "Complete" | todo |
 | Clicking a linked mail opens that thread in Mail; a linked event opens the calendar event; a linked task selects it | todo |
-| Theme: use the existing Rustmail theme tokens; the designs' dark/light and teal/green/purple presets map to the app's own theme setting (do not add a second theme system) | todo |
-| Translations: all strings in `@tr`, regenerate catalogs (`update-translations` skill) | todo |
+| Theme: use the existing Rustmail theme tokens; the designs' dark/light and teal/green/purple presets map to the app's own theme setting (do not add a second theme system) | done for this slice (only `AppTheme` tokens; the design's colours are not matched) |
+| Translations: all strings in `@tr`, regenerate catalogs (`update-translations` skill) | partial: new `@tr` strings are in the catalogs but untranslated |
 | Tests: `text_fit` at phone width, controller tests for create/move/complete, on-screen smoke test | todo |
+
+First-slice limits:
+- Cards move between columns only through the card menu; there is no drag and drop yet.
+- Focus, context and search views show one flat list instead of columns.
+- Done tasks are all listed in the Done column (no paging).
+- Dates are shown as `YYYY-MM-DD`; default column names are stored in English and not translated.
+- The board reloads after each command; it does not yet react to `CoreEvent::TasksChanged` from other sources.
+- No detail drawer, filter chips, labels/context editing or checklist UI yet.
 
 ### Phase 8: create a task from an email (Mail module) — todo
 Design: `Mail · Create task from email-html/MailToTask.dc.html`.

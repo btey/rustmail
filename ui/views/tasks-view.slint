@@ -1,0 +1,489 @@
+import { ScrollView } from "std-widgets.slint";
+import { AppTheme, LayoutMetrics } from "../design-system.slint";
+import { TypeScale } from "../typography.slint";
+import { Button } from "../components/button.slint";
+import { ActionMenu, ActionMenuEntry } from "../components/action-menu.slint";
+import { LineEdit, ToolbarIconButton } from "../components/controls.slint";
+import { SidebarItem } from "../components/sidebar-controls.slint";
+import { CollapsibleWorkspaceSidebar, WorkspaceMiniHeading } from "../components/workspace-layout.slint";
+import { DetailEmptyState } from "../components/detail-empty-state.slint";
+
+export struct TaskCardRow {
+    id: int,
+    title: string,
+    due: string,
+    due-warn: bool,
+    high-priority: bool,
+    labels: string,
+    checklist-total: int,
+    checklist-done: int,
+    link-count: int,
+    done: bool,
+    from-mail: bool,
+    context: string,
+    assignee: string,
+}
+
+export struct TaskColumnRow {
+    // -1 for the synthetic list shown by focus, context and search views.
+    id: int,
+    name: string,
+    colour: color,
+    count: string,
+    over-wip: bool,
+    collapsed: bool,
+    cards: [TaskCardRow],
+}
+
+export struct TaskNavRow {
+    key: string,
+    label: string,
+    count: string,
+    colour: color,
+}
+
+export global TasksUi {
+    in-out property <[TaskColumnRow]> columns;
+    in-out property <[TaskNavRow]> focus-rows;
+    in-out property <[TaskNavRow]> projects;
+    in-out property <[TaskNavRow]> contexts;
+    // Card menu: one "move:<column id>" entry per column of the open project.
+    in-out property <[ActionMenuEntry]> card-menu;
+    // "focus:<name>", "project:<id>" or "context:<id>".
+    in-out property <string> selection: "focus:inbox";
+    // Project or context name; empty for the focus lists (named in Slint).
+    in-out property <string> title;
+    in-out property <int> task-count;
+    in-out property <string> query;
+    in-out property <string> status;
+    in-out property <bool> loading: false;
+    // Column id with the inline "add task" row open; -2 = none.
+    in-out property <int> adding-column: -2;
+    // "" | "project" | "context": sidebar row being created.
+    in-out property <string> creating: "";
+    in-out property <bool> sidebar-collapsed: false;
+    in-out property <bool> navigation-open: false;
+    callback command(string, string, string);
+}
+
+global TasksText {
+    pure public function focus-label(key: string) -> string {
+        return key == "focus:inbox" ? @tr("Inbox")
+        : key == "focus:today" ? @tr("Today")
+        : key == "focus:upcoming" ? @tr("Upcoming")
+        : key == "focus:waiting" ? @tr("Waiting for")
+        : key == "focus:email" ? @tr("From email")
+        : @tr("Someday / Maybe");
+}
+}
+
+component TasksNavItem inherits SidebarItem {
+    sidebar-background: AppTheme.sidebar-bg;
+    selection-background: AppTheme.accent-soft;
+    accent-color: AppTheme.accent;
+    body-color: AppTheme.body;
+    muted-color: AppTheme.muted;
+    icon-color: root.selected ? AppTheme.accent : AppTheme.secondary;
+    row-height: 32px;
+}
+
+component TasksSidebar inherits Rectangle {
+    callback navigate(string);
+    callback new-task;
+    background: AppTheme.sidebar-bg;
+
+    VerticalLayout {
+        padding-top: LayoutMetrics.sidebar-action-top;
+        padding-left: LayoutMetrics.sidebar-inset;
+        padding-right: LayoutMetrics.sidebar-inset;
+        padding-bottom: 12px;
+        spacing: 8px;
+        Button {
+            height: LayoutMetrics.sidebar-action-height;
+            text: @tr("New task");
+            primary: true;
+            has-icon: true;
+            label-overflow: elide;
+            icon: @image-url("../icons/lucide/outline/plus.svg");
+            clicked => { root.new-task(); }
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            content-width: self.visible-width;
+            horizontal-scrollbar-policy: always-off;
+            VerticalLayout {
+                spacing: 4px;
+                alignment: start;
+                WorkspaceMiniHeading { label: @tr("FOCUS"); }
+                for row in TasksUi.focus-rows : TasksNavItem {
+                    label: TasksText.focus-label(row.key);
+                    count: row.count;
+                    left-padding: 12px;
+                    icon: @image-url("../icons/lucide/outline/tasks.svg");
+                    icon-color: TasksUi.selection == row.key ? AppTheme.accent : row.colour;
+                    selected: TasksUi.selection == row.key;
+                    clicked(scope) => { root.navigate(row.key); }
+                }
+                WorkspaceMiniHeading { label: @tr("PROJECTS"); }
+                for row in TasksUi.projects : TasksNavItem {
+                    label: row.label;
+                    count: row.count;
+                    left-padding: 12px;
+                    icon: @image-url("../icons/lucide/filled/tag.svg");
+                    icon-color: row.colour;
+                    selected: TasksUi.selection == row.key;
+                    clicked(scope) => { root.navigate(row.key); }
+                }
+                if TasksUi.creating == "project" : LineEdit {
+                    placeholder-text: @tr("Project name");
+                    input-label: @tr("Project name");
+                    accepted(text) => { TasksUi.command("create-project", text, ""); TasksUi.creating = ""; }
+                }
+                if TasksUi.creating != "project" : TasksNavItem {
+                    label: @tr("New project");
+                    left-padding: 12px;
+                    icon: @image-url("../icons/lucide/outline/plus.svg");
+                    clicked(scope) => { TasksUi.creating = "project"; }
+                }
+                WorkspaceMiniHeading { label: @tr("CONTEXTS"); }
+                for row in TasksUi.contexts : TasksNavItem {
+                    label: "@" + row.label;
+                    count: row.count;
+                    left-padding: 12px;
+                    icon: @image-url("../icons/lucide/filled/tag.svg");
+                    selected: TasksUi.selection == row.key;
+                    clicked(scope) => { root.navigate(row.key); }
+                }
+                if TasksUi.creating == "context" : LineEdit {
+                    placeholder-text: @tr("Context name");
+                    input-label: @tr("Context name");
+                    accepted(text) => { TasksUi.command("create-context", text, ""); TasksUi.creating = ""; }
+                }
+                if TasksUi.creating != "context" : TasksNavItem {
+                    label: @tr("New context");
+                    left-padding: 12px;
+                    icon: @image-url("../icons/lucide/outline/plus.svg");
+                    clicked(scope) => { TasksUi.creating = "context"; }
+                }
+            }
+        }
+    }
+}
+
+component TaskCard inherits Rectangle {
+    in property <TaskCardRow> card;
+    callback toggle-done;
+    callback delete-task;
+    callback menu-action(string);
+
+    private property <length> pad: 10px;
+    height: content.preferred-height + 2 * root.pad;
+    border-radius: LayoutMetrics.corner-radius;
+    border-width: 1px;
+    border-color: AppTheme.border;
+    background: AppTheme.surface;
+    opacity: root.card.done ? 0.75 : 1;
+    accessible-role: list-item;
+    accessible-label: root.card.title;
+
+    content := VerticalLayout {
+        x: root.pad;
+        y: root.pad;
+        width: parent.width - 2 * root.pad;
+        spacing: 6px;
+        HorizontalLayout {
+            spacing: 8px;
+            Rectangle {
+                width: 22px;
+                height: 22px;
+                done-button := ToolbarIconButton {
+                    width: 22px;
+                    height: 22px;
+                    icon: root.card.done ? @image-url("../icons/lucide/filled/tasks.svg") : @image-url("../icons/lucide/outline/tasks.svg");
+                    icon-color: root.card.done ? AppTheme.accent : AppTheme.secondary;
+                    tooltip-text: root.card.done ? @tr("Reopen task") : @tr("Complete task");
+                    clicked => { root.toggle-done(); }
+                }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.card.title;
+                color: AppTheme.heading;
+                font-size: TypeScale.body;
+                font-weight: 600;
+                wrap: word-wrap;
+                vertical-alignment: center;
+            }
+            ActionMenu {
+                width: 22px;
+                height: 22px;
+                icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
+                entries: TasksUi.card-menu;
+                menu-width: 220px;
+                tooltip-text: @tr("Move to column");
+                activated(id) => { root.menu-action(id); }
+            }
+            ToolbarIconButton {
+                width: 22px;
+                height: 22px;
+                icon: @image-url("../icons/lucide/outline/trash.svg");
+                tooltip-text: @tr("Delete task");
+                clicked => { root.delete-task(); }
+            }
+        }
+        if root.card.labels != "" : Text {
+            text: root.card.labels;
+            color: AppTheme.accent;
+            font-size: TypeScale.micro;
+            overflow: elide;
+        }
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            if root.card.due != "" : Text {
+                text: root.card.due;
+                color: root.card.due-warn ? AppTheme.destructive : AppTheme.secondary;
+                font-size: TypeScale.micro;
+            }
+            if root.card.checklist-total > 0 : Text {
+                text: @tr("{}/{} done", root.card.checklist-done, root.card.checklist-total);
+                color: AppTheme.secondary;
+                font-size: TypeScale.micro;
+            }
+            if root.card.link-count > 0 : Text {
+                text: @tr("{} linked", root.card.link-count);
+                color: AppTheme.secondary;
+                font-size: TypeScale.micro;
+            }
+            if root.card.high-priority : Text {
+                text: @tr("High");
+                color: AppTheme.destructive;
+                font-size: TypeScale.micro;
+                font-weight: 700;
+            }
+            if root.card.context != "" : Text {
+                text: "@" + root.card.context;
+                color: AppTheme.secondary;
+                font-size: TypeScale.micro;
+            }
+        }
+    }
+}
+
+component TaskColumnView inherits Rectangle {
+    in property <TaskColumnRow> column;
+    in property <length> column-width: 272px;
+    private property <bool> adding: TasksUi.adding-column == root.column.id;
+
+    width: root.column.collapsed ? 46px : root.column-width;
+    border-radius: LayoutMetrics.corner-radius;
+    background: AppTheme.sidebar-bg;
+    animate width { duration: 160ms; easing: ease-out; }
+
+    if root.column.collapsed : Rectangle {
+        TouchArea {
+            clicked => { TasksUi.command("collapse", "" + root.column.id, "0"); }
+            accessible-role: button;
+            accessible-label: root.column.name + " " + root.column.count;
+        }
+        VerticalLayout {
+            padding: 10px;
+            spacing: 8px;
+            alignment: start;
+            Text {
+                text: root.column.count;
+                color: AppTheme.secondary;
+                font-size: TypeScale.caption;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: root.column.name;
+                color: AppTheme.heading;
+                font-size: TypeScale.caption;
+                font-weight: 600;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+        }
+    }
+
+    if !root.column.collapsed : VerticalLayout {
+        padding: 10px;
+        spacing: 8px;
+        HorizontalLayout {
+            height: 28px;
+            spacing: 8px;
+            Rectangle {
+                width: 10px;
+                Rectangle {
+                    y: (parent.height - self.height) / 2;
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 5px;
+                    background: root.column.colour;
+                }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.column.name != "" ? root.column.name
+                    : TasksUi.title != "" ? TasksUi.title : TasksText.focus-label(TasksUi.selection);
+                color: AppTheme.heading;
+                font-size: TypeScale.body;
+                font-weight: 700;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            Text {
+                text: root.column.count;
+                color: root.column.over-wip ? AppTheme.destructive : AppTheme.secondary;
+                font-size: TypeScale.caption;
+                vertical-alignment: center;
+            }
+            ToolbarIconButton {
+                width: 26px;
+                height: 26px;
+                icon: @image-url("../icons/lucide/outline/plus.svg");
+                tooltip-text: @tr("Add task");
+                clicked => { TasksUi.adding-column = root.column.id; }
+            }
+            if root.column.id >= 0 : ToolbarIconButton {
+                width: 26px;
+                height: 26px;
+                icon: @image-url("../icons/lucide/outline/chevron-left.svg");
+                tooltip-text: @tr("Collapse column");
+                clicked => { TasksUi.command("collapse", "" + root.column.id, "1"); }
+            }
+        }
+        if root.adding : LineEdit {
+            placeholder-text: @tr("Task title");
+            input-label: @tr("Task title");
+            accepted(text) => {
+                TasksUi.command("add-task", "" + root.column.id, text);
+                TasksUi.adding-column = -2;
+            }
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            content-width: self.visible-width;
+            horizontal-scrollbar-policy: always-off;
+            VerticalLayout {
+                spacing: 8px;
+                alignment: start;
+                for card in root.column.cards : TaskCard {
+                    card: card;
+                    toggle-done => { TasksUi.command(card.done ? "reopen" : "complete", "" + card.id, ""); }
+                    delete-task => { TasksUi.command("delete", "" + card.id, ""); }
+                    menu-action(id) => { TasksUi.command("card-menu", "" + card.id, id); }
+                }
+            }
+        }
+    }
+}
+
+export component TasksView inherits Rectangle {
+    in property <bool> compact: false;
+    in property <bool> active: true;
+    private property <bool> single-surface: root.compact;
+    private property <bool> board-visible: !root.single-surface || !TasksUi.navigation-open;
+    private property <bool> sidebar-visible: !root.single-surface && !TasksUi.sidebar-collapsed;
+    background: AppTheme.page-bg;
+
+    changed active => {
+        if !root.active { TasksUi.adding-column = -2; TasksUi.creating = ""; }
+    }
+
+    if root.sidebar-visible || (root.single-surface && TasksUi.navigation-open) : CollapsibleWorkspaceSidebar {
+        x: 0px;
+        y: 0px;
+        height: parent.height;
+        width: root.single-surface ? parent.width : LayoutMetrics.sidebar-width;
+        TasksSidebar {
+            width: parent.width;
+            height: parent.height;
+            navigate(key) => {
+                TasksUi.navigation-open = false;
+                TasksUi.command("select", key, "");
+            }
+            new-task => {
+                TasksUi.navigation-open = false;
+                TasksUi.adding-column = TasksUi.columns.length > 0 ? TasksUi.columns[0].id : -1;
+            }
+        }
+    }
+
+    if root.board-visible : Rectangle {
+        x: root.sidebar-visible ? LayoutMetrics.sidebar-width : 0px;
+        width: parent.width - self.x;
+        height: parent.height;
+
+        VerticalLayout {
+            padding: LayoutMetrics.content-inset;
+            spacing: 10px;
+            HorizontalLayout {
+                height: 40px;
+                spacing: 8px;
+                ToolbarIconButton {
+                    width: 36px;
+                    icon: TasksUi.sidebar-collapsed || root.single-surface
+                        ? @image-url("../icons/lucide/outline/sidebar-expand.svg")
+                        : @image-url("../icons/lucide/outline/sidebar-collapse.svg");
+                    tooltip-text: @tr("Lists");
+                    clicked => {
+                        if root.single-surface { TasksUi.navigation-open = true; }
+                        else { TasksUi.sidebar-collapsed = !TasksUi.sidebar-collapsed; }
+                    }
+                }
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    Text {
+                        text: TasksUi.title != "" ? TasksUi.title : TasksText.focus-label(TasksUi.selection);
+                        color: AppTheme.title;
+                        font-size: TypeScale.heading-small;
+                        font-weight: 700;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: @tr("{} tasks", TasksUi.task-count);
+                        color: AppTheme.secondary;
+                        font-size: TypeScale.micro;
+                    }
+                }
+                LineEdit {
+                    width: root.single-surface ? 150px : 280px;
+                    height: 34px;
+                    show-leading-icon: true;
+                    leading-icon: @image-url("../icons/lucide/outline/search.svg");
+                    placeholder-text: @tr("Search tasks and linked mail");
+                    input-label: @tr("Search tasks and linked mail");
+                    text: TasksUi.query;
+                    edited(text) => { TasksUi.command("search", text, ""); }
+                }
+            }
+            if TasksUi.status != "" : Text {
+                text: TasksUi.status;
+                color: AppTheme.destructive;
+                font-size: TypeScale.caption;
+                wrap: word-wrap;
+            }
+            if TasksUi.columns.length == 0 && !TasksUi.loading : DetailEmptyState {
+                vertical-stretch: 1;
+                title: @tr("No tasks");
+            }
+            ScrollView {
+                vertical-stretch: 1;
+                visible: TasksUi.columns.length > 0;
+                content-height: self.visible-height;
+                vertical-scrollbar-policy: always-off;
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+                    for column in TasksUi.columns : TaskColumnView {
+                        column: column;
+                        column-width: root.single-surface ? max(240px, root.width - 56px) : 272px;
+                    }
+                }
+            }
+        }
+    }
+}

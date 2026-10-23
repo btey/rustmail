@@ -122,6 +122,17 @@ export component ProductRail inherits Rectangle {
             clicked => { root.select-view("calendar"); }
         }
 
+        tasks-item := ProductRailItem {
+            label: @tr("Tasks");
+            outline-icon: @image-url("../icons/lucide/outline/tasks.svg");
+            filled-icon: @image-url("../icons/lucide/filled/tasks.svg");
+            active: !root.settings-active && root.active-view == "tasks";
+            accent-color: root.accent-color;
+            accent-background: root.accent-background;
+            muted-color: root.muted-color;
+            clicked => { root.select-view("tasks"); }
+        }
+
         files-item := ProductRailItem {
             label: @tr("Files");
             outline-icon: @image-url("../icons/lucide/outline/files.svg");
@@ -174,7 +185,7 @@ component CompactProductNavItem inherits Rectangle {
     in property <bool> interactive: true;
     callback clicked;
 
-    min-width: 64px;
+    min-width: 52px;
     height: 64px;
     background: transparent;
 
@@ -182,9 +193,9 @@ component CompactProductNavItem inherits Rectangle {
     // Keeping the label outside it prevents the active item from looking like
     // an oversized card at narrow window widths.
     Rectangle {
-        x: (parent.width - 56px) / 2;
+        x: (parent.width - self.width) / 2;
         y: 6px;
-        width: 56px;
+        width: min(56px, parent.width);
         height: 32px;
         border-radius: 16px;
         background: root.active || nav-hit.has-hover ? root.active-background : transparent;
@@ -294,6 +305,18 @@ export component CompactProductNav inherits Rectangle {
         }
         CompactProductNavItem {
             horizontal-stretch: 1;
+            label: @tr("Tasks");
+            outline-icon: @image-url("../icons/lucide/outline/tasks.svg");
+            filled-icon: @image-url("../icons/lucide/filled/tasks.svg");
+            active: !root.settings-active && root.active-view == "tasks";
+            accent-color: root.accent-color;
+            active-background: root.accent-background;
+            muted-color: root.muted-color;
+            interactive: root.interactive;
+            clicked => { root.select-view("tasks"); }
+        }
+        CompactProductNavItem {
+            horizontal-stretch: 1;
             label: @tr("Files");
             outline-icon: @image-url("../icons/lucide/outline/files.svg");
             filled-icon: @image-url("../icons/lucide/filled/files.svg");
@@ -333,7 +356,7 @@ export component CompactProductNav inherits Rectangle {
 
 export struct TabRow {
     id: int,
-    // "mail" | "calendar" | "contacts" | "files"
+    // "mail" | "calendar" | "tasks" | "contacts" | "files"
     workspace: string,
     // Saved title for inactive tabs; empty uses the workspace name.
     title: string,
@@ -368,6 +391,8 @@ component WorkspaceIcon inherits Image {
     in property <bool> filled;
     source: root.workspace == "calendar"
             ? (root.filled ? @image-url("../icons/lucide/filled/calendar.svg") : @image-url("../icons/lucide/outline/calendar.svg"))
+        : root.workspace == "tasks"
+            ? (root.filled ? @image-url("../icons/lucide/filled/tasks.svg") : @image-url("../icons/lucide/outline/tasks.svg"))
         : root.workspace == "files"
             ? (root.filled ? @image-url("../icons/lucide/filled/files.svg") : @image-url("../icons/lucide/outline/files.svg"))
         : root.workspace == "contacts"
@@ -437,6 +462,7 @@ component TabItem inherits Rectangle {
     in property <color> tab-border-color;
 
     private property <string> workspace-name: root.entry.workspace == "calendar" ? @tr("Calendar")
+        : root.entry.workspace == "tasks" ? @tr("Tasks")
         : root.entry.workspace == "files" ? @tr("Files")
         : root.entry.workspace == "contacts" ? @tr("Contacts")
         : @tr("Mail");

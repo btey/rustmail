@@ -33,6 +33,7 @@ pub(crate) enum Location {
         date: NaiveDate,
         mode: String,
     },
+    Tasks,
     Contacts,
     Files,
 }
@@ -62,6 +63,7 @@ impl Location {
         match self {
             Self::Mail { .. } => "mail",
             Self::Calendar { .. } => "calendar",
+            Self::Tasks => "tasks",
             Self::Contacts => "contacts",
             Self::Files => "files",
         }
@@ -546,6 +548,7 @@ impl Tabs {
                 )
             }
             "contacts" => (Location::Contacts, String::new(), None),
+            "tasks" => (Location::Tasks, String::new(), None),
             "files" => (Location::Files, String::new(), None),
             _ => {
                 let state = self.context.state.borrow();
@@ -634,7 +637,7 @@ impl Tabs {
                     app.set_active_view("calendar".into());
                 }
             }
-            Location::Contacts | Location::Files => {
+            Location::Tasks | Location::Contacts | Location::Files => {
                 app.set_active_view(location.workspace().into());
             }
         }

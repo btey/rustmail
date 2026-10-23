@@ -141,6 +141,9 @@ def build(sources):
             "Custom tapered tray; softly rounded outline and curved shoulders around an open well."),
         "inbox-rustmail-old": Recipe(None, inbox_rustmail_old,
             "Preserved earlier Rustmail tray opening."),
+        "tasks": Recipe("circle-check", cut(
+            solid(p("circle-check", 0)), lines("circle-check", 1)),
+            "Solid circle; check mark cutout."),
         "info": Recipe("info", cut(solid(p("info", 0)), lines("info", 1, 2)),
             "Solid circle; information mark cutout."),
         "keyboard": Recipe("keyboard", cut(solid(p("keyboard", 8)), lines("keyboard", *range(8))),

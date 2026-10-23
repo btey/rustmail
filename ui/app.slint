@@ -38,6 +38,8 @@ import { MailView } from "views/mail-view.slint";
 export { MessageColors } from "message-colors.slint";
 export { FilesUi, FileRow, OperationRow } from "views/files-view.slint";
 import { FilesView, FilesUi } from "views/files-view.slint";
+export { TasksUi, TaskCardRow, TaskColumnRow, TaskNavRow } from "views/tasks-view.slint";
+import { TasksView, TasksUi } from "views/tasks-view.slint";
 import { ContactsView } from "views/contacts-view.slint";
 import { OnboardingView } from "views/onboarding-view.slint";
 
@@ -1023,7 +1025,8 @@ export component AppWindow inherits Window {
         && !(root.active_view == "mail" && root.mail-compact-page == "message")
         && !(root.active_view == "mail" && root.mail-folders-open)
         && !(root.active_view == "contacts" && root.contacts-detail-visible)
-        && !(root.active_view == "files" && FilesUi.preview-open);
+        && !(root.active_view == "files" && FilesUi.preview-open)
+        && !(root.active_view == "tasks" && TasksUi.navigation-open);
     private property <length> compact-primary-nav-height: LayoutMetrics.compact-navigation-height;
     private property <bool> folder-dialog-open: false;
     private property <bool> trash-delete-open: false;
@@ -1127,6 +1130,9 @@ export component AppWindow inherits Window {
 
     system-back-requested => {
         if MailAttachments.open { MailAttachments.command("close", ""); return true; }
+        if root.active_view == "tasks" && TasksUi.adding-column != -2 { TasksUi.adding-column = -2; return true; }
+        if root.active_view == "tasks" && TasksUi.creating != "" { TasksUi.creating = ""; return true; }
+        if root.active_view == "tasks" && TasksUi.navigation-open { TasksUi.navigation-open = false; return true; }
         if root.active_view == "files" && FilesUi.transfers-open {FilesUi.transfers-open=false;return true;}
         if root.active_view == "files" && FilesUi.dialog != "" { FilesUi.dialog = ""; return true; }
         if root.active_view == "files" && FilesUi.setup-open { FilesUi.setup-open = false; return true; }
@@ -1596,6 +1602,19 @@ export component AppWindow inherits Window {
                 root.open_compose();
             }
         }
+        }
+
+        if root.active_view == "tasks" : WorkspaceFrame {
+            compact: root.compact-layout;
+            reserve-compact-navigation: root.compact-primary-nav-visible;
+            available-width: parent.width;
+            available-height: parent.height;
+            tasks-view := TasksView {
+                active: root.active_view == "tasks";
+                width: parent.width;
+                height: parent.height;
+                compact: root.compact-layout;
+            }
         }
 
         if root.active_view == "files" : WorkspaceFrame {
@@ -2284,7 +2303,9 @@ export component AppWindow inherits Window {
         height: WindowChrome.band-height;
         z: 40000;
         // The active tab follows the open conversation or mailbox.
-        live-title: root.active_view != "mail" ? ""
+        live-title: root.active_view == "tasks"
+            ? (TasksUi.title != "" ? @tr("Tasks") + " · " + TasksUi.title : @tr("Tasks"))
+            : root.active_view != "mail" ? ""
             : root.has_selected && root.selected_subject != "" ? root.selected_subject
             : root.selected_scope_title;
         background-color: root.sidebar-bg;

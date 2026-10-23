@@ -27,6 +27,9 @@
     "check-circle.svg": {
       "source": "circle-check"
     },
+    "tasks.svg": {
+      "source": "circle-check"
+    },
     "chevron-down.svg": {
       "source": "chevron-down"
     },

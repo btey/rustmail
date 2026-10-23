@@ -19,6 +19,7 @@ pub mod documents;
 mod email_document;
 pub mod favicon;
 mod files_controller;
+mod tasks_controller;
 mod latest_load;
 mod mail;
 #[cfg(test)]
@@ -1758,6 +1759,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         platform.paths.temp_dir(),
     );
 
+    tasks_controller::register(&app, &state, &runtime);
     attachment_controller::register(&app, &state, &runtime, platform.documents.clone());
 
     let state_for_mail_drag = Rc::clone(&state);
@@ -4083,6 +4085,9 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             if !contacts::has_unsaved_edits(&app, &product_contacts.borrow()) {
                 app.invoke_load_contacts();
             }
+        } else if view == "tasks" {
+            app.global::<TasksUi>()
+                .invoke_command("load".into(), "".into(), "".into());
         } else if view == "files" {
             app.global::<FilesUi>()
                 .invoke_command("load".into(), "".into(), "".into());

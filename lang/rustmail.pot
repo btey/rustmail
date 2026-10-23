@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-21 23:05+0000\n"
+"POT-Creation-Date: 2026-10-22 19:18+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -12,1497 +12,1503 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: ui/app.slint:81
+#: ui/app.slint:83
 msgid "Jan"
 msgstr ""
 
-#: ui/app.slint:81 ui/views/mail-list-pane.slint:306
+#: ui/app.slint:83 ui/views/mail-list-pane.slint:306
 msgid "January"
 msgstr ""
 
-#: ui/app.slint:82
+#: ui/app.slint:84
 msgid "Feb"
 msgstr ""
 
-#: ui/app.slint:82 ui/views/mail-list-pane.slint:307
+#: ui/app.slint:84 ui/views/mail-list-pane.slint:307
 msgid "February"
 msgstr ""
 
-#: ui/app.slint:83
+#: ui/app.slint:85
 msgid "Mar"
 msgstr ""
 
-#: ui/app.slint:83 ui/views/mail-list-pane.slint:308
+#: ui/app.slint:85 ui/views/mail-list-pane.slint:308
 msgid "March"
 msgstr ""
 
-#: ui/app.slint:84
+#: ui/app.slint:86
 msgid "Apr"
 msgstr ""
 
-#: ui/app.slint:84 ui/views/mail-list-pane.slint:309
+#: ui/app.slint:86 ui/views/mail-list-pane.slint:309
 msgid "April"
 msgstr ""
 
-#: ui/app.slint:85 ui/views/mail-list-pane.slint:310
+#: ui/app.slint:87 ui/views/mail-list-pane.slint:310
 msgid "May"
 msgstr ""
 
-#: ui/app.slint:86
+#: ui/app.slint:88
 msgid "Jun"
 msgstr ""
 
-#: ui/app.slint:86 ui/views/mail-list-pane.slint:311
+#: ui/app.slint:88 ui/views/mail-list-pane.slint:311
 msgid "June"
 msgstr ""
 
-#: ui/app.slint:87
+#: ui/app.slint:89
 msgid "Jul"
 msgstr ""
 
-#: ui/app.slint:87 ui/views/mail-list-pane.slint:312
+#: ui/app.slint:89 ui/views/mail-list-pane.slint:312
 msgid "July"
 msgstr ""
 
-#: ui/app.slint:88
+#: ui/app.slint:90
 msgid "Aug"
 msgstr ""
 
-#: ui/app.slint:88 ui/views/mail-list-pane.slint:313
+#: ui/app.slint:90 ui/views/mail-list-pane.slint:313
 msgid "August"
 msgstr ""
 
-#: ui/app.slint:89
+#: ui/app.slint:91
 msgid "Sep"
 msgstr ""
 
-#: ui/app.slint:89 ui/views/mail-list-pane.slint:314
+#: ui/app.slint:91 ui/views/mail-list-pane.slint:314
 msgid "September"
 msgstr ""
 
-#: ui/app.slint:90
+#: ui/app.slint:92
 msgid "Oct"
 msgstr ""
 
-#: ui/app.slint:90 ui/views/mail-list-pane.slint:315
+#: ui/app.slint:92 ui/views/mail-list-pane.slint:315
 msgid "October"
 msgstr ""
 
-#: ui/app.slint:91
+#: ui/app.slint:93
 msgid "Nov"
 msgstr ""
 
-#: ui/app.slint:91 ui/views/mail-list-pane.slint:316
+#: ui/app.slint:93 ui/views/mail-list-pane.slint:316
 msgid "November"
 msgstr ""
 
-#: ui/app.slint:92
+#: ui/app.slint:94
 msgid "Dec"
 msgstr ""
 
-#: ui/app.slint:92 ui/views/mail-list-pane.slint:317
+#: ui/app.slint:94 ui/views/mail-list-pane.slint:317
 msgid "December"
 msgstr ""
 
-#: ui/app.slint:97 ui/components/calendar.slint:686
+#: ui/app.slint:99 ui/components/calendar.slint:686
 msgid "Mon"
 msgstr ""
 
-#: ui/app.slint:98 ui/components/calendar.slint:686
+#: ui/app.slint:100 ui/components/calendar.slint:686
 msgid "Tue"
 msgstr ""
 
-#: ui/app.slint:99 ui/components/calendar.slint:686
+#: ui/app.slint:101 ui/components/calendar.slint:686
 msgid "Wed"
 msgstr ""
 
-#: ui/app.slint:100 ui/components/calendar.slint:686
+#: ui/app.slint:102 ui/components/calendar.slint:686
 msgid "Thu"
 msgstr ""
 
-#: ui/app.slint:101 ui/components/calendar.slint:686
+#: ui/app.slint:103 ui/components/calendar.slint:686
 msgid "Fri"
 msgstr ""
 
-#: ui/app.slint:102 ui/components/calendar.slint:686
+#: ui/app.slint:104 ui/components/calendar.slint:686
 msgid "Sat"
 msgstr ""
 
-#: ui/app.slint:103 ui/components/calendar.slint:686
+#: ui/app.slint:105 ui/components/calendar.slint:686
 msgid "Sun"
 msgstr ""
 
-#: ui/app.slint:107
+#: ui/app.slint:109
 msgid "Monday"
 msgstr ""
 
-#: ui/app.slint:108
+#: ui/app.slint:110
 msgid "Tuesday"
 msgstr ""
 
-#: ui/app.slint:109
+#: ui/app.slint:111
 msgid "Wednesday"
 msgstr ""
 
-#: ui/app.slint:110
+#: ui/app.slint:112
 msgid "Thursday"
 msgstr ""
 
-#: ui/app.slint:111
+#: ui/app.slint:113
 msgid "Friday"
 msgstr ""
 
-#: ui/app.slint:112
+#: ui/app.slint:114
 msgid "Saturday"
 msgstr ""
 
-#: ui/app.slint:113
+#: ui/app.slint:115
 msgid "Sunday"
 msgstr ""
 
-#: ui/app.slint:116
+#: ui/app.slint:118
 msgid "{} · {} {}"
 msgstr ""
 
-#: ui/app.slint:119
+#: ui/app.slint:121
 msgid "All day"
 msgstr ""
 
-#: ui/app.slint:120
+#: ui/app.slint:122
 msgid "(untitled event)"
 msgstr ""
 
-#: ui/app.slint:121
+#: ui/app.slint:123
 msgid "No conversation history"
 msgstr ""
 
-#: ui/app.slint:122
+#: ui/app.slint:124
 msgid "Conversation history available"
 msgstr ""
 
-#: ui/app.slint:123
+#: ui/app.slint:125
 msgid "New address-book entry"
 msgstr ""
 
-#: ui/app.slint:124 ui/app.slint:890 ui/components/composer-fields.slint:66
-#: ui/app.slint:124 ui/app.slint:890 ui/components/composer-fields.slint:66 ui/dialogs/compose-dialog.slint:37
+#: ui/app.slint:126 ui/app.slint:892 ui/components/composer-fields.slint:66
+#: ui/app.slint:126 ui/app.slint:892 ui/components/composer-fields.slint:66 ui/dialogs/compose-dialog.slint:37
 msgid "No connected account"
 msgstr ""
 
-#: ui/app.slint:126
+#: ui/app.slint:128
 msgid "{n} interaction"
 msgid_plural "{n} interactions"
 msgstr[0] ""
 msgstr[1] ""
 
-#: ui/app.slint:129
+#: ui/app.slint:131
 msgid "Last contacted {} {}, {}"
 msgstr ""
 
-#: ui/app.slint:131 ui/app.slint:368
+#: ui/app.slint:133 ui/app.slint:370
 msgid "Loading local data…"
 msgstr ""
 
-#: ui/app.slint:132 ui/app.slint:369
+#: ui/app.slint:134 ui/app.slint:371
 msgid "Local data ready."
 msgstr ""
 
-#: ui/app.slint:133
+#: ui/app.slint:135
 msgid "Local data is unavailable: {}"
 msgstr ""
 
-#: ui/app.slint:134
+#: ui/app.slint:136
 msgid "Could not display local mail: {}"
 msgstr ""
 
-#: ui/app.slint:167
+#: ui/app.slint:169
 msgid "An unexpected interface message occurred."
 msgstr ""
 
-#: ui/app.slint:171
+#: ui/app.slint:173
 msgid "Notification preferences are active for this session."
 msgstr ""
 
-#: ui/app.slint:172
+#: ui/app.slint:174
 msgid "Notification preferences saved."
 msgstr ""
 
-#: ui/app.slint:173
+#: ui/app.slint:175
 msgid "Could not save notifications: {}"
 msgstr ""
 
-#: ui/app.slint:174
+#: ui/app.slint:176
 msgid "Sync interval is active for this session."
 msgstr ""
 
-#: ui/app.slint:175
+#: ui/app.slint:177
 msgid "Sync interval set to {} minutes."
 msgstr ""
 
-#: ui/app.slint:176
+#: ui/app.slint:178
 msgid "Could not save sync interval: {}"
 msgstr ""
 
-#: ui/app.slint:177
+#: ui/app.slint:179
 msgid "Message-opening preference updated for this session."
 msgstr ""
 
-#: ui/app.slint:178
+#: ui/app.slint:180
 msgid "Message-opening preference saved."
 msgstr ""
 
-#: ui/app.slint:179
+#: ui/app.slint:181
 msgid "Could not save message-opening preference: {}"
 msgstr ""
 
-#: ui/app.slint:180
+#: ui/app.slint:182
 msgid "Contact suggestion preferences are active for this session."
 msgstr ""
 
-#: ui/app.slint:181
+#: ui/app.slint:183
 msgid "Contact suggestion preferences saved."
 msgstr ""
 
-#: ui/app.slint:182
+#: ui/app.slint:184
 msgid "Could not save contact suggestion preferences: {}"
 msgstr ""
 
-#: ui/app.slint:183
+#: ui/app.slint:185
 msgid "Contact storage is still starting. Try again shortly."
 msgstr ""
 
-#: ui/app.slint:184
+#: ui/app.slint:186
 msgid "Cleared {} suggested people."
 msgstr ""
 
-#: ui/app.slint:185
+#: ui/app.slint:187
 msgid "Could not clear suggested people: {}"
 msgstr ""
 
-#: ui/app.slint:186
+#: ui/app.slint:188
 msgid "Theme updated for this session."
 msgstr ""
 
-#: ui/app.slint:187
+#: ui/app.slint:189
 msgid "Theme preference saved."
 msgstr ""
 
-#: ui/app.slint:188
+#: ui/app.slint:190
 msgid "Message appearance updated for this session."
 msgstr ""
 
-#: ui/app.slint:189
+#: ui/app.slint:191
 msgid "Message appearance preference saved."
 msgstr ""
 
-#: ui/app.slint:190
+#: ui/app.slint:192
 msgid "Could not save message appearance: {}"
 msgstr ""
 
-#: ui/app.slint:191
+#: ui/app.slint:193
 msgid "Could not save theme: {}"
 msgstr ""
 
-#: ui/app.slint:192
+#: ui/app.slint:194
 msgid "Theme palette updated for this session."
 msgstr ""
 
-#: ui/app.slint:193
+#: ui/app.slint:195
 msgid "Theme palette saved."
 msgstr ""
 
-#: ui/app.slint:194
+#: ui/app.slint:196
 msgid "Could not save theme palette: {}"
 msgstr ""
 
-#: ui/app.slint:195
+#: ui/app.slint:197
 msgid "Custom theme updated for this session."
 msgstr ""
 
-#: ui/app.slint:196
+#: ui/app.slint:198
 msgid "Custom theme saved."
 msgstr ""
 
-#: ui/app.slint:197
+#: ui/app.slint:199
 msgid "Could not save custom theme: {}"
 msgstr ""
 
-#: ui/app.slint:198
+#: ui/app.slint:200
 msgid "Language updated for this session."
 msgstr ""
 
-#: ui/app.slint:199
+#: ui/app.slint:201
 msgid "Language preference saved."
 msgstr ""
 
-#: ui/app.slint:200
+#: ui/app.slint:202
 msgid "Could not save language: {}"
 msgstr ""
 
-#: ui/app.slint:201
+#: ui/app.slint:203
 msgid "Sidebar icon style updated for this session."
 msgstr ""
 
-#: ui/app.slint:202
+#: ui/app.slint:204
 msgid "Sidebar icon preference saved."
 msgstr ""
 
-#: ui/app.slint:203
+#: ui/app.slint:205
 msgid "Could not save sidebar icon preference: {}"
 msgstr ""
 
-#: ui/app.slint:204
+#: ui/app.slint:206
 msgid "Avatar preference updated for this session."
 msgstr ""
 
-#: ui/app.slint:205
+#: ui/app.slint:207
 msgid "Avatar preference saved."
 msgstr ""
 
-#: ui/app.slint:206
+#: ui/app.slint:208
 msgid "Could not save avatar preference: {}"
 msgstr ""
 
-#: ui/app.slint:207
+#: ui/app.slint:209
 msgid "Window frame updated for this session."
 msgstr ""
 
-#: ui/app.slint:208
+#: ui/app.slint:210
 msgid "Window frame preference saved."
 msgstr ""
 
-#: ui/app.slint:209
+#: ui/app.slint:211
 msgid "Could not save window frame preference: {}"
 msgstr ""
 
-#: ui/app.slint:210
+#: ui/app.slint:212
 msgid "At most {} tabs can be open. Close a tab to open another."
 msgstr ""
 
-#: ui/app.slint:211
+#: ui/app.slint:213
 msgid "Mail grouping is active for this session."
 msgstr ""
 
-#: ui/app.slint:212
+#: ui/app.slint:214
 msgid "Mail grouping preference saved."
 msgstr ""
 
-#: ui/app.slint:213
+#: ui/app.slint:215
 msgid "Could not save mail grouping preference: {}"
 msgstr ""
 
-#: ui/app.slint:214
+#: ui/app.slint:216
 msgid "Profile changes require local mail data."
 msgstr ""
 
-#: ui/app.slint:215
+#: ui/app.slint:217
 msgid "Profile saved."
 msgstr ""
 
-#: ui/app.slint:216
+#: ui/app.slint:218
 msgid "Could not save profile: {}"
 msgstr ""
 
-#: ui/app.slint:217
+#: ui/app.slint:219
 msgid "Account profile updated."
 msgstr ""
 
-#: ui/app.slint:218
+#: ui/app.slint:220
 msgid "Account color changes require local mail data."
 msgstr ""
 
-#: ui/app.slint:219
+#: ui/app.slint:221
 msgid "Account color updated."
 msgstr ""
 
-#: ui/app.slint:220
+#: ui/app.slint:222
 msgid "Could not update account color: {}"
 msgstr ""
 
-#: ui/app.slint:221
+#: ui/app.slint:223
 msgid "Could not update account profile: {}"
 msgstr ""
 
-#: ui/app.slint:222
+#: ui/app.slint:224
 msgid "Profile deleted."
 msgstr ""
 
-#: ui/app.slint:223
+#: ui/app.slint:225
 msgid "Could not delete profile: {}"
 msgstr ""
 
-#: ui/app.slint:224
+#: ui/app.slint:226
 msgid "Marker preference is active for this session."
 msgstr ""
 
-#: ui/app.slint:225
+#: ui/app.slint:227
 msgid "Mail-list marker preference saved."
 msgstr ""
 
-#: ui/app.slint:226
+#: ui/app.slint:228
 msgid "Could not save mail-list marker preference: {}"
 msgstr ""
 
-#: ui/app.slint:227
+#: ui/app.slint:229
 msgid "Workspace layout updated for this session."
 msgstr ""
 
-#: ui/app.slint:228
+#: ui/app.slint:230
 msgid "Workspace layout preference saved."
 msgstr ""
 
-#: ui/app.slint:229
+#: ui/app.slint:231
 msgid "Could not save workspace layout: {}"
 msgstr ""
 
-#: ui/app.slint:230
+#: ui/app.slint:232
 msgid "Could not save list pane width: {}"
 msgstr ""
 
-#: ui/app.slint:235
+#: ui/app.slint:237
 msgid "Opened {}"
 msgstr ""
 
-#: ui/app.slint:236
+#: ui/app.slint:238
 msgid "Could not open link: {}"
 msgstr ""
 
-#: ui/app.slint:237
+#: ui/app.slint:239
 msgid "Copied HTML source"
 msgstr ""
 
-#: ui/app.slint:238
+#: ui/app.slint:240
 msgid "Copied selected text"
 msgstr ""
 
-#: ui/app.slint:239
+#: ui/app.slint:241
 msgid "Copied email text"
 msgstr ""
 
-#: ui/app.slint:240
+#: ui/app.slint:242
 msgid "Copied link"
 msgstr ""
 
-#: ui/app.slint:241
+#: ui/app.slint:243
 msgid "Blitz software selection render failed: {}"
 msgstr ""
 
-#: ui/app.slint:242
+#: ui/app.slint:244
 msgid "Blitz software tile render failed: {}"
 msgstr ""
 
-#: ui/app.slint:243
+#: ui/app.slint:245
 msgid "Message ready."
 msgstr ""
 
-#: ui/app.slint:244
+#: ui/app.slint:246
 msgid "System tray behavior is unavailable in this package."
 msgstr ""
 
-#: ui/app.slint:245
+#: ui/app.slint:247
 msgid "Close-to-tray is active for this session."
 msgstr ""
 
-#: ui/app.slint:246
+#: ui/app.slint:248
 msgid "Saving close behavior…"
 msgstr ""
 
-#: ui/app.slint:247
+#: ui/app.slint:249
 msgid "Closing the window will now keep Rustmail in the tray."
 msgstr ""
 
-#: ui/app.slint:248
+#: ui/app.slint:250
 msgid "Closing the window will now quit Rustmail."
 msgstr ""
 
-#: ui/app.slint:249
+#: ui/app.slint:251
 msgid "Could not save close behavior: {}"
 msgstr ""
 
-#: ui/app.slint:250
+#: ui/app.slint:252
 msgid "Rustmail will start when you sign in."
 msgstr ""
 
-#: ui/app.slint:251
+#: ui/app.slint:253
 msgid "Rustmail will no longer start when you sign in."
 msgstr ""
 
-#: ui/app.slint:252
+#: ui/app.slint:254
 msgid "Could not change startup behavior: {}"
 msgstr ""
 
-#: ui/app.slint:253
+#: ui/app.slint:255
 msgid "Allow Rustmail under Login Items in System Settings to finish."
 msgstr ""
 
-#: ui/app.slint:258
+#: ui/app.slint:260
 msgid "Database snapshot exported to {}."
 msgstr ""
 
-#: ui/app.slint:259
+#: ui/app.slint:261
 msgid "Could not export database snapshot: {}"
 msgstr ""
 
-#: ui/app.slint:260
+#: ui/app.slint:262
 msgid "Account order saved."
 msgstr ""
 
-#: ui/app.slint:261
+#: ui/app.slint:263
 msgid "Could not save account order: {}"
 msgstr ""
 
-#: ui/app.slint:262
+#: ui/app.slint:264
 msgid "Mail history updated. Background sync is adjusting now."
 msgstr ""
 
-#: ui/app.slint:263
+#: ui/app.slint:265
 msgid "Account removed from this device."
 msgstr ""
 
-#: ui/app.slint:264
+#: ui/app.slint:266
 msgid "Account removed. Mail refresh will retry."
 msgstr ""
 
-#: ui/app.slint:265
+#: ui/app.slint:267
 msgid "Account removed; local cleanup needs a retry: {}"
 msgstr ""
 
-#: ui/app.slint:266
+#: ui/app.slint:268
 msgid "Could not remove account: {}"
 msgstr ""
 
-#: ui/app.slint:267
+#: ui/app.slint:269
 msgid "Removing account…"
 msgstr ""
 
-#: ui/app.slint:268
+#: ui/app.slint:270
 msgid "Synchronizing account…"
 msgstr ""
 
-#: ui/app.slint:269
+#: ui/app.slint:271
 msgid "Could not update mail history: {}"
 msgstr ""
 
-#: ui/app.slint:270
+#: ui/app.slint:272
 msgid "Connected {}. Initial sync is running in the background."
 msgstr ""
 
-#: ui/app.slint:271
+#: ui/app.slint:273
 msgid "Account setup failed: {}"
 msgstr ""
 
-#: ui/app.slint:272
+#: ui/app.slint:274
 msgid "OAuth failed: {}"
 msgstr ""
 
-#: ui/app.slint:273
+#: ui/app.slint:275
 msgid "Reconnected {}. Synchronization is resuming."
 msgstr ""
 
-#: ui/app.slint:274
+#: ui/app.slint:276
 msgid "Reconnection failed: {}"
 msgstr ""
 
-#: ui/app.slint:275
+#: ui/app.slint:277
 msgid "Calendar connected and initial sync started."
 msgstr ""
 
-#: ui/app.slint:276
+#: ui/app.slint:278
 msgid "Could not connect calendar: {}"
 msgstr ""
 
-#: ui/app.slint:277
+#: ui/app.slint:279
 msgid "Calendar sync enabled."
 msgstr ""
 
-#: ui/app.slint:278
+#: ui/app.slint:280
 msgid "Calendar sync paused."
 msgstr ""
 
-#: ui/app.slint:279
+#: ui/app.slint:281
 msgid "Could not update calendar sync: {}"
 msgstr ""
 
-#: ui/app.slint:280
+#: ui/app.slint:282
 msgid "CalDAV connected and initial sync started."
 msgstr ""
 
-#: ui/app.slint:281
+#: ui/app.slint:283
 msgid "Could not connect CalDAV: {}"
 msgstr ""
 
-#: ui/app.slint:282
+#: ui/app.slint:284
 msgid "CardDAV connected and initial sync started."
 msgstr ""
 
-#: ui/app.slint:283
+#: ui/app.slint:285
 msgid "Could not connect CardDAV: {}"
 msgstr ""
 
-#: ui/app.slint:284
+#: ui/app.slint:286
 msgid "CardDAV sync enabled."
 msgstr ""
 
-#: ui/app.slint:285
+#: ui/app.slint:287
 msgid "CardDAV sync paused."
 msgstr ""
 
-#: ui/app.slint:286
+#: ui/app.slint:288
 msgid "Could not update CardDAV sync: {}"
 msgstr ""
 
-#: ui/app.slint:287
+#: ui/app.slint:289
 msgid "CardDAV disconnected."
 msgstr ""
 
-#: ui/app.slint:288
+#: ui/app.slint:290
 msgid "Could not disconnect CardDAV: {}"
 msgstr ""
 
-#: ui/app.slint:293
+#: ui/app.slint:295
 msgid "Connect an account before creating a backup."
 msgstr ""
 
-#: ui/app.slint:294
+#: ui/app.slint:296
 msgid "Export Rustmail account backup"
 msgstr ""
 
-#: ui/app.slint:295
+#: ui/app.slint:297
 msgid "Import Rustmail account backup"
 msgstr ""
 
-#: ui/app.slint:296
+#: ui/app.slint:298
 msgid "Rustmail backup"
 msgstr ""
 
-#: ui/app.slint:297
+#: ui/app.slint:299
 msgid "Choose where to export the database snapshot"
 msgstr ""
 
-#: ui/app.slint:298
+#: ui/app.slint:300
 msgid "Backup exported. Passwords and OAuth tokens were not included."
 msgstr ""
 
-#: ui/app.slint:299
+#: ui/app.slint:301
 msgid "Could not export backup: {}"
 msgstr ""
 
-#: ui/app.slint:300
+#: ui/app.slint:302
 msgid "Local data storage is unavailable. Retry startup."
 msgstr ""
 
-#: ui/app.slint:301
+#: ui/app.slint:303
 msgid "Creating verified database snapshot…"
 msgstr ""
 
-#: ui/app.slint:302
+#: ui/app.slint:304
 msgid "Backup imported. All {} account configurations already existed."
 msgstr ""
 
-#: ui/app.slint:303
+#: ui/app.slint:305
 msgid ""
 "Imported {} account configurations. Open Accounts and sign in to each one."
 msgstr ""
 
-#: ui/app.slint:304
+#: ui/app.slint:306
 msgid "Could not import backup: {}"
 msgstr ""
 
-#: ui/app.slint:305
+#: ui/app.slint:307
 msgid "All local Rustmail data was deleted."
 msgstr ""
 
-#: ui/app.slint:306
+#: ui/app.slint:308
 msgid "Could not delete all local data: {}"
 msgstr ""
 
-#: ui/app.slint:307
+#: ui/app.slint:309
 msgid "Deleting local accounts and cached data…"
 msgstr ""
 
-#: ui/app.slint:312
+#: ui/app.slint:314
 msgid "Background mail refresh failed: {}"
 msgstr ""
 
-#: ui/app.slint:313
+#: ui/app.slint:315
 msgid "No conversations in this folder"
 msgstr ""
 
-#: ui/app.slint:314
+#: ui/app.slint:316
 msgid "No conversations match this search"
 msgstr ""
 
-#: ui/app.slint:315
+#: ui/app.slint:317
 msgid "Mail core is ready for account synchronization and message actions."
 msgstr ""
 
-#: ui/app.slint:316
+#: ui/app.slint:318
 msgid "Large message rendered in compatibility mode."
 msgstr ""
 
-#: ui/app.slint:317
+#: ui/app.slint:319
 msgid "Software email render failed: {}"
 msgstr ""
 
-#: ui/app.slint:318
+#: ui/app.slint:320
 msgid "Rendered with software fallback after GPU error: {}"
 msgstr ""
 
-#: ui/app.slint:319
+#: ui/app.slint:321
 msgid "Blitz render failed (GPU: {}; software: {})"
 msgstr ""
 
-#: ui/app.slint:324
+#: ui/app.slint:326
 msgid "Add an email address, then save the contact."
 msgstr ""
 
-#: ui/app.slint:325
+#: ui/app.slint:327
 msgid "Enter a valid email address before saving."
 msgstr ""
 
-#: ui/app.slint:326
+#: ui/app.slint:328
 msgid "Could not save: contact storage is unavailable."
 msgstr ""
 
-#: ui/app.slint:327
+#: ui/app.slint:329
 msgid "Could not save contact: {}"
 msgstr ""
 
-#: ui/app.slint:328
+#: ui/app.slint:330
 msgid "Contact saved."
 msgstr ""
 
-#: ui/app.slint:329
+#: ui/app.slint:331
 msgid "Saved to contacts."
 msgstr ""
 
-#: ui/app.slint:330
+#: ui/app.slint:332
 msgid "Could not delete: contact storage is unavailable."
 msgstr ""
 
-#: ui/app.slint:331
+#: ui/app.slint:333
 msgid "Could not delete contact: {}"
 msgstr ""
 
-#: ui/app.slint:332
+#: ui/app.slint:334
 msgid "Contact deleted."
 msgstr ""
 
-#: ui/app.slint:333
+#: ui/app.slint:335
 msgid "Could not load contacts: {}"
 msgstr ""
 
-#: ui/app.slint:334
+#: ui/app.slint:336
 msgid "Local contact storage is still starting…"
 msgstr ""
 
-#: ui/app.slint:335
+#: ui/app.slint:337
 msgid "Loading contacts…"
 msgstr ""
 
-#: ui/app.slint:340 ui/components/calendar-agenda.slint:235
-#: ui/app.slint:340 ui/components/calendar-agenda.slint:235
+#: ui/app.slint:342 ui/components/calendar-agenda.slint:235
+#: ui/app.slint:342 ui/components/calendar-agenda.slint:235
 msgid "Local calendar"
 msgstr ""
 
-#: ui/app.slint:341 ui/components/calendar.slint:271
-#: ui/app.slint:341 ui/components/calendar.slint:271 ui/components/calendar.slint:319
-#: ui/app.slint:341 ui/components/calendar.slint:271 ui/components/calendar.slint:319 ui/components/calendar.slint:434
-#: ui/app.slint:341 ui/components/calendar.slint:271 ui/components/calendar.slint:319 ui/components/calendar.slint:434
-#: ui/app.slint:341 ui/components/calendar.slint:271 ui/components/calendar.slint:319 ui/components/calendar.slint:434
-#: ui/app.slint:341 ui/components/calendar.slint:271 ui/components/calendar.slint:319 ui/components/calendar.slint:434
-#: ui/app.slint:341 ui/components/calendar.slint:271 ui/components/calendar.slint:319 ui/components/calendar.slint:434
+#: ui/app.slint:343 ui/components/calendar.slint:271
+#: ui/app.slint:343 ui/components/calendar.slint:271 ui/components/calendar.slint:319
+#: ui/app.slint:343 ui/components/calendar.slint:271 ui/components/calendar.slint:319 ui/components/calendar.slint:434
+#: ui/app.slint:343 ui/components/calendar.slint:271 ui/components/calendar.slint:319 ui/components/calendar.slint:434
+#: ui/app.slint:343 ui/components/calendar.slint:271 ui/components/calendar.slint:319 ui/components/calendar.slint:434
+#: ui/app.slint:343 ui/components/calendar.slint:271 ui/components/calendar.slint:319 ui/components/calendar.slint:434
+#: ui/app.slint:343 ui/components/calendar.slint:271 ui/components/calendar.slint:319 ui/components/calendar.slint:434
 msgid "Calendar"
 msgstr ""
 
-#: ui/app.slint:342
+#: ui/app.slint:344
 msgid "Could not load calendar: {}"
 msgstr ""
 
-#: ui/app.slint:343
+#: ui/app.slint:345
 msgid "Calendar shown and syncing."
 msgstr ""
 
-#: ui/app.slint:344
+#: ui/app.slint:346
 msgid "Calendar hidden and sync paused."
 msgstr ""
 
-#: ui/app.slint:345
+#: ui/app.slint:347
 msgid "Calendar update failed: {}"
 msgstr ""
 
-#: ui/app.slint:346
+#: ui/app.slint:348
 msgid "Only events created in Rustmail can be edited."
 msgstr ""
 
-#: ui/app.slint:347
+#: ui/app.slint:349
 msgid "Only events created in Rustmail can be deleted."
 msgstr ""
 
-#: ui/app.slint:348
+#: ui/app.slint:350
 msgid "Calendar storage is unavailable."
 msgstr ""
 
-#: ui/app.slint:349
+#: ui/app.slint:351
 msgid "Could not delete event: {}"
 msgstr ""
 
-#: ui/app.slint:350
+#: ui/app.slint:352
 msgid "Event deleted, but refresh failed: {}"
 msgstr ""
 
-#: ui/app.slint:351
+#: ui/app.slint:353
 msgid "Event deleted."
 msgstr ""
 
-#: ui/app.slint:352
+#: ui/app.slint:354
 msgid "Use YYYY-MM-DD and a 24-hour time such as 09:30."
 msgstr ""
 
-#: ui/app.slint:353
+#: ui/app.slint:355
 msgid "Event duration must be a number of minutes."
 msgstr ""
 
-#: ui/app.slint:354
+#: ui/app.slint:356
 msgid "Add a title and choose a duration from 15 to 1440 minutes."
 msgstr ""
 
-#: ui/app.slint:355
+#: ui/app.slint:357
 msgid "That local time does not exist in the current time zone."
 msgstr ""
 
-#: ui/app.slint:356
+#: ui/app.slint:358
 msgid "Could not save event: {}"
 msgstr ""
 
-#: ui/app.slint:357
+#: ui/app.slint:359
 msgid "Event saved, but refresh failed: {}"
 msgstr ""
 
-#: ui/app.slint:358
+#: ui/app.slint:360
 msgid "Event saved. Provider sync will run when enabled."
 msgstr ""
 
-#: ui/app.slint:363
+#: ui/app.slint:365
 msgid "Email resource render failed: {}"
 msgstr ""
 
-#: ui/app.slint:364
+#: ui/app.slint:366
 msgid "Message refresh failed: {}"
 msgstr ""
 
-#: ui/app.slint:365
+#: ui/app.slint:367
 msgid "Message load failed: {}"
 msgstr ""
 
-#: ui/app.slint:366
+#: ui/app.slint:368
 msgid ""
 "Your local mailbox could not be opened. No account operation was started. "
 "Retry, or copy the diagnostics for support."
 msgstr ""
 
-#: ui/app.slint:367
+#: ui/app.slint:369
 msgid "Local storage startup failed."
 msgstr ""
 
-#: ui/app.slint:374
+#: ui/app.slint:376
 msgid "Could not identify the dragged account."
 msgstr ""
 
-#: ui/app.slint:375
+#: ui/app.slint:377
 msgid "Account ordering requires local mail data."
 msgstr ""
 
-#: ui/app.slint:376
+#: ui/app.slint:378
 msgid "Could not find the account to reorder."
 msgstr ""
 
-#: ui/app.slint:377
+#: ui/app.slint:379
 msgid "Saving account order…"
 msgstr ""
 
-#: ui/app.slint:378
+#: ui/app.slint:380
 msgid "Sent copy settings require local mail data."
 msgstr ""
 
-#: ui/app.slint:379
+#: ui/app.slint:381
 msgid "Updating Sent copy settings…"
 msgstr ""
 
-#: ui/app.slint:380
+#: ui/app.slint:382
 msgid "Sent copy settings updated."
 msgstr ""
 
-#: ui/app.slint:381
+#: ui/app.slint:383
 msgid "Could not update Sent copy settings: {}"
 msgstr ""
 
-#: ui/app.slint:382
+#: ui/app.slint:384
 msgid "Mail history requires local mail data."
 msgstr ""
 
-#: ui/app.slint:383
+#: ui/app.slint:385
 msgid "Updating mail history…"
 msgstr ""
 
-#: ui/app.slint:384
+#: ui/app.slint:386
 msgid "Remote images are unavailable in this minimal build."
 msgstr ""
 
-#: ui/app.slint:385
+#: ui/app.slint:387
 msgid "Could not save remote-image setting: {}"
 msgstr ""
 
-#: ui/app.slint:386
+#: ui/app.slint:388
 msgid "Remote sender icons unavailable: {}"
 msgstr ""
 
-#: ui/app.slint:387
+#: ui/app.slint:389
 msgid "Remote images unavailable: {}"
 msgstr ""
 
-#: ui/app.slint:388
+#: ui/app.slint:390
 msgid "Remote body images and sender favicons enabled."
 msgstr ""
 
-#: ui/app.slint:389
+#: ui/app.slint:391
 msgid "Remote images blocked."
 msgstr ""
 
-#: ui/app.slint:390
+#: ui/app.slint:392
 msgid "Could not refresh message images: {}"
 msgstr ""
 
-#: ui/app.slint:391
+#: ui/app.slint:393
 msgid "Remote-image loading is disabled."
 msgstr ""
 
-#: ui/app.slint:392
+#: ui/app.slint:394
 msgid "Could not load message images: {}"
 msgstr ""
 
-#: ui/app.slint:393
+#: ui/app.slint:395
 msgid "Sync finished, refresh failed: {}"
 msgstr ""
 
-#: ui/app.slint:394
+#: ui/app.slint:396
 msgid "Sync complete."
 msgstr ""
 
-#: ui/app.slint:395
+#: ui/app.slint:397
 msgid "Sync failed: {}"
 msgstr ""
 
-#: ui/app.slint:396
+#: ui/app.slint:398
 msgid "Local mail data is unavailable; preview data is read-only."
 msgstr ""
 
-#: ui/app.slint:397
+#: ui/app.slint:399
 msgid "Synchronizing accounts…"
 msgstr ""
 
-#: ui/app.slint:404
+#: ui/app.slint:406
 msgid "Select a message first."
 msgstr ""
 
-#: ui/app.slint:405
+#: ui/app.slint:407
 msgid "Running action “{}”…"
 msgstr ""
 
-#: ui/app.slint:406
+#: ui/app.slint:408
 msgid "Action “{}” finished."
 msgstr ""
 
-#: ui/app.slint:407
+#: ui/app.slint:409
 msgid "Action “{}” finished: {}"
 msgstr ""
 
-#: ui/app.slint:408
+#: ui/app.slint:410
 msgid "Action “{}” failed: {}"
 msgstr ""
 
-#: ui/app.slint:409
+#: ui/app.slint:411
 msgid "Action “{}” failed (exit {}): {}"
 msgstr ""
 
-#: ui/app.slint:410
+#: ui/app.slint:412
 msgid "Action “{}” ran on {} messages: {}"
 msgstr ""
 
-#: ui/app.slint:411
+#: ui/app.slint:413
 msgid "Action “{}” could not run: {}"
 msgstr ""
 
-#: ui/app.slint:412
+#: ui/app.slint:414
 msgid ""
 "Editing in your external editor. Save and close it to bring the text back."
 msgstr ""
 
-#: ui/app.slint:413
+#: ui/app.slint:415
 msgid "Text updated from your editor."
 msgstr ""
 
-#: ui/app.slint:414
+#: ui/app.slint:416
 msgid "External editor: {}"
 msgstr ""
 
-#: ui/app.slint:415
+#: ui/app.slint:417
 msgid "Connection timeout must be between 1 and 600 seconds."
 msgstr ""
 
-#: ui/app.slint:416
+#: ui/app.slint:418
 msgid "Maximum connections must be between 1 and 20."
 msgstr ""
 
-#: ui/app.slint:417
+#: ui/app.slint:419
 msgid "Proxy port must be between 1 and 65535."
 msgstr ""
 
-#: ui/app.slint:418
+#: ui/app.slint:420
 msgid "Enter the proxy host and port, or set the proxy to None."
 msgstr ""
 
-#: ui/app.slint:423
+#: ui/app.slint:425
 msgid "Message action completed."
 msgstr ""
 
-#: ui/app.slint:424
+#: ui/app.slint:426
 msgid ""
 "Permanent deletion queued. Mail will disappear after the server confirms."
 msgstr ""
 
-#: ui/app.slint:425
+#: ui/app.slint:427
 msgid "Message action failed: {}"
 msgstr ""
 
-#: ui/app.slint:426
+#: ui/app.slint:428
 msgid "Message action failed: message is no longer available"
 msgstr ""
 
-#: ui/app.slint:427
+#: ui/app.slint:429
 msgid "Label added."
 msgstr ""
 
-#: ui/app.slint:428
+#: ui/app.slint:430
 msgid "Label removed."
 msgstr ""
 
-#: ui/app.slint:429
+#: ui/app.slint:431
 msgid "Label created and added."
 msgstr ""
 
-#: ui/app.slint:430
+#: ui/app.slint:432
 msgid "Label created."
 msgstr ""
 
-#: ui/app.slint:431
+#: ui/app.slint:433
 msgid "Label updated."
 msgstr ""
 
-#: ui/app.slint:432
+#: ui/app.slint:434
 msgid "Label deleted."
 msgstr ""
 
-#: ui/app.slint:433
+#: ui/app.slint:435
 msgid "Could not update label: {}"
 msgstr ""
 
-#: ui/app.slint:434
+#: ui/app.slint:436
 msgid "Could not save label: {}"
 msgstr ""
 
-#: ui/app.slint:435
+#: ui/app.slint:437
 msgid "Could not delete label: {}"
 msgstr ""
 
-#: ui/app.slint:436
+#: ui/app.slint:438
 msgid "Folder created."
 msgstr ""
 
-#: ui/app.slint:437
+#: ui/app.slint:439
 msgid "Folder renamed."
 msgstr ""
 
-#: ui/app.slint:438
+#: ui/app.slint:440
 msgid "Folder deleted."
 msgstr ""
 
-#: ui/app.slint:439
+#: ui/app.slint:441
 msgid "Could not create folder: {}"
 msgstr ""
 
-#: ui/app.slint:440
+#: ui/app.slint:442
 msgid "Could not rename folder: {}"
 msgstr ""
 
-#: ui/app.slint:441
+#: ui/app.slint:443
 msgid "Could not delete folder: {}"
 msgstr ""
 
-#: ui/app.slint:442
+#: ui/app.slint:444
 msgid "Could not close preview: {}"
 msgstr ""
 
-#: ui/app.slint:443
+#: ui/app.slint:445
 msgid "Opened the system print view."
 msgstr ""
 
-#: ui/app.slint:444
+#: ui/app.slint:446
 msgid "Could not print message: {}"
 msgstr ""
 
-#: ui/app.slint:445
+#: ui/app.slint:447
 msgid "Opened the message in your browser."
 msgstr ""
 
-#: ui/app.slint:446
+#: ui/app.slint:448
 msgid "Could not open message in browser: {}"
 msgstr ""
 
-#: ui/app.slint:447
+#: ui/app.slint:449
 msgid "Connect an account before replying or forwarding."
 msgstr ""
 
-#: ui/app.slint:448
+#: ui/app.slint:450
 msgid "Choose a message first."
 msgstr ""
 
-#: ui/app.slint:449
+#: ui/app.slint:451
 msgid "Only drafts can be reopened for editing."
 msgstr ""
 
-#: ui/app.slint:450
+#: ui/app.slint:452
 msgid "Could not open draft: {}"
 msgstr ""
 
-#: ui/app.slint:451
+#: ui/app.slint:453
 msgid "Could not open draft: invalid account identifier"
 msgstr ""
 
-#: ui/app.slint:452
+#: ui/app.slint:454
 msgid "Connected account"
 msgstr ""
 
-#: ui/app.slint:453
+#: ui/app.slint:455
 msgid "Could not open composer: {}"
 msgstr ""
 
-#: ui/app.slint:454
+#: ui/app.slint:456
 msgid "Could not open composer: invalid account identifier"
 msgstr ""
 
-#: ui/app.slint:459
+#: ui/app.slint:461
 msgid "Attach files to this email"
 msgstr ""
 
-#: ui/app.slint:460
+#: ui/app.slint:462
 msgid "Could not add attachments: {}"
 msgstr ""
 
-#: ui/app.slint:461
+#: ui/app.slint:463
 msgid "Added 1 attachment."
 msgstr ""
 
-#: ui/app.slint:462
+#: ui/app.slint:464
 msgid "Added {} attachments."
 msgstr ""
 
-#: ui/app.slint:463
+#: ui/app.slint:465
 msgid ""
 "Attachments added: {}. Skipped: {} (duplicate, unreadable, or over the 25 MB "
 "total limit)."
 msgstr ""
 
-#: ui/app.slint:464
+#: ui/app.slint:466
 msgid "Attachment removed."
 msgstr ""
 
-#: ui/app.slint:465
+#: ui/app.slint:467
 msgid "Choose the account this message should be sent from."
 msgstr ""
 
-#: ui/app.slint:466
+#: ui/app.slint:468
 msgid "Choose a verified sender identity for this message."
 msgstr ""
 
-#: ui/app.slint:467
+#: ui/app.slint:469
 msgid "Connect an account before saving or sending mail."
 msgstr ""
 
-#: ui/app.slint:468
+#: ui/app.slint:470
 msgid "Message queued for delivery (action {})."
 msgstr ""
 
-#: ui/app.slint:469
+#: ui/app.slint:471
 msgid "Sending message…"
 msgstr ""
 
-#: ui/app.slint:470
+#: ui/app.slint:472
 msgid "Message sent."
 msgstr ""
 
-#: ui/app.slint:471
+#: ui/app.slint:473
 msgid "Message was not sent: {} Your draft is preserved."
 msgstr ""
 
-#: ui/app.slint:472
+#: ui/app.slint:474
 msgid "Draft saved locally (#{})."
 msgstr ""
 
-#: ui/app.slint:473
+#: ui/app.slint:475
 msgid "Compose failed: {}"
 msgstr ""
 
-#: ui/app.slint:474
+#: ui/app.slint:476
 msgid "Connect an account before managing email templates."
 msgstr ""
 
-#: ui/app.slint:475
+#: ui/app.slint:477
 msgid "Could not load email templates: {}"
 msgstr ""
 
-#: ui/app.slint:476
+#: ui/app.slint:478
 msgid "Enter a template name."
 msgstr ""
 
-#: ui/app.slint:477
+#: ui/app.slint:479
 msgid "Add a subject or message to the template."
 msgstr ""
 
-#: ui/app.slint:478
+#: ui/app.slint:480
 msgid "Email template saved."
 msgstr ""
 
-#: ui/app.slint:479
+#: ui/app.slint:481
 msgid "Could not save email template: {}"
 msgstr ""
 
-#: ui/app.slint:480
+#: ui/app.slint:482
 msgid "Email template deleted."
 msgstr ""
 
-#: ui/app.slint:481
+#: ui/app.slint:483
 msgid "Could not delete email template: {}"
 msgstr ""
 
-#: ui/app.slint:482
+#: ui/app.slint:484
 msgid "Email template is no longer available."
 msgstr ""
 
-#: ui/app.slint:483
+#: ui/app.slint:485
 msgid "Email template inserted."
 msgstr ""
 
-#: ui/app.slint:484
+#: ui/app.slint:486
 msgid "Email template inserted, but its usage could not be saved: {}"
 msgstr ""
 
-#: ui/app.slint:485
+#: ui/app.slint:487
 msgid "IMAP port must be between 1 and 65535."
 msgstr ""
 
-#: ui/app.slint:486
+#: ui/app.slint:488
 msgid "News server port must be between 1 and 65535."
 msgstr ""
 
-#: ui/app.slint:487
+#: ui/app.slint:489
 msgid "SMTP port must be between 1 and 65535."
 msgstr ""
 
-#: ui/app.slint:488
+#: ui/app.slint:490
 msgid "Local mail data is unavailable. Retry startup."
 msgstr ""
 
-#: ui/app.slint:489
+#: ui/app.slint:491
 msgid "Discovering JMAP and checking capabilities…"
 msgstr ""
 
-#: ui/app.slint:490
+#: ui/app.slint:492
 msgid "Certificate imported. Connect to verify the server."
 msgstr ""
 
-#: ui/app.slint:491
+#: ui/app.slint:493
 msgid "Could not load account preferences: {}"
 msgstr ""
 
-#: ui/app.slint:492
+#: ui/app.slint:494
 msgid ""
 "Your edited signature was preserved. Choose No signature to keep it as "
 "message text before inserting another."
 msgstr ""
 
-#: ui/app.slint:493
+#: ui/app.slint:495
 msgid "Certificate import failed: {}"
 msgstr ""
 
-#: ui/app.slint:494
+#: ui/app.slint:496
 msgid "Paste the PEM certificate into the certificate field."
 msgstr ""
 
-#: ui/app.slint:495
+#: ui/app.slint:497
 msgid "Testing IMAP and SMTP connections…"
 msgstr ""
 
-#: ui/app.slint:496
+#: ui/app.slint:498
 msgid "Checking the mail folder…"
 msgstr ""
 
-#: ui/app.slint:497
+#: ui/app.slint:499
 msgid "Connecting to the news server…"
 msgstr ""
 
-#: ui/app.slint:502
+#: ui/app.slint:504
 msgid ""
 "Another browser authorization is already in progress; finish it or choose "
 "Cancel."
 msgstr ""
 
-#: ui/app.slint:503 ui/dialogs/settings-dialog.slint:1568
-#: ui/app.slint:503 ui/dialogs/settings-dialog.slint:1568 ui/dialogs/settings-dialog.slint:1611
-#: ui/app.slint:503 ui/dialogs/settings-dialog.slint:1568 ui/dialogs/settings-dialog.slint:1611 ui/views/onboarding-view.slint:163
-#: ui/app.slint:503 ui/dialogs/settings-dialog.slint:1568 ui/dialogs/settings-dialog.slint:1611 ui/views/onboarding-view.slint:163
+#: ui/app.slint:505 ui/dialogs/settings-dialog.slint:1568
+#: ui/app.slint:505 ui/dialogs/settings-dialog.slint:1568 ui/dialogs/settings-dialog.slint:1611
+#: ui/app.slint:505 ui/dialogs/settings-dialog.slint:1568 ui/dialogs/settings-dialog.slint:1611 ui/views/onboarding-view.slint:163
+#: ui/app.slint:505 ui/dialogs/settings-dialog.slint:1568 ui/dialogs/settings-dialog.slint:1611 ui/views/onboarding-view.slint:163
 msgid "Add app keys in Sign-in settings to enable this provider."
 msgstr ""
 
-#: ui/app.slint:504
+#: ui/app.slint:506
 msgid "Choose Gmail or Outlook OAuth."
 msgstr ""
 
-#: ui/app.slint:505
+#: ui/app.slint:507
 msgid "Complete sign-in in your browser, or choose Cancel here."
 msgstr ""
 
-#: ui/app.slint:506
+#: ui/app.slint:508
 msgid "Cancelling browser sign-in…"
 msgstr ""
 
-#: ui/app.slint:507
+#: ui/app.slint:509
 msgid "Finishing browser sign-in…"
 msgstr ""
 
-#: ui/app.slint:508
+#: ui/app.slint:510
 msgid "Could not use that browser address: {}"
 msgstr ""
 
-#: ui/app.slint:509
+#: ui/app.slint:511
 msgid "Calendar core is unavailable."
 msgstr ""
 
-#: ui/app.slint:510
+#: ui/app.slint:512
 msgid "Account no longer exists."
 msgstr ""
 
-#: ui/app.slint:511
+#: ui/app.slint:513
 msgid "Authorize calendar access in your browser."
 msgstr ""
 
-#: ui/app.slint:512
+#: ui/app.slint:514
 msgid "OAuth app keys saved."
 msgstr ""
 
-#: ui/app.slint:513
+#: ui/app.slint:515
 msgid "{} OAuth settings saved."
 msgstr ""
 
-#: ui/app.slint:514
+#: ui/app.slint:516
 msgid "OAuth settings failed: {}"
 msgstr ""
 
-#: ui/app.slint:515
+#: ui/app.slint:517
 msgid "Mail refresh failed: {}"
 msgstr ""
 
-#: ui/app.slint:516
+#: ui/app.slint:518
 msgid "Mail filter failed: {}"
 msgstr ""
 
-#: ui/app.slint:517
+#: ui/app.slint:519
 msgid "Mail pagination failed: {}"
 msgstr ""
 
-#: ui/app.slint:518
+#: ui/app.slint:520
 msgid "Could not mark message as read: {}"
 msgstr ""
 
-#: ui/app.slint:519 ui/views/mail-reading-pane.slint:236
-#: ui/app.slint:519 ui/views/mail-reading-pane.slint:236 ui/views/mail-reading-pane.slint:1272
+#: ui/app.slint:521 ui/views/mail-reading-pane.slint:236
+#: ui/app.slint:521 ui/views/mail-reading-pane.slint:236 ui/views/mail-reading-pane.slint:1272
 msgid "Loading message…"
 msgstr ""
 
-#: ui/app.slint:525 ui/components/workspace-navigation.slint:553
-#: ui/app.slint:525 ui/components/workspace-navigation.slint:553 ui/dialogs/settings-dialog.slint:2176
-#: ui/app.slint:525 ui/components/workspace-navigation.slint:553 ui/dialogs/settings-dialog.slint:2176 ui/tray.slint:13 ui/views/onboarding-view.slint:129
+#: ui/app.slint:527 ui/components/workspace-navigation.slint:579
+#: ui/app.slint:527 ui/components/workspace-navigation.slint:579 ui/dialogs/settings-dialog.slint:2176
+#: ui/app.slint:527 ui/components/workspace-navigation.slint:579 ui/dialogs/settings-dialog.slint:2176 ui/tray.slint:13 ui/views/onboarding-view.slint:129
 msgid "Rustmail"
 msgstr ""
 
-#: ui/app.slint:1110 ui/app.slint:1123
+#: ui/app.slint:1113 ui/app.slint:1126
 msgid "Global Labels (local only)"
 msgstr ""
 
-#: ui/app.slint:1989
+#: ui/app.slint:2008
 msgid "Empty Trash?"
 msgstr ""
 
-#: ui/app.slint:1989 ui/views/files-view.slint:539
+#: ui/app.slint:2008 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr ""
 
-#: ui/app.slint:1993
+#: ui/app.slint:2012
 msgid "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 
-#: ui/app.slint:1994
+#: ui/app.slint:2013
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr ""
 
-#: ui/app.slint:1996
+#: ui/app.slint:2015
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr ""
 
-#: ui/app.slint:1997
+#: ui/app.slint:2016
 msgid "Permanently delete this conversation from Trash?"
 msgstr ""
 
-#: ui/app.slint:1998 ui/components/calendar.slint:937
-#: ui/app.slint:1998 ui/components/calendar.slint:937
+#: ui/app.slint:2017 ui/components/calendar.slint:937
+#: ui/app.slint:2017 ui/components/calendar.slint:937
 msgid "This action cannot be undone."
 msgstr ""
 
-#: ui/app.slint:1999
+#: ui/app.slint:2018
 msgid "Empty Trash"
 msgstr ""
 
-#: ui/app.slint:1999 ui/views/files-view.slint:621
-#: ui/app.slint:1999 ui/views/files-view.slint:621
+#: ui/app.slint:2018 ui/views/files-view.slint:621
+#: ui/app.slint:2018 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr ""
 
-#: ui/app.slint:2165
+#: ui/app.slint:2184
 msgid "Mailbox startup failed"
 msgstr ""
 
-#: ui/app.slint:2171
+#: ui/app.slint:2190
 msgid "Rustmail could not open local storage"
 msgstr ""
 
-#: ui/app.slint:2184
+#: ui/app.slint:2203
 msgid "Diagnostic ID: {}"
 msgstr ""
 
-#: ui/app.slint:2187
+#: ui/app.slint:2206
 msgid "Diagnostic ID {}"
 msgstr ""
 
-#: ui/app.slint:2192
+#: ui/app.slint:2211
 msgid "Retry"
 msgstr ""
 
-#: ui/app.slint:2200 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2219 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr ""
 
-#: ui/app.slint:2266 ui/views/files-view.slint:694
+#: ui/app.slint:2285 ui/views/files-view.slint:694
 msgid "Dismiss"
+msgstr ""
+
+#: ui/app.slint:2307 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2307 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2307 ui/components/workspace-navigation.slint:126
+msgid "Tasks"
 msgstr ""
 
 #: ui/components/account-mail-preferences.slint:107
@@ -2198,6 +2204,7 @@ msgid "Filters only affect this agenda."
 msgstr ""
 
 #: ui/components/calendar-agenda.slint:212 ui/components/calendar.slint:577
+#: ui/components/calendar-agenda.slint:212 ui/components/calendar.slint:577 ui/views/mail-list-pane.slint:322
 #: ui/components/calendar-agenda.slint:212 ui/components/calendar.slint:577 ui/views/mail-list-pane.slint:322
 msgid "Today"
 msgstr ""
@@ -3299,7 +3306,7 @@ msgstr ""
 msgid "All Inboxes"
 msgstr ""
 
-#: ui/components/sidebar.slint:239
+#: ui/components/sidebar.slint:239 ui/views/tasks-view.slint:71
 msgid "Inbox"
 msgstr ""
 
@@ -3573,42 +3580,42 @@ msgstr ""
 msgid "Mail"
 msgstr ""
 
-#: ui/components/workspace-navigation.slint:126
-#: ui/components/workspace-navigation.slint:126
-#: ui/components/workspace-navigation.slint:126
-#: ui/components/workspace-navigation.slint:126 ui/views/files-view.slint:381
-#: ui/components/workspace-navigation.slint:126 ui/views/files-view.slint:381
+#: ui/components/workspace-navigation.slint:137
+#: ui/components/workspace-navigation.slint:137
+#: ui/components/workspace-navigation.slint:137
+#: ui/components/workspace-navigation.slint:137 ui/views/files-view.slint:381
+#: ui/components/workspace-navigation.slint:137 ui/views/files-view.slint:381
 msgid "Files"
 msgstr ""
 
-#: ui/components/workspace-navigation.slint:137
-#: ui/components/workspace-navigation.slint:137
-#: ui/components/workspace-navigation.slint:137
-#: ui/components/workspace-navigation.slint:137 ui/dialogs/settings-dialog.slint:1263
-#: ui/components/workspace-navigation.slint:137 ui/dialogs/settings-dialog.slint:1263 ui/dialogs/settings-dialog.slint:2237
-#: ui/components/workspace-navigation.slint:137 ui/dialogs/settings-dialog.slint:1263 ui/dialogs/settings-dialog.slint:2237 ui/views/contacts-view.slint:236
+#: ui/components/workspace-navigation.slint:148
+#: ui/components/workspace-navigation.slint:148
+#: ui/components/workspace-navigation.slint:148
+#: ui/components/workspace-navigation.slint:148 ui/dialogs/settings-dialog.slint:1263
+#: ui/components/workspace-navigation.slint:148 ui/dialogs/settings-dialog.slint:1263 ui/dialogs/settings-dialog.slint:2237
+#: ui/components/workspace-navigation.slint:148 ui/dialogs/settings-dialog.slint:1263 ui/dialogs/settings-dialog.slint:2237 ui/views/contacts-view.slint:236
 msgid "Contacts"
 msgstr ""
 
-#: ui/components/workspace-navigation.slint:151
-#: ui/components/workspace-navigation.slint:151
+#: ui/components/workspace-navigation.slint:162
+#: ui/components/workspace-navigation.slint:162
 msgid "Settings"
 msgstr ""
 
-#: ui/components/workspace-navigation.slint:252
+#: ui/components/workspace-navigation.slint:263
 msgid "Primary navigation"
 msgstr ""
 
-#: ui/components/workspace-navigation.slint:403
-#: ui/components/workspace-navigation.slint:403
+#: ui/components/workspace-navigation.slint:428
+#: ui/components/workspace-navigation.slint:428
 msgid "New tab"
 msgstr ""
 
-#: ui/components/workspace-navigation.slint:531
+#: ui/components/workspace-navigation.slint:557
 msgid "Close tab"
 msgstr ""
 
-#: ui/components/workspace-navigation.slint:575
+#: ui/components/workspace-navigation.slint:601
 msgid "Tabs"
 msgstr ""
 
@@ -6178,6 +6185,110 @@ msgstr ""
 
 #: ui/views/onboarding-view.slint:256
 msgid "Connect using IMAP and SMTP. POP3 is not supported."
+msgstr ""
+
+#: ui/views/tasks-view.slint:73
+msgid "Upcoming"
+msgstr ""
+
+#: ui/views/tasks-view.slint:74
+msgid "Waiting for"
+msgstr ""
+
+#: ui/views/tasks-view.slint:75
+msgid "From email"
+msgstr ""
+
+#: ui/views/tasks-view.slint:76
+msgid "Someday / Maybe"
+msgstr ""
+
+#: ui/views/tasks-view.slint:103
+msgid "New task"
+msgstr ""
+
+#: ui/views/tasks-view.slint:117
+msgid "FOCUS"
+msgstr ""
+
+#: ui/views/tasks-view.slint:127
+msgid "PROJECTS"
+msgstr ""
+
+#: ui/views/tasks-view.slint:138 ui/views/tasks-view.slint:139
+msgid "Project name"
+msgstr ""
+
+#: ui/views/tasks-view.slint:143
+msgid "New project"
+msgstr ""
+
+#: ui/views/tasks-view.slint:148
+msgid "CONTEXTS"
+msgstr ""
+
+#: ui/views/tasks-view.slint:158 ui/views/tasks-view.slint:159
+msgid "Context name"
+msgstr ""
+
+#: ui/views/tasks-view.slint:163
+msgid "New context"
+msgstr ""
+
+#: ui/views/tasks-view.slint:204
+msgid "Reopen task"
+msgstr ""
+
+#: ui/views/tasks-view.slint:204
+msgid "Complete task"
+msgstr ""
+
+#: ui/views/tasks-view.slint:223
+msgid "Move to column"
+msgstr ""
+
+#: ui/views/tasks-view.slint:230
+msgid "Delete task"
+msgstr ""
+
+#: ui/views/tasks-view.slint:249
+msgid "{}/{} done"
+msgstr ""
+
+#: ui/views/tasks-view.slint:254
+msgid "{} linked"
+msgstr ""
+
+#: ui/views/tasks-view.slint:259
+msgid "High"
+msgstr ""
+
+#: ui/views/tasks-view.slint:346
+msgid "Add task"
+msgstr ""
+
+#: ui/views/tasks-view.slint:353
+msgid "Collapse column"
+msgstr ""
+
+#: ui/views/tasks-view.slint:358 ui/views/tasks-view.slint:359
+msgid "Task title"
+msgstr ""
+
+#: ui/views/tasks-view.slint:430
+msgid "Lists"
+msgstr ""
+
+#: ui/views/tasks-view.slint:447
+msgid "{} tasks"
+msgstr ""
+
+#: ui/views/tasks-view.slint:457 ui/views/tasks-view.slint:458
+msgid "Search tasks and linked mail"
+msgstr ""
+
+#: ui/views/tasks-view.slint:471
+msgid "No tasks"
 msgstr ""
 
 #: ui/window-chrome.slint:200 ui/window-chrome.slint:237
