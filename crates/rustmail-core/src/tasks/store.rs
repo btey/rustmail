@@ -565,6 +565,94 @@ fn unique_name_error(e: rusqlite::Error, what: &str) -> CoreError {
     }
 }
 
+impl SqliteTaskStore<'_> {
+    /// Create a task for a mail thread and link its newest message, so later
+    /// replies resolve through the thread. Returns the new task.
+    pub fn create_from_thread(&mut self, thread_id: i64, draft: TaskDraft) -> Result<Task> {
+        let (account_email, message_id, subject) = self
+            .conn
+            .query_row(
+                "SELECT a.email, m.message_id, m.subject
+                 FROM messages m JOIN accounts a ON a.id = m.account_id
+                 WHERE m.thread_id = ?1 ORDER BY m.date DESC, m.id DESC LIMIT 1",
+                [thread_id],
+                |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, Option<String>>(1)?,
+                        r.get::<_, String>(2)?,
+                    ))
+                },
+            )
+            .optional()?
+            .ok_or_else(|| CoreError::NotFound("mail thread".into()))?;
+        let message_id = message_id
+            .filter(|m| !m.trim().is_empty())
+            .ok_or_else(|| invalid("the message has no Message-ID to link"))?;
+        let project_id = match draft.project_id {
+            Some(p) => p,
+            None => self
+                .list_projects()?
+                .first()
+                .map(|p| p.id)
+                .ok_or_else(|| invalid("no project"))?,
+        };
+        let column_id: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT id FROM task_columns
+                 WHERE project_id = ?1 AND kind = ?2 AND deleted_at IS NULL
+                 ORDER BY position LIMIT 1",
+                params![project_id, draft.status.as_str()],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let title = draft
+            .title
+            .filter(|t| !t.trim().is_empty())
+            .unwrap_or_else(|| {
+                if subject.trim().is_empty() {
+                    "(no subject)".to_owned()
+                } else {
+                    subject.clone()
+                }
+            });
+        let task = self.create_task(NewTask {
+            project_id,
+            column_id,
+            title,
+            due_at: draft.due_at,
+            context_id: draft.context_id,
+            label_ids: draft.label_ids,
+            from_mail: true,
+            ..Default::default()
+        })?;
+        let linked = self.add_link(
+            task.id,
+            NewLink {
+                kind: LinkKind::MailReceived,
+                account_email: Some(account_email),
+                thread_id: Some(thread_id),
+                message_id: Some(message_id),
+                event_uid: None,
+                other_task_uid: None,
+            },
+        );
+        if let Err(error) = linked {
+            // Do not leave a task that points at nothing.
+            let _ = self.delete_task(task.id);
+            return Err(error);
+        }
+        activity(
+            self.conn,
+            task.id,
+            "from_mail",
+            &format!("Created from email: {subject}"),
+        )?;
+        self.get_task(task.id)
+    }
+}
+
 impl TaskStore for SqliteTaskStore<'_> {
     fn ensure_default_project(&mut self) -> Result<()> {
         let tx = self.conn.transaction()?;

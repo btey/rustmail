@@ -514,3 +514,65 @@ fn project_delete_tombstones_children_and_cross_project_moves_are_refused() {
     assert_eq!(s.list_projects().unwrap().len(), 1);
     assert!(s.list_columns(p).unwrap().is_empty());
 }
+
+#[test]
+fn a_task_from_a_thread_links_the_newest_message() {
+    let (mut c, p) = setup();
+    seed_mail(&c, "Quarterly invoice", 1, "<old@x>");
+    c.execute(
+        "INSERT INTO messages (account_id, thread_id, folder_id, uid, message_id, subject,
+            from_addr, to_json, cc_json, date, snippet)
+         VALUES (1, 1, 1, 2, '<new@x>', 'Re: Quarterly invoice', 'a@x.dev', '[]', '[]', 5, '')",
+        [],
+    )
+    .unwrap();
+    let waiting = col(&mut c, p, ColumnKind::Waiting);
+    let mut s = SqliteTaskStore::new(&mut c);
+    let draft = |status| TaskDraft {
+        title: None,
+        project_id: None,
+        status,
+        due_at: Some(10),
+        context_id: None,
+        label_ids: vec![],
+    };
+    let task = s.create_from_thread(1, draft(ColumnKind::Waiting)).unwrap();
+    assert_eq!(task.title, "Re: Quarterly invoice");
+    assert_eq!(task.column_id, waiting.id);
+    assert_eq!(task.source, TaskSource::Mail);
+    assert_eq!((task.due_at, task.link_count), (Some(10), 1));
+    let links = s.list_links(task.id).unwrap();
+    assert_eq!(links[0].link.message_id.as_deref(), Some("<new@x>"));
+    assert!(matches!(
+        links[0].target,
+        LinkTarget::Mail { thread_id: 1, .. }
+    ));
+    assert!(
+        s.list_activity(task.id)
+            .unwrap()
+            .iter()
+            .any(|a| a.kind == "from_mail" && a.text.contains("Quarterly invoice"))
+    );
+
+    // An edited title wins; a project without the status column uses its Inbox.
+    let named = TaskDraft {
+        title: Some("Pay it".into()),
+        ..draft(ColumnKind::Custom)
+    };
+    let task = s.create_from_thread(1, named).unwrap();
+    assert_eq!(task.title, "Pay it");
+
+    assert!(matches!(
+        s.create_from_thread(99, draft(ColumnKind::Inbox)),
+        Err(crate::error::CoreError::NotFound(_))
+    ));
+    s.conn
+        .execute(
+            "UPDATE messages SET message_id = NULL WHERE thread_id = 1",
+            [],
+        )
+        .unwrap();
+    let before = s.list_tasks(&TaskFilter::default()).unwrap().len();
+    assert!(s.create_from_thread(1, draft(ColumnKind::Inbox)).is_err());
+    assert_eq!(s.list_tasks(&TaskFilter::default()).unwrap().len(), before);
+}

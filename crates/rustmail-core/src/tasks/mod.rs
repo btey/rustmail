@@ -402,6 +402,20 @@ pub trait TaskStore {
     fn purge_tombstones(&mut self, older_than_ms: i64) -> Result<usize>;
 }
 
+/// What the user chose in the "New task from email" dialog.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskDraft {
+    /// `None` = the thread's subject.
+    pub title: Option<String>,
+    /// `None` = the first project.
+    pub project_id: Option<i64>,
+    /// The column kind to land in; a project without it uses its Inbox.
+    pub status: ColumnKind,
+    pub due_at: Option<i64>,
+    pub context_id: Option<i64>,
+    pub label_ids: Vec<i64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewLink {
     pub kind: LinkKind,

@@ -53,6 +53,17 @@ impl Core {
         Ok(())
     }
 
+    /// Create a task from a mail thread (Phase 8). The caller archives the
+    /// mail or books calendar time afterwards through their own modules.
+    pub async fn task_create_from_thread(&self, thread_id: i64, draft: TaskDraft) -> Result<Task> {
+        let task = self
+            .db
+            .write(move |conn| SqliteTaskStore::new(conn).create_from_thread(thread_id, draft))
+            .await?;
+        self.bus.emit(CoreEvent::TasksChanged);
+        Ok(task)
+    }
+
     reads! {
         task_projects() -> Vec<TaskProject>, |s| s.list_projects();
         task_columns(project_id: i64) -> Vec<TaskColumn>, |s| s.list_columns(project_id);
