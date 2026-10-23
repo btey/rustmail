@@ -170,8 +170,27 @@ fn card(
             .context_id
             .and_then(|id| contexts.get(&id).cloned())
             .unwrap_or_default(),
-        assignee: task.assignee_name.clone().unwrap_or_default(),
+        assignee: initials(
+            task.assignee_name.as_deref().filter(|n| !n.trim().is_empty()),
+            task.assignee_email.as_deref(),
+        ),
     }
+}
+
+/// Up to two capital letters for an avatar: the first letters of the first
+/// and last word of the name, or the first letter of the email.
+fn initials(name: Option<&str>, email: Option<&str>) -> String {
+    let from_name = name.map(|n| {
+        let mut words = n.split_whitespace().filter_map(|w| w.chars().next());
+        let first = words.next();
+        let last = words.next_back();
+        first.into_iter().chain(last).collect::<String>()
+    });
+    from_name
+        .filter(|i| !i.is_empty())
+        .or_else(|| email.and_then(|e| e.chars().next()).map(String::from))
+        .unwrap_or_default()
+        .to_uppercase()
 }
 
 fn column_count(column: &TaskColumn) -> String {
@@ -1025,6 +1044,14 @@ mod tests {
         assert_eq!(iso_date(due), "2026-12-31");
         let next = parse_due("2027-01-01").unwrap().unwrap();
         assert_eq!(next - due, 24 * 60 * 60 * 1000);
+    }
+
+    #[test]
+    fn avatar_initials() {
+        assert_eq!(initials(Some("Ana María Díaz"), None), "AD");
+        assert_eq!(initials(Some("ana"), Some("a@x.org")), "A");
+        assert_eq!(initials(None, Some("bob@x.org")), "B");
+        assert_eq!(initials(None, None), "");
     }
 
     #[test]

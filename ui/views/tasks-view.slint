@@ -326,6 +326,27 @@ component TaskCard inherits Rectangle {
                 color: AppTheme.secondary;
                 font-size: TypeScale.micro;
             }
+            if root.card.from-mail : Text {
+                text: @tr("From email");
+                color: AppTheme.secondary;
+                font-size: TypeScale.micro;
+            }
+            if root.card.assignee != "" : Rectangle {
+                width: 20px;
+                height: 20px;
+                border-radius: 10px;
+                background: AppTheme.avatar-selected-bg;
+                Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: root.card.assignee;
+                    color: AppTheme.title;
+                    font-size: 9px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
             if root.card.high-priority : Text {
                 text: @tr("High");
                 color: AppTheme.destructive;
