@@ -31,6 +31,8 @@ struct Session {
     /// Filter chips: label and context narrow the current list.
     label: Option<i64>,
     context: Option<i64>,
+    /// Project shown as one flat list instead of columns.
+    list: bool,
 }
 
 struct DetailSnap {
@@ -68,6 +70,8 @@ struct CardSnap {
     from_mail: bool,
     context: String,
     assignee: String,
+    /// Column name, filled in for a project shown as a list.
+    status: String,
 }
 
 struct ColumnSnap {
@@ -105,6 +109,8 @@ struct Snapshot {
     move_targets: Vec<(i64, String)>,
     /// Active filter chips `(key, text)` and the "Add filter" entries.
     chips: Vec<(String, String)>,
+    list_mode: bool,
+    can_switch_view: bool,
     filter_menu: Vec<(String, String)>,
 }
 
@@ -175,6 +181,7 @@ fn card(
             task.assignee_name.as_deref().filter(|n| !n.trim().is_empty()),
             task.assignee_email.as_deref(),
         ),
+        status: String::new(),
     }
 }
 
@@ -300,7 +307,7 @@ async fn load(
     selection: &str,
     query: &str,
     detail_id: Option<i64>,
-    chips: (Option<i64>, Option<i64>),
+    chips: (Option<i64>, Option<i64>, bool),
 ) -> rustmail_core::error::Result<Snapshot> {
     core.tasks_open().await?;
     let today_end = today_end_ms();
@@ -329,7 +336,7 @@ async fn load(
         text: Some(query.to_owned()).filter(|q| !q.trim().is_empty()),
         ..Default::default()
     };
-    let (label_chip, context_chip) = chips;
+    let (label_chip, context_chip, list_mode) = chips;
     filter.label_id = label_chip.filter(|l| label_map.contains_key(l));
     if kind != "context" {
         filter.context_id = context_chip.filter(|c| context_map.contains_key(c));
@@ -414,7 +421,9 @@ async fn load(
         })
         .collect();
 
-    let board = kind == "project" && filter.text.is_none();
+    let board = kind == "project" && filter.text.is_none() && !list_mode;
+    snap.list_mode = kind == "project" && list_mode;
+    snap.can_switch_view = kind == "project";
     filter.include_done = board;
     let tasks = core.task_list(filter).await?;
     snap.task_count = tasks.iter().filter(|t| t.completed_at.is_none()).count() as i64;
@@ -450,7 +459,25 @@ async fn load(
             collapsed: false,
             wip: 0,
             fixed: true,
-            cards: tasks.iter().map(|t| card(t, &label_map, &context_map, today_end)).collect(),
+            cards: {
+                let names: HashMap<i64, String> = match (snap.list_mode, project_id) {
+                    (true, Some(p)) => core
+                        .task_columns(p)
+                        .await?
+                        .into_iter()
+                        .map(|c| (c.id, c.name))
+                        .collect(),
+                    _ => HashMap::new(),
+                };
+                tasks
+                    .iter()
+                    .map(|t| {
+                        let mut k = card(t, &label_map, &context_map, today_end);
+                        k.status = names.get(&t.column_id).cloned().unwrap_or_default();
+                        k
+                    })
+                    .collect()
+            },
         }];
     }
     if let Some(id) = detail_id
@@ -485,6 +512,8 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
     ui.set_focus_rows(nav_rows(snap.focus));
     ui.set_projects(nav_rows(snap.projects));
     ui.set_contexts(nav_rows(snap.contexts));
+    ui.set_list_mode(snap.list_mode);
+    ui.set_can_switch_view(snap.can_switch_view);
     ui.set_filter_chips(ModelRc::new(VecModel::from(
         snap.chips
             .into_iter()
@@ -544,6 +573,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         from_mail: k.from_mail,
                         context: k.context.into(),
                         assignee: k.assignee.into(),
+                        status: k.status.into(),
                     })
                     .collect::<Vec<_>>(),
             )),
@@ -682,6 +712,7 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
                 Some(("context", id)) => s.context = id.parse().ok(),
                 _ => {}
             },
+            "view" => s.list = arg(0) == "list",
             "filter-remove" => match arg(0).as_str() {
                 "label" => s.label = None,
                 "context" => s.context = None,
@@ -699,7 +730,7 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
     }
     let (selection, query, detail_id, chips) = {
         let s = ctx.session.borrow();
-        (s.selection.clone(), s.query.clone(), s.detail_id, (s.label, s.context))
+        (s.selection.clone(), s.query.clone(), s.detail_id, (s.label, s.context, s.list))
     };
     let ticket = ctx.generation.fetch_add(1, Ordering::SeqCst) + 1;
     let generation = ctx.generation.clone();
@@ -1081,18 +1112,37 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn list_mode_flattens_a_project_and_names_each_status() {
+        let (_tmp, core, sel) = board().await;
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
+        assert!(snap.can_switch_view && !snap.list_mode);
+        let inbox = snap.columns[0].clone_id_name();
+        run(&core, &sel, "add-task", &inbox.0.to_string(), "One").await.unwrap();
+
+        let snap = load(&core, &sel, "", None, (None, None, true)).await.unwrap();
+        assert!(snap.list_mode);
+        assert_eq!(snap.columns.len(), 1);
+        assert_eq!(snap.columns[0].id, -1);
+        assert_eq!(snap.columns[0].cards[0].status, inbox.1);
+
+        // Focus lists have no board to switch to.
+        let snap = load(&core, "focus:inbox", "", None, (None, None, true)).await.unwrap();
+        assert!(!snap.can_switch_view && !snap.list_mode);
+    }
+
+    #[tokio::test]
     async fn task_links_are_added_by_title_and_removed() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         run(&core, &sel, "add-task", &inbox, "Draft").await.unwrap();
         run(&core, &sel, "add-task", &inbox, "Publish").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
         let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
         let (draft, publish) = (id_of("Draft"), id_of("Publish"));
 
         run(&core, &sel, "link-task", &publish.to_string(), "depends:draft").await.unwrap();
-        let snap = load(&core, &sel, "", Some(publish), (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None, false)).await.unwrap();
         let links = &snap.detail.as_ref().unwrap().links;
         assert_eq!(links.len(), 1);
         assert_eq!(links[0].1, "task_depends");
@@ -1103,7 +1153,7 @@ mod tests {
         assert!(own.is_err());
 
         run(&core, &sel, "link-remove", &links[0].0.to_string(), "").await.unwrap();
-        let snap = load(&core, &sel, "", Some(publish), (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None, false)).await.unwrap();
         assert!(snap.detail.unwrap().links.is_empty());
     }
 
@@ -1154,6 +1204,12 @@ mod tests {
             .map(|_| ())
     }
 
+    impl ColumnSnap {
+        fn clone_id_name(&self) -> (i64, String) {
+            (self.id, self.name.clone())
+        }
+    }
+
     fn first_column<'a>(snap: &'a Snapshot, name: &str) -> &'a ColumnSnap {
         snap.columns.iter().find(|c| c.name == name).unwrap()
     }
@@ -1162,7 +1218,7 @@ mod tests {
     async fn column_commands_validate_and_apply() {
         let (_tmp, core, sel) = board().await;
         run(&core, &sel, "add-column", "Review", "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
         let review = first_column(&snap, "Review");
         assert!(!review.fixed);
         let id = review.id.to_string();
@@ -1170,7 +1226,7 @@ mod tests {
         run(&core, &sel, "column-rename", &id, "QA").await.unwrap();
         run(&core, &sel, "column-wip", &id, "3").await.unwrap();
         run(&core, &sel, "column-colour", &id, "colour:#ef4444").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
         let qa = first_column(&snap, "QA");
         assert_eq!((qa.wip, qa.colour.as_str()), (3, "#ef4444"));
 
@@ -1180,7 +1236,7 @@ mod tests {
 
         let before: Vec<_> = snap.columns.iter().map(|c| c.id).collect();
         run(&core, &sel, "column-move", &id, "left").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
         let after: Vec<_> = snap.columns.iter().map(|c| c.id).collect();
         let at = |v: &[i64]| v.iter().position(|c| c.to_string() == id).unwrap();
         assert_eq!(at(&after) + 1, at(&before));
@@ -1189,7 +1245,7 @@ mod tests {
         let refused = run(&core, &sel, "column-delete", &built_in, "").await;
         assert_eq!(refused, Err("Built-in columns cannot be deleted".into()));
         run(&core, &sel, "column-delete", &id, "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
         assert!(snap.columns.iter().all(|c| c.name != "QA"));
     }
 
@@ -1197,60 +1253,60 @@ mod tests {
     async fn card_move_due_and_assignee_commands() {
         let (_tmp, core, sel) = board().await;
         run(&core, &sel, "add-column", "Review", "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         let review = first_column(&snap, "Review").id.to_string();
         run(&core, &sel, "add-task", &inbox, "Write report").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
         let task = snap.columns[0].cards[0].id;
         let tid = task.to_string();
 
         // What a drop sends: the card menu's move command.
         run(&core, &sel, "card-menu", &tid, &format!("move:{review}")).await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
         assert_eq!(first_column(&snap, "Review").cards[0].id, task);
 
         run(&core, &sel, "detail-due", &tid, "tomorrow").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().due, iso_date(today_end_ms() + 1000));
         run(&core, &sel, "detail-due", &tid, "none").await.unwrap();
 
         run(&core, &sel, "detail-assignee", &tid, "Ana Diaz <ana@example.org>")
             .await
             .unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "Ana Diaz <ana@example.org>");
         run(&core, &sel, "detail-assignee", &tid, "bob@example.org").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "bob@example.org");
         assert!(run(&core, &sel, "detail-assignee", &tid, "nobody known").await.is_err());
         run(&core, &sel, "detail-assignee", &tid, "").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "");
     }
 
     #[tokio::test]
     async fn label_and_context_chips_filter_the_board() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         run(&core, &sel, "add-task", &inbox, "Tagged").await.unwrap();
         run(&core, &sel, "add-task", &inbox, "Plain").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false)).await.unwrap();
         let tagged = snap.columns[0].cards.iter().find(|c| c.title == "Tagged").unwrap().id;
         run(&core, &sel, "detail-label-new", &tagged.to_string(), "urgent")
             .await
             .unwrap();
         let label = core.task_labels().await.unwrap()[0].id;
 
-        let snap = load(&core, &sel, "", None, (Some(label), None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (Some(label), None, false)).await.unwrap();
         let titles: Vec<_> = snap.columns.iter().flat_map(|c| &c.cards).map(|c| c.title.as_str()).collect();
         assert_eq!(titles, ["Tagged"]);
         assert_eq!(snap.chips, [("label".to_owned(), "Label: urgent".to_owned())]);
         // The label is active, so it is no longer offered in the menu.
         assert!(snap.filter_menu.iter().all(|(id, _)| !id.starts_with("label:")));
         // An unknown label id is ignored instead of emptying the board.
-        let snap = load(&core, &sel, "", None, (Some(9999), None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (Some(9999), None, false)).await.unwrap();
         assert!(snap.chips.is_empty());
     }
 }

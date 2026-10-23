@@ -22,6 +22,7 @@ export struct TaskCardRow {
     from-mail: bool,
     context: string,
     assignee: string,
+    status: string,
 }
 
 export struct TaskColumnRow {
@@ -100,6 +101,8 @@ export global TasksUi {
     // Card menu: one "move:<column id>" entry per column of the open project.
     in-out property <[ActionMenuEntry]> card-menu;
     // Drawer pickers: "ctx:<id>" / "ctx:none" and "lbl:<id>" entries.
+    in-out property <bool> list-mode: false;
+    in-out property <bool> can-switch-view: false;
     in-out property <[TaskChipRow]> filter-chips;
     in-out property <[ActionMenuEntry]> filter-menu;
     in-out property <[ActionMenuEntry]> context-menu;
@@ -304,6 +307,12 @@ component TaskCard inherits Rectangle {
                 tooltip-text: @tr("Delete task");
                 clicked => { root.delete-task(); }
             }
+        }
+        if root.card.status != "" : Text {
+            text: root.card.status;
+            color: AppTheme.secondary;
+            font-size: TypeScale.micro;
+            font-weight: 600;
         }
         if root.card.labels != "" : Text {
             text: root.card.labels;
@@ -951,6 +960,12 @@ export component TasksView inherits Rectangle {
                         tooltip-text: @tr("Remove filter");
                         clicked => { TasksUi.command("filter-remove", chip.key, ""); }
                     }
+                }
+                if TasksUi.can-switch-view : Button {
+                    height: 28px;
+                    text: TasksUi.list-mode ? @tr("Board") : @tr("List");
+                    width: max(72px, self.content-width + 28px);
+                    clicked => { TasksUi.command("view", TasksUi.list-mode ? "board" : "list", ""); }
                 }
                 if TasksUi.filter-menu.length > 0 : ActionMenu {
                     width: 28px;
