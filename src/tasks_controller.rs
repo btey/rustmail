@@ -33,6 +33,8 @@ struct Session {
     context: Option<i64>,
     /// Project shown as one flat list instead of columns.
     list: bool,
+    /// Sidebar search over project and context names.
+    nav: String,
 }
 
 struct DetailSnap {
@@ -492,6 +494,19 @@ async fn load(
     Ok(snap)
 }
 
+/// Keep the projects and contexts whose name contains `text` (ignoring
+/// case); the open list always stays so the selection never disappears.
+fn filter_nav(snap: &mut Snapshot, text: &str) {
+    let text = text.trim().to_lowercase();
+    if text.is_empty() {
+        return;
+    }
+    let selection = snap.selection.clone();
+    let keep = |row: &NavSnap| row.key == selection || row.label.to_lowercase().contains(&text);
+    snap.projects.retain(keep);
+    snap.contexts.retain(keep);
+}
+
 fn nav_rows(rows: Vec<NavSnap>) -> ModelRc<TaskNavRow> {
     ModelRc::new(VecModel::from(
         rows.into_iter()
@@ -713,6 +728,7 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
                 _ => {}
             },
             "view" => s.list = arg(0) == "list",
+            "nav-filter" => s.nav = arg(0),
             "filter-remove" => match arg(0).as_str() {
                 "label" => s.label = None,
                 "context" => s.context = None,
@@ -728,9 +744,15 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             _ => {}
         }
     }
-    let (selection, query, detail_id, chips) = {
+    let (selection, query, detail_id, chips, nav) = {
         let s = ctx.session.borrow();
-        (s.selection.clone(), s.query.clone(), s.detail_id, (s.label, s.context, s.list))
+        (
+            s.selection.clone(),
+            s.query.clone(),
+            s.detail_id,
+            (s.label, s.context, s.list),
+            s.nav.clone(),
+        )
     };
     let ticket = ctx.generation.fetch_add(1, Ordering::SeqCst) + 1;
     let generation = ctx.generation.clone();
@@ -748,7 +770,12 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             Ok(Some(next)) => next.clone(),
             _ => selection,
         };
-        let snap = load(&core, &selection, &query, detail_id, chips).await;
+        let snap = load(&core, &selection, &query, detail_id, chips)
+            .await
+            .map(|mut snap| {
+                filter_nav(&mut snap, &nav);
+                snap
+            });
         let _ = weak.upgrade_in_event_loop(move |app| {
             if generation.load(Ordering::SeqCst) != ticket {
                 return;
@@ -1180,6 +1207,28 @@ mod tests {
         assert_eq!(initials(Some("ana"), Some("a@x.org")), "A");
         assert_eq!(initials(None, Some("bob@x.org")), "B");
         assert_eq!(initials(None, None), "");
+    }
+
+    #[test]
+    fn sidebar_search_keeps_matches_and_the_selection() {
+        let row = |key: &str, label: &str| NavSnap {
+            key: key.into(),
+            label: label.into(),
+            count: 0,
+            colour: String::new(),
+        };
+        let mut snap = Snapshot {
+            selection: "project:2".into(),
+            projects: vec![row("project:1", "Garden"), row("project:2", "Taxes")],
+            contexts: vec![row("context:1", "phone"), row("context:2", "Gardening")],
+            ..Default::default()
+        };
+        filter_nav(&mut snap, " GARDEN ");
+        let keys = |rows: &[NavSnap]| rows.iter().map(|r| r.key.clone()).collect::<Vec<_>>();
+        assert_eq!(keys(&snap.projects), ["project:1", "project:2"]);
+        assert_eq!(keys(&snap.contexts), ["context:2"]);
+        filter_nav(&mut snap, "");
+        assert_eq!(snap.contexts.len(), 1);
     }
 
     #[test]
