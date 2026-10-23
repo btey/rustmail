@@ -72,6 +72,9 @@ export struct ChecklistRow {
 }
 
 export struct LinkRow {
+    id: int,
+    // "task:<id>" for a linked task, empty otherwise.
+    open: string,
     // "mail_received" | "mail_sent" | "event" | "task_blocks" | "task_depends"
     kind: string,
     text: string,
@@ -538,6 +541,8 @@ component TaskDrawer inherits Rectangle {
     in-out property <string> due-draft;
     in-out property <string> label-draft;
     in-out property <string> assignee-draft;
+    in-out property <string> link-draft;
+    in-out property <string> link-kind: "depends";
     function reset-drafts() {
         root.title-draft = TasksUi.detail.title;
         root.description-draft = TasksUi.detail.description;
@@ -751,23 +756,64 @@ component TaskDrawer inherits Rectangle {
                 input-label: @tr("Add checklist item");
                 accepted(text) => { TasksUi.command("check-add", "" + TasksUi.detail.id, text); self.text = ""; }
             }
-            DetailSection { text: @tr("LINKED ITEMS"); visible: TasksUi.links.length > 0; height: self.visible ? self.preferred-height : 0px; }
-            for link in TasksUi.links : VerticalLayout {
-                spacing: 2px;
-                Text {
-                    text: link.kind == "mail_received" ? @tr("Mail")
-                        : link.kind == "mail_sent" ? @tr("Sent")
-                        : link.kind == "event" ? @tr("Event")
-                        : link.kind == "task_blocks" ? @tr("Blocks")
-                        : @tr("Depends on");
-                    color: AppTheme.muted;
-                    font-size: TypeScale.micro;
+            DetailSection { text: @tr("LINKED ITEMS"); }
+            for link in TasksUi.links : HorizontalLayout {
+                spacing: 6px;
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 2px;
+                    Text {
+                        text: link.kind == "mail_received" ? @tr("Mail")
+                            : link.kind == "mail_sent" ? @tr("Sent")
+                            : link.kind == "event" ? @tr("Event")
+                            : link.kind == "task_blocks" ? @tr("Blocks")
+                            : @tr("Depends on");
+                        color: AppTheme.muted;
+                        font-size: TypeScale.micro;
+                    }
+                    Text {
+                        text: link.found ? link.text : @tr("Not found");
+                        color: link.found ? AppTheme.body : AppTheme.destructive;
+                        font-size: TypeScale.body;
+                        wrap: word-wrap;
+                        if link.open != "" : TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { TasksUi.command("open", link.open, ""); }
+                        }
+                    }
                 }
-                Text {
-                    text: link.found ? link.text : @tr("Not found");
-                    color: link.found ? AppTheme.body : AppTheme.destructive;
-                    font-size: TypeScale.body;
-                    wrap: word-wrap;
+                TasksIconButton {
+                    width: 22px;
+                    height: 22px;
+                    icon: @image-url("../icons/lucide/outline/x.svg");
+                    tooltip-text: @tr("Remove link");
+                    clicked => { TasksUi.command("link-remove", "" + link.id, ""); }
+                }
+            }
+            HorizontalLayout {
+                height: 34px;
+                spacing: 6px;
+                LineEdit {
+                    horizontal-stretch: 1;
+                    text <=> root.link-draft;
+                    placeholder-text: root.link-kind == "blocks" ? @tr("Blocks task (title)") : @tr("Depends on task (title)");
+                    input-label: @tr("Link a task");
+                    accepted(text) => {
+                        TasksUi.command("link-task", "" + TasksUi.detail.id, root.link-kind + ":" + text);
+                        root.link-draft = "";
+                    }
+                }
+                ActionMenu {
+                    width: 34px;
+                    height: 34px;
+                    icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
+                    entries: [
+                        { id: "depends", title: @tr("Depends on") },
+                        { id: "blocks", title: @tr("Blocks") },
+                    ];
+                    menu-width: 180px;
+                    tooltip-text: @tr("Link type");
+                    activated(id) => { root.link-kind = id; }
                 }
             }
             DetailSection { text: @tr("ACTIVITY"); visible: TasksUi.activity.length > 0; height: self.visible ? self.preferred-height : 0px; }

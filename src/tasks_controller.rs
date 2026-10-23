@@ -49,8 +49,9 @@ struct DetailSnap {
     context_menu: Vec<(String, String)>,
     label_menu: Vec<(String, String)>,
     checklist: Vec<(i64, String, bool)>,
-    /// `(kind token, text, target found)`.
-    links: Vec<(String, String, bool)>,
+    /// `(link id, kind token, text, target found, open target)`; the open
+    /// target is "task:<id>" for a linked task and empty otherwise.
+    links: Vec<(i64, String, String, bool, String)>,
     activity: Vec<(String, String)>,
 }
 
@@ -240,13 +241,19 @@ async fn load_detail(
         .into_iter()
         .map(|l| {
             use rustmail_core::tasks::LinkTarget;
-            let (text, found) = match &l.target {
-                LinkTarget::Mail { subject, .. } => (subject.clone(), true),
-                LinkTarget::Task { title, .. } => (title.clone(), true),
-                LinkTarget::Event => (l.link.event_uid.clone().unwrap_or_default(), true),
-                LinkTarget::MailNotFound | LinkTarget::TaskNotFound => (String::new(), false),
+            let (text, found, open) = match &l.target {
+                LinkTarget::Mail { subject, .. } => (subject.clone(), true, String::new()),
+                LinkTarget::Task { task_id, title } => {
+                    (title.clone(), true, format!("task:{task_id}"))
+                }
+                LinkTarget::Event => {
+                    (l.link.event_uid.clone().unwrap_or_default(), true, String::new())
+                }
+                LinkTarget::MailNotFound | LinkTarget::TaskNotFound => {
+                    (String::new(), false, String::new())
+                }
             };
-            (l.link.kind.as_str().to_owned(), text, found)
+            (l.link.id, l.link.kind.as_str().to_owned(), text, found, open)
         })
         .collect();
     let detail = DetailSnap {
@@ -586,7 +593,9 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
             ui.set_links(ModelRc::new(VecModel::from(
                 d.links
                     .into_iter()
-                    .map(|(kind, text, found)| LinkRow {
+                    .map(|(id, kind, text, found, open)| LinkRow {
+                        id: id as i32,
+                        open: open.into(),
                         kind: kind.into(),
                         text: text.into(),
                         found,
@@ -679,7 +688,10 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
                 _ => {}
             },
             "search" => s.query = arg(0),
-            "open" => s.detail_id = arg(0).parse().ok(),
+            "open" => {
+                let target = arg(0);
+                s.detail_id = target.strip_prefix("task:").unwrap_or(&target).parse().ok();
+            }
             "close-detail" => s.detail_id = None,
             "delete" if s.detail_id == arg(0).parse().ok() => s.detail_id = None,
             _ => {}
@@ -838,6 +850,45 @@ async fn mutate(
             )
             .await
             .map_err(err)?;
+        }
+        "link-task" => {
+            // `b` is "<depends|blocks>:<title words>"; the first other open
+            // task whose title matches becomes the link target.
+            let task_id = id.ok_or("bad task")?;
+            let (kind, query) = match b.split_once(':') {
+                Some(("blocks", q)) => (rustmail_core::tasks::LinkKind::TaskBlocks, q),
+                Some((_, q)) => (rustmail_core::tasks::LinkKind::TaskDepends, q),
+                None => return Ok(None),
+            };
+            if query.trim().is_empty() {
+                return Ok(None);
+            }
+            let found = core
+                .task_list(TaskFilter {
+                    text: Some(query.trim().to_owned()),
+                    ..Default::default()
+                })
+                .await
+                .map_err(err)?
+                .into_iter()
+                .find(|t| t.id != task_id)
+                .ok_or("No other open task matches")?;
+            core.task_link_add(
+                task_id,
+                rustmail_core::tasks::NewLink {
+                    kind,
+                    account_email: None,
+                    thread_id: None,
+                    message_id: None,
+                    event_uid: None,
+                    other_task_uid: Some(found.uid),
+                },
+            )
+            .await
+            .map_err(err)?;
+        }
+        "link-remove" => {
+            core.task_link_remove(id.ok_or("bad link")?).await.map_err(err)?;
         }
         "detail-label" => {
             let label = b
@@ -1028,6 +1079,33 @@ async fn mutate(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn task_links_are_added_by_title_and_removed() {
+        let (_tmp, core, sel) = board().await;
+        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let inbox = snap.columns[0].id.to_string();
+        run(&core, &sel, "add-task", &inbox, "Draft").await.unwrap();
+        run(&core, &sel, "add-task", &inbox, "Publish").await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None)).await.unwrap();
+        let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
+        let (draft, publish) = (id_of("Draft"), id_of("Publish"));
+
+        run(&core, &sel, "link-task", &publish.to_string(), "depends:draft").await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None)).await.unwrap();
+        let links = &snap.detail.as_ref().unwrap().links;
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].1, "task_depends");
+        assert_eq!(links[0].4, format!("task:{draft}"));
+
+        // Only the task itself matches, so there is nothing to link.
+        let own = run(&core, &sel, "link-task", &publish.to_string(), "blocks:publish").await;
+        assert!(own.is_err());
+
+        run(&core, &sel, "link-remove", &links[0].0.to_string(), "").await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None)).await.unwrap();
+        assert!(snap.detail.unwrap().links.is_empty());
+    }
 
     #[test]
     fn colours_parse_and_fall_back() {
