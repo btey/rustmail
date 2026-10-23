@@ -1535,7 +1535,7 @@ msgstr "Убрать"
 
 #: ui/app.slint:2309 ui/components/workspace-navigation.slint:126
 msgid "Tasks"
-msgstr ""
+msgstr "Задачи"
 
 #: ui/components/account-mail-preferences.slint:107
 msgid "Server allows any address at this domain"
@@ -6323,329 +6323,329 @@ msgstr "Подключайтесь по IMAP и SMTP. POP3 не поддержи
 
 #: ui/views/tasks-view.slint:135
 msgid "Upcoming"
-msgstr ""
+msgstr "Предстоящие"
 
 #: ui/views/tasks-view.slint:136
 msgid "Waiting for"
-msgstr ""
+msgstr "Ожидание"
 
 #: ui/views/tasks-view.slint:137 ui/views/tasks-view.slint:355
 msgid "From email"
-msgstr ""
+msgstr "Из почты"
 
 #: ui/views/tasks-view.slint:138
 msgid "Someday / Maybe"
-msgstr ""
+msgstr "Когда-нибудь / Возможно"
 
 #: ui/views/tasks-view.slint:171
 msgid "New task"
-msgstr ""
+msgstr "Новая задача"
 
 #: ui/views/tasks-view.slint:182 ui/views/tasks-view.slint:183
 msgid "Find list, project or context"
-msgstr ""
+msgstr "Найти список, проект или контекст"
 
 #: ui/views/tasks-view.slint:193
 msgid "FOCUS"
-msgstr ""
+msgstr "ФОКУС"
 
 #: ui/views/tasks-view.slint:203
 msgid "PROJECTS"
-msgstr ""
+msgstr "ПРОЕКТЫ"
 
 #: ui/views/tasks-view.slint:214 ui/views/tasks-view.slint:215
 msgid "Project name"
-msgstr ""
+msgstr "Название проекта"
 
 #: ui/views/tasks-view.slint:219
 msgid "New project"
-msgstr ""
+msgstr "Новый проект"
 
 #: ui/views/tasks-view.slint:224
 msgid "CONTEXTS"
-msgstr ""
+msgstr "КОНТЕКСТЫ"
 
 #: ui/views/tasks-view.slint:234 ui/views/tasks-view.slint:235
 msgid "Context name"
-msgstr ""
+msgstr "Название контекста"
 
 #: ui/views/tasks-view.slint:239
 msgid "New context"
-msgstr ""
+msgstr "Новый контекст"
 
 #: ui/views/tasks-view.slint:291
 msgid "Reopen task"
-msgstr ""
+msgstr "Открыть задачу снова"
 
 #: ui/views/tasks-view.slint:291
 msgid "Complete task"
-msgstr ""
+msgstr "Завершить задачу"
 
 #: ui/views/tasks-view.slint:310 ui/views/tasks-view.slint:617
 msgid "Move to column"
-msgstr ""
+msgstr "Переместить в колонку"
 
 #: ui/views/tasks-view.slint:317 ui/views/tasks-view.slint:862
 msgid "Delete task"
-msgstr ""
+msgstr "Удалить задачу"
 
 #: ui/views/tasks-view.slint:342
 msgid "{}/{} done"
-msgstr ""
+msgstr "{}/{} выполнено"
 
 #: ui/views/tasks-view.slint:347
 msgid "{} linked"
-msgstr ""
+msgstr "{} связано"
 
 #: ui/views/tasks-view.slint:361
 msgid "High"
-msgstr ""
+msgstr "Высокий"
 
 #: ui/views/tasks-view.slint:402
 msgid "Rename column"
-msgstr ""
+msgstr "Переименовать колонку"
 
 #: ui/views/tasks-view.slint:403
 msgid "Set task limit"
-msgstr ""
+msgstr "Задать лимит задач"
 
 #: ui/views/tasks-view.slint:404
 msgid "Move left"
-msgstr ""
+msgstr "Влево"
 
 #: ui/views/tasks-view.slint:405
 msgid "Move right"
-msgstr ""
+msgstr "Вправо"
 
 #: ui/views/tasks-view.slint:406
 msgid "Colour: Grey"
-msgstr ""
+msgstr "Цвет: серый"
 
 #: ui/views/tasks-view.slint:407
 msgid "Colour: Blue"
-msgstr ""
+msgstr "Цвет: синий"
 
 #: ui/views/tasks-view.slint:408
 msgid "Colour: Green"
-msgstr ""
+msgstr "Цвет: зелёный"
 
 #: ui/views/tasks-view.slint:409
 msgid "Colour: Orange"
-msgstr ""
+msgstr "Цвет: оранжевый"
 
 #: ui/views/tasks-view.slint:410
 msgid "Colour: Red"
-msgstr ""
+msgstr "Цвет: красный"
 
 #: ui/views/tasks-view.slint:411
 msgid "Delete column"
-msgstr ""
+msgstr "Удалить колонку"
 
 #: ui/views/tasks-view.slint:482
 msgid "Add task"
-msgstr ""
+msgstr "Добавить задачу"
 
 #: ui/views/tasks-view.slint:491
 msgid "Column options"
-msgstr ""
+msgstr "Параметры колонки"
 
 #: ui/views/tasks-view.slint:505
 msgid "Collapse column"
-msgstr ""
+msgstr "Свернуть колонку"
 
 #: ui/views/tasks-view.slint:511 ui/views/tasks-view.slint:512
 #: ui/views/tasks-view.slint:1038
 msgid "Column name"
-msgstr ""
+msgstr "Название колонки"
 
 #: ui/views/tasks-view.slint:511 ui/views/tasks-view.slint:512
 msgid "Task limit (empty = none)"
-msgstr ""
+msgstr "Лимит задач (пусто — без лимита)"
 
 #: ui/views/tasks-view.slint:519 ui/views/tasks-view.slint:520
 #: ui/views/tasks-view.slint:631
 msgid "Task title"
-msgstr ""
+msgstr "Название задачи"
 
 #: ui/views/tasks-view.slint:638
 msgid "Reopen"
-msgstr ""
+msgstr "Открыть снова"
 
 #: ui/views/tasks-view.slint:638
 msgid "Complete"
-msgstr ""
+msgstr "Завершить"
 
 #: ui/views/tasks-view.slint:644
 msgid "High priority"
-msgstr ""
+msgstr "Высокий приоритет"
 
 #: ui/views/tasks-view.slint:650
 msgid "CONTEXT"
-msgstr ""
+msgstr "КОНТЕКСТ"
 
 #: ui/views/tasks-view.slint:655
 msgid "No context"
-msgstr ""
+msgstr "Без контекста"
 
 #: ui/views/tasks-view.slint:667
 msgid "Set context"
-msgstr ""
+msgstr "Задать контекст"
 
 #: ui/views/tasks-view.slint:671
 msgid "ASSIGNEE"
-msgstr ""
+msgstr "ИСПОЛНИТЕЛЬ"
 
 #: ui/views/tasks-view.slint:673
 msgid "Unassigned"
-msgstr ""
+msgstr "Не назначено"
 
 #: ui/views/tasks-view.slint:680
 msgid "Name or email, empty to clear"
-msgstr ""
+msgstr "Имя или e-mail; пусто — снять"
 
 #: ui/views/tasks-view.slint:681
 msgid "Assignee"
-msgstr ""
+msgstr "Исполнитель"
 
 #: ui/views/tasks-view.slint:687
 msgid "LABELS"
-msgstr ""
+msgstr "МЕТКИ"
 
 #: ui/views/tasks-view.slint:692
 msgid "No labels"
-msgstr ""
+msgstr "Без меток"
 
 #: ui/views/tasks-view.slint:704
 msgid "Toggle labels"
-msgstr ""
+msgstr "Переключить метки"
 
 #: ui/views/tasks-view.slint:717
 msgid "DUE DATE"
-msgstr ""
+msgstr "СРОК"
 
 #: ui/views/tasks-view.slint:725
 msgid "Due date"
-msgstr ""
+msgstr "Срок"
 
 #: ui/views/tasks-view.slint:734
 msgid "Tomorrow"
-msgstr ""
+msgstr "Завтра"
 
 #: ui/views/tasks-view.slint:735
 msgid "In a week"
-msgstr ""
+msgstr "Через неделю"
 
 #: ui/views/tasks-view.slint:736
 msgid "No date"
-msgstr ""
+msgstr "Без даты"
 
 #: ui/views/tasks-view.slint:739
 msgid "Quick due date"
-msgstr ""
+msgstr "Быстрый срок"
 
 #: ui/views/tasks-view.slint:747
 msgid "Add a description"
-msgstr ""
+msgstr "Добавить описание"
 
 #: ui/views/tasks-view.slint:754
 msgid "CHECKLIST"
-msgstr ""
+msgstr "ЧЕК-ЛИСТ"
 
 #: ui/views/tasks-view.slint:762
 msgid "Uncheck item"
-msgstr ""
+msgstr "Снять отметку"
 
 #: ui/views/tasks-view.slint:762
 msgid "Check item"
-msgstr ""
+msgstr "Отметить пункт"
 
 #: ui/views/tasks-view.slint:777
 msgid "Remove item"
-msgstr ""
+msgstr "Удалить пункт"
 
 #: ui/views/tasks-view.slint:782 ui/views/tasks-view.slint:783
 msgid "Add checklist item"
-msgstr ""
+msgstr "Добавить пункт"
 
 #: ui/views/tasks-view.slint:786
 msgid "LINKED ITEMS"
-msgstr ""
+msgstr "СВЯЗАННЫЕ ЭЛЕМЕНТЫ"
 
 #: ui/views/tasks-view.slint:794
 msgid "Sent"
-msgstr ""
+msgstr "Отправлено"
 
 #: ui/views/tasks-view.slint:795
 msgid "Event"
-msgstr ""
+msgstr "Событие"
 
 #: ui/views/tasks-view.slint:796 ui/views/tasks-view.slint:839
 msgid "Blocks"
-msgstr ""
+msgstr "Блокирует"
 
 #: ui/views/tasks-view.slint:797 ui/views/tasks-view.slint:838
 msgid "Depends on"
-msgstr ""
+msgstr "Зависит от"
 
 #: ui/views/tasks-view.slint:802
 msgid "Not found"
-msgstr ""
+msgstr "Не найдено"
 
 #: ui/views/tasks-view.slint:826
 msgid "Blocks task (title)"
-msgstr ""
+msgstr "Блокирует задачу (название)"
 
 #: ui/views/tasks-view.slint:826
 msgid "Depends on task (title)"
-msgstr ""
+msgstr "Зависит от задачи (название)"
 
 #: ui/views/tasks-view.slint:827
 msgid "Link a task"
-msgstr ""
+msgstr "Связать задачу"
 
 #: ui/views/tasks-view.slint:842
 msgid "Link type"
-msgstr ""
+msgstr "Тип связи"
 
 #: ui/views/tasks-view.slint:846
 msgid "ACTIVITY"
-msgstr ""
+msgstr "АКТИВНОСТЬ"
 
 #: ui/views/tasks-view.slint:921
 msgid "Lists"
-msgstr ""
+msgstr "Списки"
 
 #: ui/views/tasks-view.slint:938
 msgid "{} tasks"
-msgstr ""
+msgstr "Задач: {}"
 
 #: ui/views/tasks-view.slint:948 ui/views/tasks-view.slint:949
 msgid "Search tasks and linked mail"
-msgstr ""
+msgstr "Поиск задач и связанной почты"
 
 #: ui/views/tasks-view.slint:978
 msgid "Remove filter"
-msgstr ""
+msgstr "Убрать фильтр"
 
 #: ui/views/tasks-view.slint:984
 msgid "Board"
-msgstr ""
+msgstr "Доска"
 
 #: ui/views/tasks-view.slint:984
 msgid "List"
-msgstr ""
+msgstr "Список"
 
 #: ui/views/tasks-view.slint:995
 msgid "Group"
-msgstr ""
+msgstr "Группировка"
 
 #: ui/views/tasks-view.slint:1017
 msgid "No tasks"
-msgstr ""
+msgstr "Нет задач"
 
 #: ui/views/tasks-view.slint:1042
 msgid "Add column"
-msgstr ""
+msgstr "Добавить колонку"
 
 #: ui/window-chrome.slint:200 ui/window-chrome.slint:237
 msgid "Minimize"
