@@ -43,6 +43,7 @@ struct DetailSnap {
     project: String,
     column: String,
     context: String,
+    assignee: String,
     labels: String,
     /// `(menu id, title)`: "ctx:<id>" / "ctx:none", "lbl:<id>" (ticked when set).
     context_menu: Vec<(String, String)>,
@@ -243,6 +244,11 @@ async fn load_detail(
             .unwrap_or_default(),
         column: column.name.clone(),
         context,
+        assignee: match (&task.assignee_name, &task.assignee_email) {
+            (Some(n), Some(e)) if !n.is_empty() => format!("{n} <{e}>"),
+            (_, Some(e)) => e.clone(),
+            _ => String::new(),
+        },
         labels,
         context_menu,
         label_menu,
@@ -530,6 +536,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                 project: d.project.into(),
                 column: d.column.into(),
                 context: d.context.into(),
+                assignee: d.assignee.into(),
                 labels: d.labels.into(),
             });
             let entries = |rows: Vec<(String, String)>| {
@@ -782,6 +789,36 @@ async fn mutate(
                 ..Default::default()
             };
             core.task_update(id.ok_or("bad task")?, patch).await.map_err(err)?;
+        }
+        "detail-assignee" => {
+            let text = b.trim();
+            let assignee = if text.is_empty() {
+                None
+            } else if let Some((name, rest)) = text.split_once('<')
+                && let Some(email) = rest.strip_suffix('>')
+            {
+                Some((email.trim().to_owned(), name.trim().to_owned()))
+            } else if text.contains('@') && !text.contains(' ') {
+                Some((text.to_owned(), String::new()))
+            } else {
+                let hit = core
+                    .suggest_contacts(text.to_owned(), 1)
+                    .await
+                    .map_err(err)?
+                    .into_iter()
+                    .next()
+                    .ok_or("No contact matches; type an email address")?;
+                Some((hit.email, hit.name.unwrap_or_default()))
+            };
+            core.task_update(
+                id.ok_or("bad task")?,
+                TaskPatch {
+                    assignee: Some(assignee),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map_err(err)?;
         }
         "detail-label" => {
             let label = b

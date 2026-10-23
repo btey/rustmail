@@ -61,6 +61,7 @@ export struct TaskDetailRow {
     project: string,
     column: string,
     context: string,
+    assignee: string,
     labels: string,
 }
 
@@ -515,11 +516,13 @@ component TaskDrawer inherits Rectangle {
     in-out property <string> description-draft;
     in-out property <string> due-draft;
     in-out property <string> label-draft;
+    in-out property <string> assignee-draft;
     function reset-drafts() {
         root.title-draft = TasksUi.detail.title;
         root.description-draft = TasksUi.detail.description;
         root.due-draft = TasksUi.detail.due;
         root.label-draft = "";
+        root.assignee-draft = "";
     }
     init => { root.reset-drafts(); }
     private property <int> shown-id: -1;
@@ -610,6 +613,22 @@ component TaskDrawer inherits Rectangle {
                     menu-width: 220px;
                     tooltip-text: @tr("Set context");
                     activated(id) => { TasksUi.command("detail-context", "" + TasksUi.detail.id, id); }
+                }
+            }
+            DetailSection { text: @tr("ASSIGNEE"); }
+            Text {
+                text: TasksUi.detail.assignee != "" ? TasksUi.detail.assignee : @tr("Unassigned");
+                color: AppTheme.heading;
+                font-size: TypeScale.body;
+                overflow: elide;
+            }
+            LineEdit {
+                text <=> root.assignee-draft;
+                placeholder-text: @tr("Name or email, empty to clear");
+                input-label: @tr("Assignee");
+                accepted(text) => {
+                    TasksUi.command("detail-assignee", "" + TasksUi.detail.id, text);
+                    root.assignee-draft = "";
                 }
             }
             DetailSection { text: @tr("LABELS"); }
