@@ -30,7 +30,8 @@ use rustmail::{
     CalendarSourceRow, CalendarWeekDay, ContactAccountRow, ContactRow, ContactSidebarRow,
     ContactSidebarRowKind, EmailRow, LocalizedMessage, MailAttachment, MailAttachments,
     MailLabelRow, MailListEntry, MailProfileRow, MailboxRow, MotionSettings, SidebarRow,
-    SidebarRowKind, StorageUsageRow, ThreadMessageRow,
+    SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipRow, TaskColumnRow, TaskDetailRow,
+    TaskNavRow, TasksUi, ThreadMessageRow,
 };
 use slint::platform::{
     Platform, WindowAdapter,
@@ -570,7 +571,95 @@ fn reset(app: &AppWindow) {
     app.set_account_form_open(false);
     app.global::<AppTheme>().set_preset("default".into());
     app.global::<MailAttachments>().set_rows(model(Vec::new()));
+    let tasks = app.global::<TasksUi>();
+    tasks.set_detail_open(false);
+    tasks.set_navigation_open(false);
+    tasks.set_sidebar_collapsed(false);
     WindowInner::from_pub(app.window()).close_all_popups();
+}
+
+/// A project board with long names, as the Tasks view shows after a load.
+fn tasks_fixture(app: &AppWindow, drawer: bool) {
+    let card = |id: i32, title: &str| TaskCardRow {
+        id,
+        title: title.into(),
+        due: "2026-12-31".into(),
+        due_warn: id % 2 == 0,
+        high_priority: id % 2 == 0,
+        labels: "quarterly, finance".into(),
+        checklist_total: 4,
+        checklist_done: 1,
+        link_count: 2,
+        done: false,
+        from_mail: true,
+        context: "computer".into(),
+        assignee: "AD".into(),
+        status: String::new().into(),
+    };
+    let column = |id: i32, name: &str, cards: Vec<TaskCardRow>| TaskColumnRow {
+        id,
+        name: name.into(),
+        colour: slint::Color::from_rgb_u8(0x3b, 0x82, 0xf6),
+        count: format!("{} / 5", cards.len()).into(),
+        over_wip: false,
+        collapsed: false,
+        wip_limit: 5,
+        fixed: id < 3,
+        cards: model(cards),
+    };
+    let nav = |key: &str, label: &str| TaskNavRow {
+        key: key.into(),
+        label: label.into(),
+        count: "12".into(),
+        colour: slint::Color::from_rgb_u8(0x6b, 0x72, 0x80),
+    };
+    let tasks = app.global::<TasksUi>();
+    tasks.set_selection("project:1".into());
+    tasks.set_title("Annual compliance review project".into());
+    tasks.set_task_count(7);
+    tasks.set_can_switch_view(true);
+    tasks.set_focus_rows(model(vec![
+        nav("focus:inbox", ""),
+        nav("focus:waiting", ""),
+        nav("focus:someday", ""),
+    ]));
+    tasks.set_projects(model(vec![nav(
+        "project:1",
+        "Annual compliance review project",
+    )]));
+    tasks.set_contexts(model(vec![nav("context:1", "computer")]));
+    tasks.set_filter_chips(model(vec![TaskChipRow {
+        key: "label".into(),
+        text: "Label: quarterly".into(),
+    }]));
+    tasks.set_columns(model(vec![
+        column(
+            1,
+            "Inbox",
+            vec![card(
+                1,
+                "Reply to the auditors about the revised quarterly figures",
+            )],
+        ),
+        column(2, "Next actions", vec![card(2, "Book travel")]),
+        column(3, "Waiting for reply from the finance department", vec![]),
+    ]));
+    if drawer {
+        tasks.set_detail(TaskDetailRow {
+            id: 1,
+            title: "Reply to the auditors about the revised quarterly figures".into(),
+            description: "Attach the signed statement.".into(),
+            due: "2026-12-31".into(),
+            high_priority: true,
+            done: false,
+            project: "Annual compliance review project".into(),
+            column: "Waiting for reply from the finance department".into(),
+            context: "computer".into(),
+            assignee: "Ana María Díaz <ana.diaz@example.org>".into(),
+            labels: "quarterly, finance".into(),
+        });
+        tasks.set_detail_open(true);
+    }
 }
 
 thread_local! {
@@ -766,6 +855,14 @@ fn states() -> Vec<State> {
         },
         state("contacts", |app| app.set_active_view("contacts".into())),
         state("files", |app| app.set_active_view("files".into())),
+        state("tasks board", |app| {
+            tasks_fixture(app, false);
+            app.set_active_view("tasks".into());
+        }),
+        state("tasks drawer", |app| {
+            tasks_fixture(app, true);
+            app.set_active_view("tasks".into());
+        }),
         state("compose", |app| {
             app.set_compose_to("jamie.rivera@example.com".into());
             app.set_compose_subject("Re: Quarterly planning notes".into());

@@ -275,6 +275,7 @@ component TaskCard inherits Rectangle {
         x: root.pad;
         y: root.pad;
         width: parent.width - 2 * root.pad;
+        height: parent.height - 2 * root.pad;
         spacing: 6px;
         HorizontalLayout {
             spacing: 8px;
@@ -346,11 +347,30 @@ component TaskCard inherits Rectangle {
                 color: AppTheme.secondary;
                 font-size: TypeScale.micro;
             }
+        }
+        if root.card.from-mail || root.card.high-priority || root.card.context != "" || root.card.assignee != "" : HorizontalLayout {
+            spacing: 10px;
             if root.card.from-mail : Text {
                 text: @tr("From email");
                 color: AppTheme.secondary;
                 font-size: TypeScale.micro;
+                vertical-alignment: center;
             }
+            if root.card.high-priority : Text {
+                text: @tr("High");
+                color: AppTheme.destructive;
+                font-size: TypeScale.micro;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+            if root.card.context != "" : Text {
+                text: "@" + root.card.context;
+                color: AppTheme.secondary;
+                font-size: TypeScale.micro;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            Rectangle { horizontal-stretch: 1; }
             if root.card.assignee != "" : Rectangle {
                 width: 20px;
                 height: 20px;
@@ -366,17 +386,6 @@ component TaskCard inherits Rectangle {
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
-            }
-            if root.card.high-priority : Text {
-                text: @tr("High");
-                color: AppTheme.destructive;
-                font-size: TypeScale.micro;
-                font-weight: 700;
-            }
-            if root.card.context != "" : Text {
-                text: "@" + root.card.context;
-                color: AppTheme.secondary;
-                font-size: TypeScale.micro;
             }
         }
     }
