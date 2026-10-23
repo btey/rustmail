@@ -609,6 +609,9 @@ pub(crate) fn register(
     app.global::<TasksUi>().on_command(move |action, a, b| {
         dispatch(&command, action.to_string(), vec![a.to_string(), b.to_string()]);
     });
+    app.global::<TasksUi>().on_to_transfer(slint::DataTransfer::from);
+    app.global::<TasksUi>()
+        .on_text_of(|data| data.plain_text().unwrap_or_default());
     let save = Rc::clone(&ctx);
     app.global::<TasksUi>()
         .on_save_detail(move |id, title, description, due| {

@@ -115,6 +115,9 @@ export global TasksUi {
     in-out property <bool> sidebar-collapsed: false;
     in-out property <bool> navigation-open: false;
     callback command(string, string, string);
+    // Drag payloads are opaque in Slint; the host builds and reads them.
+    pure callback to-transfer(string) -> data-transfer;
+    pure callback text-of(data-transfer) -> string;
 }
 
 global TasksText {
@@ -244,9 +247,13 @@ component TaskCard inherits Rectangle {
     accessible-role: list-item;
     accessible-label: root.card.title;
 
-    TouchArea {
-        mouse-cursor: pointer;
-        clicked => { root.open(); }
+    DragArea {
+        allow-move: true;
+        data: TasksUi.to-transfer("" + root.card.id);
+        TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.open(); }
+        }
     }
 
     content := VerticalLayout {
@@ -464,6 +471,14 @@ component TaskColumnView inherits Rectangle {
                 TasksUi.adding-column = -2;
             }
         }
+        DropArea {
+            vertical-stretch: 1;
+            enabled: root.column.id >= 0;
+            can-drop(event) => { DragAction.move }
+            dropped(event) => {
+                TasksUi.command("card-menu", TasksUi.text-of(event.data), "move:" + root.column.id);
+                return event.proposed-action;
+            }
         ScrollView {
             vertical-stretch: 1;
             content-width: self.visible-width;
@@ -479,6 +494,7 @@ component TaskColumnView inherits Rectangle {
                     menu-action(id) => { TasksUi.command("card-menu", "" + card.id, id); }
                 }
             }
+        }
         }
     }
 }
