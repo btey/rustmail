@@ -240,7 +240,8 @@ const TASK_SELECT: &str = "SELECT t.id, t.uid, t.project_id, t.column_id, t.titl
            WHERE c.task_id = t.id AND c.deleted_at IS NULL),
         (SELECT COUNT(*) FROM task_checklist_items c
            WHERE c.task_id = t.id AND c.deleted_at IS NULL AND c.done = 1),
-        (SELECT COUNT(*) FROM task_links l WHERE l.task_id = t.id AND l.deleted_at IS NULL)
+        (SELECT COUNT(*) FROM task_links l WHERE l.task_id = t.id AND l.deleted_at IS NULL),
+        t.move_back_on_reply
      FROM tasks t";
 
 fn task_from_row(r: &Row) -> rusqlite::Result<Task> {
@@ -271,6 +272,7 @@ fn task_from_row(r: &Row) -> rusqlite::Result<Task> {
         checklist_total: r.get(17)?,
         checklist_done: r.get(18)?,
         link_count: r.get(19)?,
+        move_back_on_reply: r.get::<_, i64>(20)? != 0,
     })
 }
 
@@ -566,6 +568,92 @@ fn unique_name_error(e: rusqlite::Error, what: &str) -> CoreError {
 }
 
 impl SqliteTaskStore<'_> {
+    /// Mail arrived in `thread_ids`: for every open task linked to one of
+    /// them, note the reply in its activity (once per reply) and, if the task
+    /// is in Waiting for with `move_back_on_reply`, move it to Next actions.
+    /// Returns the ids of the tasks that were touched.
+    pub fn note_replies(&mut self, thread_ids: &[i64]) -> Result<Vec<i64>> {
+        if thread_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let candidates: Vec<(i64, i64, i64, String)> = {
+            let mut stmt = self.conn.prepare(
+                "SELECT DISTINCT t.id, m.thread_id, l.created_at, c.kind
+                 FROM task_links l
+                 JOIN tasks t ON t.id = l.task_id AND t.deleted_at IS NULL
+                      AND t.completed_at IS NULL
+                 JOIN task_columns c ON c.id = t.column_id
+                 JOIN messages m ON m.message_id = l.message_id
+                 JOIN accounts a ON a.id = m.account_id
+                  AND (l.account_email IS NULL OR a.email = l.account_email)
+                 WHERE l.deleted_at IS NULL AND l.kind IN ('mail_received', 'mail_sent')
+                   AND m.thread_id IS NOT NULL",
+            )?;
+            stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+                .collect::<rusqlite::Result<_>>()?
+        };
+        let mut touched = Vec::new();
+        for (task_id, thread_id, linked_at, kind) in candidates {
+            if !thread_ids.contains(&thread_id) {
+                continue;
+            }
+            // The newest incoming message after the later of the link and the
+            // last reply already noted.
+            let noted: i64 = self.conn.query_row(
+                "SELECT COALESCE(MAX(at), 0) FROM task_activity
+                 WHERE task_id = ?1 AND kind = 'reply'",
+                [task_id],
+                |r| r.get(0),
+            )?;
+            let since = linked_at.max(noted);
+            let reply: Option<(i64, String)> = self
+                .conn
+                .query_row(
+                    "SELECT date, subject FROM messages
+                     WHERE thread_id = ?1 AND is_outgoing = 0 AND date > ?2
+                     ORDER BY date DESC, id DESC LIMIT 1",
+                    params![thread_id, since],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()?;
+            let Some((reply_at, subject)) = reply else {
+                continue;
+            };
+            // Stamped with the reply's own date: that is the high-water mark
+            // above, so a future-dated message is still noted only once.
+            self.conn.execute(
+                "INSERT INTO task_activity (task_id, kind, text, at) VALUES (?1, 'reply', ?2, ?3)",
+                params![task_id, format!("Reply received: {subject}"), reply_at],
+            )?;
+            let task = fetch_task(self.conn, task_id)?;
+            if kind == "waiting" && task.move_back_on_reply {
+                let next: Option<i64> = self
+                    .conn
+                    .query_row(
+                        "SELECT id FROM task_columns
+                         WHERE project_id = ?1 AND kind = 'next' AND deleted_at IS NULL
+                         ORDER BY position LIMIT 1",
+                        [task.project_id],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+                if let Some(next) = next {
+                    let tx = self.conn.transaction()?;
+                    move_task_inner(&tx, task_id, next, Place::Top)?;
+                    activity(
+                        &tx,
+                        task_id,
+                        "moved",
+                        "Moved back to Next actions: a reply arrived",
+                    )?;
+                    tx.commit()?;
+                }
+            }
+            touched.push(task_id);
+        }
+        Ok(touched)
+    }
+
     /// For each mail thread that has a linked task, the newest such task.
     /// Links resolve through the Message-ID, like `list_links`, so moved or
     /// re-threaded mail keeps its chip. `only` limits the answer to those
@@ -1037,9 +1125,17 @@ impl TaskStore for SqliteTaskStore<'_> {
             None => (t.assignee_email, t.assignee_name),
         };
         let assignee_name = assignee_name.filter(|_| assignee_email.is_some());
+        let move_back = match patch.move_back_on_reply {
+            Some(v) => {
+                changed.push("reply tracking");
+                v
+            }
+            None => t.move_back_on_reply,
+        };
         tx.execute(
             "UPDATE tasks SET title = ?2, description = ?3, due_at = ?4, start_at = ?5,
-                priority = ?6, context_id = ?7, assignee_email = ?8, assignee_name = ?9
+                priority = ?6, context_id = ?7, assignee_email = ?8, assignee_name = ?9,
+                move_back_on_reply = ?10
              WHERE id = ?1",
             params![
                 id,
@@ -1050,7 +1146,8 @@ impl TaskStore for SqliteTaskStore<'_> {
                 priority,
                 context_id,
                 assignee_email,
-                assignee_name
+                assignee_name,
+                move_back
             ],
         )?;
         stamp(&tx, "task", "tasks", id, "update")?;

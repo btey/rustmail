@@ -194,6 +194,8 @@ pub struct Task {
     pub checklist_total: i64,
     pub checklist_done: i64,
     pub link_count: i64,
+    /// In Waiting for: move to Next actions when a reply arrives.
+    pub move_back_on_reply: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -273,6 +275,7 @@ pub struct TaskPatch {
     pub context_id: Option<Option<i64>>,
     /// `(email, display-name snapshot)`.
     pub assignee: Option<Option<(String, String)>>,
+    pub move_back_on_reply: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

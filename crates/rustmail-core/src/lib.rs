@@ -661,6 +661,10 @@ impl Core {
             let c = core.clone();
             tokio::spawn(async move { c.filter_loop().await });
         }
+        {
+            let c = core.clone();
+            tokio::spawn(async move { c.task_reply_loop().await });
+        }
 
         Ok(core)
     }

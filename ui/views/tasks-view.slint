@@ -54,6 +54,7 @@ export struct TaskNavRow {
 
 export struct TaskDetailRow {
     id: int,
+    move-back: bool,
     title: string,
     description: string,
     due: string,
@@ -646,6 +647,12 @@ component TaskDrawer inherits Rectangle {
                     width: max(100px, self.content-width + 28px);
                     clicked => { TasksUi.command("toggle-priority", "" + TasksUi.detail.id, ""); }
                 }
+            }
+            if TasksUi.links.length > 0 : Button {
+                text: @tr("Move back when a reply arrives");
+                selected: TasksUi.detail.move-back;
+                label-overflow: elide;
+                clicked => { TasksUi.command("toggle-move-back", "" + TasksUi.detail.id, ""); }
             }
             DetailSection { text: @tr("CONTEXT"); }
             HorizontalLayout {

@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-23 20:25+0000\n"
+"POT-Creation-Date: 2026-10-23 22:15+0000\n"
 "PO-Revision-Date: 2026-10-08 15:11+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Russian <ru@li.org>\n"
@@ -1997,7 +1997,7 @@ msgstr "Экспортировать расшифрованное сообщен
 
 #: ui/components/account-mail-preferences.slint:296
 #: ui/dialogs/settings-dialog.slint:2511 ui/views/files-view.slint:455
-#: ui/views/files-view.slint:656 ui/views/tasks-view.slint:624
+#: ui/views/files-view.slint:656 ui/views/tasks-view.slint:625
 #: ui/window-chrome.slint:238
 msgid "Close"
 msgstr "Закрыть"
@@ -2249,7 +2249,7 @@ msgid "Filters only affect this agenda."
 msgstr "Фильтры действуют только в этом расписании."
 
 #: ui/components/calendar-agenda.slint:212 ui/components/calendar.slint:577
-#: ui/views/mail-list-pane.slint:322 ui/views/tasks-view.slint:733
+#: ui/views/mail-list-pane.slint:322 ui/views/tasks-view.slint:741
 msgid "Today"
 msgstr "Сегодня"
 
@@ -2561,7 +2561,7 @@ msgstr "Выделенный текст откроет этот адрес."
 msgid "https://example.com"
 msgstr "https://example.com"
 
-#: ui/components/composer-actions.slint:397 ui/views/tasks-view.slint:816
+#: ui/components/composer-actions.slint:397 ui/views/tasks-view.slint:824
 msgid "Remove link"
 msgstr "Удалить ссылку"
 
@@ -3010,7 +3010,7 @@ msgstr "Добавить действие"
 msgid "Stop: skip the filters below when this one matches"
 msgstr "Стоп: пропустить фильтры ниже, если этот сработал"
 
-#: ui/components/filter-rules.slint:325 ui/views/tasks-view.slint:1005
+#: ui/components/filter-rules.slint:325 ui/views/tasks-view.slint:1013
 msgid "Add filter"
 msgstr "Добавить фильтр"
 
@@ -3352,7 +3352,7 @@ msgstr "ВСЕ УЧЁТНЫЕ ЗАПИСИ"
 msgid "All Inboxes"
 msgstr "Все входящие"
 
-#: ui/components/sidebar.slint:239 ui/views/tasks-view.slint:133
+#: ui/components/sidebar.slint:239 ui/views/tasks-view.slint:134
 msgid "Inbox"
 msgstr "Входящие"
 
@@ -3390,7 +3390,7 @@ msgid "New folder"
 msgstr "Новая папка"
 
 #: ui/components/sidebar.slint:616 ui/dialogs/folder-dialog.slint:26
-#: ui/views/tasks-view.slint:710
+#: ui/views/tasks-view.slint:718
 msgid "New label"
 msgstr "Новая метка"
 
@@ -3751,7 +3751,7 @@ msgstr "ПОВТОРЕНИЕ"
 msgid "ATTENDEES"
 msgstr "УЧАСТНИКИ"
 
-#: ui/dialogs/calendar-details-dialog.slint:188 ui/views/tasks-view.slint:743
+#: ui/dialogs/calendar-details-dialog.slint:188 ui/views/tasks-view.slint:751
 msgid "DESCRIPTION"
 msgstr "ОПИСАНИЕ"
 
@@ -6321,329 +6321,333 @@ msgstr ""
 msgid "Connect using IMAP and SMTP. POP3 is not supported."
 msgstr "Подключайтесь по IMAP и SMTP. POP3 не поддерживается."
 
-#: ui/views/tasks-view.slint:135
+#: ui/views/tasks-view.slint:136
 msgid "Upcoming"
 msgstr "Предстоящие"
 
-#: ui/views/tasks-view.slint:136
+#: ui/views/tasks-view.slint:137
 msgid "Waiting for"
 msgstr "Ожидание"
 
-#: ui/views/tasks-view.slint:137 ui/views/tasks-view.slint:355
+#: ui/views/tasks-view.slint:138 ui/views/tasks-view.slint:356
 msgid "From email"
 msgstr "Из почты"
 
-#: ui/views/tasks-view.slint:138
+#: ui/views/tasks-view.slint:139
 msgid "Someday / Maybe"
 msgstr "Когда-нибудь / Возможно"
 
-#: ui/views/tasks-view.slint:171
+#: ui/views/tasks-view.slint:172
 msgid "New task"
 msgstr "Новая задача"
 
-#: ui/views/tasks-view.slint:182 ui/views/tasks-view.slint:183
+#: ui/views/tasks-view.slint:183 ui/views/tasks-view.slint:184
 msgid "Find list, project or context"
 msgstr "Найти список, проект или контекст"
 
-#: ui/views/tasks-view.slint:193
+#: ui/views/tasks-view.slint:194
 msgid "FOCUS"
 msgstr "ФОКУС"
 
-#: ui/views/tasks-view.slint:203
+#: ui/views/tasks-view.slint:204
 msgid "PROJECTS"
 msgstr "ПРОЕКТЫ"
 
-#: ui/views/tasks-view.slint:214 ui/views/tasks-view.slint:215
+#: ui/views/tasks-view.slint:215 ui/views/tasks-view.slint:216
 msgid "Project name"
 msgstr "Название проекта"
 
-#: ui/views/tasks-view.slint:219
+#: ui/views/tasks-view.slint:220
 msgid "New project"
 msgstr "Новый проект"
 
-#: ui/views/tasks-view.slint:224
+#: ui/views/tasks-view.slint:225
 msgid "CONTEXTS"
 msgstr "КОНТЕКСТЫ"
 
-#: ui/views/tasks-view.slint:234 ui/views/tasks-view.slint:235
+#: ui/views/tasks-view.slint:235 ui/views/tasks-view.slint:236
 msgid "Context name"
 msgstr "Название контекста"
 
-#: ui/views/tasks-view.slint:239
+#: ui/views/tasks-view.slint:240
 msgid "New context"
 msgstr "Новый контекст"
 
-#: ui/views/tasks-view.slint:291
+#: ui/views/tasks-view.slint:292
 msgid "Reopen task"
 msgstr "Открыть задачу снова"
 
-#: ui/views/tasks-view.slint:291
+#: ui/views/tasks-view.slint:292
 msgid "Complete task"
 msgstr "Завершить задачу"
 
-#: ui/views/tasks-view.slint:310 ui/views/tasks-view.slint:617
+#: ui/views/tasks-view.slint:311 ui/views/tasks-view.slint:618
 msgid "Move to column"
 msgstr "Переместить в колонку"
 
-#: ui/views/tasks-view.slint:317 ui/views/tasks-view.slint:862
+#: ui/views/tasks-view.slint:318 ui/views/tasks-view.slint:870
 msgid "Delete task"
 msgstr "Удалить задачу"
 
-#: ui/views/tasks-view.slint:342
+#: ui/views/tasks-view.slint:343
 msgid "{}/{} done"
 msgstr "{}/{} выполнено"
 
-#: ui/views/tasks-view.slint:347
+#: ui/views/tasks-view.slint:348
 msgid "{} linked"
 msgstr "{} связано"
 
-#: ui/views/tasks-view.slint:361
+#: ui/views/tasks-view.slint:362
 msgid "High"
 msgstr "Высокий"
 
-#: ui/views/tasks-view.slint:402
+#: ui/views/tasks-view.slint:403
 msgid "Rename column"
 msgstr "Переименовать колонку"
 
-#: ui/views/tasks-view.slint:403
+#: ui/views/tasks-view.slint:404
 msgid "Set task limit"
 msgstr "Задать лимит задач"
 
-#: ui/views/tasks-view.slint:404
+#: ui/views/tasks-view.slint:405
 msgid "Move left"
 msgstr "Влево"
 
-#: ui/views/tasks-view.slint:405
+#: ui/views/tasks-view.slint:406
 msgid "Move right"
 msgstr "Вправо"
 
-#: ui/views/tasks-view.slint:406
+#: ui/views/tasks-view.slint:407
 msgid "Colour: Grey"
 msgstr "Цвет: серый"
 
-#: ui/views/tasks-view.slint:407
+#: ui/views/tasks-view.slint:408
 msgid "Colour: Blue"
 msgstr "Цвет: синий"
 
-#: ui/views/tasks-view.slint:408
+#: ui/views/tasks-view.slint:409
 msgid "Colour: Green"
 msgstr "Цвет: зелёный"
 
-#: ui/views/tasks-view.slint:409
+#: ui/views/tasks-view.slint:410
 msgid "Colour: Orange"
 msgstr "Цвет: оранжевый"
 
-#: ui/views/tasks-view.slint:410
+#: ui/views/tasks-view.slint:411
 msgid "Colour: Red"
 msgstr "Цвет: красный"
 
-#: ui/views/tasks-view.slint:411
+#: ui/views/tasks-view.slint:412
 msgid "Delete column"
 msgstr "Удалить колонку"
 
-#: ui/views/tasks-view.slint:482
+#: ui/views/tasks-view.slint:483
 msgid "Add task"
 msgstr "Добавить задачу"
 
-#: ui/views/tasks-view.slint:491
+#: ui/views/tasks-view.slint:492
 msgid "Column options"
 msgstr "Параметры колонки"
 
-#: ui/views/tasks-view.slint:505
+#: ui/views/tasks-view.slint:506
 msgid "Collapse column"
 msgstr "Свернуть колонку"
 
-#: ui/views/tasks-view.slint:511 ui/views/tasks-view.slint:512
-#: ui/views/tasks-view.slint:1038
+#: ui/views/tasks-view.slint:512 ui/views/tasks-view.slint:513
+#: ui/views/tasks-view.slint:1046
 msgid "Column name"
 msgstr "Название колонки"
 
-#: ui/views/tasks-view.slint:511 ui/views/tasks-view.slint:512
+#: ui/views/tasks-view.slint:512 ui/views/tasks-view.slint:513
 msgid "Task limit (empty = none)"
 msgstr "Лимит задач (пусто — без лимита)"
 
-#: ui/views/tasks-view.slint:519 ui/views/tasks-view.slint:520
-#: ui/views/tasks-view.slint:631
+#: ui/views/tasks-view.slint:520 ui/views/tasks-view.slint:521
+#: ui/views/tasks-view.slint:632
 msgid "Task title"
 msgstr "Название задачи"
 
-#: ui/views/tasks-view.slint:638
+#: ui/views/tasks-view.slint:639
 msgid "Reopen"
 msgstr "Открыть снова"
 
-#: ui/views/tasks-view.slint:638
+#: ui/views/tasks-view.slint:639
 msgid "Complete"
 msgstr "Завершить"
 
-#: ui/views/tasks-view.slint:644
+#: ui/views/tasks-view.slint:645
 msgid "High priority"
 msgstr "Высокий приоритет"
 
-#: ui/views/tasks-view.slint:650
+#: ui/views/tasks-view.slint:652
+msgid "Move back when a reply arrives"
+msgstr "Вернуть при ответе"
+
+#: ui/views/tasks-view.slint:658
 msgid "CONTEXT"
 msgstr "КОНТЕКСТ"
 
-#: ui/views/tasks-view.slint:655
+#: ui/views/tasks-view.slint:663
 msgid "No context"
 msgstr "Без контекста"
 
-#: ui/views/tasks-view.slint:667
+#: ui/views/tasks-view.slint:675
 msgid "Set context"
 msgstr "Задать контекст"
 
-#: ui/views/tasks-view.slint:671
+#: ui/views/tasks-view.slint:679
 msgid "ASSIGNEE"
 msgstr "ИСПОЛНИТЕЛЬ"
 
-#: ui/views/tasks-view.slint:673
+#: ui/views/tasks-view.slint:681
 msgid "Unassigned"
 msgstr "Не назначено"
 
-#: ui/views/tasks-view.slint:680
+#: ui/views/tasks-view.slint:688
 msgid "Name or email, empty to clear"
 msgstr "Имя или e-mail; пусто — снять"
 
-#: ui/views/tasks-view.slint:681
+#: ui/views/tasks-view.slint:689
 msgid "Assignee"
 msgstr "Исполнитель"
 
-#: ui/views/tasks-view.slint:687
+#: ui/views/tasks-view.slint:695
 msgid "LABELS"
 msgstr "МЕТКИ"
 
-#: ui/views/tasks-view.slint:692
+#: ui/views/tasks-view.slint:700
 msgid "No labels"
 msgstr "Без меток"
 
-#: ui/views/tasks-view.slint:704
+#: ui/views/tasks-view.slint:712
 msgid "Toggle labels"
 msgstr "Переключить метки"
 
-#: ui/views/tasks-view.slint:717
+#: ui/views/tasks-view.slint:725
 msgid "DUE DATE"
 msgstr "СРОК"
 
-#: ui/views/tasks-view.slint:725
+#: ui/views/tasks-view.slint:733
 msgid "Due date"
 msgstr "Срок"
 
-#: ui/views/tasks-view.slint:734
+#: ui/views/tasks-view.slint:742
 msgid "Tomorrow"
 msgstr "Завтра"
 
-#: ui/views/tasks-view.slint:735
+#: ui/views/tasks-view.slint:743
 msgid "In a week"
 msgstr "Через неделю"
 
-#: ui/views/tasks-view.slint:736
+#: ui/views/tasks-view.slint:744
 msgid "No date"
 msgstr "Без даты"
 
-#: ui/views/tasks-view.slint:739
+#: ui/views/tasks-view.slint:747
 msgid "Quick due date"
 msgstr "Быстрый срок"
 
-#: ui/views/tasks-view.slint:747
+#: ui/views/tasks-view.slint:755
 msgid "Add a description"
 msgstr "Добавить описание"
 
-#: ui/views/tasks-view.slint:754
+#: ui/views/tasks-view.slint:762
 msgid "CHECKLIST"
 msgstr "ЧЕК-ЛИСТ"
 
-#: ui/views/tasks-view.slint:762
+#: ui/views/tasks-view.slint:770
 msgid "Uncheck item"
 msgstr "Снять отметку"
 
-#: ui/views/tasks-view.slint:762
+#: ui/views/tasks-view.slint:770
 msgid "Check item"
 msgstr "Отметить пункт"
 
-#: ui/views/tasks-view.slint:777
+#: ui/views/tasks-view.slint:785
 msgid "Remove item"
 msgstr "Удалить пункт"
 
-#: ui/views/tasks-view.slint:782 ui/views/tasks-view.slint:783
+#: ui/views/tasks-view.slint:790 ui/views/tasks-view.slint:791
 msgid "Add checklist item"
 msgstr "Добавить пункт"
 
-#: ui/views/tasks-view.slint:786
+#: ui/views/tasks-view.slint:794
 msgid "LINKED ITEMS"
 msgstr "СВЯЗАННЫЕ ЭЛЕМЕНТЫ"
 
-#: ui/views/tasks-view.slint:794
+#: ui/views/tasks-view.slint:802
 msgid "Sent"
 msgstr "Отправлено"
 
-#: ui/views/tasks-view.slint:795
+#: ui/views/tasks-view.slint:803
 msgid "Event"
 msgstr "Событие"
 
-#: ui/views/tasks-view.slint:796 ui/views/tasks-view.slint:839
+#: ui/views/tasks-view.slint:804 ui/views/tasks-view.slint:847
 msgid "Blocks"
 msgstr "Блокирует"
 
-#: ui/views/tasks-view.slint:797 ui/views/tasks-view.slint:838
+#: ui/views/tasks-view.slint:805 ui/views/tasks-view.slint:846
 msgid "Depends on"
 msgstr "Зависит от"
 
-#: ui/views/tasks-view.slint:802
+#: ui/views/tasks-view.slint:810
 msgid "Not found"
 msgstr "Не найдено"
 
-#: ui/views/tasks-view.slint:826
+#: ui/views/tasks-view.slint:834
 msgid "Blocks task (title)"
 msgstr "Блокирует задачу (название)"
 
-#: ui/views/tasks-view.slint:826
+#: ui/views/tasks-view.slint:834
 msgid "Depends on task (title)"
 msgstr "Зависит от задачи (название)"
 
-#: ui/views/tasks-view.slint:827
+#: ui/views/tasks-view.slint:835
 msgid "Link a task"
 msgstr "Связать задачу"
 
-#: ui/views/tasks-view.slint:842
+#: ui/views/tasks-view.slint:850
 msgid "Link type"
 msgstr "Тип связи"
 
-#: ui/views/tasks-view.slint:846
+#: ui/views/tasks-view.slint:854
 msgid "ACTIVITY"
 msgstr "АКТИВНОСТЬ"
 
-#: ui/views/tasks-view.slint:921
+#: ui/views/tasks-view.slint:929
 msgid "Lists"
 msgstr "Списки"
 
-#: ui/views/tasks-view.slint:938
+#: ui/views/tasks-view.slint:946
 msgid "{} tasks"
 msgstr "Задач: {}"
 
-#: ui/views/tasks-view.slint:948 ui/views/tasks-view.slint:949
+#: ui/views/tasks-view.slint:956 ui/views/tasks-view.slint:957
 msgid "Search tasks and linked mail"
 msgstr "Поиск задач и связанной почты"
 
-#: ui/views/tasks-view.slint:978
+#: ui/views/tasks-view.slint:986
 msgid "Remove filter"
 msgstr "Убрать фильтр"
 
-#: ui/views/tasks-view.slint:984
+#: ui/views/tasks-view.slint:992
 msgid "Board"
 msgstr "Доска"
 
-#: ui/views/tasks-view.slint:984
+#: ui/views/tasks-view.slint:992
 msgid "List"
 msgstr "Список"
 
-#: ui/views/tasks-view.slint:995
+#: ui/views/tasks-view.slint:1003
 msgid "Group"
 msgstr "Группировка"
 
-#: ui/views/tasks-view.slint:1017
+#: ui/views/tasks-view.slint:1025
 msgid "No tasks"
 msgstr "Нет задач"
 
-#: ui/views/tasks-view.slint:1042
+#: ui/views/tasks-view.slint:1050
 msgid "Add column"
 msgstr "Добавить колонку"
 

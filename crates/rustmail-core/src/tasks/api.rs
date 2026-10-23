@@ -64,6 +64,36 @@ impl Core {
         Ok(task)
     }
 
+    /// New mail arrived in these threads (see `SqliteTaskStore::note_replies`).
+    pub async fn task_note_replies(&self, thread_ids: Vec<i64>) -> Result<Vec<i64>> {
+        let touched = self
+            .db
+            .write(move |conn| SqliteTaskStore::new(conn).note_replies(&thread_ids))
+            .await?;
+        if !touched.is_empty() {
+            self.bus.emit(CoreEvent::TasksChanged);
+        }
+        Ok(touched)
+    }
+
+    /// Long-lived loop: record replies on linked tasks whenever mail arrives.
+    pub(crate) async fn task_reply_loop(&self) {
+        use tokio::sync::broadcast::error::RecvError;
+        let mut rx = self.bus.subscribe();
+        loop {
+            match rx.recv().await {
+                Ok(CoreEvent::MailNew { thread_ids, .. }) => {
+                    if let Err(error) = self.task_note_replies(thread_ids).await {
+                        tracing::warn!("task reply tracking failed: {error}");
+                    }
+                }
+                Ok(_) => {}
+                Err(RecvError::Lagged(_)) => continue,
+                Err(RecvError::Closed) => break,
+            }
+        }
+    }
+
     /// Tasks linked to the given mail threads (all linked threads for `None`).
     pub async fn task_threads(&self, only: Option<Vec<i64>>) -> Result<Vec<ThreadTask>> {
         self.db

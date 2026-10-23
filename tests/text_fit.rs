@@ -28,7 +28,7 @@ use i_slint_core::window::WindowInner;
 use rustmail::{
     AccountRow, AppTheme, AppWindow, CalendarAgendaRow, CalendarDay, CalendarEventRow,
     CalendarSourceRow, CalendarWeekDay, ContactAccountRow, ContactRow, ContactSidebarRow,
-    ContactSidebarRowKind, EmailRow, LocalizedMessage, MailAttachment, MailAttachments,
+    ContactSidebarRowKind, EmailRow, LinkRow, LocalizedMessage, MailAttachment, MailAttachments,
     MailLabelRow, MailListEntry, MailProfileRow, MailboxRow, MotionSettings, SidebarRow,
     SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipRow, TaskColumnRow, TaskDetailRow,
     TaskNavRow, TasksUi, ThreadMessageRow,
@@ -651,6 +651,7 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
             description: "Attach the signed statement.".into(),
             due: "2026-12-31".into(),
             high_priority: true,
+            move_back: true,
             done: false,
             project: "Annual compliance review project".into(),
             column: "Waiting for reply from the finance department".into(),
@@ -658,6 +659,13 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
             assignee: "Ana María Díaz <ana.diaz@example.org>".into(),
             labels: "quarterly, finance".into(),
         });
+        tasks.set_links(model(vec![LinkRow {
+            id: 1,
+            open: String::new().into(),
+            kind: "mail_received".into(),
+            text: "Quarterly invoice from the finance department".into(),
+            found: true,
+        }]));
         tasks.set_detail_open(true);
     }
 }

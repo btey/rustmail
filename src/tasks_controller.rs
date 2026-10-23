@@ -83,6 +83,7 @@ struct DetailSnap {
     description: String,
     due: String,
     high: bool,
+    move_back: bool,
     done: bool,
     project: String,
     column: String,
@@ -357,6 +358,7 @@ async fn load_detail(
         description: task.description.clone(),
         due: task.due_at.map(iso_date).unwrap_or_default(),
         high: task.priority >= 3,
+        move_back: task.move_back_on_reply,
         done: task.completed_at.is_some(),
         project: projects
             .iter()
@@ -749,6 +751,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                 description: d.description.into(),
                 due: d.due.into(),
                 high_priority: d.high,
+                move_back: d.move_back,
                 done: d.done,
                 project: d.project.into(),
                 column: d.column.into(),
@@ -1201,6 +1204,19 @@ async fn mutate(
             core.task_column_create(project, a.to_owned())
                 .await
                 .map_err(err)?;
+        }
+        "toggle-move-back" => {
+            let id = id.ok_or("bad task")?;
+            let task = core.task_get(id).await.map_err(err)?;
+            core.task_update(
+                id,
+                TaskPatch {
+                    move_back_on_reply: Some(!task.move_back_on_reply),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map_err(err)?;
         }
         "toggle-priority" => {
             let id = id.ok_or("bad task")?;

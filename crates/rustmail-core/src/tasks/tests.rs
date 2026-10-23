@@ -621,3 +621,76 @@ fn threads_report_their_task_status_and_whether_a_reply_is_awaited() {
     s.delete_task(invoice.id).unwrap();
     assert!(s.threads_with_tasks(Some(&[1])).unwrap().is_empty());
 }
+
+#[test]
+fn a_reply_is_noted_once_and_moves_a_waiting_task_back_when_asked() {
+    let (mut c, p) = setup();
+    seed_mail(&c, "Invoice", 1, "<a@x>");
+    seed_mail(&c, "Contract", 2, "<b@x>");
+    let next = col(&mut c, p, ColumnKind::Next);
+    let waiting = col(&mut c, p, ColumnKind::Waiting);
+    let mut s = SqliteTaskStore::new(&mut c);
+    let draft = || TaskDraft {
+        title: None,
+        project_id: None,
+        status: ColumnKind::Waiting,
+        due_at: None,
+        context_id: None,
+        label_ids: vec![],
+    };
+    let moves = s.create_from_thread(1, draft()).unwrap();
+    let stays = s.create_from_thread(2, draft()).unwrap();
+    s.update_task(
+        moves.id,
+        TaskPatch {
+            move_back_on_reply: Some(true),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(s.get_task(moves.id).unwrap().move_back_on_reply);
+    assert!(!s.get_task(stays.id).unwrap().move_back_on_reply);
+
+    // Nothing has come in yet.
+    assert!(s.note_replies(&[1, 2]).unwrap().is_empty());
+
+    let later = crate::models::now_ms() + 60_000;
+    for (thread, uid, mid) in [(1_i64, 11_i64, "<r1@x>"), (2, 12, "<r2@x>")] {
+        s.conn
+            .execute(
+                "INSERT INTO messages (account_id, thread_id, folder_id, uid, message_id, subject,
+                    from_addr, to_json, cc_json, date, snippet)
+                 VALUES (1, ?1, 1, ?2, ?3, 'Re: x', 'a@x.dev', '[]', '[]', ?4, '')",
+                rusqlite::params![thread, uid, mid, later],
+            )
+            .unwrap();
+    }
+    // Only the threads named in the call are looked at.
+    assert_eq!(s.note_replies(&[1]).unwrap(), vec![moves.id]);
+    let moved = s.get_task(moves.id).unwrap();
+    assert_eq!(moved.column_id, next.id, "moved back to Next actions");
+    let log = s.list_activity(moves.id).unwrap();
+    assert!(
+        log.iter()
+            .any(|a| a.kind == "reply" && a.text.contains("Re: x"))
+    );
+    assert!(log.iter().any(|a| a.text.starts_with("Moved back")));
+
+    // The other task only gets the note; it was not asked to move.
+    assert_eq!(s.note_replies(&[2]).unwrap(), vec![stays.id]);
+    assert_eq!(s.get_task(stays.id).unwrap().column_id, waiting.id);
+
+    // The same reply is not noted twice.
+    assert!(s.note_replies(&[1, 2]).unwrap().is_empty());
+    let replies = |s: &mut SqliteTaskStore, id| {
+        s.list_activity(id)
+            .unwrap()
+            .iter()
+            .filter(|a| a.kind == "reply")
+            .count()
+    };
+    assert_eq!(
+        (replies(&mut s, moves.id), replies(&mut s, stays.id)),
+        (1, 1)
+    );
+}
