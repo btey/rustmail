@@ -16,6 +16,44 @@ export global LinkedTask {
     callback open();
 }
 
+export struct TaskChipEntry {
+    // The conversation (a mail list row id).
+    id: int,
+    // Name of the task's column ("Inbox", "Next actions", "Done", ...).
+    status: string,
+    waiting-on-reply: bool,
+}
+
+// Every mail conversation that has a task, for the badge on its list row.
+export global TaskChips {
+    in-out property <[TaskChipEntry]> rows;
+}
+
+// The mark on a list row; the row decides where it sits and when it shows.
+export component TaskBadge inherits Rectangle {
+    in property <string> status;
+    in property <bool> waiting: false;
+    width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: AppTheme.surface;
+    background: root.waiting ? #d97706 : #f59e0b;
+    accessible-role: text;
+    accessible-label: @tr("Task: {}", root.status);
+
+    Image {
+        x: 3px;
+        y: 3px;
+        width: 10px;
+        height: 10px;
+        source: @image-url("../icons/lucide/outline/tasks.svg");
+        colorize: #ffffff;
+        image-fit: contain;
+        accessible-role: none;
+    }
+}
+
 export component LinkedTaskBanner inherits Rectangle {
     // On a narrow pane the title gets a line of its own and the status, due
     // date and button share the next one. The pane decides: measuring this

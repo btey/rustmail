@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-24 04:01+0000\n"
+"POT-Creation-Date: 2026-10-24 04:43+0000\n"
 "PO-Revision-Date: 2026-09-24 11:59+0000\n"
 "Last-Translator: 6uu1 <translate.rustmail.org@696988.xyz>\n"
 "Language-Team: Chinese (Simplified Han script) <https://translate.rustmail."
@@ -18,7 +18,7 @@ msgstr ""
 msgid "Jan"
 msgstr "1月"
 
-#: ui/app.slint:86 ui/views/mail-list-pane.slint:306
+#: ui/app.slint:86 ui/views/mail-list-pane.slint:307
 msgid "January"
 msgstr "一月"
 
@@ -26,7 +26,7 @@ msgstr "一月"
 msgid "Feb"
 msgstr "2月"
 
-#: ui/app.slint:87 ui/views/mail-list-pane.slint:307
+#: ui/app.slint:87 ui/views/mail-list-pane.slint:308
 msgid "February"
 msgstr "二月"
 
@@ -34,7 +34,7 @@ msgstr "二月"
 msgid "Mar"
 msgstr "3月"
 
-#: ui/app.slint:88 ui/views/mail-list-pane.slint:308
+#: ui/app.slint:88 ui/views/mail-list-pane.slint:309
 msgid "March"
 msgstr "三月"
 
@@ -42,11 +42,11 @@ msgstr "三月"
 msgid "Apr"
 msgstr "4月"
 
-#: ui/app.slint:89 ui/views/mail-list-pane.slint:309
+#: ui/app.slint:89 ui/views/mail-list-pane.slint:310
 msgid "April"
 msgstr "四月"
 
-#: ui/app.slint:90 ui/views/mail-list-pane.slint:310
+#: ui/app.slint:90 ui/views/mail-list-pane.slint:311
 msgid "May"
 msgstr "5月"
 
@@ -54,7 +54,7 @@ msgstr "5月"
 msgid "Jun"
 msgstr "6月"
 
-#: ui/app.slint:91 ui/views/mail-list-pane.slint:311
+#: ui/app.slint:91 ui/views/mail-list-pane.slint:312
 msgid "June"
 msgstr "六月"
 
@@ -62,7 +62,7 @@ msgstr "六月"
 msgid "Jul"
 msgstr "7月"
 
-#: ui/app.slint:92 ui/views/mail-list-pane.slint:312
+#: ui/app.slint:92 ui/views/mail-list-pane.slint:313
 msgid "July"
 msgstr "七月"
 
@@ -70,7 +70,7 @@ msgstr "七月"
 msgid "Aug"
 msgstr "8月"
 
-#: ui/app.slint:93 ui/views/mail-list-pane.slint:313
+#: ui/app.slint:93 ui/views/mail-list-pane.slint:314
 msgid "August"
 msgstr "八月"
 
@@ -78,7 +78,7 @@ msgstr "八月"
 msgid "Sep"
 msgstr "9月"
 
-#: ui/app.slint:94 ui/views/mail-list-pane.slint:314
+#: ui/app.slint:94 ui/views/mail-list-pane.slint:315
 msgid "September"
 msgstr "九月"
 
@@ -86,7 +86,7 @@ msgstr "九月"
 msgid "Oct"
 msgstr "10月"
 
-#: ui/app.slint:95 ui/views/mail-list-pane.slint:315
+#: ui/app.slint:95 ui/views/mail-list-pane.slint:316
 msgid "October"
 msgstr "十月"
 
@@ -94,7 +94,7 @@ msgstr "十月"
 msgid "Nov"
 msgstr "11月"
 
-#: ui/app.slint:96 ui/views/mail-list-pane.slint:316
+#: ui/app.slint:96 ui/views/mail-list-pane.slint:317
 msgid "November"
 msgstr "十一月"
 
@@ -102,7 +102,7 @@ msgstr "十一月"
 msgid "Dec"
 msgstr "12月"
 
-#: ui/app.slint:97 ui/views/mail-list-pane.slint:317
+#: ui/app.slint:97 ui/views/mail-list-pane.slint:318
 msgid "December"
 msgstr "十二月"
 
@@ -2168,7 +2168,7 @@ msgid "Filters only affect this agenda."
 msgstr "筛选仅影响此日程视图。"
 
 #: ui/components/calendar-agenda.slint:212 ui/components/calendar.slint:577
-#: ui/views/mail-list-pane.slint:322 ui/views/tasks-view.slint:740
+#: ui/views/mail-list-pane.slint:323 ui/views/tasks-view.slint:740
 msgid "Today"
 msgstr "今天"
 
@@ -2563,7 +2563,7 @@ msgstr "开"
 msgid "Off"
 msgstr "关"
 
-#: ui/components/controls.slint:236 ui/views/mail-list-pane.slint:417
+#: ui/components/controls.slint:236 ui/views/mail-list-pane.slint:418
 msgid "Clear selection"
 msgstr "取消选择"
 
@@ -2779,12 +2779,12 @@ msgstr ""
 msgid "Text to look for"
 msgstr ""
 
-#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:476
+#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:477
 #: ui/views/mail-reading-pane.slint:386 ui/views/mail-reading-pane.slint:774
 msgid "Mark as read"
 msgstr "标记为已读"
 
-#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:477
+#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:478
 #: ui/views/mail-reading-pane.slint:386 ui/views/mail-reading-pane.slint:774
 msgid "Mark as unread"
 msgstr "标记为未读"
@@ -2793,7 +2793,7 @@ msgstr "标记为未读"
 msgid "Star"
 msgstr ""
 
-#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:937
+#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:948
 #: ui/views/mail-reading-pane.slint:406
 msgid "Archive"
 msgstr "归档"
@@ -2803,7 +2803,7 @@ msgid "Mark as spam"
 msgstr "标记为垃圾邮件"
 
 #: ui/components/filter-rules.slint:145 ui/dialogs/settings-dialog.slint:2087
-#: ui/views/mail-list-pane.slint:939 ui/views/mail-reading-pane.slint:390
+#: ui/views/mail-list-pane.slint:950 ui/views/mail-reading-pane.slint:390
 #: ui/views/mail-reading-pane.slint:793
 msgid "Move to trash"
 msgstr "移到废纸篓"
@@ -2924,23 +2924,27 @@ msgstr ""
 msgid "Add filter"
 msgstr ""
 
-#: ui/components/linked-task-banner.slint:25
+#: ui/components/linked-task-banner.slint:43
+msgid "Task: {}"
+msgstr ""
+
+#: ui/components/linked-task-banner.slint:63
 msgid "{} · no reply yet"
 msgstr ""
 
-#: ui/components/linked-task-banner.slint:33
+#: ui/components/linked-task-banner.slint:71
 msgid "Linked task"
 msgstr ""
 
-#: ui/components/linked-task-banner.slint:43
+#: ui/components/linked-task-banner.slint:81
 msgid "Linked task: {}"
 msgstr ""
 
-#: ui/components/linked-task-banner.slint:64
+#: ui/components/linked-task-banner.slint:102
 msgid "Open task"
 msgstr ""
 
-#: ui/components/linked-task-banner.slint:87
+#: ui/components/linked-task-banner.slint:125
 msgid "{} · {}"
 msgstr ""
 
@@ -3238,7 +3242,7 @@ msgstr "删除全局标签"
 msgid "Delete label from {}"
 msgstr "删除 {} 中的标签"
 
-#: ui/components/sidebar.slint:67 ui/views/mail-list-pane.slint:1019
+#: ui/components/sidebar.slint:67 ui/views/mail-list-pane.slint:1030
 msgid "New email"
 msgstr "新建邮件"
 
@@ -4026,7 +4030,7 @@ msgstr "6 个月 · 推荐"
 msgid "1 year"
 msgstr "1 年"
 
-#: ui/dialogs/settings-dialog.slint:525 ui/views/mail-list-pane.slint:368
+#: ui/dialogs/settings-dialog.slint:525 ui/views/mail-list-pane.slint:369
 msgid "All mail"
 msgstr "全部邮件"
 
@@ -4781,7 +4785,7 @@ msgstr "撰写新邮件"
 msgid "C"
 msgstr "C"
 
-#: ui/dialogs/settings-dialog.slint:2084 ui/views/mail-list-pane.slint:366
+#: ui/dialogs/settings-dialog.slint:2084 ui/views/mail-list-pane.slint:367
 msgid "Search mail"
 msgstr "搜索邮件"
 
@@ -4789,7 +4793,7 @@ msgstr "搜索邮件"
 msgid "/"
 msgstr "/"
 
-#: ui/dialogs/settings-dialog.slint:2085 ui/views/mail-list-pane.slint:439
+#: ui/dialogs/settings-dialog.slint:2085 ui/views/mail-list-pane.slint:440
 msgid "Archive selected message"
 msgstr "归档所选邮件"
 
@@ -5722,148 +5726,148 @@ msgstr "继续"
 msgid "Reviewed as completed"
 msgstr "确认为已完成"
 
-#: ui/views/mail-list-pane.slint:75
+#: ui/views/mail-list-pane.slint:76
 msgid "{n} message"
 msgid_plural "{n} messages"
 msgstr[0] ""
 
-#: ui/views/mail-list-pane.slint:318 ui/views/mail-list-pane.slint:331
+#: ui/views/mail-list-pane.slint:319 ui/views/mail-list-pane.slint:332
 msgid "Earlier"
 msgstr ""
 
-#: ui/views/mail-list-pane.slint:323
+#: ui/views/mail-list-pane.slint:324
 msgid "Yesterday"
 msgstr ""
 
-#: ui/views/mail-list-pane.slint:324
+#: ui/views/mail-list-pane.slint:325
 msgid "This week"
 msgstr ""
 
-#: ui/views/mail-list-pane.slint:325
+#: ui/views/mail-list-pane.slint:326
 msgid "Last week"
 msgstr ""
 
-#: ui/views/mail-list-pane.slint:326
+#: ui/views/mail-list-pane.slint:327
 msgid "This month"
 msgstr ""
 
-#: ui/views/mail-list-pane.slint:327
+#: ui/views/mail-list-pane.slint:328
 msgid "Last month"
 msgstr ""
 
-#: ui/views/mail-list-pane.slint:329
+#: ui/views/mail-list-pane.slint:330
 msgid "{} {}"
 msgstr ""
 
-#: ui/views/mail-list-pane.slint:363
+#: ui/views/mail-list-pane.slint:364
 msgid "Show folders"
 msgstr "显示文件夹"
 
-#: ui/views/mail-list-pane.slint:363
+#: ui/views/mail-list-pane.slint:364
 msgid "Hide folders"
 msgstr "隐藏文件夹"
 
-#: ui/views/mail-list-pane.slint:369
+#: ui/views/mail-list-pane.slint:370
 msgid "Unread"
 msgstr "未读"
 
-#: ui/views/mail-list-pane.slint:370
+#: ui/views/mail-list-pane.slint:371
 msgid "Starred"
 msgstr "星标"
 
-#: ui/views/mail-list-pane.slint:371 ui/views/mail-list-pane.slint:576
+#: ui/views/mail-list-pane.slint:372 ui/views/mail-list-pane.slint:577
 msgid "Has attachments"
 msgstr "含附件"
 
-#: ui/views/mail-list-pane.slint:374
+#: ui/views/mail-list-pane.slint:375
 msgid "Filter mail"
 msgstr "筛选邮件"
 
-#: ui/views/mail-list-pane.slint:377
+#: ui/views/mail-list-pane.slint:378
 msgid "Synchronizing mail"
 msgstr "正在同步邮件"
 
-#: ui/views/mail-list-pane.slint:377
+#: ui/views/mail-list-pane.slint:378
 msgid "Reload mail"
 msgstr "重新加载邮件"
 
-#: ui/views/mail-list-pane.slint:417
+#: ui/views/mail-list-pane.slint:418
 msgid "Select all messages on this page"
 msgstr "全选本页邮件"
 
-#: ui/views/mail-list-pane.slint:448 ui/views/mail-list-pane.slint:938
+#: ui/views/mail-list-pane.slint:449 ui/views/mail-list-pane.slint:949
 #: ui/views/mail-reading-pane.slint:407
 msgid "Move to spam"
 msgstr "移到垃圾邮件"
 
-#: ui/views/mail-list-pane.slint:457
+#: ui/views/mail-list-pane.slint:458
 msgid "Delete selected permanently"
 msgstr ""
 
-#: ui/views/mail-list-pane.slint:470 ui/views/mail-reading-pane.slint:1014
+#: ui/views/mail-list-pane.slint:471 ui/views/mail-reading-pane.slint:1014
 msgid "More message actions"
 msgstr "更多邮件操作"
 
-#: ui/views/mail-list-pane.slint:478 ui/views/mail-list-pane.slint:934
+#: ui/views/mail-list-pane.slint:479 ui/views/mail-list-pane.slint:945
 #: ui/views/mail-reading-pane.slint:396
 msgid "Star message"
 msgstr "加星标"
 
-#: ui/views/mail-list-pane.slint:479 ui/views/mail-list-pane.slint:934
+#: ui/views/mail-list-pane.slint:480 ui/views/mail-list-pane.slint:945
 #: ui/views/mail-reading-pane.slint:396
 msgid "Remove star"
 msgstr "取消星标"
 
-#: ui/views/mail-list-pane.slint:571
+#: ui/views/mail-list-pane.slint:572
 msgid "{}, {}"
 msgstr "{}，{}"
 
-#: ui/views/mail-list-pane.slint:571 ui/views/mail-list-pane.slint:754
+#: ui/views/mail-list-pane.slint:572 ui/views/mail-list-pane.slint:765
 msgid "(No subject)"
 msgstr "（无主题）"
 
-#: ui/views/mail-list-pane.slint:573
+#: ui/views/mail-list-pane.slint:574
 msgid "Profile: {}"
 msgstr "分组：{}"
 
-#: ui/views/mail-list-pane.slint:574
+#: ui/views/mail-list-pane.slint:575
 msgid "{} messages"
 msgstr "{} 封邮件"
 
-#: ui/views/mail-list-pane.slint:577
+#: ui/views/mail-list-pane.slint:578
 msgid "Replied"
 msgstr "已回复"
 
-#: ui/views/mail-list-pane.slint:697
+#: ui/views/mail-list-pane.slint:708
 msgid "{} messages in this conversation"
 msgstr "此会话中有 {} 封邮件"
 
-#: ui/views/mail-list-pane.slint:782
+#: ui/views/mail-list-pane.slint:793
 msgid "Account: {}"
 msgstr "账户：{}"
 
-#: ui/views/mail-list-pane.slint:924
+#: ui/views/mail-list-pane.slint:935
 msgid "Deselect {}"
 msgstr "取消选择 {}"
 
-#: ui/views/mail-list-pane.slint:932
+#: ui/views/mail-list-pane.slint:943
 msgid "Open in new tab"
 msgstr ""
 
-#: ui/views/mail-list-pane.slint:939 ui/views/mail-reading-pane.slint:371
+#: ui/views/mail-list-pane.slint:950 ui/views/mail-reading-pane.slint:371
 #: ui/views/mail-reading-pane.slint:408
 msgid "Delete permanently…"
 msgstr ""
 
-#: ui/views/mail-list-pane.slint:996 ui/views/onboarding-view.slint:141
+#: ui/views/mail-list-pane.slint:1007 ui/views/onboarding-view.slint:141
 msgid "Opening your mailbox…"
 msgstr "正在打开您的邮箱…"
 
-#: ui/views/mail-list-pane.slint:996
+#: ui/views/mail-list-pane.slint:1007
 msgid "Nothing here"
 msgstr "这里没有内容"
 
-#: ui/views/mail-list-pane.slint:997
+#: ui/views/mail-list-pane.slint:1008
 msgid "Try another folder or search term."
 msgstr "请尝试其他文件夹或搜索词。"
 

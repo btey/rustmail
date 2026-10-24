@@ -3434,6 +3434,10 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 &app,
                 &mail_update_state,
                 &mail_update_runtime,
+            );            crate::tasks_controller::refresh_task_chips(
+                &app,
+                &mail_update_state,
+                &mail_update_runtime,
             );
         }
         if pending.contacts_changed

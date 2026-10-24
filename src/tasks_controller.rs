@@ -3,7 +3,7 @@
 //! reloads one `Snapshot` (plain `Send` data) that is applied to the models.
 use crate::{
     ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, TaskCardRow, TaskColumnRow,
-    LinkedTask, TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TasksUi,
+    LinkedTask, TaskChipEntry, TaskChips, TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TasksUi,
 };
 use chrono::{Local, TimeZone};
 use rustmail_core::Core;
@@ -898,6 +898,37 @@ pub(crate) fn register(
         });
 }
 
+/// Refresh the task badges on the mail list rows: one entry per conversation
+/// that has a task.
+pub(crate) fn refresh_task_chips(
+    app: &AppWindow,
+    state: &Rc<RefCell<InboxState>>,
+    runtime: &tokio::runtime::Runtime,
+) {
+    let Some(core) = state.borrow().core.as_ref().map(|c| c.file_core()) else {
+        return;
+    };
+    let weak = app.as_weak();
+    runtime.spawn(async move {
+        let found = core.task_threads(None).await;
+        let _ = weak.upgrade_in_event_loop(move |app| {
+            let Ok(found) = found else { return };
+            app.global::<TaskChips>().set_rows(ModelRc::new(VecModel::from(
+                found
+                    .into_iter()
+                    .filter_map(|t| {
+                        Some(TaskChipEntry {
+                            id: i32::try_from(t.thread_id).ok()?,
+                            status: t.status.into(),
+                            waiting_on_reply: t.waiting_on_reply,
+                        })
+                    })
+                    .collect::<Vec<_>>(),
+            )));
+        });
+    });
+}
+
 /// Show the task linked to the selected conversation under the mail header.
 /// The thread is recorded synchronously so a slow lookup for a conversation
 /// that is no longer selected is dropped.
@@ -921,6 +952,9 @@ pub(crate) fn show_linked_task(app: &AppWindow, state: &Rc<RefCell<InboxState>>,
     if linked.get_thread_id() != thread_id {
         linked.set_thread_id(thread_id);
         linked.set_task_id(-1);
+        // Moving between conversations is also when the list badges are
+        // brought up to date (and the first time they are filled).
+        refresh_task_chips(app, state, runtime);
     }
     let weak = app.as_weak();
     runtime.spawn(async move {

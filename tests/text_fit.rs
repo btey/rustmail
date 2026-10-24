@@ -30,8 +30,8 @@ use rustmail::{
     CalendarSourceRow, CalendarWeekDay, ContactAccountRow, ContactRow, ContactSidebarRow,
     ContactSidebarRowKind, EmailRow, LinkRow, LinkedTask, LocalizedMessage, MailAttachment,
     MailAttachments, MailLabelRow, MailListEntry, MailProfileRow, MailboxRow, MotionSettings,
-    SidebarRow, SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipRow, TaskColumnRow,
-    TaskDetailRow, TaskFromMail, TaskNavRow, TasksUi, ThreadMessageRow,
+    SidebarRow, SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipEntry, TaskChipRow,
+    TaskChips, TaskColumnRow, TaskDetailRow, TaskFromMail, TaskNavRow, TasksUi, ThreadMessageRow,
 };
 use slint::platform::{
     Platform, WindowAdapter,
@@ -573,6 +573,7 @@ fn reset(app: &AppWindow) {
     app.global::<MailAttachments>().set_rows(model(Vec::new()));
     app.global::<TaskFromMail>().set_open(false);
     app.global::<LinkedTask>().set_task_id(-1);
+    app.global::<TaskChips>().set_rows(model(Vec::new()));
     let tasks = app.global::<TasksUi>();
     tasks.set_detail_open(false);
     tasks.set_navigation_open(false);
@@ -874,6 +875,20 @@ fn states() -> Vec<State> {
         },
         state("contacts", |app| app.set_active_view("contacts".into())),
         state("files", |app| app.set_active_view("files".into())),
+        state("task badge on list rows", |app| {
+            app.global::<TaskChips>().set_rows(model(vec![
+                TaskChipEntry {
+                    id: 1,
+                    status: "Waiting for reply from the finance department".into(),
+                    waiting_on_reply: true,
+                },
+                TaskChipEntry {
+                    id: 2,
+                    status: "Next actions".into(),
+                    waiting_on_reply: false,
+                },
+            ]));
+        }),
         state("linked task banner", |app| {
             let linked = app.global::<LinkedTask>();
             linked.set_task_id(1);

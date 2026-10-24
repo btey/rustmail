@@ -11,6 +11,7 @@ import { ScrollFade } from "../components/scroll-fade.slint";
 import { WorkspaceSearchToolbar } from "../components/workspace-layout.slint";
 import { WorkspaceListLoadingRow, WorkspaceListTransition } from "../components/workspace-list.slint";
 import { TabsUi } from "../components/workspace-navigation.slint";
+import { TaskBadge, TaskChips } from "../components/linked-task-banner.slint";
 
 component MailListLabelChip inherits Rectangle {
     in property <string> name;
@@ -629,6 +630,16 @@ export component MailListPane inherits Rectangle {
                                     foreground-color: mail-data.selected ? root.accent : root.secondary-text;
                                     avatar-border-width: mail-data.has_favicon ? 1px : 0px;
                                     avatar-border-color: root.border;
+                                }
+
+                                for chip in TaskChips.rows : TaskBadge {
+                                    // A conversation with a task: an amber mark on the
+                                    // avatar, named by the task's status.
+                                    visible: !entry.is_header && chip.id == mail-data.id;
+                                    x: root.show-avatars ? (root.dense ? 34px : 44px) : 3px;
+                                    y: root.dense ? 22px : 36px;
+                                    status: chip.status;
+                                    waiting: chip.waiting-on-reply;
                                 }
 
                                 message-content := Rectangle {
