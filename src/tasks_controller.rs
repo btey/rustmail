@@ -3,7 +3,7 @@
 //! reloads one `Snapshot` (plain `Send` data) that is applied to the models.
 use crate::{
     ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, TaskCardRow, TaskColumnRow,
-    TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TasksUi,
+    LinkedTask, TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TasksUi,
 };
 use chrono::{Local, TimeZone};
 use rustmail_core::Core;
@@ -843,6 +843,19 @@ pub(crate) fn register(
     app.global::<TasksUi>().on_to_transfer(slint::DataTransfer::from);
     app.global::<TasksUi>()
         .on_text_of(|data| data.plain_text().unwrap_or_default());
+    let linked_weak = app.as_weak();
+    app.global::<LinkedTask>().on_open(move || {
+        let Some(app) = linked_weak.upgrade() else {
+            return;
+        };
+        let task_id = app.global::<LinkedTask>().get_task_id();
+        if task_id < 0 {
+            return;
+        }
+        app.set_active_view("tasks".into());
+        app.global::<TasksUi>()
+            .invoke_command("open".into(), format!("task:{task_id}").into(), "".into());
+    });
     let open = Rc::clone(&ctx);
     app.on_open_task_from_mail(move |id| open_from_mail(&open, id));
     let pick_app = app.as_weak();
@@ -883,6 +896,52 @@ pub(crate) fn register(
                 ],
             );
         });
+}
+
+/// Show the task linked to the selected conversation under the mail header.
+/// The thread is recorded synchronously so a slow lookup for a conversation
+/// that is no longer selected is dropped.
+pub(crate) fn show_linked_task(app: &AppWindow, state: &Rc<RefCell<InboxState>>, runtime: &tokio::runtime::Runtime) {
+    let (thread_id, core) = {
+        let state = state.borrow();
+        let thread = state
+            .selected_id
+            .filter(|_| !state.preview_closed)
+            .and_then(|id| state.messages.iter().find(|m| m.id == id))
+            .map(|m| m.thread_id.unwrap_or(i64::from(m.id)));
+        (thread, state.core.as_ref().map(|c| c.file_core()))
+    };
+    let linked = app.global::<LinkedTask>();
+    let Some((thread_id, core)) = thread_id.zip(core) else {
+        linked.set_thread_id(-1);
+        linked.set_task_id(-1);
+        return;
+    };
+    let thread_id = thread_id as i32;
+    if linked.get_thread_id() != thread_id {
+        linked.set_thread_id(thread_id);
+        linked.set_task_id(-1);
+    }
+    let weak = app.as_weak();
+    runtime.spawn(async move {
+        let found = core.task_threads(Some(vec![i64::from(thread_id)])).await;
+        let _ = weak.upgrade_in_event_loop(move |app| {
+            let linked = app.global::<LinkedTask>();
+            if linked.get_thread_id() != thread_id {
+                return;
+            }
+            match found.ok().and_then(|f| f.into_iter().next()) {
+                Some(t) => {
+                    linked.set_task_id(t.task_id as i32);
+                    linked.set_title(t.title.into());
+                    linked.set_status(t.status.into());
+                    linked.set_due(t.due_at.map(iso_date).unwrap_or_default().into());
+                    linked.set_waiting_on_reply(t.waiting_on_reply);
+                }
+                None => linked.set_task_id(-1),
+            }
+        });
+    });
 }
 
 /// Open the "New task from email" dialog for the conversation of list row

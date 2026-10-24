@@ -309,6 +309,7 @@ pub(super) fn render_current(
         app.set_email_links(Default::default());
         return Ok(());
     }
+    crate::tasks_controller::show_linked_task(app, state, runtime);
     // Keep list rows lightweight. SQLite already owns the durable body cache.
     {
         let mut state = state.borrow_mut();

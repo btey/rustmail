@@ -28,10 +28,10 @@ use i_slint_core::window::WindowInner;
 use rustmail::{
     AccountRow, AppTheme, AppWindow, CalendarAgendaRow, CalendarDay, CalendarEventRow,
     CalendarSourceRow, CalendarWeekDay, ContactAccountRow, ContactRow, ContactSidebarRow,
-    ContactSidebarRowKind, EmailRow, LinkRow, LocalizedMessage, MailAttachment, MailAttachments,
-    MailLabelRow, MailListEntry, MailProfileRow, MailboxRow, MotionSettings, SidebarRow,
-    SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipRow, TaskColumnRow, TaskDetailRow,
-    TaskFromMail, TaskNavRow, TasksUi, ThreadMessageRow,
+    ContactSidebarRowKind, EmailRow, LinkRow, LinkedTask, LocalizedMessage, MailAttachment,
+    MailAttachments, MailLabelRow, MailListEntry, MailProfileRow, MailboxRow, MotionSettings,
+    SidebarRow, SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipRow, TaskColumnRow,
+    TaskDetailRow, TaskFromMail, TaskNavRow, TasksUi, ThreadMessageRow,
 };
 use slint::platform::{
     Platform, WindowAdapter,
@@ -572,6 +572,7 @@ fn reset(app: &AppWindow) {
     app.global::<AppTheme>().set_preset("default".into());
     app.global::<MailAttachments>().set_rows(model(Vec::new()));
     app.global::<TaskFromMail>().set_open(false);
+    app.global::<LinkedTask>().set_task_id(-1);
     let tasks = app.global::<TasksUi>();
     tasks.set_detail_open(false);
     tasks.set_navigation_open(false);
@@ -732,6 +733,15 @@ fn press(app: &AppWindow, label: &str) {
 }
 
 fn press_labelled(app: &AppWindow, label: &str) {
+    press_matching(app, label, |text| text == label);
+}
+
+/// Press the first shown control whose accessible label starts with `prefix`.
+fn press_prefixed(app: &AppWindow, prefix: &str) {
+    press_matching(app, prefix, |text| text.starts_with(prefix));
+}
+
+fn press_matching(app: &AppWindow, label: &str, matches: impl Fn(&str) -> bool) {
     let window = window_area(app);
     let mut shown = Vec::new();
     let found = roots(app).into_iter().find_map(|root| {
@@ -744,7 +754,7 @@ fn press_labelled(app: &AppWindow, label: &str) {
                 return ControlFlow::Continue(());
             }
             let text = item.accessible_string_property(AccessibleStringProperty::Label);
-            if text.as_deref() == Some(label) {
+            if text.as_deref().is_some_and(&matches) {
                 return ControlFlow::Break(item.clone());
             }
             shown.extend(text.map(|text| text.to_string()));
@@ -864,6 +874,37 @@ fn states() -> Vec<State> {
         },
         state("contacts", |app| app.set_active_view("contacts".into())),
         state("files", |app| app.set_active_view("files".into())),
+        state("linked task banner", |app| {
+            let linked = app.global::<LinkedTask>();
+            linked.set_task_id(1);
+            linked.set_title("Reply to the auditors about the revised quarterly figures".into());
+            linked.set_status("Waiting for".into());
+            linked.set_due("2026-12-31".into());
+            linked.set_waiting_on_reply(true);
+        }),
+        // On a phone the reading pane is its own page, reached from the list.
+        State {
+            dismiss: Some("Close conversation"),
+            ..state("linked task banner open message", |app| {
+                let linked = app.global::<LinkedTask>();
+                linked.set_task_id(1);
+                linked
+                    .set_title("Reply to the auditors about the revised quarterly figures".into());
+                linked.set_status("Waiting for".into());
+                linked.set_due("2026-12-31".into());
+                linked.set_waiting_on_reply(true);
+                press_prefixed(
+                    app,
+                    &translate("{}, {}")
+                        .replacen("{}", "Jamie Rivera", 1)
+                        .replacen(
+                            "{}",
+                            "Quarterly planning notes and the revised agenda for Thursday",
+                            1,
+                        ),
+                );
+            })
+        },
         State {
             dismiss: Some("Cancel"),
             ..state("task from mail dialog", |app| {

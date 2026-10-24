@@ -3426,6 +3426,16 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             app.global::<TasksUi>()
                 .invoke_command("refresh".into(), "".into(), "".into());
         }
+        if pending.tasks_changed
+            && let Some(app) = mail_update_app.upgrade()
+            && app.get_active_view() == "mail"
+        {
+            crate::tasks_controller::show_linked_task(
+                &app,
+                &mail_update_state,
+                &mail_update_runtime,
+            );
+        }
         if pending.contacts_changed
             && let Some(app) = mail_update_app.upgrade()
         {

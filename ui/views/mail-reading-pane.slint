@@ -11,6 +11,7 @@ import { DetailEmptyState } from "../components/detail-empty-state.slint";
 import { EmailLinkContextArea } from "../components/email-link-context-area.slint";
 import { FocusVisibleScope } from "../components/focus-visible-scope.slint";
 import { LoadingSkeletonBlock } from "../components/loading-skeleton.slint";
+import { LinkedTaskBanner } from "../components/linked-task-banner.slint";
 import { RenderingInfoDialog } from "../dialogs/rendering-info-dialog.slint";
 import { TypeScale } from "../typography.slint";
 import { AppTheme, LayoutMetrics, MailIconPalette, MotionSettings } from "../design-system.slint";
@@ -1109,6 +1110,7 @@ export component MailReadingPane inherits Rectangle {
 
                         if root.selected-label-count > 0 : Rectangle { height: 8px; }
 
+                        LinkedTaskBanner { narrow: root.compact; }
                         Rectangle { height: 12px; }
                         email-surface := Rectangle {
                             horizontal-stretch: 1;

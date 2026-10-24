@@ -1,0 +1,100 @@
+import { HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { AppTheme } from "../design-system.slint";
+import { TypeScale } from "../typography.slint";
+import { Button } from "button.slint";
+
+// The task linked to the selected mail thread, filled by the tasks controller.
+export global LinkedTask {
+    // The thread the fields below describe; -1 when none is selected.
+    in-out property <int> thread-id: -1;
+    // -1 when the thread has no task.
+    in-out property <int> task-id: -1;
+    in-out property <string> title;
+    in-out property <string> status;
+    in-out property <string> due;
+    in-out property <bool> waiting-on-reply: false;
+    callback open();
+}
+
+export component LinkedTaskBanner inherits Rectangle {
+    // On a narrow pane the title gets a line of its own and the status, due
+    // date and button share the next one. The pane decides: measuring this
+    // component's own width would loop through the layout that sizes it.
+    in property <bool> narrow: false;
+    private property <string> status-text: LinkedTask.waiting-on-reply
+        ? @tr("{} · no reply yet", LinkedTask.status) : LinkedTask.status;
+    height: LinkedTask.task-id < 0 ? 0px : root.narrow ? 78px : 40px;
+    visible: LinkedTask.task-id >= 0;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: AppTheme.border;
+    background: AppTheme.sidebar-bg;
+    accessible-role: groupbox;
+    accessible-label: @tr("Linked task");
+
+    if !root.narrow : HorizontalBox {
+        padding-left: 12px;
+        padding-right: 8px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        spacing: 10px;
+        Text {
+            horizontal-stretch: 1;
+            text: @tr("Linked task: {}", LinkedTask.title);
+            color: AppTheme.heading;
+            font-size: TypeScale.secondary;
+            font-weight: 600;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        Text {
+            text: root.status-text;
+            color: LinkedTask.waiting-on-reply ? AppTheme.destructive : AppTheme.secondary;
+            font-size: TypeScale.caption;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        if LinkedTask.due != "" : Text {
+            text: LinkedTask.due;
+            color: AppTheme.secondary;
+            font-size: TypeScale.caption;
+            vertical-alignment: center;
+        }
+        Button {
+            text: @tr("Open task");
+            width: max(90px, self.content-width + 28px);
+            clicked => { LinkedTask.open(); }
+        }
+    }
+
+    if root.narrow : VerticalBox {
+        padding-left: 12px;
+        padding-right: 8px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        spacing: 4px;
+        Text {
+            text: @tr("Linked task: {}", LinkedTask.title);
+            color: AppTheme.heading;
+            font-size: TypeScale.secondary;
+            font-weight: 600;
+            overflow: elide;
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                horizontal-stretch: 1;
+                text: LinkedTask.due != "" ? @tr("{} · {}", root.status-text, LinkedTask.due) : root.status-text;
+                color: LinkedTask.waiting-on-reply ? AppTheme.destructive : AppTheme.secondary;
+                font-size: TypeScale.caption;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            Button {
+                text: @tr("Open task");
+                width: max(90px, self.content-width + 28px);
+                clicked => { LinkedTask.open(); }
+            }
+        }
+    }
+}
