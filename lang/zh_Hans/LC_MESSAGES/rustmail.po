@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-24 04:43+0000\n"
+"POT-Creation-Date: 2026-10-24 10:31+0000\n"
 "PO-Revision-Date: 2026-09-24 11:59+0000\n"
 "Last-Translator: 6uu1 <translate.rustmail.org@696988.xyz>\n"
 "Language-Team: Chinese (Simplified Han script) <https://translate.rustmail."
@@ -2924,27 +2924,31 @@ msgstr ""
 msgid "Add filter"
 msgstr ""
 
-#: ui/components/linked-task-banner.slint:43
+#: ui/components/linked-task-banner.slint:49
 msgid "Task: {}"
 msgstr ""
 
-#: ui/components/linked-task-banner.slint:63
+#: ui/components/linked-task-banner.slint:69
 msgid "{} · no reply yet"
 msgstr ""
 
-#: ui/components/linked-task-banner.slint:71
+#: ui/components/linked-task-banner.slint:77
 msgid "Linked task"
 msgstr ""
 
-#: ui/components/linked-task-banner.slint:81
+#: ui/components/linked-task-banner.slint:87
 msgid "Linked task: {}"
 msgstr ""
 
-#: ui/components/linked-task-banner.slint:102
+#: ui/components/linked-task-banner.slint:108
+msgid "Undo"
+msgstr ""
+
+#: ui/components/linked-task-banner.slint:113
 msgid "Open task"
 msgstr ""
 
-#: ui/components/linked-task-banner.slint:125
+#: ui/components/linked-task-banner.slint:136
 msgid "{} · {}"
 msgstr ""
 

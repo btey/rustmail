@@ -13,7 +13,13 @@ export global LinkedTask {
     in-out property <string> status;
     in-out property <string> due;
     in-out property <bool> waiting-on-reply: false;
+    // The task just made from this conversation, which Undo removes; -1 when
+    // there is nothing to undo.
+    in-out property <int> undo-task-id: -1;
+    in-out property <int> undo-thread-id: -1;
+    in-out property <bool> undo-archived: false;
     callback open();
+    callback undo();
 }
 
 export struct TaskChipEntry {
@@ -61,7 +67,8 @@ export component LinkedTaskBanner inherits Rectangle {
     in property <bool> narrow: false;
     private property <string> status-text: LinkedTask.waiting-on-reply
         ? @tr("{} · no reply yet", LinkedTask.status) : LinkedTask.status;
-    height: LinkedTask.task-id < 0 ? 0px : root.narrow ? 78px : 40px;
+    private property <bool> can-undo: LinkedTask.undo-task-id == LinkedTask.task-id;
+    height: LinkedTask.task-id < 0 ? 0px : root.narrow ? (root.can-undo ? 116px : 78px) : 40px;
     visible: LinkedTask.task-id >= 0;
     border-radius: 8px;
     border-width: 1px;
@@ -98,6 +105,11 @@ export component LinkedTaskBanner inherits Rectangle {
             font-size: TypeScale.caption;
             vertical-alignment: center;
         }
+        if LinkedTask.undo-task-id == LinkedTask.task-id : Button {
+            text: @tr("Undo");
+            width: max(70px, self.content-width + 28px);
+            clicked => { LinkedTask.undo(); }
+        }
         Button {
             text: @tr("Open task");
             width: max(90px, self.content-width + 28px);
@@ -127,6 +139,20 @@ export component LinkedTaskBanner inherits Rectangle {
                 font-size: TypeScale.caption;
                 vertical-alignment: center;
                 overflow: elide;
+            }
+            if !root.can-undo : Button {
+                text: @tr("Open task");
+                width: max(90px, self.content-width + 28px);
+                clicked => { LinkedTask.open(); }
+            }
+        }
+        if root.can-undo : HorizontalLayout {
+            spacing: 8px;
+            Rectangle { horizontal-stretch: 1; }
+            Button {
+                text: @tr("Undo");
+                width: max(70px, self.content-width + 28px);
+                clicked => { LinkedTask.undo(); }
             }
             Button {
                 text: @tr("Open task");

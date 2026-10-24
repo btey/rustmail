@@ -573,6 +573,7 @@ fn reset(app: &AppWindow) {
     app.global::<MailAttachments>().set_rows(model(Vec::new()));
     app.global::<TaskFromMail>().set_open(false);
     app.global::<LinkedTask>().set_task_id(-1);
+    app.global::<LinkedTask>().set_undo_task_id(-1);
     app.global::<TaskChips>().set_rows(model(Vec::new()));
     let tasks = app.global::<TasksUi>();
     tasks.set_detail_open(false);
@@ -896,6 +897,7 @@ fn states() -> Vec<State> {
             linked.set_status("Waiting for".into());
             linked.set_due("2026-12-31".into());
             linked.set_waiting_on_reply(true);
+            linked.set_undo_task_id(1);
         }),
         // On a phone the reading pane is its own page, reached from the list.
         State {
@@ -908,6 +910,7 @@ fn states() -> Vec<State> {
                 linked.set_status("Waiting for".into());
                 linked.set_due("2026-12-31".into());
                 linked.set_waiting_on_reply(true);
+                linked.set_undo_task_id(1);
                 press_prefixed(
                     app,
                     &translate("{}, {}")

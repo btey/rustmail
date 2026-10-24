@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-24 04:43+0000\n"
+"POT-Creation-Date: 2026-10-24 10:31+0000\n"
 "PO-Revision-Date: 2026-09-20 23:21+0000\n"
 "Last-Translator: Admin <admin@rustmail.org>\n"
 "Language-Team: Spanish <https://translate.rustmail.org/projects/rustmail/"
@@ -3032,27 +3032,31 @@ msgstr "Detener: omitir los filtros siguientes cuando este coincida"
 msgid "Add filter"
 msgstr "Añadir filtro"
 
-#: ui/components/linked-task-banner.slint:43
+#: ui/components/linked-task-banner.slint:49
 msgid "Task: {}"
 msgstr "Tarea: {}"
 
-#: ui/components/linked-task-banner.slint:63
+#: ui/components/linked-task-banner.slint:69
 msgid "{} · no reply yet"
 msgstr "{} · sin respuesta aún"
 
-#: ui/components/linked-task-banner.slint:71
+#: ui/components/linked-task-banner.slint:77
 msgid "Linked task"
 msgstr "Tarea vinculada"
 
-#: ui/components/linked-task-banner.slint:81
+#: ui/components/linked-task-banner.slint:87
 msgid "Linked task: {}"
 msgstr "Tarea vinculada: {}"
 
-#: ui/components/linked-task-banner.slint:102
+#: ui/components/linked-task-banner.slint:108
+msgid "Undo"
+msgstr "Deshacer"
+
+#: ui/components/linked-task-banner.slint:113
 msgid "Open task"
 msgstr "Abrir tarea"
 
-#: ui/components/linked-task-banner.slint:125
+#: ui/components/linked-task-banner.slint:136
 msgid "{} · {}"
 msgstr "{} · {}"
 

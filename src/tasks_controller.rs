@@ -856,6 +856,8 @@ pub(crate) fn register(
         app.global::<TasksUi>()
             .invoke_command("open".into(), format!("task:{task_id}").into(), "".into());
     });
+    let undo_ctx = Rc::clone(&ctx);
+    app.global::<LinkedTask>().on_undo(move || undo_create(&undo_ctx));
     let open = Rc::clone(&ctx);
     app.on_open_task_from_mail(move |id| open_from_mail(&open, id));
     let pick_app = app.as_weak();
@@ -964,6 +966,9 @@ pub(crate) fn show_linked_task(app: &AppWindow, state: &Rc<RefCell<InboxState>>,
             if linked.get_thread_id() != thread_id {
                 return;
             }
+            if linked.get_undo_thread_id() != thread_id {
+                linked.set_undo_task_id(-1);
+            }
             match found.ok().and_then(|f| f.into_iter().next()) {
                 Some(t) => {
                     linked.set_task_id(t.task_id as i32);
@@ -1054,6 +1059,50 @@ fn open_from_mail(ctx: &Rc<Ctx>, row_id: i32) {
     });
 }
 
+/// Undo "create task from email": delete the task just made and, when the
+/// dialog also archived the conversation, move it back.
+fn undo_create(ctx: &Rc<Ctx>) {
+    let Some(app) = ctx.weak.upgrade() else {
+        return;
+    };
+    let Some(core) = ctx.state.borrow().core.as_ref().map(|c| c.file_core()) else {
+        return;
+    };
+    let linked = app.global::<LinkedTask>();
+    let (task_id, thread_id, archived) = (
+        i64::from(linked.get_undo_task_id()),
+        i64::from(linked.get_undo_thread_id()),
+        linked.get_undo_archived(),
+    );
+    if task_id < 0 {
+        return;
+    }
+    linked.set_undo_task_id(-1);
+    let weak = ctx.weak.clone();
+    ctx.handle.spawn(async move {
+        let result = async {
+            core.task_delete(task_id).await?;
+            if archived {
+                core.perform_action(PerformActionArgs {
+                    kind: ActionKind::Unarchive,
+                    thread_ids: vec![thread_id],
+                    params: None,
+                })
+                .await?;
+            }
+            Ok::<_, rustmail_core::error::CoreError>(())
+        }
+        .await;
+        let _ = weak.upgrade_in_event_loop(move |app| {
+            let linked = app.global::<LinkedTask>();
+            linked.set_task_id(-1);
+            if let Err(error) = result {
+                app.global::<TasksUi>().set_status(error.to_string().into());
+            }
+        });
+    });
+}
+
 /// Create the task from the dialog's fields, then optionally archive the mail.
 fn create_from_mail(ctx: &Rc<Ctx>) {
     let Some(app) = ctx.weak.upgrade() else {
@@ -1094,7 +1143,7 @@ fn create_from_mail(ctx: &Rc<Ctx>) {
     let weak = ctx.weak.clone();
     ctx.handle.spawn(async move {
         let result = async {
-            core.task_create_from_thread(thread_id, draft).await?;
+            let task = core.task_create_from_thread(thread_id, draft).await?;
             if archive {
                 core.perform_action(PerformActionArgs {
                     kind: ActionKind::Archive,
@@ -1103,14 +1152,21 @@ fn create_from_mail(ctx: &Rc<Ctx>) {
                 })
                 .await?;
             }
-            Ok::<_, rustmail_core::error::CoreError>(())
+            Ok::<_, rustmail_core::error::CoreError>(task.id)
         }
         .await;
         let _ = weak.upgrade_in_event_loop(move |app| {
             let dialog = app.global::<TaskFromMail>();
             dialog.set_busy(false);
             match result {
-                Ok(()) => dialog.set_open(false),
+                Ok(task_id) => {
+                    dialog.set_open(false);
+                    // Offer Undo on the banner of this conversation.
+                    let linked = app.global::<LinkedTask>();
+                    linked.set_undo_task_id(task_id as i32);
+                    linked.set_undo_thread_id(thread_id as i32);
+                    linked.set_undo_archived(archive);
+                }
                 Err(error) => dialog.set_error(error.to_string().into()),
             }
         });

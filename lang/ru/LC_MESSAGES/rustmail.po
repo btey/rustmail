@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-24 04:43+0000\n"
+"POT-Creation-Date: 2026-10-24 10:31+0000\n"
 "PO-Revision-Date: 2026-10-08 15:11+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Russian <ru@li.org>\n"
@@ -3014,27 +3014,31 @@ msgstr "Стоп: пропустить фильтры ниже, если это�
 msgid "Add filter"
 msgstr "Добавить фильтр"
 
-#: ui/components/linked-task-banner.slint:43
+#: ui/components/linked-task-banner.slint:49
 msgid "Task: {}"
 msgstr "Задача: {}"
 
-#: ui/components/linked-task-banner.slint:63
+#: ui/components/linked-task-banner.slint:69
 msgid "{} · no reply yet"
 msgstr "{} · ответа пока нет"
 
-#: ui/components/linked-task-banner.slint:71
+#: ui/components/linked-task-banner.slint:77
 msgid "Linked task"
 msgstr "Связанная задача"
 
-#: ui/components/linked-task-banner.slint:81
+#: ui/components/linked-task-banner.slint:87
 msgid "Linked task: {}"
 msgstr "Связанная задача: {}"
 
-#: ui/components/linked-task-banner.slint:102
+#: ui/components/linked-task-banner.slint:108
+msgid "Undo"
+msgstr "Отменить"
+
+#: ui/components/linked-task-banner.slint:113
 msgid "Open task"
 msgstr "Открыть задачу"
 
-#: ui/components/linked-task-banner.slint:125
+#: ui/components/linked-task-banner.slint:136
 msgid "{} · {}"
 msgstr "{} · {}"
 
