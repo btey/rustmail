@@ -196,6 +196,8 @@ pub struct Task {
     pub link_count: i64,
     /// In Waiting for: move to Next actions when a reply arrives.
     pub move_back_on_reply: bool,
+    /// Follow up by this time (UTC ms) when no reply has come to a sent mail.
+    pub follow_up_at: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -276,6 +278,7 @@ pub struct TaskPatch {
     /// `(email, display-name snapshot)`.
     pub assignee: Option<Option<(String, String)>>,
     pub move_back_on_reply: Option<bool>,
+    pub follow_up_at: Option<Option<i64>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -418,6 +421,26 @@ pub struct ThreadTask {
     pub due_at: Option<i64>,
     /// In a Waiting for column and nothing has come in since the link.
     pub waiting_on_reply: bool,
+}
+
+/// What happens to a task once its email has been sent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AfterSend {
+    /// Move it to Waiting for.
+    Waiting,
+    /// Leave it where it is.
+    Keep,
+    /// Mark it done.
+    Done,
+}
+
+/// The message that was just sent for a task.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SentMail {
+    pub account_email: String,
+    pub thread_id: i64,
+    pub message_id: String,
 }
 
 /// What the user chose in the "New task from email" dialog.

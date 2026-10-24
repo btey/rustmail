@@ -694,3 +694,126 @@ fn a_reply_is_noted_once_and_moves_a_waiting_task_back_when_asked() {
         (1, 1)
     );
 }
+
+fn plain_task(s: &mut SqliteTaskStore, p: i64, title: &str) -> Task {
+    s.create_task(NewTask {
+        project_id: p,
+        title: title.into(),
+        ..Default::default()
+    })
+    .unwrap()
+}
+
+#[test]
+fn a_sent_email_is_linked_and_the_task_moves_as_chosen() {
+    let (mut c, p) = setup();
+    seed_mail(&c, "Quarterly invoice", 1, "<sent@x>");
+    let waiting = col(&mut c, p, ColumnKind::Waiting);
+    let mut s = SqliteTaskStore::new(&mut c);
+    let sent = || SentMail {
+        account_email: "me@test.dev".into(),
+        thread_id: 1,
+        message_id: "<sent@x>".into(),
+    };
+
+    let a = plain_task(&mut s, p, "Ask about the invoice");
+    let after = s
+        .record_sent(a.id, sent(), AfterSend::Waiting, Some(1_000))
+        .unwrap();
+    assert_eq!(after.column_id, waiting.id);
+    assert_eq!(after.follow_up_at, Some(1_000));
+    assert_eq!(after.link_count, 1);
+    let links = s.list_links(a.id).unwrap();
+    assert_eq!(links[0].link.kind, LinkKind::MailSent);
+    assert!(matches!(
+        links[0].target,
+        LinkTarget::Mail { thread_id: 1, .. }
+    ));
+    let log = s.list_activity(a.id).unwrap();
+    assert!(log.iter().any(|x| x.kind == "sent"));
+    assert!(
+        log.iter()
+            .any(|x| x.text.starts_with("Moved to Waiting for"))
+    );
+
+    // Keep leaves the task alone and no follow-up is set without a time.
+    let b = plain_task(&mut s, p, "FYI mail");
+    let kept = s.record_sent(b.id, sent(), AfterSend::Keep, None).unwrap();
+    assert_eq!((kept.column_id, kept.follow_up_at), (b.column_id, None));
+
+    // Done completes it.
+    let d = plain_task(&mut s, p, "Last mail");
+    let done = s.record_sent(d.id, sent(), AfterSend::Done, None).unwrap();
+    assert!(done.completed_at.is_some());
+
+    // Nothing changes when the message cannot be linked.
+    let e = plain_task(&mut s, p, "No id");
+    let bad = SentMail {
+        message_id: "  ".into(),
+        ..sent()
+    };
+    assert!(
+        s.record_sent(e.id, bad, AfterSend::Waiting, Some(5))
+            .is_err()
+    );
+    let unchanged = s.get_task(e.id).unwrap();
+    assert_eq!(
+        (unchanged.column_id, unchanged.link_count),
+        (e.column_id, 0)
+    );
+}
+
+#[test]
+fn an_unanswered_follow_up_lists_the_task_under_today() {
+    let (mut c, p) = setup();
+    seed_mail(&c, "Quarterly invoice", 1, "<sent@x>");
+    let mut s = SqliteTaskStore::new(&mut c);
+    let task = plain_task(&mut s, p, "Chase the invoice");
+    let sent = SentMail {
+        account_email: "me@test.dev".into(),
+        thread_id: 1,
+        message_id: "<sent@x>".into(),
+    };
+    let follow_up = crate::models::now_ms() + 10_000;
+    s.record_sent(task.id, sent, AfterSend::Waiting, Some(follow_up))
+        .unwrap();
+    let today = |s: &mut SqliteTaskStore, end: i64| {
+        let list = s
+            .list_tasks(&TaskFilter {
+                focus: Some(TaskFocus::Today),
+                today_end_ms: end,
+                ..Default::default()
+            })
+            .unwrap();
+        (list.len(), s.counts(end).unwrap().today)
+    };
+
+    assert_eq!(today(&mut s, follow_up - 1), (0, 0), "not due yet");
+    assert_eq!(
+        today(&mut s, follow_up),
+        (1, 1),
+        "follow-up time reached, no reply"
+    );
+
+    // A reply after the mail was sent: no follow-up is needed.
+    s.conn
+        .execute(
+            "INSERT INTO messages (account_id, thread_id, folder_id, uid, message_id, subject,
+                from_addr, to_json, cc_json, date, snippet)
+             VALUES (1, 1, 1, 21, '<reply@x>', 'Re: Quarterly invoice', 'a@x.dev', '[]', '[]', ?1, '')",
+            [crate::models::now_ms() + 5_000],
+        )
+        .unwrap();
+    assert_eq!(today(&mut s, follow_up + 1), (0, 0), "answered");
+
+    // A task due today still shows on its own account, and counts once.
+    s.update_task(
+        task.id,
+        TaskPatch {
+            due_at: Some(Some(follow_up)),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(today(&mut s, follow_up + 1), (1, 1));
+}

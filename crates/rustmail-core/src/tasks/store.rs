@@ -241,7 +241,7 @@ const TASK_SELECT: &str = "SELECT t.id, t.uid, t.project_id, t.column_id, t.titl
         (SELECT COUNT(*) FROM task_checklist_items c
            WHERE c.task_id = t.id AND c.deleted_at IS NULL AND c.done = 1),
         (SELECT COUNT(*) FROM task_links l WHERE l.task_id = t.id AND l.deleted_at IS NULL),
-        t.move_back_on_reply
+        t.move_back_on_reply, t.follow_up_at
      FROM tasks t";
 
 fn task_from_row(r: &Row) -> rusqlite::Result<Task> {
@@ -273,6 +273,7 @@ fn task_from_row(r: &Row) -> rusqlite::Result<Task> {
         checklist_done: r.get(18)?,
         link_count: r.get(19)?,
         move_back_on_reply: r.get::<_, i64>(20)? != 0,
+        follow_up_at: r.get(21)?,
     })
 }
 
@@ -421,7 +422,18 @@ fn like_pattern(raw: &str) -> String {
 fn focus_sql(focus: TaskFocus) -> &'static str {
     match focus {
         TaskFocus::Inbox => "c.kind = 'inbox'",
-        TaskFocus::Today => "t.due_at IS NOT NULL AND t.due_at <= ?",
+        // Due, or a sent mail that has had no reply by its follow-up time.
+        TaskFocus::Today => {
+            "((t.due_at IS NOT NULL AND t.due_at <= ?)
+              OR (t.follow_up_at IS NOT NULL AND t.follow_up_at <= ?
+                  AND NOT EXISTS (
+                    SELECT 1 FROM task_links l
+                    JOIN messages m ON m.message_id = l.message_id
+                    JOIN messages x ON x.thread_id = m.thread_id
+                         AND x.is_outgoing = 0 AND x.date > l.created_at
+                    WHERE l.task_id = t.id AND l.deleted_at IS NULL
+                      AND l.kind = 'mail_sent')))"
+        }
         TaskFocus::Upcoming => "t.due_at IS NOT NULL AND t.due_at > ?",
         TaskFocus::WaitingFor => "c.kind = 'waiting'",
         TaskFocus::FromEmail => "t.source = 'mail'",
@@ -438,10 +450,10 @@ fn count_focus(tx: &Connection, focus: TaskFocus, today_end_ms: i64) -> Result<i
          WHERE t.deleted_at IS NULL AND t.completed_at IS NULL AND {}",
         focus_sql(focus)
     );
-    let n = if matches!(focus, TaskFocus::Today | TaskFocus::Upcoming) {
-        tx.query_row(&sql, [today_end_ms], |r| r.get(0))?
-    } else {
-        tx.query_row(&sql, [], |r| r.get(0))?
+    let n = match focus {
+        TaskFocus::Today => tx.query_row(&sql, [today_end_ms, today_end_ms], |r| r.get(0))?,
+        TaskFocus::Upcoming => tx.query_row(&sql, [today_end_ms], |r| r.get(0))?,
+        _ => tx.query_row(&sql, [], |r| r.get(0))?,
     };
     Ok(n)
 }
@@ -568,6 +580,68 @@ fn unique_name_error(e: rusqlite::Error, what: &str) -> CoreError {
 }
 
 impl SqliteTaskStore<'_> {
+    /// A task's email has been sent: link the sent message, apply the chosen
+    /// move, remember when to follow up and log it. A sent mail without a
+    /// Message-ID is refused before anything changes.
+    pub fn record_sent(
+        &mut self,
+        task_id: i64,
+        sent: SentMail,
+        after: AfterSend,
+        follow_up_at: Option<i64>,
+    ) -> Result<Task> {
+        if sent.message_id.trim().is_empty() {
+            return Err(invalid("the sent message has no Message-ID to link"));
+        }
+        let task = fetch_task(self.conn, task_id)?;
+        self.add_link(
+            task_id,
+            NewLink {
+                kind: LinkKind::MailSent,
+                account_email: Some(sent.account_email),
+                thread_id: Some(sent.thread_id),
+                message_id: Some(sent.message_id),
+                event_uid: None,
+                other_task_uid: None,
+            },
+        )?;
+        activity(self.conn, task_id, "sent", "Email sent")?;
+        match after {
+            AfterSend::Keep => {}
+            AfterSend::Waiting => {
+                let waiting: Option<i64> = self
+                    .conn
+                    .query_row(
+                        "SELECT id FROM task_columns
+                         WHERE project_id = ?1 AND kind = 'waiting' AND deleted_at IS NULL
+                         ORDER BY position LIMIT 1",
+                        [task.project_id],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+                if let Some(column) = waiting {
+                    let tx = self.conn.transaction()?;
+                    move_task_inner(&tx, task_id, column, Place::Top)?;
+                    activity(&tx, task_id, "moved", "Moved to Waiting for: email sent")?;
+                    tx.commit()?;
+                }
+            }
+            AfterSend::Done => {
+                self.complete_task(task_id)?;
+            }
+        }
+        if follow_up_at.is_some() {
+            self.update_task(
+                task_id,
+                TaskPatch {
+                    follow_up_at: Some(follow_up_at),
+                    ..Default::default()
+                },
+            )?;
+        }
+        self.get_task(task_id)
+    }
+
     /// Mail arrived in `thread_ids`: for every open task linked to one of
     /// them, note the reply in its activity (once per reply) and, if the task
     /// is in Waiting for with `move_back_on_reply`, move it to Next actions.
@@ -1125,6 +1199,13 @@ impl TaskStore for SqliteTaskStore<'_> {
             None => (t.assignee_email, t.assignee_name),
         };
         let assignee_name = assignee_name.filter(|_| assignee_email.is_some());
+        let follow_up_at = match patch.follow_up_at {
+            Some(v) => {
+                changed.push("follow-up");
+                v
+            }
+            None => t.follow_up_at,
+        };
         let move_back = match patch.move_back_on_reply {
             Some(v) => {
                 changed.push("reply tracking");
@@ -1135,7 +1216,7 @@ impl TaskStore for SqliteTaskStore<'_> {
         tx.execute(
             "UPDATE tasks SET title = ?2, description = ?3, due_at = ?4, start_at = ?5,
                 priority = ?6, context_id = ?7, assignee_email = ?8, assignee_name = ?9,
-                move_back_on_reply = ?10
+                move_back_on_reply = ?10, follow_up_at = ?11
              WHERE id = ?1",
             params![
                 id,
@@ -1147,7 +1228,8 @@ impl TaskStore for SqliteTaskStore<'_> {
                 context_id,
                 assignee_email,
                 assignee_name,
-                move_back
+                move_back,
+                follow_up_at
             ],
         )?;
         stamp(&tx, "task", "tasks", id, "update")?;
@@ -1243,6 +1325,9 @@ impl TaskStore for SqliteTaskStore<'_> {
         }
         if let Some(focus) = f.focus {
             clauses.push(focus_sql(focus).to_owned());
+            if matches!(focus, TaskFocus::Today) {
+                args.push(f.today_end_ms.into());
+            }
             if matches!(focus, TaskFocus::Today | TaskFocus::Upcoming) {
                 args.push(f.today_end_ms.into());
             }

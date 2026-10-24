@@ -64,6 +64,25 @@ impl Core {
         Ok(task)
     }
 
+    /// A task's email was sent (Phase 9): link it, move the task, set the
+    /// follow-up time. See `SqliteTaskStore::record_sent`.
+    pub async fn task_record_sent(
+        &self,
+        task_id: i64,
+        sent: SentMail,
+        after: AfterSend,
+        follow_up_at: Option<i64>,
+    ) -> Result<Task> {
+        let task = self
+            .db
+            .write(move |conn| {
+                SqliteTaskStore::new(conn).record_sent(task_id, sent, after, follow_up_at)
+            })
+            .await?;
+        self.bus.emit(CoreEvent::TasksChanged);
+        Ok(task)
+    }
+
     /// Like `task_create_from_thread`, but does nothing when the thread
     /// already has a task. The check and the insert share one database write,
     /// so two filter passes cannot both create one.
