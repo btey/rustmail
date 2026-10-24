@@ -3,14 +3,16 @@
 //! reloads one `Snapshot` (plain `Send` data) that is applied to the models.
 use crate::{
     ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, TaskCardRow, TaskColumnRow,
-    TaskChipRow, TaskDetailRow, TaskNavRow, TasksUi,
+    TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TasksUi,
 };
 use chrono::{Local, TimeZone};
 use rustmail_core::Core;
+use rustmail_core::models::{ActionKind, PerformActionArgs};
 use rustmail_core::tasks::{
-    ColumnKind, ColumnPatch, NewTask, Task, TaskColumn, TaskFilter, TaskFocus, TaskLabel, TaskPatch,
+    ColumnKind, ColumnPatch, NewTask, Task, TaskColumn, TaskDraft, TaskFilter, TaskFocus, TaskLabel,
+    TaskPatch,
 };
-use slint::{ComponentHandle, ModelRc, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, VecModel};
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -841,6 +843,32 @@ pub(crate) fn register(
     app.global::<TasksUi>().on_to_transfer(slint::DataTransfer::from);
     app.global::<TasksUi>()
         .on_text_of(|data| data.plain_text().unwrap_or_default());
+    let open = Rc::clone(&ctx);
+    app.on_open_task_from_mail(move |id| open_from_mail(&open, id));
+    let pick_app = app.as_weak();
+    app.global::<TaskFromMail>().on_pick(move |kind, id| {
+        let Some(app) = pick_app.upgrade() else {
+            return;
+        };
+        let dialog = app.global::<TaskFromMail>();
+        let name_of = |menu: ModelRc<crate::ActionMenuEntry>| {
+            (0..menu.row_count())
+                .filter_map(|i| menu.row_data(i))
+                .find(|e| e.id == id)
+                .map(|e| e.title.to_string())
+                .unwrap_or_default()
+        };
+        if kind == "project" {
+            dialog.set_project_name(name_of(dialog.get_project_menu()).into());
+            dialog.set_project_id(id);
+        } else {
+            dialog.set_context_name(name_of(dialog.get_context_menu()).into());
+            dialog.set_context_id(id);
+        }
+    });
+    let create = Rc::clone(&ctx);
+    app.global::<TaskFromMail>()
+        .on_create(move || create_from_mail(&create));
     let save = Rc::clone(&ctx);
     app.global::<TasksUi>()
         .on_save_detail(move |id, title, description, due| {
@@ -855,6 +883,145 @@ pub(crate) fn register(
                 ],
             );
         });
+}
+
+/// Open the "New task from email" dialog for the conversation of list row
+/// `row_id`, or the selected conversation when it is negative.
+fn open_from_mail(ctx: &Rc<Ctx>, row_id: i32) {
+    let found = {
+        let state = ctx.state.borrow();
+        let id = if row_id >= 0 { Some(row_id) } else { state.selected_id };
+        let core = state.core.as_ref().map(|c| c.file_core());
+        id.and_then(|id| state.messages.iter().find(|m| m.id == id))
+            .map(|m| {
+                (
+                    m.thread_id.unwrap_or(i64::from(m.id)),
+                    m.subject.clone(),
+                    m.sender.clone(),
+                )
+            })
+            .zip(core)
+    };
+    let Some(((thread_id, subject, sender), core)) = found else {
+        return;
+    };
+    let weak = ctx.weak.clone();
+    ctx.handle.spawn(async move {
+        let loaded = async {
+            core.tasks_open().await?;
+            let projects = core.task_projects().await?;
+            let contexts = core.task_contexts().await?;
+            Ok::<_, rustmail_core::error::CoreError>((projects, contexts))
+        }
+        .await;
+        let _ = weak.upgrade_in_event_loop(move |app| {
+            let dialog = app.global::<TaskFromMail>();
+            let (projects, contexts) = match loaded {
+                Ok(found) => found,
+                Err(error) => {
+                    app.global::<TasksUi>().set_status(error.to_string().into());
+                    return;
+                }
+            };
+            let entry = |id: String, title: String| crate::ActionMenuEntry {
+                id: id.into(),
+                title: title.into(),
+                icon: Default::default(),
+                disabled: false,
+                destructive: false,
+            };
+            let first = projects.first();
+            dialog.set_project_id(first.map_or(String::new(), |p| p.id.to_string()).into());
+            dialog.set_project_name(first.map_or(String::new(), |p| p.name.clone()).into());
+            dialog.set_project_menu(ModelRc::new(VecModel::from(
+                projects
+                    .iter()
+                    .map(|p| entry(p.id.to_string(), p.name.clone()))
+                    .collect::<Vec<_>>(),
+            )));
+            let mut context_entries = vec![entry("none".into(), "No context".into())];
+            context_entries.extend(
+                contexts
+                    .iter()
+                    .map(|c| entry(c.id.to_string(), format!("@{}", c.name))),
+            );
+            dialog.set_context_menu(ModelRc::new(VecModel::from(context_entries)));
+            dialog.set_context_id("none".into());
+            dialog.set_context_name("".into());
+            dialog.set_thread_id(thread_id as i32);
+            dialog.set_mail_label(format!("{sender} · {subject}").into());
+            dialog.set_title(subject.into());
+            dialog.set_status("inbox".into());
+            dialog.set_due("".into());
+            dialog.set_archive(false);
+            dialog.set_error("".into());
+            dialog.set_busy(false);
+            dialog.set_open(true);
+        });
+    });
+}
+
+/// Create the task from the dialog's fields, then optionally archive the mail.
+fn create_from_mail(ctx: &Rc<Ctx>) {
+    let Some(app) = ctx.weak.upgrade() else {
+        return;
+    };
+    let Some(core) = ctx.state.borrow().core.as_ref().map(|c| c.file_core()) else {
+        return;
+    };
+    let dialog = app.global::<TaskFromMail>();
+    if dialog.get_busy() || dialog.get_title().trim().is_empty() {
+        return;
+    }
+    let due = match parse_due(dialog.get_due().as_str()) {
+        Ok(due) => due,
+        Err(message) => {
+            dialog.set_error(message.into());
+            return;
+        }
+    };
+    let thread_id = i64::from(dialog.get_thread_id());
+    let status = match dialog.get_status().as_str() {
+        "next" => ColumnKind::Next,
+        "waiting" => ColumnKind::Waiting,
+        "scheduled" => ColumnKind::Scheduled,
+        _ => ColumnKind::Inbox,
+    };
+    let draft = TaskDraft {
+        title: Some(dialog.get_title().to_string()),
+        project_id: dialog.get_project_id().parse().ok(),
+        status,
+        due_at: due,
+        context_id: dialog.get_context_id().parse().ok(),
+        label_ids: Vec::new(),
+    };
+    let archive = dialog.get_archive();
+    dialog.set_error("".into());
+    dialog.set_busy(true);
+    let weak = ctx.weak.clone();
+    ctx.handle.spawn(async move {
+        let result = async {
+            core.task_create_from_thread(thread_id, draft).await?;
+            if archive {
+                core.perform_action(PerformActionArgs {
+                    kind: ActionKind::Archive,
+                    thread_ids: vec![thread_id],
+                    params: None,
+                })
+                .await?;
+            }
+            Ok::<_, rustmail_core::error::CoreError>(())
+        }
+        .await;
+        let _ = weak.upgrade_in_event_loop(move |app| {
+            let dialog = app.global::<TaskFromMail>();
+            dialog.set_busy(false);
+            match result {
+                Ok(()) => dialog.set_open(false),
+                Err(error) => dialog.set_error(error.to_string().into()),
+            }
+        });
+    });
 }
 
 fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {

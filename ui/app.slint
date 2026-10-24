@@ -32,6 +32,8 @@ import { WorkspaceFrame } from "components/workspace-layout.slint";
 import { CalendarEventDialog } from "dialogs/calendar-event-dialog.slint";
 import { ComposeDialog } from "dialogs/compose-dialog.slint";
 import { FolderDialog } from "dialogs/folder-dialog.slint";
+import { TaskFromMail, TaskFromMailDialog } from "dialogs/task-from-mail-dialog.slint";
+export { TaskFromMail } from "dialogs/task-from-mail-dialog.slint";
 import { ConfirmationDialog } from "components/confirmation-dialog.slint";
 import { SettingsDialog } from "dialogs/settings-dialog.slint";
 import { MailView } from "views/mail-view.slint";
@@ -557,6 +559,8 @@ export component AppWindow inherits Window {
     callback delete_account(int);
     callback message_action(string);
     callback message_action_for_email(int, string);
+    // A thread id, or -1 for the selected conversation.
+    callback open_task_from_mail(int);
     callback bulk_message_action(string);
     callback toggle_mail_group(string);
     callback empty_trash(int);
@@ -1419,10 +1423,12 @@ export component AppWindow inherits Window {
             sync_mail => { root.sync_mail(); }
             message_action(action) => {
                 if action == "delete_permanently" { root.confirm-trash-deletion("selected", -1); }
+                else if action == "create_task" { root.open_task_from_mail(-1); }
                 else { root.message_action(action); }
             }
             message_action_for_email(id, action) => {
                 if action == "delete_permanently" { root.confirm-trash-deletion("row", id); }
+                else if action == "create_task" { root.open_task_from_mail(id); }
                 else { root.message_action_for_email(id, action); }
             }
             bulk_message_action(action) => {
@@ -2030,6 +2036,14 @@ export component AppWindow inherits Window {
             else if root.trash-delete-kind == "row" { root.message_action_for_email(root.trash-delete-id, "delete_permanently"); }
             else { root.message_action("delete_permanently"); }
         }
+    }
+
+    if TaskFromMail.open : TaskFromMailDialog {
+        x: root.content-x;
+        y: root.content-y;
+        width: root.content-width;
+        height: root.content-height;
+        z: 15000;
     }
 
     if root.folder-dialog-open : FolderDialog {

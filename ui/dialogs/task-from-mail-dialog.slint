@@ -1,0 +1,195 @@
+import { AppTheme, LayoutMetrics } from "../design-system.slint";
+import { TypeScale } from "../typography.slint";
+import { Button } from "../components/button.slint";
+import { ActionMenu, ActionMenuEntry } from "../components/action-menu.slint";
+import { LineEdit } from "../components/controls.slint";
+
+// State of the "New task from email" dialog. The controller fills the
+// choices when the dialog opens and reads the fields back on Create.
+export global TaskFromMail {
+    in-out property <bool> open: false;
+    // Thread the task will be linked to; -1 when none.
+    in-out property <int> thread-id: -1;
+    in-out property <string> mail-label;
+    in-out property <string> title;
+    // "inbox" | "next" | "waiting" | "scheduled"
+    in-out property <string> status: "inbox";
+    in-out property <string> due;
+    in-out property <string> project-id;
+    in-out property <string> project-name;
+    in-out property <[ActionMenuEntry]> project-menu;
+    in-out property <string> context-id: "none";
+    in-out property <string> context-name;
+    in-out property <[ActionMenuEntry]> context-menu;
+    in-out property <bool> archive: false;
+    in-out property <string> error;
+    in-out property <bool> busy: false;
+    callback create();
+    // The controller resolves the picked entry's name: "project" or "context".
+    callback pick(string, string);
+}
+
+component PickerRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <[ActionMenuEntry]> entries;
+    in property <string> tooltip;
+    callback picked(string);
+    height: 34px;
+    spacing: 8px;
+    Text {
+        width: 96px;
+        text: root.label;
+        color: AppTheme.muted;
+        font-size: TypeScale.caption;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    Text {
+        horizontal-stretch: 1;
+        text: root.value;
+        color: AppTheme.heading;
+        font-size: TypeScale.body;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    ActionMenu {
+        width: 32px;
+        height: 32px;
+        icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
+        entries: root.entries;
+        menu-width: 240px;
+        tooltip-text: root.tooltip;
+        activated(id) => { root.picked(id); }
+    }
+}
+
+export component TaskFromMailDialog inherits Rectangle {
+    background: #00000066;
+    accessible-role: groupbox;
+    accessible-label: @tr("New task from email");
+
+    TouchArea { }
+
+    card := Rectangle {
+        width: min(460px, parent.width - 32px);
+        height: content.preferred-height + 44px;
+        x: (parent.width - self.width) / 2;
+        y: max(16px, (parent.height - self.height) / 2);
+        border-radius: 12px;
+        border-width: 1px;
+        border-color: AppTheme.border;
+        background: AppTheme.surface;
+
+        content := VerticalLayout {
+            x: 22px;
+            y: 22px;
+            width: parent.width - 44px;
+            height: parent.height - 44px;
+            spacing: 10px;
+            Text {
+                text: @tr("New task from email");
+                color: AppTheme.title;
+                font-size: TypeScale.heading;
+                font-weight: 700;
+                overflow: elide;
+            }
+            LineEdit {
+                height: 36px;
+                text <=> TaskFromMail.title;
+                placeholder-text: @tr("Task title");
+                input-label: @tr("Task title");
+                accepted(text) => { TaskFromMail.create(); }
+            }
+            Text {
+                text: TaskFromMail.mail-label;
+                color: AppTheme.body;
+                font-size: TypeScale.secondary;
+                overflow: elide;
+            }
+            Text {
+                text: @tr("Linked to the whole thread. Later replies show on the task.");
+                color: AppTheme.muted;
+                font-size: TypeScale.micro;
+                wrap: word-wrap;
+            }
+            PickerRow {
+                label: @tr("Add to");
+                value: TaskFromMail.status == "next" ? @tr("Next actions")
+                    : TaskFromMail.status == "waiting" ? @tr("Waiting for")
+                    : TaskFromMail.status == "scheduled" ? @tr("Scheduled")
+                    : @tr("Inbox");
+                entries: [
+                    { id: "inbox", title: @tr("Inbox") },
+                    { id: "next", title: @tr("Next actions") },
+                    { id: "waiting", title: @tr("Waiting for") },
+                    { id: "scheduled", title: @tr("Scheduled") },
+                ];
+                tooltip: @tr("Choose a status");
+                picked(id) => { TaskFromMail.status = id; }
+            }
+            HorizontalLayout {
+                height: 34px;
+                spacing: 8px;
+                Text {
+                    width: 96px;
+                    text: @tr("Due date");
+                    color: AppTheme.muted;
+                    font-size: TypeScale.caption;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                LineEdit {
+                    horizontal-stretch: 1;
+                    text <=> TaskFromMail.due;
+                    placeholder-text: @tr("YYYY-MM-DD");
+                    input-label: @tr("Due date");
+                    accepted(text) => { TaskFromMail.create(); }
+                }
+            }
+            PickerRow {
+                label: @tr("Project");
+                value: TaskFromMail.project-name;
+                entries: TaskFromMail.project-menu;
+                tooltip: @tr("Choose a project");
+                picked(id) => { TaskFromMail.pick("project", id); }
+            }
+            PickerRow {
+                label: @tr("Context");
+                value: TaskFromMail.context-id == "none" ? @tr("No context") : TaskFromMail.context-name;
+                entries: TaskFromMail.context-menu;
+                tooltip: @tr("Set context");
+                picked(id) => { TaskFromMail.pick("context", id); }
+            }
+            Button {
+                text: @tr("Archive email once the task exists");
+                selected: TaskFromMail.archive;
+                label-overflow: elide;
+                clicked => { TaskFromMail.archive = !TaskFromMail.archive; }
+            }
+            if TaskFromMail.error != "" : Text {
+                text: TaskFromMail.error;
+                color: AppTheme.destructive;
+                font-size: TypeScale.caption;
+                wrap: word-wrap;
+            }
+            HorizontalLayout {
+                height: 34px;
+                spacing: 8px;
+                Rectangle { horizontal-stretch: 1; }
+                Button {
+                    text: @tr("Cancel");
+                    width: max(90px, self.content-width + 28px);
+                    clicked => { TaskFromMail.open = false; }
+                }
+                Button {
+                    text: @tr("Create task");
+                    primary: true;
+                    enabled: !TaskFromMail.busy && TaskFromMail.title != "";
+                    width: max(120px, self.content-width + 28px);
+                    clicked => { TaskFromMail.create(); }
+                }
+            }
+        }
+    }
+}

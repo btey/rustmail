@@ -31,7 +31,7 @@ use rustmail::{
     ContactSidebarRowKind, EmailRow, LinkRow, LocalizedMessage, MailAttachment, MailAttachments,
     MailLabelRow, MailListEntry, MailProfileRow, MailboxRow, MotionSettings, SidebarRow,
     SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipRow, TaskColumnRow, TaskDetailRow,
-    TaskNavRow, TasksUi, ThreadMessageRow,
+    TaskFromMail, TaskNavRow, TasksUi, ThreadMessageRow,
 };
 use slint::platform::{
     Platform, WindowAdapter,
@@ -571,6 +571,7 @@ fn reset(app: &AppWindow) {
     app.set_account_form_open(false);
     app.global::<AppTheme>().set_preset("default".into());
     app.global::<MailAttachments>().set_rows(model(Vec::new()));
+    app.global::<TaskFromMail>().set_open(false);
     let tasks = app.global::<TasksUi>();
     tasks.set_detail_open(false);
     tasks.set_navigation_open(false);
@@ -863,6 +864,21 @@ fn states() -> Vec<State> {
         },
         state("contacts", |app| app.set_active_view("contacts".into())),
         state("files", |app| app.set_active_view("files".into())),
+        State {
+            dismiss: Some("Cancel"),
+            ..state("task from mail dialog", |app| {
+                let dialog = app.global::<TaskFromMail>();
+                dialog.set_mail_label(
+                    "Alex Johnson-Whitfield · Re: Quarterly planning review and budget notes"
+                        .into(),
+                );
+                dialog.set_title("Re: Quarterly planning notes".into());
+                dialog.set_project_name("Annual compliance review project".into());
+                dialog.set_status("waiting".into());
+                dialog.set_error("Due date must look like 2026-12-31".into());
+                dialog.set_open(true);
+            })
+        },
         state("tasks board", |app| {
             tasks_fixture(app, false);
             app.set_active_view("tasks".into());

@@ -933,6 +933,7 @@ export component MailListPane inherits Rectangle {
                                             if TabsUi.enabled : MenuSeparator {}
                                             MenuItem { title: mail-data.starred ? @tr("Remove star") : @tr("Star message"); activated => { root.message_action_for_email(mail-data.id, mail-data.starred ? "unstar" : "star"); } }
                                             MenuItem { title: mail-data.unread ? @tr("Mark as read") : @tr("Mark as unread"); activated => { root.message_action_for_email(mail-data.id, mail-data.unread ? "mark_read" : "mark_unread"); } }
+                                            MenuItem { title: @tr("Create task"); activated => { root.message_action_for_email(mail-data.id, "create_task"); } }
                                             MenuItem { title: @tr("Archive"); activated => { root.message_action_for_email(mail-data.id, "archive"); } }
                                             MenuItem { title: @tr("Move to spam"); activated => { root.message_action_for_email(mail-data.id, "spam"); } }
                                             MenuItem { title: root.trash_view ? @tr("Delete permanently…") : @tr("Move to trash"); activated => { root.message_action_for_email(mail-data.id, root.trash_view ? "delete_permanently" : "trash"); } }
