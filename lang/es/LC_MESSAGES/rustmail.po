@@ -5307,7 +5307,8 @@ msgstr "Título de la tarea"
 
 #: ui/dialogs/task-from-mail-dialog.slint:111
 msgid "Linked to the whole thread. Later replies show on the task."
-msgstr "Vinculada a todo el hilo. Las respuestas posteriores aparecen en la tarea."
+msgstr ""
+"Vinculada a todo el hilo. Las respuestas posteriores aparecen en la tarea."
 
 #: ui/dialogs/task-from-mail-dialog.slint:117
 msgid "Add to"
