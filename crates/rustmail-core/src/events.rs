@@ -120,6 +120,10 @@ pub enum CoreEvent {
     },
     /// A task, project, column, context, label, checklist item or link changed.
     TasksChanged,
+    /// A mail written from a task was delivered and linked to it.
+    TaskMailSent {
+        title: String,
+    },
 }
 
 #[derive(Clone)]

@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-26 18:47+0000\n"
+"POT-Creation-Date: 2026-10-26 19:14+0000\n"
 "PO-Revision-Date: 2026-09-15 12:00+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Turkish\n"
@@ -184,7 +184,7 @@ msgstr "Konuşma geçmişi mevcut"
 msgid "New address-book entry"
 msgstr "Yeni adres defteri kaydı"
 
-#: ui/app.slint:130 ui/app.slint:898 ui/components/composer-fields.slint:66
+#: ui/app.slint:130 ui/app.slint:899 ui/components/composer-fields.slint:66
 #: ui/dialogs/compose-dialog.slint:37
 msgid "No connected account"
 msgstr "Bağlı hesap yok"
@@ -1074,142 +1074,146 @@ msgid ""
 msgstr ""
 
 #: ui/app.slint:431
+msgid "Sent and linked to the task: {}"
+msgstr ""
+
+#: ui/app.slint:432
 msgid "Message action failed: {}"
 msgstr "İleti işlemi başarısız: {}"
 
-#: ui/app.slint:432
+#: ui/app.slint:433
 msgid "Message action failed: message is no longer available"
 msgstr "İleti işlemi başarısız: ileti artık mevcut değil"
 
-#: ui/app.slint:433
+#: ui/app.slint:434
 msgid "Label added."
 msgstr "Etiket eklendi."
 
-#: ui/app.slint:434
+#: ui/app.slint:435
 msgid "Label removed."
 msgstr "Etiket kaldırıldı."
 
-#: ui/app.slint:435
+#: ui/app.slint:436
 msgid "Label created and added."
 msgstr "Etiket oluşturuldu ve eklendi."
 
-#: ui/app.slint:436
+#: ui/app.slint:437
 msgid "Label created."
 msgstr "Etiket oluşturuldu."
 
-#: ui/app.slint:437
+#: ui/app.slint:438
 msgid "Label updated."
 msgstr "Etiket güncellendi."
 
-#: ui/app.slint:438
+#: ui/app.slint:439
 msgid "Label deleted."
 msgstr "Etiket silindi."
 
-#: ui/app.slint:439
+#: ui/app.slint:440
 msgid "Could not update label: {}"
 msgstr "Etiket güncellenemedi: {}"
 
-#: ui/app.slint:440
+#: ui/app.slint:441
 msgid "Could not save label: {}"
 msgstr "Etiket kaydedilemedi: {}"
 
-#: ui/app.slint:441
+#: ui/app.slint:442
 msgid "Could not delete label: {}"
 msgstr "Etiket silinemedi: {}"
 
-#: ui/app.slint:442
+#: ui/app.slint:443
 msgid "Folder created."
 msgstr "Klasör oluşturuldu."
 
-#: ui/app.slint:443
+#: ui/app.slint:444
 msgid "Folder renamed."
 msgstr "Klasör yeniden adlandırıldı."
 
-#: ui/app.slint:444
+#: ui/app.slint:445
 msgid "Folder deleted."
 msgstr "Klasör silindi."
 
-#: ui/app.slint:445
+#: ui/app.slint:446
 msgid "Could not create folder: {}"
 msgstr "Klasör oluşturulamadı: {}"
 
-#: ui/app.slint:446
+#: ui/app.slint:447
 msgid "Could not rename folder: {}"
 msgstr "Klasör yeniden adlandırılamadı: {}"
 
-#: ui/app.slint:447
+#: ui/app.slint:448
 msgid "Could not delete folder: {}"
 msgstr "Klasör silinemedi: {}"
 
-#: ui/app.slint:448
+#: ui/app.slint:449
 msgid "Could not close preview: {}"
 msgstr "Önizleme kapatılamadı: {}"
 
-#: ui/app.slint:449
+#: ui/app.slint:450
 msgid "Opened the system print view."
 msgstr "Sistem yazdırma görünümü açıldı."
 
-#: ui/app.slint:450
+#: ui/app.slint:451
 msgid "Could not print message: {}"
 msgstr "İleti yazdırılamadı: {}"
 
-#: ui/app.slint:451
+#: ui/app.slint:452
 msgid "Opened the message in your browser."
 msgstr "İleti tarayıcınızda açıldı."
 
-#: ui/app.slint:452
+#: ui/app.slint:453
 msgid "Could not open message in browser: {}"
 msgstr "İleti tarayıcıda açılamadı: {}"
 
-#: ui/app.slint:453
+#: ui/app.slint:454
 msgid "Connect an account before replying or forwarding."
 msgstr "Yanıtlamadan veya iletmeden önce bir hesap bağlayın."
 
-#: ui/app.slint:454
+#: ui/app.slint:455
 msgid "Choose a message first."
 msgstr "Önce bir ileti seçin."
 
-#: ui/app.slint:455
+#: ui/app.slint:456
 msgid "Only drafts can be reopened for editing."
 msgstr "Yalnızca taslaklar düzenlenmek üzere yeniden açılabilir."
 
-#: ui/app.slint:456
+#: ui/app.slint:457
 msgid "Could not open draft: {}"
 msgstr "Taslak açılamadı: {}"
 
-#: ui/app.slint:457
+#: ui/app.slint:458
 msgid "Could not open draft: invalid account identifier"
 msgstr "Taslak açılamadı: geçersiz hesap tanımlayıcısı"
 
-#: ui/app.slint:458
+#: ui/app.slint:459
 msgid "Connected account"
 msgstr "Bağlı hesap"
 
-#: ui/app.slint:459
+#: ui/app.slint:460
 msgid "Could not open composer: {}"
 msgstr "Oluşturucu açılamadı: {}"
 
-#: ui/app.slint:460
+#: ui/app.slint:461
 msgid "Could not open composer: invalid account identifier"
 msgstr "Oluşturucu açılamadı: geçersiz hesap tanımlayıcısı"
 
-#: ui/app.slint:465
+#: ui/app.slint:466
 msgid "Attach files to this email"
 msgstr "Bu e-postaya dosya ekleyin"
 
-#: ui/app.slint:466
+#: ui/app.slint:467
 msgid "Could not add attachments: {}"
 msgstr "Ekler eklenemedi: {}"
 
-#: ui/app.slint:467
+#: ui/app.slint:468
 msgid "Added 1 attachment."
 msgstr "1 ek eklendi."
 
-#: ui/app.slint:468
+#: ui/app.slint:469
 msgid "Added {} attachments."
 msgstr "{} ek eklendi."
 
-#: ui/app.slint:469
+#: ui/app.slint:470
 msgid ""
 "Attachments added: {}. Skipped: {} (duplicate, unreadable, or over the 25 MB "
 "total limit)."
@@ -1217,119 +1221,119 @@ msgstr ""
 "Eklenen ekler: {}. Atlananlar: {} (yinelenen, okunamayan veya toplam 25 MB "
 "sınırını aşan)."
 
-#: ui/app.slint:470
+#: ui/app.slint:471
 msgid "Attachment removed."
 msgstr "Ek kaldırıldı."
 
-#: ui/app.slint:471
+#: ui/app.slint:472
 msgid "Choose the account this message should be sent from."
 msgstr "Bu iletinin hangi hesaptan gönderileceğini seçin."
 
-#: ui/app.slint:472
+#: ui/app.slint:473
 msgid "Choose a verified sender identity for this message."
 msgstr "Bu ileti için doğrulanmış bir gönderen kimliği seçin."
 
-#: ui/app.slint:473
+#: ui/app.slint:474
 msgid "Connect an account before saving or sending mail."
 msgstr "E-posta kaydetmeden veya göndermeden önce bir hesap bağlayın."
 
-#: ui/app.slint:474
+#: ui/app.slint:475
 msgid "Message queued for delivery (action {})."
 msgstr "İleti gönderilmek üzere kuyruğa alındı (eylem {})."
 
-#: ui/app.slint:475
+#: ui/app.slint:476
 msgid "Sending message…"
 msgstr "İleti gönderiliyor…"
 
-#: ui/app.slint:476
+#: ui/app.slint:477
 msgid "Message sent."
 msgstr "İleti gönderildi."
 
-#: ui/app.slint:477
+#: ui/app.slint:478
 msgid "Message was not sent: {} Your draft is preserved."
 msgstr "İleti gönderilemedi: {} Taslağınız korunuyor."
 
-#: ui/app.slint:478
+#: ui/app.slint:479
 msgid "Draft saved locally (#{})."
 msgstr "Taslak yerel olarak kaydedildi (#{})."
 
-#: ui/app.slint:479
+#: ui/app.slint:480
 msgid "Compose failed: {}"
 msgstr "Oluşturma başarısız: {}"
 
-#: ui/app.slint:480
+#: ui/app.slint:481
 msgid "Connect an account before managing email templates."
 msgstr "E-posta şablonlarını yönetmeden önce bir hesap bağlayın."
 
-#: ui/app.slint:481
+#: ui/app.slint:482
 msgid "Could not load email templates: {}"
 msgstr "E-posta şablonları yüklenemedi: {}"
 
-#: ui/app.slint:482
+#: ui/app.slint:483
 msgid "Enter a template name."
 msgstr "Bir şablon adı girin."
 
-#: ui/app.slint:483
+#: ui/app.slint:484
 msgid "Add a subject or message to the template."
 msgstr "Şablona bir konu veya ileti ekleyin."
 
-#: ui/app.slint:484
+#: ui/app.slint:485
 msgid "Email template saved."
 msgstr "E-posta şablonu kaydedildi."
 
-#: ui/app.slint:485
+#: ui/app.slint:486
 msgid "Could not save email template: {}"
 msgstr "E-posta şablonu kaydedilemedi: {}"
 
-#: ui/app.slint:486
+#: ui/app.slint:487
 msgid "Email template deleted."
 msgstr "E-posta şablonu silindi."
 
-#: ui/app.slint:487
+#: ui/app.slint:488
 msgid "Could not delete email template: {}"
 msgstr "E-posta şablonu silinemedi: {}"
 
-#: ui/app.slint:488
+#: ui/app.slint:489
 msgid "Email template is no longer available."
 msgstr "E-posta şablonu artık mevcut değil."
 
-#: ui/app.slint:489
+#: ui/app.slint:490
 msgid "Email template inserted."
 msgstr "E-posta şablonu eklendi."
 
-#: ui/app.slint:490
+#: ui/app.slint:491
 msgid "Email template inserted, but its usage could not be saved: {}"
 msgstr "E-posta şablonu eklendi, ancak kullanımı kaydedilemedi: {}"
 
-#: ui/app.slint:491
+#: ui/app.slint:492
 msgid "IMAP port must be between 1 and 65535."
 msgstr "IMAP bağlantı noktası 1 ile 65535 arasında olmalıdır."
 
-#: ui/app.slint:492
+#: ui/app.slint:493
 msgid "News server port must be between 1 and 65535."
 msgstr ""
 
-#: ui/app.slint:493
+#: ui/app.slint:494
 msgid "SMTP port must be between 1 and 65535."
 msgstr "SMTP bağlantı noktası 1 ile 65535 arasında olmalıdır."
 
-#: ui/app.slint:494
+#: ui/app.slint:495
 msgid "Local mail data is unavailable. Retry startup."
 msgstr "Yerel e-posta verisi kullanılamıyor. Başlatmayı yeniden deneyin."
 
-#: ui/app.slint:495
+#: ui/app.slint:496
 msgid "Discovering JMAP and checking capabilities…"
 msgstr "JMAP keşfediliyor ve yetenekler denetleniyor…"
 
-#: ui/app.slint:496
+#: ui/app.slint:497
 msgid "Certificate imported. Connect to verify the server."
 msgstr "Sertifika içe aktarıldı. Sunucuyu doğrulamak için bağlanın."
 
-#: ui/app.slint:497
+#: ui/app.slint:498
 msgid "Could not load account preferences: {}"
 msgstr "Hesap tercihleri yüklenemedi: {}"
 
-#: ui/app.slint:498
+#: ui/app.slint:499
 msgid ""
 "Your edited signature was preserved. Choose No signature to keep it as "
 "message text before inserting another."
@@ -1337,27 +1341,27 @@ msgstr ""
 "Düzenlediğiniz imza korundu. Başka birini eklemeden önce onu ileti metni "
 "olarak tutmak için İmza yok'u seçin."
 
-#: ui/app.slint:499
+#: ui/app.slint:500
 msgid "Certificate import failed: {}"
 msgstr "Sertifika içe aktarılamadı: {}"
 
-#: ui/app.slint:500
+#: ui/app.slint:501
 msgid "Paste the PEM certificate into the certificate field."
 msgstr "PEM sertifikasını sertifika alanına yapıştırın."
 
-#: ui/app.slint:501
+#: ui/app.slint:502
 msgid "Testing IMAP and SMTP connections…"
 msgstr "IMAP ve SMTP bağlantıları sınanıyor…"
 
-#: ui/app.slint:502
+#: ui/app.slint:503
 msgid "Checking the mail folder…"
 msgstr ""
 
-#: ui/app.slint:503
+#: ui/app.slint:504
 msgid "Connecting to the news server…"
 msgstr ""
 
-#: ui/app.slint:508
+#: ui/app.slint:509
 msgid ""
 "Another browser authorization is already in progress; finish it or choose "
 "Cancel."
@@ -1365,154 +1369,154 @@ msgstr ""
 "Başka bir tarayıcı yetkilendirmesi zaten sürüyor; onu bitirin veya İptal'i "
 "seçin."
 
-#: ui/app.slint:509 ui/dialogs/settings-dialog.slint:1562
+#: ui/app.slint:510 ui/dialogs/settings-dialog.slint:1562
 #: ui/dialogs/settings-dialog.slint:1605 ui/views/onboarding-view.slint:163
 msgid "Add app keys in Sign-in settings to enable this provider."
 msgstr ""
 "Bu sağlayıcıyı etkinleştirmek için Oturum açma ayarlarında uygulama "
 "anahtarları ekleyin."
 
-#: ui/app.slint:510
+#: ui/app.slint:511
 msgid "Choose Gmail or Outlook OAuth."
 msgstr "Gmail veya Outlook OAuth seçin."
 
-#: ui/app.slint:511
+#: ui/app.slint:512
 msgid "Complete sign-in in your browser, or choose Cancel here."
 msgstr "Oturum açmayı tarayıcınızda tamamlayın veya burada İptal'i seçin."
 
-#: ui/app.slint:512
+#: ui/app.slint:513
 msgid "Cancelling browser sign-in…"
 msgstr "Tarayıcıyla oturum açma iptal ediliyor…"
 
-#: ui/app.slint:513
+#: ui/app.slint:514
 msgid "Finishing browser sign-in…"
 msgstr "Tarayıcıyla oturum açma tamamlanıyor…"
 
-#: ui/app.slint:514
+#: ui/app.slint:515
 msgid "Could not use that browser address: {}"
 msgstr "O tarayıcı adresi kullanılamadı: {}"
 
-#: ui/app.slint:515
+#: ui/app.slint:516
 msgid "Calendar core is unavailable."
 msgstr "Takvim çekirdeği kullanılamıyor."
 
-#: ui/app.slint:516
+#: ui/app.slint:517
 msgid "Account no longer exists."
 msgstr "Hesap artık yok."
 
-#: ui/app.slint:517
+#: ui/app.slint:518
 msgid "Authorize calendar access in your browser."
 msgstr "Takvim erişimini tarayıcınızda yetkilendirin."
 
-#: ui/app.slint:518
+#: ui/app.slint:519
 msgid "OAuth app keys saved."
 msgstr "OAuth uygulama anahtarları kaydedildi."
 
-#: ui/app.slint:519
+#: ui/app.slint:520
 msgid "{} OAuth settings saved."
 msgstr "{} OAuth ayarları kaydedildi."
 
-#: ui/app.slint:520
+#: ui/app.slint:521
 msgid "OAuth settings failed: {}"
 msgstr "OAuth ayarları başarısız: {}"
 
-#: ui/app.slint:521
+#: ui/app.slint:522
 msgid "Mail refresh failed: {}"
 msgstr "E-posta yenilemesi başarısız: {}"
 
-#: ui/app.slint:522
+#: ui/app.slint:523
 msgid "Mail filter failed: {}"
 msgstr "E-posta filtresi başarısız: {}"
 
-#: ui/app.slint:523
+#: ui/app.slint:524
 msgid "Mail pagination failed: {}"
 msgstr "E-posta sayfalaması başarısız: {}"
 
-#: ui/app.slint:524
+#: ui/app.slint:525
 msgid "Could not mark message as read: {}"
 msgstr "İleti okundu olarak işaretlenemedi: {}"
 
-#: ui/app.slint:525 ui/views/mail-reading-pane.slint:237
+#: ui/app.slint:526 ui/views/mail-reading-pane.slint:237
 #: ui/views/mail-reading-pane.slint:1276
 msgid "Loading message…"
 msgstr "İleti yükleniyor…"
 
-#: ui/app.slint:531 ui/components/workspace-navigation.slint:579
+#: ui/app.slint:532 ui/components/workspace-navigation.slint:579
 #: ui/dialogs/settings-dialog.slint:2170 ui/tray.slint:13
 #: ui/views/onboarding-view.slint:129
 msgid "Rustmail"
 msgstr "Rustmail"
 
-#: ui/app.slint:1119 ui/app.slint:1132
+#: ui/app.slint:1120 ui/app.slint:1133
 msgid "Global Labels (local only)"
 msgstr "Genel Etiketler (yalnızca yerel)"
 
-#: ui/app.slint:2018
+#: ui/app.slint:2019
 msgid "Empty Trash?"
 msgstr ""
 
-#: ui/app.slint:2018 ui/views/files-view.slint:539
+#: ui/app.slint:2019 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr "Kalıcı olarak silinsin mi?"
 
-#: ui/app.slint:2022
+#: ui/app.slint:2023
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 
-#: ui/app.slint:2023
+#: ui/app.slint:2024
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr ""
 
-#: ui/app.slint:2025
+#: ui/app.slint:2026
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr ""
 
-#: ui/app.slint:2026
+#: ui/app.slint:2027
 msgid "Permanently delete this conversation from Trash?"
 msgstr ""
 
-#: ui/app.slint:2027 ui/components/calendar.slint:937
+#: ui/app.slint:2028 ui/components/calendar.slint:937
 msgid "This action cannot be undone."
 msgstr "Bu işlem geri alınamaz."
 
-#: ui/app.slint:2028
+#: ui/app.slint:2029
 msgid "Empty Trash"
 msgstr ""
 
-#: ui/app.slint:2028 ui/views/files-view.slint:621
+#: ui/app.slint:2029 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr "Kalıcı olarak sil"
 
-#: ui/app.slint:2202
+#: ui/app.slint:2203
 msgid "Mailbox startup failed"
 msgstr "Posta kutusu başlatılamadı"
 
-#: ui/app.slint:2208
+#: ui/app.slint:2209
 msgid "Rustmail could not open local storage"
 msgstr "Rustmail yerel depolamayı açamadı"
 
-#: ui/app.slint:2221
+#: ui/app.slint:2222
 msgid "Diagnostic ID: {}"
 msgstr "Tanılama kimliği: {}"
 
-#: ui/app.slint:2224
+#: ui/app.slint:2225
 msgid "Diagnostic ID {}"
 msgstr "Tanılama kimliği {}"
 
-#: ui/app.slint:2229
+#: ui/app.slint:2230
 msgid "Retry"
 msgstr "Yeniden dene"
 
-#: ui/app.slint:2237 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2238 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr "Tanılama bilgilerini kopyala"
 
-#: ui/app.slint:2303 ui/views/files-view.slint:694
+#: ui/app.slint:2304 ui/views/files-view.slint:694
 msgid "Dismiss"
 msgstr "Yoksay"
 
-#: ui/app.slint:2325 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2326 ui/components/workspace-navigation.slint:126
 msgid "Tasks"
 msgstr ""
 

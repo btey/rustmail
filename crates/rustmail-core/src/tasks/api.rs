@@ -123,12 +123,15 @@ impl Core {
             if core.wait_for_send(action_id).await.is_err() {
                 return;
             }
-            if let Err(e) = core
+            match core
                 .task_link_sent_draft(task_id, draft_id, after, follow_up_days)
                 .await
             {
-                tracing::warn!(task_id, draft_id, "linking the sent mail failed: {e}");
-                return;
+                Ok(task) => core.bus.emit(CoreEvent::TaskMailSent { title: task.title }),
+                Err(e) => {
+                    tracing::warn!(task_id, draft_id, "linking the sent mail failed: {e}");
+                    return;
+                }
             }
             if let (Some((account_id, calendar_id)), Some(_)) = (follow_up_event, follow_up_days)
                 && let Err(e) = core

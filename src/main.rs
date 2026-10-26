@@ -3383,6 +3383,11 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             app.set_render_status(message.clone());
             app.set_sync_status(message);
         }
+        if let Some(title) = pending.task_mail_sent.clone()
+            && let Some(app) = mail_update_app.upgrade()
+        {
+            app.set_sync_status(UiMessage::detail("Sent and linked to the task: {}", title));
+        }
         if pending.calendar_changed
             && let Some(app) = mail_update_app.upgrade()
             && app.get_active_view() == "calendar"

@@ -523,6 +523,7 @@ pub(crate) struct PendingCoreUpdates {
     pub(crate) calendar_changed: bool,
     pub(crate) contacts_changed: bool,
     pub(crate) tasks_changed: bool,
+    pub(crate) task_mail_sent: Option<String>,
 }
 
 impl PendingCoreUpdates {
@@ -677,6 +678,13 @@ pub(crate) fn spawn_core_event_listener(
                         .lock()
                         .unwrap_or_else(|poisoned| poisoned.into_inner())
                         .tasks_changed = true;
+                    true
+                }
+                Ok(CoreEvent::TaskMailSent { title }) => {
+                    pending
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .task_mail_sent = Some(title);
                     true
                 }
                 Ok(CoreEvent::ContactsUpdated { .. }) => {
