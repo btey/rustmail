@@ -863,3 +863,50 @@ async fn a_delivered_draft_is_linked_to_its_task_with_a_follow_up_time() {
     );
     assert_eq!(core.task_get(task_id).await.unwrap().link_count, 1);
 }
+
+#[tokio::test]
+async fn a_follow_up_event_is_booked_and_linked_to_the_task() {
+    let tmp = tempfile::tempdir().unwrap();
+    let core = crate::Core::start(crate::Paths::for_tests(tmp.path()))
+        .await
+        .unwrap();
+    core.tasks_open().await.unwrap();
+    let task_id = core
+        .db
+        .write(|conn: &mut Connection| {
+            let mut s = SqliteTaskStore::new(conn);
+            let p = s.list_projects()?[0].id;
+            Ok(plain_task(&mut s, p, "Ask about the invoice").id)
+        })
+        .await
+        .unwrap();
+
+    // No follow-up time yet: nothing is booked.
+    assert!(
+        core.task_create_follow_up_event(task_id, 0, None)
+            .await
+            .is_err()
+    );
+
+    let at = crate::models::now_ms() + 86_400_000;
+    core.task_update(
+        task_id,
+        TaskPatch {
+            follow_up_at: Some(Some(at)),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    let task = core
+        .task_create_follow_up_event(task_id, 0, None)
+        .await
+        .unwrap();
+    assert_eq!(task.link_count, 1);
+    let events = core.list_events(at - 1, at + 1).await.unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(
+        events[0].summary.as_deref(),
+        Some("Follow up: Ask about the invoice")
+    );
+}

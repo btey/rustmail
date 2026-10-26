@@ -86,7 +86,8 @@ impl Core {
     /// Send a draft for a task (Phase 9): queue it through the normal send
     /// path, and once delivery is confirmed link the sent message to the task
     /// (`task_record_sent`). `follow_up_days` sets the follow-up time from the
-    /// moment of sending. The link is made by a background waiter, so it is
+    /// moment of sending; `follow_up_event` (account id, calendar id) also
+    /// books it on the calendar. The link is made by a background waiter, so it is
     /// lost if the app quits between queueing and delivery; a failed or
     /// cancelled send changes nothing.
     pub async fn task_send_and_link(
@@ -95,6 +96,7 @@ impl Core {
         task_id: i64,
         after: AfterSend,
         follow_up_days: Option<u32>,
+        follow_up_event: Option<(i64, Option<i64>)>,
     ) -> Result<crate::models::QueueSendResult> {
         self.db
             .read(move |conn| SqliteTaskStore::new(conn).get_task(task_id).map(|_| ()))
@@ -111,6 +113,14 @@ impl Core {
                 .await
             {
                 tracing::warn!(task_id, draft_id, "linking the sent mail failed: {e}");
+                return;
+            }
+            if let (Some((account_id, calendar_id)), Some(_)) = (follow_up_event, follow_up_days)
+                && let Err(e) = core
+                    .task_create_follow_up_event(task_id, account_id, calendar_id)
+                    .await
+            {
+                tracing::warn!(task_id, "booking the follow-up event failed: {e}");
             }
         });
         Ok(queued)
@@ -145,6 +155,62 @@ impl Core {
         let follow_up_at = follow_up_days.map(|d| now_ms() + i64::from(d) * 24 * 60 * 60 * 1000);
         self.task_record_sent(task_id, sent, after, follow_up_at)
             .await
+    }
+
+    /// Book the task's follow-up as a calendar event (Phase 9): a 30 minute
+    /// event "Follow up: <title>" at `follow_up_at`, linked to the task. Needs
+    /// a follow-up time on the task; `account_id` 0 keeps the event local.
+    pub async fn task_create_follow_up_event(
+        &self,
+        task_id: i64,
+        account_id: i64,
+        calendar_id: Option<i64>,
+    ) -> Result<Task> {
+        let task = self
+            .db
+            .read(move |conn| SqliteTaskStore::new(conn).get_task(task_id))
+            .await?;
+        let starts_at = task
+            .follow_up_at
+            .ok_or_else(|| CoreError::Other("this task has no follow-up time".into()))?;
+        let event = self
+            .create_event(crate::models::CreateEventArgs {
+                account_id,
+                calendar_id,
+                summary: format!("Follow up: {}", task.title),
+                description: None,
+                location: None,
+                join_url: None,
+                starts_at,
+                ends_at: starts_at + 30 * 60 * 1000,
+                all_day: false,
+                attendees: Vec::new(),
+            })
+            .await?;
+        let event_id = event.id;
+        let uid: String = self
+            .calendar_db
+            .read(move |conn| {
+                Ok(conn.query_row(
+                    "SELECT ical_uid FROM calendar_events WHERE id = ?1",
+                    [event_id],
+                    |r| r.get(0),
+                )?)
+            })
+            .await?;
+        self.task_link_add(
+            task_id,
+            NewLink {
+                kind: LinkKind::Event,
+                account_email: None,
+                thread_id: None,
+                message_id: None,
+                event_uid: Some(uid),
+                other_task_uid: None,
+            },
+        )
+        .await?;
+        self.task_get(task_id).await
     }
 
     /// Like `task_create_from_thread`, but does nothing when the thread
