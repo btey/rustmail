@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-24 10:31+0000\n"
+"POT-Creation-Date: 2026-10-26 13:57+0000\n"
 "PO-Revision-Date: 2026-10-08 15:11+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Russian <ru@li.org>\n"
@@ -2126,8 +2126,8 @@ msgid ""
 "the files; read and starred marks go in each folder's .mh_sequences file."
 msgstr ""
 "Папки MH с пронумерованными файлами сообщений. Перемещение и удаление "
-"записываются в файлы; отметки «прочитано» и «важное» хранятся в файле ."
-"mh_sequences каждой папки."
+"записываются в файлы; отметки «прочитано» и «важное» хранятся в "
+"файле .mh_sequences каждой папки."
 
 #: ui/components/account-setup-form.slint:198
 msgid ""
@@ -3022,23 +3022,23 @@ msgstr "Задача: {}"
 msgid "{} · no reply yet"
 msgstr "{} · ответа пока нет"
 
-#: ui/components/linked-task-banner.slint:77
+#: ui/components/linked-task-banner.slint:78
 msgid "Linked task"
 msgstr "Связанная задача"
 
-#: ui/components/linked-task-banner.slint:87
+#: ui/components/linked-task-banner.slint:88
 msgid "Linked task: {}"
 msgstr "Связанная задача: {}"
 
-#: ui/components/linked-task-banner.slint:108
+#: ui/components/linked-task-banner.slint:109
 msgid "Undo"
 msgstr "Отменить"
 
-#: ui/components/linked-task-banner.slint:113
+#: ui/components/linked-task-banner.slint:114
 msgid "Open task"
 msgstr "Открыть задачу"
 
-#: ui/components/linked-task-banner.slint:136
+#: ui/components/linked-task-banner.slint:137
 msgid "{} · {}"
 msgstr "{} · {}"
 
