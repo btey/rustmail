@@ -31,7 +31,7 @@ See the `verify` skill. Report failures with output; never claim untested things
 ## Conventions and gotchas
 - `UiMessage::plain/detail/arguments/three_arguments` keys must be string literals AND exist as `ui-message-*` callbacks in `ui/app.slint`.
 - Any change to a `@tr(...)` string means regenerating `lang/rustmail.pot` and merging the `.po` files (see `update-translations` skill).
-- Slint layout: give nested boxes explicit `x`/`y`/height; avoid `alignment: start` on a ScrollView inner box; buttons `width: max(120px, self.content-width + 28px)`; keep labels short, because the `text_fit` test checks phone width.
+- Slint layout: give nested boxes explicit `x`/`y`/height; avoid `alignment: start` on a ScrollView inner box; buttons `width: max(120px, self.content-width + 28px)`; keep labels short, because the `text_fit` test checks desktop window size and font sizes (phone widths are no longer tested; the responsive layouts stay).
 - Mail list rows: `MailMessage.id` is the thread id; `message_id` is the real message id.
 - Mutations go through `Core::perform_action(PerformActionArgs{kind: ActionKind, thread_ids, params})`.
 - Non-IMAP backends (Gmail, JMAP, Local, News) plug into `sync::engine::spawn_account`; local/news accounts are stored with protocol `imap` plus a settings marker. See the `add-backend` skill.

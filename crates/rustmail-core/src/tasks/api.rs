@@ -102,6 +102,21 @@ impl Core {
             .read(move |conn| SqliteTaskStore::new(conn).get_task(task_id).map(|_| ()))
             .await?;
         let queued = self.queue_send(args).await?;
+        self.task_link_after_send(&queued, task_id, after, follow_up_days, follow_up_event);
+        Ok(queued)
+    }
+
+    /// The waiter half of `task_send_and_link`, for a send queued elsewhere
+    /// (the compose window queues its own): once delivery of `queued` is
+    /// confirmed, link it to the task and book the follow-up.
+    pub fn task_link_after_send(
+        &self,
+        queued: &crate::models::QueueSendResult,
+        task_id: i64,
+        after: AfterSend,
+        follow_up_days: Option<u32>,
+        follow_up_event: Option<(i64, Option<i64>)>,
+    ) {
         let core = self.clone();
         let (action_id, draft_id) = (queued.action_id, queued.draft_id);
         tokio::spawn(async move {
@@ -123,7 +138,6 @@ impl Core {
                 tracing::warn!(task_id, "booking the follow-up event failed: {e}");
             }
         });
-        Ok(queued)
     }
 
     pub(super) async fn task_link_sent_draft(

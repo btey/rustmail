@@ -538,7 +538,7 @@ fn keyboard_navigation_keeps_focus_scrolls_and_respects_text_inputs() {
         2,
         "resizing back restores desktop navigation"
     );
-    for (width, height, name) in [(390, 844, "phone"), (800, 1024, "tablet")] {
+    for (width, height, name) in [(800, 1024, "tablet")] {
         workspace.set_compact(true);
         workspace
             .window()

@@ -8,6 +8,16 @@ pub(super) struct ComposeIntent {
     pub mode: String,
     pub in_reply_to_message_id: Option<i64>,
     pub draft_id: Option<i64>,
+    /// Set when the message is written from a task: once delivered, the sent
+    /// mail is linked to the task.
+    pub task: Option<TaskSend>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct TaskSend {
+    pub task_id: i64,
+    pub after: rustmail_core::tasks::AfterSend,
+    pub follow_up_days: Option<u32>,
 }
 
 impl Default for ComposeIntent {
@@ -16,6 +26,7 @@ impl Default for ComposeIntent {
             mode: "new".to_owned(),
             in_reply_to_message_id: None,
             draft_id: None,
+            task: None,
         }
     }
 }
@@ -101,6 +112,7 @@ pub(super) fn prepare_message_compose(
                 mode: "forward".to_owned(),
                 in_reply_to_message_id: None,
                 draft_id: None,
+                task: None,
             },
         });
     }
@@ -159,6 +171,7 @@ pub(super) fn prepare_message_compose(
             mode: action.to_owned(),
             in_reply_to_message_id: Some(source.message_id),
             draft_id: None,
+            task: None,
         },
     })
 }

@@ -5581,6 +5581,45 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
     });
 
     let app_weak = app.as_weak();
+    let intent_for_task = Rc::clone(&compose_intent);
+    let document_for_task = Rc::clone(&compose_document);
+    let editor_for_task = Rc::clone(&compose_editor);
+    app.global::<TasksUi>().on_email_task(move |task_id, title| {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        if app.get_compose_open() {
+            return;
+        }
+        *intent_for_task.borrow_mut() = ComposeIntent {
+            task: Some(TaskSend {
+                task_id: i64::from(task_id),
+                after: rustmail_core::tasks::AfterSend::Waiting,
+                follow_up_days: Some(4),
+            }),
+            ..ComposeIntent::default()
+        };
+        app.set_compose_mode("new".into());
+        app.set_compose_subject(title);
+        app.global::<AccountMailPreferences>()
+            .invoke_composer_reset();
+        app.global::<AccountMailPreferences>()
+            .invoke_composer_account_changed(app.get_compose_account_id());
+        app.set_compose_notice(UiMessage::plain(
+            "Linked to the task once sent; it moves to Waiting for, with a follow-up in 4 days.",
+        ));
+        app.set_compose_notice_is_error(false);
+        app.set_compose_open(true);
+        let document = document_for_task.borrow();
+        apply_rich_compose(
+            &app,
+            &document,
+            document.selection(),
+            &mut editor_for_task.borrow_mut(),
+        );
+    });
+
+    let app_weak = app.as_weak();
     let state_for_message_compose = Rc::clone(&state);
     let runtime_for_message_compose = Rc::clone(&runtime);
     let files_for_message_compose = Rc::clone(&compose_files);
@@ -5717,6 +5756,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 mode: draft.mode,
                 in_reply_to_message_id: draft.in_reply_to_message_id,
                 draft_id: draft.draft_id,
+                task: None,
             };
             app.set_compose_mode("draft".into());
             app.global::<AccountMailPreferences>()
@@ -6283,6 +6323,15 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                     // Keep the exact saved draft attached to this composer so
                     // a failed submission can be edited and retried in place.
                     intent_for_save.borrow_mut().draft_id = Some(queued.draft_id);
+                    if let Some(task) = intent.task {
+                        core.file_core().task_link_after_send(
+                            &queued,
+                            task.task_id,
+                            task.after,
+                            task.follow_up_days,
+                            None,
+                        );
+                    }
                     send_action_for_save.set(Some(queued.action_id));
                     app.set_compose_sending(true);
                     app.set_compose_notice(UiMessage::plain("Sending message…"));

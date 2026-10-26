@@ -97,6 +97,8 @@ export global TasksUi {
     in-out property <[LinkRow]> links;
     in-out property <[ActivityRow]> activity;
     callback save-detail(string, string, string, string);
+    // Write an email from the task: task id, title.
+    callback email-task(int, string);
     in-out property <[TaskColumnRow]> columns;
     in-out property <[TaskNavRow]> focus-rows;
     in-out property <[TaskNavRow]> projects;
@@ -647,6 +649,11 @@ component TaskDrawer inherits Rectangle {
                     primary: !TasksUi.detail.done;
                     width: max(100px, self.content-width + 28px);
                     clicked => { TasksUi.command(TasksUi.detail.done ? "reopen" : "complete", "" + TasksUi.detail.id, ""); }
+                }
+                Button {
+                    text: @tr("Email");
+                    width: max(100px, self.content-width + 28px);
+                    clicked => { TasksUi.email-task(TasksUi.detail.id, TasksUi.detail.title); }
                 }
                 Button {
                     text: @tr("High priority");

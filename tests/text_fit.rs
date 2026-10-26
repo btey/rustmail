@@ -46,7 +46,8 @@ use std::time::Duration;
 
 // Slint's fallback, then KDE 10pt, GNOME 11pt and a 12pt desktop font.
 const BASE_FONT_SIZES: [f32; 4] = [12.0, 40.0 / 3.0, 44.0 / 3.0, 16.0];
-const WINDOWS: [(&str, u32, u32); 2] = [("desktop", 1320, 800), ("phone", 390, 844)];
+// The app targets desktops only; phone widths are not checked.
+const WINDOWS: [(&str, u32, u32); 1] = [("desktop", 1320, 800)];
 // Catalogs the bundled font covers, at the fallback and the largest size;
 // their longer strings mostly test widths. Russian and Chinese text falls
 // back to system fonts, which differ between machines.

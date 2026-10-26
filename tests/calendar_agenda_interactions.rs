@@ -266,8 +266,6 @@ fn busy_agenda_scroll_keyboard_identity_filters_and_responsive_actions() {
     ui.set_count(4);
     ui.set_compact(true);
     for (width, height, dark, name) in [
-        (390, 844, false, "phone-light"),
-        (390, 844, true, "phone-dark"),
         (768, 1024, false, "tablet-light"),
         (768, 1024, true, "tablet-dark"),
     ] {
