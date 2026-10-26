@@ -6601,39 +6601,3 @@ msgstr "Önceki boyuta getir"
 #: ui/window-chrome.slint:202 ui/window-chrome.slint:239
 msgid "Maximize"
 msgstr "Ekranı kapla"
-
-#~ msgid "Russian"
-#~ msgstr "Rusça"
-
-#~ msgid "Built by Rustmail with help from the open-source community."
-#~ msgstr ""
-#~ "Rustmail tarafından açık kaynak topluluğunun yardımıyla geliştirildi."
-
-#~ msgid "Company website"
-#~ msgstr "Şirket web sitesi"
-
-#~ msgid "Third-party components retain their own licenses and notices."
-#~ msgstr "Üçüncü taraf bileşenler kendi lisanslarını ve bildirimlerini korur."
-
-#~ msgid ""
-#~ "Subjects and addresses remain visible. Protected drafts stay on this "
-#~ "device. Existing server drafts are not retroactively protected. S/MIME "
-#~ "certificates are not supported."
-#~ msgstr ""
-#~ "Konular ve adresler görünür kalır. Korumalı taslaklar bu cihazda kalır. "
-#~ "Sunucudaki mevcut taslaklar geriye dönük olarak korunmaz. S/MIME "
-#~ "sertifikaları desteklenmez."
-
-#~ msgid "IMAP + SMTP"
-#~ msgstr "IMAP + SMTP"
-
-#~ msgid "Username (defaults to email)"
-#~ msgstr "Kullanıcı adı (varsayılanı e-posta)"
-
-#~ msgid "Server address (optional)"
-#~ msgstr "Sunucu adresi (isteğe bağlı)"
-
-#~ msgid "Could not refresh sender identities; using cached values: {}"
-#~ msgstr ""
-#~ "Gönderen kimlikleri yenilenemedi; önbelleğe alınmış değerler "
-#~ "kullanılıyor: {}"

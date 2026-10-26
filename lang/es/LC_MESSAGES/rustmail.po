@@ -6761,9 +6761,3 @@ msgstr "Restaurar"
 #: ui/window-chrome.slint:202 ui/window-chrome.slint:239
 msgid "Maximize"
 msgstr "Maximizar"
-
-#~ msgid "Simplified Chinese"
-#~ msgstr "Chino simplificado"
-
-#~ msgid "Russian"
-#~ msgstr "Ruso"
