@@ -28,7 +28,7 @@ diff -u \
   <(sed '/^"POT-Creation-Date:/d' lang/rustmail.pot) \
   <(sed '/^"POT-Creation-Date:/d' "$work_dir/rustmail.pot")
 
-for language in de es fr ru tr zh_Hans; do
+for language in de es fr tr; do
   msgmerge --quiet --no-fuzzy-matching \
     --output-file "$work_dir/rustmail-$language.po" \
     "lang/$language/LC_MESSAGES/rustmail.po" "$work_dir/rustmail.pot"

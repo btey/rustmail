@@ -12,7 +12,7 @@ whenever you finish or add an item, and state limits honestly.
 - `src/`, `ui/`: root crate `rustmail` (controllers, Slint UI). `ui/app.slint` is the root.
 - `crates/rustmail-core`: mail engine (IMAP `imap/`, SMTP `smtp/`, JMAP, Gmail, `local/` Maildir/mbox/MH, `nntp/`, `sync/engine.rs`, `db/` + `migrations/*.sql`, `actions.rs`, `filters.rs`, `signatures.rs`, `accounts/`).
 - `crates/blitz-*`, `parley*`, `candle-core`: vendored and patched. Never edit directly; use `scripts/blitz-patches.sh` / `patches/`.
-- `lang/`: gettext catalogs (de es fr ru tr zh_Hans). `scripts/`: checks, packaging, benchmarks.
+- `lang/`: gettext catalogs (de es fr tr). `scripts/`: checks, packaging, benchmarks.
 
 ## Environment
 - Toolchain via mise: `export PATH="$HOME/.local/share/mise/shims:$HOME/.cargo/bin:$PATH"`.

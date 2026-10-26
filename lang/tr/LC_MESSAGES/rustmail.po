@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-26 14:34+0000\n"
+"POT-Creation-Date: 2026-10-26 15:40+0000\n"
 "PO-Revision-Date: 2026-09-15 12:00+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Turkish\n"
@@ -1365,8 +1365,8 @@ msgstr ""
 "Başka bir tarayıcı yetkilendirmesi zaten sürüyor; onu bitirin veya İptal'i "
 "seçin."
 
-#: ui/app.slint:508 ui/dialogs/settings-dialog.slint:1568
-#: ui/dialogs/settings-dialog.slint:1611 ui/views/onboarding-view.slint:163
+#: ui/app.slint:508 ui/dialogs/settings-dialog.slint:1562
+#: ui/dialogs/settings-dialog.slint:1605 ui/views/onboarding-view.slint:163
 msgid "Add app keys in Sign-in settings to enable this provider."
 msgstr ""
 "Bu sağlayıcıyı etkinleştirmek için Oturum açma ayarlarında uygulama "
@@ -1438,7 +1438,7 @@ msgid "Loading message…"
 msgstr "İleti yükleniyor…"
 
 #: ui/app.slint:530 ui/components/workspace-navigation.slint:579
-#: ui/dialogs/settings-dialog.slint:2176 ui/tray.slint:13
+#: ui/dialogs/settings-dialog.slint:2170 ui/tray.slint:13
 #: ui/views/onboarding-view.slint:129
 msgid "Rustmail"
 msgstr "Rustmail"
@@ -1669,8 +1669,8 @@ msgid "Add sender address"
 msgstr ""
 
 #: ui/components/account-mail-preferences.slint:184
-#: ui/dialogs/folder-dialog.slint:128 ui/dialogs/settings-dialog.slint:1876
-#: ui/dialogs/settings-dialog.slint:2565 ui/dialogs/settings-dialog.slint:2800
+#: ui/dialogs/folder-dialog.slint:128 ui/dialogs/settings-dialog.slint:1870
+#: ui/dialogs/settings-dialog.slint:2559 ui/dialogs/settings-dialog.slint:2794
 #: ui/views/contacts-view.slint:582 ui/views/files-view.slint:620
 msgid "Cancel"
 msgstr "İptal"
@@ -1954,7 +1954,7 @@ msgid "Export decrypted message"
 msgstr "Şifresi çözülmüş iletiyi dışa aktar"
 
 #: ui/components/account-mail-preferences.slint:296
-#: ui/dialogs/settings-dialog.slint:2511 ui/views/files-view.slint:455
+#: ui/dialogs/settings-dialog.slint:2505 ui/views/files-view.slint:455
 #: ui/views/files-view.slint:656 ui/views/tasks-view.slint:632
 #: ui/window-chrome.slint:238
 msgid "Close"
@@ -1989,7 +1989,7 @@ msgid "name@example.com"
 msgstr "ad@ornek.com"
 
 #: ui/components/account-setup-form.slint:129
-#: ui/dialogs/settings-dialog.slint:2412
+#: ui/dialogs/settings-dialog.slint:2406
 msgid "Username"
 msgstr "Kullanıcı adı"
 
@@ -2824,11 +2824,11 @@ msgstr ""
 msgid "Archive"
 msgstr "Arşivle"
 
-#: ui/components/filter-rules.slint:145 ui/dialogs/settings-dialog.slint:2086
+#: ui/components/filter-rules.slint:145 ui/dialogs/settings-dialog.slint:2080
 msgid "Mark as spam"
 msgstr "İstenmeyen olarak işaretle"
 
-#: ui/components/filter-rules.slint:145 ui/dialogs/settings-dialog.slint:2087
+#: ui/components/filter-rules.slint:145 ui/dialogs/settings-dialog.slint:2081
 #: ui/views/mail-list-pane.slint:950 ui/views/mail-reading-pane.slint:390
 #: ui/views/mail-reading-pane.slint:793
 msgid "Move to trash"
@@ -3562,7 +3562,7 @@ msgid "thunderbird -file %f"
 msgstr ""
 
 #: ui/components/workspace-navigation.slint:104
-#: ui/dialogs/settings-dialog.slint:2082
+#: ui/dialogs/settings-dialog.slint:2076
 msgid "Mail"
 msgstr "E-posta"
 
@@ -3571,7 +3571,7 @@ msgid "Files"
 msgstr "Dosyalar"
 
 #: ui/components/workspace-navigation.slint:148
-#: ui/dialogs/settings-dialog.slint:1263 ui/dialogs/settings-dialog.slint:2237
+#: ui/dialogs/settings-dialog.slint:1257 ui/dialogs/settings-dialog.slint:2231
 #: ui/views/contacts-view.slint:236
 msgid "Contacts"
 msgstr "Kişiler"
@@ -4094,22 +4094,14 @@ msgstr "İspanyolca"
 msgid "Turkish"
 msgstr "Türkçe"
 
-#: ui/dialogs/settings-dialog.slint:532
-msgid "Simplified Chinese"
-msgstr ""
-
-#: ui/dialogs/settings-dialog.slint:533
-msgid "Russian"
-msgstr "Rusça"
-
-#: ui/dialogs/settings-dialog.slint:567
+#: ui/dialogs/settings-dialog.slint:563
 msgid ""
 "general theme appearance palette language workspace layout window frameless "
 "title bar renderer privacy remote images sync group messages date inbox tray "
 "background startup sign in login"
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:569
+#: ui/dialogs/settings-dialog.slint:565
 msgid ""
 "accounts profiles personal work colors providers gmail outlook imap jmap "
 "caldav carddav mail history oauth security signatures"
@@ -4117,7 +4109,7 @@ msgstr ""
 "hesaplar profiller kişisel iş renkler sağlayıcılar gmail outlook imap jmap "
 "caldav carddav posta geçmişi oauth güvenlik imzalar"
 
-#: ui/dialogs/settings-dialog.slint:571
+#: ui/dialogs/settings-dialog.slint:567
 msgid ""
 "contacts people suggestions autocomplete recipients senders address book "
 "privacy clear"
@@ -4125,26 +4117,26 @@ msgstr ""
 "kişiler insanlar öneriler otomatik tamamlama alıcılar gönderenler adres "
 "defteri gizlilik temizle"
 
-#: ui/dialogs/settings-dialog.slint:573
+#: ui/dialogs/settings-dialog.slint:569
 msgid "notifications alerts sounds desktop new mail"
 msgstr "bildirimler uyarılar sesler masaüstü yeni posta"
 
-#: ui/dialogs/settings-dialog.slint:575
+#: ui/dialogs/settings-dialog.slint:571
 msgid "shortcuts keyboard compose search archive spam trash"
 msgstr "kısayollar klavye oluştur ara arşiv istenmeyen çöp"
 
-#: ui/dialogs/settings-dialog.slint:577
+#: ui/dialogs/settings-dialog.slint:573
 msgid ""
 "filters rules mail incoming move label star archive trash spam sender "
 "subject automatic"
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:579
+#: ui/dialogs/settings-dialog.slint:575
 msgid ""
 "actions external editor commands scripts run message open editor compose"
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:581
+#: ui/dialogs/settings-dialog.slint:577
 msgid ""
 "storage data usage mail attachments files databases backup snapshot import "
 "export delete"
@@ -4152,285 +4144,285 @@ msgstr ""
 "depolama veri kullanımı posta ekler dosyalar veritabanları yedek anlık "
 "görüntü içe aktar dışa aktar sil"
 
-#: ui/dialogs/settings-dialog.slint:582
+#: ui/dialogs/settings-dialog.slint:578
 msgid "about version credits contributors license rustmail"
 msgstr "hakkında sürüm emeği geçenler lisans rustmail"
 
-#: ui/dialogs/settings-dialog.slint:827 ui/dialogs/settings-dialog.slint:2304
+#: ui/dialogs/settings-dialog.slint:821 ui/dialogs/settings-dialog.slint:2298
 msgid "SETTINGS"
 msgstr "AYARLAR"
 
-#: ui/dialogs/settings-dialog.slint:830 ui/dialogs/settings-dialog.slint:2306
+#: ui/dialogs/settings-dialog.slint:824 ui/dialogs/settings-dialog.slint:2300
 msgid "No settings found"
 msgstr "Ayar bulunamadı"
 
-#: ui/dialogs/settings-dialog.slint:831 ui/dialogs/settings-dialog.slint:862
-#: ui/dialogs/settings-dialog.slint:2307
+#: ui/dialogs/settings-dialog.slint:825 ui/dialogs/settings-dialog.slint:856
+#: ui/dialogs/settings-dialog.slint:2301
 msgid "General"
 msgstr "Genel"
 
-#: ui/dialogs/settings-dialog.slint:832 ui/dialogs/settings-dialog.slint:1413
-#: ui/dialogs/settings-dialog.slint:2308
+#: ui/dialogs/settings-dialog.slint:826 ui/dialogs/settings-dialog.slint:1407
+#: ui/dialogs/settings-dialog.slint:2302
 msgid "Accounts"
 msgstr "Hesaplar"
 
-#: ui/dialogs/settings-dialog.slint:834 ui/dialogs/settings-dialog.slint:2030
-#: ui/dialogs/settings-dialog.slint:2310
+#: ui/dialogs/settings-dialog.slint:828 ui/dialogs/settings-dialog.slint:2024
+#: ui/dialogs/settings-dialog.slint:2304
 msgid "Notifications"
 msgstr "Bildirimler"
 
-#: ui/dialogs/settings-dialog.slint:835 ui/dialogs/settings-dialog.slint:2239
+#: ui/dialogs/settings-dialog.slint:829 ui/dialogs/settings-dialog.slint:2233
 msgid "Shortcuts"
 msgstr "Kısayollar"
 
-#: ui/dialogs/settings-dialog.slint:836 ui/dialogs/settings-dialog.slint:1895
-#: ui/dialogs/settings-dialog.slint:2312
+#: ui/dialogs/settings-dialog.slint:830 ui/dialogs/settings-dialog.slint:1889
+#: ui/dialogs/settings-dialog.slint:2306
 msgid "Filters"
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:837 ui/dialogs/settings-dialog.slint:1926
-#: ui/dialogs/settings-dialog.slint:2313
+#: ui/dialogs/settings-dialog.slint:831 ui/dialogs/settings-dialog.slint:1920
+#: ui/dialogs/settings-dialog.slint:2307
 msgid "Actions"
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:838 ui/dialogs/settings-dialog.slint:1958
-#: ui/dialogs/settings-dialog.slint:2314
+#: ui/dialogs/settings-dialog.slint:832 ui/dialogs/settings-dialog.slint:1952
+#: ui/dialogs/settings-dialog.slint:2308
 msgid "Storage"
 msgstr "Depolama"
 
-#: ui/dialogs/settings-dialog.slint:839 ui/dialogs/settings-dialog.slint:2106
-#: ui/dialogs/settings-dialog.slint:2315
+#: ui/dialogs/settings-dialog.slint:833 ui/dialogs/settings-dialog.slint:2100
+#: ui/dialogs/settings-dialog.slint:2309
 msgid "About"
 msgstr "Hakkında"
 
-#: ui/dialogs/settings-dialog.slint:863
+#: ui/dialogs/settings-dialog.slint:857
 msgid "Manage appearance, privacy, and synchronization."
 msgstr "Görünüm, gizlilik ve eşitlemeyi yönetin."
 
-#: ui/dialogs/settings-dialog.slint:875
+#: ui/dialogs/settings-dialog.slint:869
 msgid "Message appearance"
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:876
+#: ui/dialogs/settings-dialog.slint:870
 msgid "Choose the background and text colors used to read messages."
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:877
+#: ui/dialogs/settings-dialog.slint:871
 msgid "Follow app theme"
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:934
+#: ui/dialogs/settings-dialog.slint:928
 msgid "Interface"
 msgstr "Arayüz"
 
-#: ui/dialogs/settings-dialog.slint:937
+#: ui/dialogs/settings-dialog.slint:931
 msgid "Monochrome sidebar icons"
 msgstr "Tek renkli kenar çubuğu simgeleri"
 
-#: ui/dialogs/settings-dialog.slint:938
+#: ui/dialogs/settings-dialog.slint:932
 msgid "Use one neutral color for mailbox and folder icons."
 msgstr "Posta kutusu ve klasör simgeleri için tek bir nötr renk kullanılır."
 
-#: ui/dialogs/settings-dialog.slint:950
+#: ui/dialogs/settings-dialog.slint:944
 msgid "No avatars"
 msgstr "Avatar yok"
 
-#: ui/dialogs/settings-dialog.slint:951
+#: ui/dialogs/settings-dialog.slint:945
 msgid "Hide sender images in the message list and reader."
 msgstr "Gönderen görsellerini ileti listesinde ve okuyucuda gizler."
 
-#: ui/dialogs/settings-dialog.slint:963
+#: ui/dialogs/settings-dialog.slint:957
 msgid "Frameless window"
 msgstr "Çerçevesiz pencere"
 
-#: ui/dialogs/settings-dialog.slint:964
+#: ui/dialogs/settings-dialog.slint:958
 msgid "Replace the system title bar with window controls in the toolbar."
 msgstr ""
 "Sistem başlık çubuğunu araç çubuğundaki pencere denetimleriyle değiştirin."
 
-#: ui/dialogs/settings-dialog.slint:971
+#: ui/dialogs/settings-dialog.slint:965
 msgid "Workspace layout"
 msgstr "Çalışma alanı düzeni"
 
-#: ui/dialogs/settings-dialog.slint:983
+#: ui/dialogs/settings-dialog.slint:977
 msgid "Minimal"
 msgstr "En az"
 
-#: ui/dialogs/settings-dialog.slint:1003
+#: ui/dialogs/settings-dialog.slint:997
 msgid "Language"
 msgstr "Dil"
 
-#: ui/dialogs/settings-dialog.slint:1006
+#: ui/dialogs/settings-dialog.slint:1000
 msgid "Display language"
 msgstr "Görüntüleme dili"
 
-#: ui/dialogs/settings-dialog.slint:1007
+#: ui/dialogs/settings-dialog.slint:1001
 msgid "Follow your device language when a translation is available."
 msgstr "Bir çeviri mevcut olduğunda cihazınızın dilini kullanın."
 
-#: ui/dialogs/settings-dialog.slint:1007
+#: ui/dialogs/settings-dialog.slint:1001
 msgid "Choose the language used throughout Rustmail."
 msgstr "Rustmail genelinde kullanılacak dili seçin."
 
-#: ui/dialogs/settings-dialog.slint:1029
+#: ui/dialogs/settings-dialog.slint:1023
 msgid "Inbox behavior"
 msgstr "Gelen kutusu davranışı"
 
-#: ui/dialogs/settings-dialog.slint:1032
+#: ui/dialogs/settings-dialog.slint:1026
 msgid "Unified Inbox"
 msgstr "Birleşik Gelen Kutusu"
 
-#: ui/dialogs/settings-dialog.slint:1033
+#: ui/dialogs/settings-dialog.slint:1027
 msgid "DEFAULT"
 msgstr "VARSAYILAN"
 
-#: ui/dialogs/settings-dialog.slint:1035
+#: ui/dialogs/settings-dialog.slint:1029
 msgid "Combines incoming messages from every connected account."
 msgstr "Bağlı tüm hesaplardan gelen iletileri birleştirir."
 
-#: ui/dialogs/settings-dialog.slint:1039
+#: ui/dialogs/settings-dialog.slint:1033
 msgid "Group messages by date"
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:1040
+#: ui/dialogs/settings-dialog.slint:1034
 msgid "Show collapsible date sections in the mail list."
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:1057
+#: ui/dialogs/settings-dialog.slint:1051
 msgid "Mark messages as read when opened"
 msgstr "İletiler açıldığında okundu olarak işaretle"
 
-#: ui/dialogs/settings-dialog.slint:1058
+#: ui/dialogs/settings-dialog.slint:1052
 msgid "Turn this off to keep unread status until you change it manually."
 msgstr "Okunmadı durumunu elle değiştirene kadar korumak için bunu kapatın."
 
-#: ui/dialogs/settings-dialog.slint:1085
+#: ui/dialogs/settings-dialog.slint:1079
 msgid "Remote images"
 msgstr "Uzak görseller"
 
-#: ui/dialogs/settings-dialog.slint:1086
+#: ui/dialogs/settings-dialog.slint:1080
 msgid "Load sender favicons and images embedded in message bodies."
 msgstr "Gönderen favikonlarını ve ileti gövdelerine gömülü görselleri yükler."
 
-#: ui/dialogs/settings-dialog.slint:1086
+#: ui/dialogs/settings-dialog.slint:1080
 msgid "Unavailable in this minimal build."
 msgstr "Bu minimal derlemede kullanılamaz."
 
-#: ui/dialogs/settings-dialog.slint:1087
+#: ui/dialogs/settings-dialog.slint:1081
 msgid "Off by default to block tracking pixels and minimize memory use."
 msgstr ""
 "İzleme piksellerini engellemek ve bellek kullanımını azaltmak için "
 "varsayılan olarak kapalıdır."
 
-#: ui/dialogs/settings-dialog.slint:1113
+#: ui/dialogs/settings-dialog.slint:1107
 msgid "Keep running in system tray"
 msgstr "Sistem tepsisinde çalışmayı sürdür"
 
-#: ui/dialogs/settings-dialog.slint:1114
+#: ui/dialogs/settings-dialog.slint:1108
 msgid "Closing the window hides Rustmail while mail continues syncing."
 msgstr ""
 "Pencere kapatıldığında Rustmail gizlenir; e-postalar eşitlenmeye devam eder."
 
-#: ui/dialogs/settings-dialog.slint:1115
+#: ui/dialogs/settings-dialog.slint:1109
 msgid "Disabled by default; Quit from the tray menu stops the app."
 msgstr ""
 "Varsayılan olarak kapalıdır; uygulamayı durdurmak için tepsi menüsünden "
 "Çıkış'ı seçin."
 
-#: ui/dialogs/settings-dialog.slint:1141
+#: ui/dialogs/settings-dialog.slint:1135
 msgid "Start automatically"
 msgstr "Otomatik başlat"
 
-#: ui/dialogs/settings-dialog.slint:1142
+#: ui/dialogs/settings-dialog.slint:1136
 msgid "Starts Rustmail in the system tray when you sign in."
 msgstr "Oturum açtığınızda Rustmail'i sistem tepsisinde başlatır."
 
-#: ui/dialogs/settings-dialog.slint:1142
+#: ui/dialogs/settings-dialog.slint:1136
 msgid "Opens Rustmail when you sign in."
 msgstr "Oturum açtığınızda Rustmail'i açar."
 
-#: ui/dialogs/settings-dialog.slint:1143
+#: ui/dialogs/settings-dialog.slint:1137
 msgid "Disabled by default; also listed in your system's startup apps."
 msgstr ""
 "Varsayılan olarak kapalı; sisteminizin başlangıç uygulamalarında da "
 "listelenir."
 
-#: ui/dialogs/settings-dialog.slint:1167
+#: ui/dialogs/settings-dialog.slint:1161
 msgid "Sync and notifications"
 msgstr "Eşitleme ve bildirimler"
 
-#: ui/dialogs/settings-dialog.slint:1170
+#: ui/dialogs/settings-dialog.slint:1164
 msgid "Check for new mail"
 msgstr "Yeni e-postaları denetle"
 
-#: ui/dialogs/settings-dialog.slint:1171
+#: ui/dialogs/settings-dialog.slint:1165
 msgid "How often to refresh when an instant provider update is unavailable."
 msgstr "Anlık sağlayıcı güncellemesi olmadığında yenileme sıklığı."
 
-#: ui/dialogs/settings-dialog.slint:1181 ui/dialogs/settings-dialog.slint:2047
+#: ui/dialogs/settings-dialog.slint:1175 ui/dialogs/settings-dialog.slint:2041
 msgid "Desktop notifications"
 msgstr "Masaüstü bildirimleri"
 
-#: ui/dialogs/settings-dialog.slint:1182 ui/dialogs/settings-dialog.slint:2048
+#: ui/dialogs/settings-dialog.slint:1176 ui/dialogs/settings-dialog.slint:2042
 msgid "Choose which incoming messages can alert you."
 msgstr "Hangi gelen iletilerin sizi uyarabileceğini seçin."
 
-#: ui/dialogs/settings-dialog.slint:1195
+#: ui/dialogs/settings-dialog.slint:1189
 msgid "Provider synchronization is ready."
 msgstr "Sağlayıcı eşitlemesi hazır."
 
-#: ui/dialogs/settings-dialog.slint:1203 ui/dialogs/settings-dialog.slint:1689
+#: ui/dialogs/settings-dialog.slint:1197 ui/dialogs/settings-dialog.slint:1683
 msgid "Syncing…"
 msgstr "Eşitleniyor…"
 
-#: ui/dialogs/settings-dialog.slint:1203
+#: ui/dialogs/settings-dialog.slint:1197
 msgid "Sync now"
 msgstr "Şimdi eşitle"
 
-#: ui/dialogs/settings-dialog.slint:1222
+#: ui/dialogs/settings-dialog.slint:1216
 msgid "Renderer"
 msgstr "Görüntüleyici"
 
-#: ui/dialogs/settings-dialog.slint:1223
+#: ui/dialogs/settings-dialog.slint:1217
 msgid "Changes take effect after restarting Rustmail."
 msgstr "Değişiklikler Rustmail yeniden başlatıldığında etkili olur."
 
-#: ui/dialogs/settings-dialog.slint:1223
+#: ui/dialogs/settings-dialog.slint:1217
 msgid "GPU mode is unavailable in this build."
 msgstr "GPU modu bu derlemede kullanılamıyor."
 
-#: ui/dialogs/settings-dialog.slint:1224
+#: ui/dialogs/settings-dialog.slint:1218
 msgid "CPU — Low Memory"
 msgstr "CPU — Düşük Bellek"
 
-#: ui/dialogs/settings-dialog.slint:1224
+#: ui/dialogs/settings-dialog.slint:1218
 msgid "GPU — WGPU"
 msgstr "GPU — WGPU"
 
-#: ui/dialogs/settings-dialog.slint:1238
+#: ui/dialogs/settings-dialog.slint:1232
 msgid "Restart required. Your current renderer is still active."
 msgstr "Yeniden başlatma gerekiyor. Geçerli görüntüleyiciniz hâlâ etkin."
 
-#: ui/dialogs/settings-dialog.slint:1238
+#: ui/dialogs/settings-dialog.slint:1232
 msgid "Active: GPU — WGPU"
 msgstr "Etkin: GPU — WGPU"
 
-#: ui/dialogs/settings-dialog.slint:1238
+#: ui/dialogs/settings-dialog.slint:1232
 msgid "Active: CPU — Low Memory"
 msgstr "Etkin: CPU — Düşük Bellek"
 
-#: ui/dialogs/settings-dialog.slint:1266
+#: ui/dialogs/settings-dialog.slint:1260
 msgid ""
 "Keep your address book clean while still making frequent recipients easy to "
 "find."
 msgstr ""
 "Sık kullanılan alıcıları kolayca bulurken adres defterinizi düzenli tutun."
 
-#: ui/dialogs/settings-dialog.slint:1288
+#: ui/dialogs/settings-dialog.slint:1282
 msgid "Remember people I email"
 msgstr "E-posta gönderdiğim kişileri hatırla"
 
-#: ui/dialogs/settings-dialog.slint:1289
+#: ui/dialogs/settings-dialog.slint:1283
 msgid ""
 "While enabled, remember To, Cc, and Bcc recipients from new sends and synced "
 "Sent mail."
@@ -4438,11 +4430,11 @@ msgstr ""
 "Etkin olduğunda, yeni gönderilerdeki ve eşitlenen Gönderilmiş postalarındaki "
 "Kime, Bilgi ve Gizli alıcılarını hatırlar."
 
-#: ui/dialogs/settings-dialog.slint:1304
+#: ui/dialogs/settings-dialog.slint:1298
 msgid "Remember incoming senders"
 msgstr "Gelen göndericileri hatırla"
 
-#: ui/dialogs/settings-dialog.slint:1305
+#: ui/dialogs/settings-dialog.slint:1299
 msgid ""
 "Remember human senders from new mail. Automated, spam, trash, and existing "
 "mail are excluded."
@@ -4450,11 +4442,11 @@ msgstr ""
 "Yeni e-postalardaki gerçek göndericileri hatırlayın. Otomatik, spam, çöp "
 "kutusu ve mevcut iletiler hariç tutulur."
 
-#: ui/dialogs/settings-dialog.slint:1320
+#: ui/dialogs/settings-dialog.slint:1314
 msgid "Use suggestions from all accounts"
 msgstr "Tüm hesaplardaki önerileri kullan"
 
-#: ui/dialogs/settings-dialog.slint:1321
+#: ui/dialogs/settings-dialog.slint:1315
 msgid ""
 "Include people emailed from any connected account. Turn off to keep learned "
 "recipients account-specific."
@@ -4462,11 +4454,11 @@ msgstr ""
 "Bağlı herhangi bir hesaptan e-posta gönderilen kişileri dahil edin. "
 "Öğrenilen alıcıları hesaba özel tutmak için kapatın."
 
-#: ui/dialogs/settings-dialog.slint:1336
+#: ui/dialogs/settings-dialog.slint:1330
 msgid "Use suggestions when composing"
 msgstr "Yazarken önerileri kullan"
 
-#: ui/dialogs/settings-dialog.slint:1337
+#: ui/dialogs/settings-dialog.slint:1331
 msgid ""
 "Include learned people in recipient autocomplete. Saved and CardDAV contacts "
 "are always available."
@@ -4474,11 +4466,11 @@ msgstr ""
 "Öğrenilen kişileri alıcı otomatik tamamlamasına dahil edin. Kaydedilmiş ve "
 "CardDAV kişileri her zaman kullanılabilir."
 
-#: ui/dialogs/settings-dialog.slint:1358
+#: ui/dialogs/settings-dialog.slint:1352
 msgid "Suggested people"
 msgstr "Önerilen kişiler"
 
-#: ui/dialogs/settings-dialog.slint:1361
+#: ui/dialogs/settings-dialog.slint:1355
 msgid ""
 "People you email remain available as local suggestions and never sync to "
 "CardDAV. Clear them any time to restart learning."
@@ -4487,15 +4479,15 @@ msgstr ""
 "CardDAV ile hiçbir zaman eşitlenmez. Öğrenmeyi yeniden başlatmak için "
 "istediğiniz zaman temizleyin."
 
-#: ui/dialogs/settings-dialog.slint:1379
+#: ui/dialogs/settings-dialog.slint:1373
 msgid "Clear now"
 msgstr "Şimdi temizle"
 
-#: ui/dialogs/settings-dialog.slint:1379
+#: ui/dialogs/settings-dialog.slint:1373
 msgid "Clear suggested people"
 msgstr "Önerilen kişileri temizle"
 
-#: ui/dialogs/settings-dialog.slint:1414
+#: ui/dialogs/settings-dialog.slint:1408
 msgid ""
 "Manage connected mailboxes and add providers. Drag an account to change its "
 "order everywhere."
@@ -4503,11 +4495,11 @@ msgstr ""
 "Bağlı posta kutularını yönetin ve sağlayıcı ekleyin. Bir hesabın sırasını "
 "her yerde değiştirmek için sürükleyin."
 
-#: ui/dialogs/settings-dialog.slint:1431 ui/dialogs/settings-dialog.slint:2749
+#: ui/dialogs/settings-dialog.slint:1425 ui/dialogs/settings-dialog.slint:2743
 msgid "Profiles"
 msgstr "Profiller"
 
-#: ui/dialogs/settings-dialog.slint:1441
+#: ui/dialogs/settings-dialog.slint:1435
 msgid ""
 "Group accounts as Personal or Work and identify them by color in the mail "
 "list."
@@ -4515,15 +4507,15 @@ msgstr ""
 "Hesapları Kişisel veya İş olarak gruplandırın ve posta listesinde "
 "renkleriyle ayırt edin."
 
-#: ui/dialogs/settings-dialog.slint:1450 ui/dialogs/settings-dialog.slint:1480
+#: ui/dialogs/settings-dialog.slint:1444 ui/dialogs/settings-dialog.slint:1474
 msgid "Add profile"
 msgstr "Profil ekle"
 
-#: ui/dialogs/settings-dialog.slint:1464 ui/dialogs/settings-dialog.slint:1472
+#: ui/dialogs/settings-dialog.slint:1458 ui/dialogs/settings-dialog.slint:1466
 msgid "Show account color at the left edge of each message"
 msgstr "Her iletinin sol kenarında hesap rengini göster"
 
-#: ui/dialogs/settings-dialog.slint:1494
+#: ui/dialogs/settings-dialog.slint:1488
 msgid ""
 "No profiles yet. Accounts keep their individual or generated colors until "
 "you create one."
@@ -4531,100 +4523,100 @@ msgstr ""
 "Henüz profil yok. Bir profil oluşturana kadar hesaplar kendi renklerini veya "
 "oluşturulan renkleri kullanır."
 
-#: ui/dialogs/settings-dialog.slint:1525
+#: ui/dialogs/settings-dialog.slint:1519
 msgid "No accounts"
 msgstr "Hesap yok"
 
-#: ui/dialogs/settings-dialog.slint:1526
+#: ui/dialogs/settings-dialog.slint:1520
 msgid "1 account"
 msgstr "1 hesap"
 
-#: ui/dialogs/settings-dialog.slint:1527
+#: ui/dialogs/settings-dialog.slint:1521
 msgid "{} accounts"
 msgstr "{} hesap"
 
-#: ui/dialogs/settings-dialog.slint:1539 ui/dialogs/settings-dialog.slint:2589
+#: ui/dialogs/settings-dialog.slint:1533 ui/dialogs/settings-dialog.slint:2583
 msgid "Edit profile"
 msgstr "Profili düzenle"
 
-#: ui/dialogs/settings-dialog.slint:1549 ui/dialogs/settings-dialog.slint:2849
+#: ui/dialogs/settings-dialog.slint:1543 ui/dialogs/settings-dialog.slint:2843
 msgid "Delete profile"
 msgstr "Profili sil"
 
-#: ui/dialogs/settings-dialog.slint:1565 ui/dialogs/settings-dialog.slint:1611
+#: ui/dialogs/settings-dialog.slint:1559 ui/dialogs/settings-dialog.slint:1605
 msgid "Add Gmail"
 msgstr "Gmail ekle"
 
-#: ui/dialogs/settings-dialog.slint:1578 ui/dialogs/settings-dialog.slint:1612
+#: ui/dialogs/settings-dialog.slint:1572 ui/dialogs/settings-dialog.slint:1606
 msgid "Add Outlook"
 msgstr "Outlook ekle"
 
-#: ui/dialogs/settings-dialog.slint:1591 ui/dialogs/settings-dialog.slint:1613
+#: ui/dialogs/settings-dialog.slint:1585 ui/dialogs/settings-dialog.slint:1607
 msgid "Add mail account"
 msgstr "E-posta hesabı ekle"
 
-#: ui/dialogs/settings-dialog.slint:1604 ui/dialogs/settings-dialog.slint:1614
+#: ui/dialogs/settings-dialog.slint:1598 ui/dialogs/settings-dialog.slint:1608
 msgid "Cancel sign-in"
 msgstr "Oturum açmayı iptal et"
 
-#: ui/dialogs/settings-dialog.slint:1689
+#: ui/dialogs/settings-dialog.slint:1683
 msgid "Offline · retrying automatically"
 msgstr "Çevrimdışı · otomatik yeniden deneniyor"
 
-#: ui/dialogs/settings-dialog.slint:1689
+#: ui/dialogs/settings-dialog.slint:1683
 msgid "Sign-in required"
 msgstr "Oturum açma gerekli"
 
-#: ui/dialogs/settings-dialog.slint:1689
+#: ui/dialogs/settings-dialog.slint:1683
 msgid "Connected · JMAP"
 msgstr "Bağlı · JMAP"
 
-#: ui/dialogs/settings-dialog.slint:1689
+#: ui/dialogs/settings-dialog.slint:1683
 msgid "Connected · IMAP + SMTP"
 msgstr "Bağlı · IMAP + SMTP"
 
-#: ui/dialogs/settings-dialog.slint:1689
+#: ui/dialogs/settings-dialog.slint:1683
 msgid "Account status: {}"
 msgstr "Hesap durumu: {}"
 
-#: ui/dialogs/settings-dialog.slint:1692 ui/dialogs/settings-dialog.slint:1876
+#: ui/dialogs/settings-dialog.slint:1686 ui/dialogs/settings-dialog.slint:1870
 msgid "Reconnect"
 msgstr "Yeniden bağlan"
 
-#: ui/dialogs/settings-dialog.slint:1717
+#: ui/dialogs/settings-dialog.slint:1711
 msgid "Add calendar"
 msgstr "Takvim ekle"
 
-#: ui/dialogs/settings-dialog.slint:1717
+#: ui/dialogs/settings-dialog.slint:1711
 msgid "Retry calendar"
 msgstr "Takvimi yeniden dene"
 
-#: ui/dialogs/settings-dialog.slint:1724 ui/dialogs/settings-dialog.slint:1847
-#: ui/dialogs/settings-dialog.slint:2377
+#: ui/dialogs/settings-dialog.slint:1718 ui/dialogs/settings-dialog.slint:1841
+#: ui/dialogs/settings-dialog.slint:2371
 msgid "Set up CalDAV"
 msgstr "CalDAV kur"
 
-#: ui/dialogs/settings-dialog.slint:1737 ui/views/files-view.slint:463
+#: ui/dialogs/settings-dialog.slint:1731 ui/views/files-view.slint:463
 msgid "Manage"
 msgstr "Yönet"
 
-#: ui/dialogs/settings-dialog.slint:1737
+#: ui/dialogs/settings-dialog.slint:1731
 msgid "Fix CardDAV"
 msgstr "CardDAV'ı onar"
 
-#: ui/dialogs/settings-dialog.slint:1737
+#: ui/dialogs/settings-dialog.slint:1731
 msgid "CardDAV"
 msgstr "CardDAV"
 
-#: ui/dialogs/settings-dialog.slint:1752
+#: ui/dialogs/settings-dialog.slint:1746
 msgid "Mail synchronization error: {}"
 msgstr "E-posta eşitleme hatası: {}"
 
-#: ui/dialogs/settings-dialog.slint:1768
+#: ui/dialogs/settings-dialog.slint:1762
 msgid "Mail history"
 msgstr "E-posta geçmişi"
 
-#: ui/dialogs/settings-dialog.slint:1771
+#: ui/dialogs/settings-dialog.slint:1765
 msgid ""
 "Download the full mailbox. Large accounts can take considerable time and "
 "storage."
@@ -4632,151 +4624,151 @@ msgstr ""
 "Posta kutusunun tamamını indirir. Büyük hesaplar önemli ölçüde zaman ve "
 "depolama gerektirebilir."
 
-#: ui/dialogs/settings-dialog.slint:1772
+#: ui/dialogs/settings-dialog.slint:1766
 msgid "How far back to download. Mail already stored on this device is kept."
 msgstr ""
 "Ne kadar geriye indirileceği. Bu cihazda zaten depolanan e-postalar korunur."
 
-#: ui/dialogs/settings-dialog.slint:1785
+#: ui/dialogs/settings-dialog.slint:1779
 msgid "Sent copies"
 msgstr "Gönderilen kopyalar"
 
-#: ui/dialogs/settings-dialog.slint:1787
+#: ui/dialogs/settings-dialog.slint:1781
 msgid ""
 "Choose who saves sent mail. Use Rustmail if your server does not save a copy."
 msgstr ""
 "Gönderilen postaları kimin kaydedeceğini seçin. Sunucunuz bir kopya "
 "kaydetmiyorsa Rustmail kullanın."
 
-#: ui/dialogs/settings-dialog.slint:1788
+#: ui/dialogs/settings-dialog.slint:1782
 msgid "Provider default"
 msgstr "Sağlayıcı varsayılanı"
 
-#: ui/dialogs/settings-dialog.slint:1788
+#: ui/dialogs/settings-dialog.slint:1782
 msgid "Server saves a copy"
 msgstr "Sunucu bir kopya kaydeder"
 
-#: ui/dialogs/settings-dialog.slint:1788
+#: ui/dialogs/settings-dialog.slint:1782
 msgid "Rustmail saves a copy"
 msgstr "Rustmail bir kopya kaydeder"
 
-#: ui/dialogs/settings-dialog.slint:1805
+#: ui/dialogs/settings-dialog.slint:1799
 msgid "Profile"
 msgstr "Profil"
 
-#: ui/dialogs/settings-dialog.slint:1815
+#: ui/dialogs/settings-dialog.slint:1809
 msgid "Uses the {} color in the mail list"
 msgstr "Posta listesinde {} rengini kullanır"
 
-#: ui/dialogs/settings-dialog.slint:1817
+#: ui/dialogs/settings-dialog.slint:1811
 msgid "Uses a custom account color"
 msgstr "Özel hesap rengi kullanır"
 
-#: ui/dialogs/settings-dialog.slint:1818
+#: ui/dialogs/settings-dialog.slint:1812
 msgid "Uses a generated account color"
 msgstr "Oluşturulan hesap rengini kullanır"
 
-#: ui/dialogs/settings-dialog.slint:1829
+#: ui/dialogs/settings-dialog.slint:1823
 msgid "No profile"
 msgstr "Profil yok"
 
-#: ui/dialogs/settings-dialog.slint:1847 ui/dialogs/settings-dialog.slint:2328
+#: ui/dialogs/settings-dialog.slint:1841 ui/dialogs/settings-dialog.slint:2322
 msgid "CalDAV settings"
 msgstr "CalDAV ayarları"
 
-#: ui/dialogs/settings-dialog.slint:1858
+#: ui/dialogs/settings-dialog.slint:1852
 msgid "OAuth app credentials"
 msgstr "OAuth uygulama kimlik bilgileri"
 
-#: ui/dialogs/settings-dialog.slint:1858
+#: ui/dialogs/settings-dialog.slint:1852
 msgid "Custom desktop app credentials are configured."
 msgstr "Özel masaüstü uygulaması kimlik bilgileri yapılandırıldı."
 
-#: ui/dialogs/settings-dialog.slint:1858
+#: ui/dialogs/settings-dialog.slint:1852
 msgid "Advanced: use your own Gmail or Microsoft desktop app registration."
 msgstr ""
 "Gelişmiş: kendi Gmail veya Microsoft masaüstü uygulaması kaydınızı kullanın."
 
-#: ui/dialogs/settings-dialog.slint:1859
+#: ui/dialogs/settings-dialog.slint:1853
 msgid "Hide"
 msgstr "Gizle"
 
-#: ui/dialogs/settings-dialog.slint:1859
+#: ui/dialogs/settings-dialog.slint:1853
 msgid "Configure"
 msgstr "Yapılandır"
 
-#: ui/dialogs/settings-dialog.slint:1862 ui/dialogs/settings-dialog.slint:1863
+#: ui/dialogs/settings-dialog.slint:1856 ui/dialogs/settings-dialog.slint:1857
 msgid "Gmail desktop client ID"
 msgstr "Gmail masaüstü istemci kimliği"
 
-#: ui/dialogs/settings-dialog.slint:1862 ui/dialogs/settings-dialog.slint:1863
+#: ui/dialogs/settings-dialog.slint:1856 ui/dialogs/settings-dialog.slint:1857
 msgid "Gmail client secret (optional)"
 msgstr "Gmail istemci gizli anahtarı (isteğe bağlı)"
 
-#: ui/dialogs/settings-dialog.slint:1862
+#: ui/dialogs/settings-dialog.slint:1856
 msgid "Save Gmail"
 msgstr "Gmail'i kaydet"
 
-#: ui/dialogs/settings-dialog.slint:1863
+#: ui/dialogs/settings-dialog.slint:1857
 msgid "Save Gmail settings"
 msgstr "Gmail ayarlarını kaydet"
 
-#: ui/dialogs/settings-dialog.slint:1864
+#: ui/dialogs/settings-dialog.slint:1858
 msgid "Save Outlook"
 msgstr "Outlook'u kaydet"
 
-#: ui/dialogs/settings-dialog.slint:1865
+#: ui/dialogs/settings-dialog.slint:1859
 msgid ""
 "Outlook public desktop clients use PKCE and do not need a client secret."
 msgstr ""
 "Outlook genel masaüstü istemcileri PKCE kullanır ve istemci gizli anahtarı "
 "gerektirmez."
 
-#: ui/dialogs/settings-dialog.slint:1871
+#: ui/dialogs/settings-dialog.slint:1865
 msgid "Connect CardDAV"
 msgstr "CardDAV bağla"
 
-#: ui/dialogs/settings-dialog.slint:1871
+#: ui/dialogs/settings-dialog.slint:1865
 msgid "Sync contacts with a standards-compliant CardDAV server."
 msgstr "Kişileri standartlara uygun bir CardDAV sunucusuyla eşitleyin."
 
-#: ui/dialogs/settings-dialog.slint:1874
+#: ui/dialogs/settings-dialog.slint:1868
 msgid "https://contacts.example.com/"
 msgstr "https://kisiler.ornek.com/"
 
-#: ui/dialogs/settings-dialog.slint:1875 ui/dialogs/settings-dialog.slint:2421
+#: ui/dialogs/settings-dialog.slint:1869 ui/dialogs/settings-dialog.slint:2415
 msgid "App password"
 msgstr "Uygulama parolası"
 
-#: ui/dialogs/settings-dialog.slint:1876
+#: ui/dialogs/settings-dialog.slint:1870
 msgid "Disconnect"
 msgstr "Bağlantıyı kes"
 
-#: ui/dialogs/settings-dialog.slint:1876 ui/dialogs/settings-dialog.slint:2441
+#: ui/dialogs/settings-dialog.slint:1870 ui/dialogs/settings-dialog.slint:2435
 msgid "Connect"
 msgstr "Bağlan"
 
-#: ui/dialogs/settings-dialog.slint:1898
+#: ui/dialogs/settings-dialog.slint:1892
 msgid ""
 "Sort incoming mail automatically: mark, star, archive or move it by sender, "
 "recipient, subject or size."
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:1929
+#: ui/dialogs/settings-dialog.slint:1923
 msgid "Run your own commands on messages and write in the editor you prefer."
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:1961
+#: ui/dialogs/settings-dialog.slint:1955
 msgid "See what Rustmail stores locally and manage the data on this device."
 msgstr ""
 "Rustmail'in yerel olarak neleri depoladığını görün ve bu cihazdaki verileri "
 "yönetin."
 
-#: ui/dialogs/settings-dialog.slint:1987
+#: ui/dialogs/settings-dialog.slint:1981
 msgid "Database snapshot"
 msgstr "Veritabanı anlık görüntüsü"
 
-#: ui/dialogs/settings-dialog.slint:1987
+#: ui/dialogs/settings-dialog.slint:1981
 msgid ""
 "Export verified copies of the mail and calendar databases with their schema "
 "versions."
@@ -4784,7 +4776,7 @@ msgstr ""
 "E-posta ve takvim veritabanlarının doğrulanmış kopyalarını şema sürümleriyle "
 "birlikte dışa aktarın."
 
-#: ui/dialogs/settings-dialog.slint:1989
+#: ui/dialogs/settings-dialog.slint:1983
 msgid ""
 "The snapshot contains private local mail and settings, but not passwords or "
 "OAuth tokens. Store it securely."
@@ -4792,15 +4784,15 @@ msgstr ""
 "Anlık görüntü özel yerel e-postaları ve ayarları içerir; parolaları veya "
 "OAuth belirteçlerini içermez. Güvenli biçimde saklayın."
 
-#: ui/dialogs/settings-dialog.slint:1990
+#: ui/dialogs/settings-dialog.slint:1984
 msgid "Export snapshot"
 msgstr "Anlık görüntüyü dışa aktar"
 
-#: ui/dialogs/settings-dialog.slint:1997
+#: ui/dialogs/settings-dialog.slint:1991
 msgid "Transfer account setup"
 msgstr "Hesap kurulumunu aktar"
 
-#: ui/dialogs/settings-dialog.slint:1997
+#: ui/dialogs/settings-dialog.slint:1991
 msgid "Import a backup or export one connected account and your preferences."
 msgid_plural ""
 "Import a backup or export {n} connected accounts and your preferences."
@@ -4810,7 +4802,7 @@ msgstr[0] ""
 msgstr[1] ""
 "Bir yedeği içe aktarın veya {n} bağlı hesabı ve tercihlerinizi dışa aktarın."
 
-#: ui/dialogs/settings-dialog.slint:1999
+#: ui/dialogs/settings-dialog.slint:1993
 msgid ""
 "Passwords and OAuth tokens stay in the system keyring. A restored device "
 "asks you to sign in securely."
@@ -4818,19 +4810,19 @@ msgstr ""
 "Parolalar ve OAuth belirteçleri sistem anahtarlığında kalır. Geri yüklenen "
 "bir cihaz sizden güvenli oturum açmanızı ister."
 
-#: ui/dialogs/settings-dialog.slint:2006
+#: ui/dialogs/settings-dialog.slint:2000
 msgid "Import"
 msgstr "İçe aktar"
 
-#: ui/dialogs/settings-dialog.slint:2007
+#: ui/dialogs/settings-dialog.slint:2001
 msgid "Export"
 msgstr "Dışa aktar"
 
-#: ui/dialogs/settings-dialog.slint:2014
+#: ui/dialogs/settings-dialog.slint:2008
 msgid "Delete all local data"
 msgstr "Tüm yerel verileri sil"
 
-#: ui/dialogs/settings-dialog.slint:2014
+#: ui/dialogs/settings-dialog.slint:2008
 msgid ""
 "Remove accounts, downloaded mail, calendars, contacts, preferences, and "
 "credentials from this device."
@@ -4838,149 +4830,149 @@ msgstr ""
 "Hesapları, indirilen e-postaları, takvimleri, kişileri, tercihleri ve kimlik "
 "bilgilerini bu cihazdan kaldırır."
 
-#: ui/dialogs/settings-dialog.slint:2016
+#: ui/dialogs/settings-dialog.slint:2010
 msgid "This does not delete anything from Gmail, Outlook, or your IMAP server."
 msgstr "Bu işlem Gmail, Outlook veya IMAP sunucunuzdaki hiçbir şeyi silmez."
 
-#: ui/dialogs/settings-dialog.slint:2017 ui/dialogs/settings-dialog.slint:2811
+#: ui/dialogs/settings-dialog.slint:2011 ui/dialogs/settings-dialog.slint:2805
 msgid "Delete everything"
 msgstr "Tümünü sil"
 
-#: ui/dialogs/settings-dialog.slint:2031
+#: ui/dialogs/settings-dialog.slint:2025
 msgid "Choose how Rustmail gets your attention."
 msgstr "Rustmail'in sizi nasıl uyaracağını seçin."
 
-#: ui/dialogs/settings-dialog.slint:2058
+#: ui/dialogs/settings-dialog.slint:2052
 msgid "Notification sounds"
 msgstr "Bildirim sesleri"
 
-#: ui/dialogs/settings-dialog.slint:2059
+#: ui/dialogs/settings-dialog.slint:2053
 msgid "Play a sound for new mail and sent messages."
 msgstr "Yeni e-postalar ve gönderilen iletiler için ses çalar."
 
-#: ui/dialogs/settings-dialog.slint:2079
+#: ui/dialogs/settings-dialog.slint:2073
 msgid "Keyboard shortcuts"
 msgstr "Klavye kısayolları"
 
-#: ui/dialogs/settings-dialog.slint:2080
+#: ui/dialogs/settings-dialog.slint:2074
 msgid "Move through mail without leaving the keyboard."
 msgstr "E-postalara klavyeden ayrılmadan göz atın."
 
-#: ui/dialogs/settings-dialog.slint:2083
+#: ui/dialogs/settings-dialog.slint:2077
 msgid "Compose a new message"
 msgstr "Yeni ileti yaz"
 
-#: ui/dialogs/settings-dialog.slint:2083
+#: ui/dialogs/settings-dialog.slint:2077
 msgid "C"
 msgstr "C"
 
-#: ui/dialogs/settings-dialog.slint:2084 ui/views/mail-list-pane.slint:367
+#: ui/dialogs/settings-dialog.slint:2078 ui/views/mail-list-pane.slint:367
 msgid "Search mail"
 msgstr "E-posta ara"
 
-#: ui/dialogs/settings-dialog.slint:2084
+#: ui/dialogs/settings-dialog.slint:2078
 msgid "/"
 msgstr "/"
 
-#: ui/dialogs/settings-dialog.slint:2085 ui/views/mail-list-pane.slint:440
+#: ui/dialogs/settings-dialog.slint:2079 ui/views/mail-list-pane.slint:440
 msgid "Archive selected message"
 msgstr "Seçili iletiyi arşivle"
 
-#: ui/dialogs/settings-dialog.slint:2085
+#: ui/dialogs/settings-dialog.slint:2079
 msgid "E"
 msgstr "E"
 
-#: ui/dialogs/settings-dialog.slint:2086
+#: ui/dialogs/settings-dialog.slint:2080
 msgid "!"
 msgstr "!"
 
-#: ui/dialogs/settings-dialog.slint:2087
+#: ui/dialogs/settings-dialog.slint:2081
 msgid "#"
 msgstr "#"
 
-#: ui/dialogs/settings-dialog.slint:2107
+#: ui/dialogs/settings-dialog.slint:2101
 msgid "Rustmail, its makers, and its community."
 msgstr "Rustmail, onu geliştirenler ve topluluğu."
 
-#: ui/dialogs/settings-dialog.slint:2123 ui/views/onboarding-view.slint:123
+#: ui/dialogs/settings-dialog.slint:2117 ui/views/onboarding-view.slint:123
 msgid "Rustmail logo"
 msgstr "Rustmail logosu"
 
-#: ui/dialogs/settings-dialog.slint:2143
+#: ui/dialogs/settings-dialog.slint:2137
 msgid "A native mail client for a calm, private inbox."
 msgstr "Sakin ve özel bir gelen kutusu için yerel bir e-posta istemcisi."
 
-#: ui/dialogs/settings-dialog.slint:2155
+#: ui/dialogs/settings-dialog.slint:2149
 msgid "Version {}"
 msgstr "Sürüm {}"
 
-#: ui/dialogs/settings-dialog.slint:2166
+#: ui/dialogs/settings-dialog.slint:2160
 msgid "Credits"
 msgstr "Emeği geçenler"
 
-#: ui/dialogs/settings-dialog.slint:2166
+#: ui/dialogs/settings-dialog.slint:2160
 msgid ""
 "A modified version of Flectar Mail, copyright © Flectar and contributors. "
 "Changes by Rustmail contributors."
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:2177
+#: ui/dialogs/settings-dialog.slint:2171
 msgid "Source code of this version"
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:2187
+#: ui/dialogs/settings-dialog.slint:2181
 msgid "Flectar Mail"
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:2188
+#: ui/dialogs/settings-dialog.slint:2182
 msgid "Original project, © Flectar and contributors"
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:2197
+#: ui/dialogs/settings-dialog.slint:2191
 msgid "Open-source contributors"
 msgstr "Açık kaynak katkıcıları"
 
-#: ui/dialogs/settings-dialog.slint:2198
+#: ui/dialogs/settings-dialog.slint:2192
 msgid "Meet the people who have contributed on GitHub"
 msgstr "GitHub'da katkıda bulunan kişilerle tanışın"
 
-#: ui/dialogs/settings-dialog.slint:2211
+#: ui/dialogs/settings-dialog.slint:2205
 msgid "License"
 msgstr "Lisans"
 
-#: ui/dialogs/settings-dialog.slint:2211
+#: ui/dialogs/settings-dialog.slint:2205
 msgid "AGPL-3.0-only."
 msgstr "Yalnızca AGPL-3.0."
 
-#: ui/dialogs/settings-dialog.slint:2211
+#: ui/dialogs/settings-dialog.slint:2205
 msgid ""
 "Rustmail is released under the GNU Affero General Public License v3.0 only."
 msgstr ""
 "Rustmail yalnızca GNU Affero Genel Kamu Lisansı v3.0 kapsamında yayımlanır."
 
-#: ui/dialogs/settings-dialog.slint:2217
+#: ui/dialogs/settings-dialog.slint:2211
 msgid ""
 "This program comes with ABSOLUTELY NO WARRANTY. Third-party components "
 "retain their own licenses and notices."
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:2246
+#: ui/dialogs/settings-dialog.slint:2240
 msgid "Settings sections"
 msgstr "Ayarlar bölümleri"
 
-#: ui/dialogs/settings-dialog.slint:2257
+#: ui/dialogs/settings-dialog.slint:2251
 msgid "Close settings"
 msgstr "Ayarları kapat"
 
-#: ui/dialogs/settings-dialog.slint:2279
+#: ui/dialogs/settings-dialog.slint:2273
 msgid "Close settings sections"
 msgstr "Ayarlar bölümlerini kapat"
 
-#: ui/dialogs/settings-dialog.slint:2378
+#: ui/dialogs/settings-dialog.slint:2372
 msgid "Discover new calendars."
 msgstr "Yeni takvimler keşfedin."
 
-#: ui/dialogs/settings-dialog.slint:2378
+#: ui/dialogs/settings-dialog.slint:2372
 msgid ""
 "Works with iCloud, Fastmail, Nextcloud, and standards-compliant CalDAV "
 "servers."
@@ -4988,128 +4980,128 @@ msgstr ""
 "iCloud, Fastmail, Nextcloud ve standartlara uygun CalDAV sunucularıyla "
 "çalışır."
 
-#: ui/dialogs/settings-dialog.slint:2403
+#: ui/dialogs/settings-dialog.slint:2397
 msgid "Server address"
 msgstr "Sunucu adresi"
 
-#: ui/dialogs/settings-dialog.slint:2405
+#: ui/dialogs/settings-dialog.slint:2399
 msgid "https://calendar.example.com/"
 msgstr "https://takvim.ornek.com/"
 
-#: ui/dialogs/settings-dialog.slint:2421
+#: ui/dialogs/settings-dialog.slint:2415
 msgid "New app password · Optional"
 msgstr "Yeni uygulama parolası · İsteğe bağlı"
 
-#: ui/dialogs/settings-dialog.slint:2423
+#: ui/dialogs/settings-dialog.slint:2417
 msgid "Leave blank to keep the current password"
 msgstr "Geçerli parolayı korumak için boş bırakın"
 
-#: ui/dialogs/settings-dialog.slint:2423
+#: ui/dialogs/settings-dialog.slint:2417
 msgid "Stored securely in your system keyring"
 msgstr "Sistem anahtarlığınızda güvenle saklanır"
 
-#: ui/dialogs/settings-dialog.slint:2441 ui/dialogs/settings-dialog.slint:2568
+#: ui/dialogs/settings-dialog.slint:2435 ui/dialogs/settings-dialog.slint:2562
 msgid "Connecting…"
 msgstr "Bağlanıyor…"
 
-#: ui/dialogs/settings-dialog.slint:2459
+#: ui/dialogs/settings-dialog.slint:2453
 msgid "Edit mail account"
 msgstr "E-posta hesabını düzenle"
 
-#: ui/dialogs/settings-dialog.slint:2459 ui/dialogs/settings-dialog.slint:2507
+#: ui/dialogs/settings-dialog.slint:2453 ui/dialogs/settings-dialog.slint:2501
 msgid "Connect a mail account"
 msgstr "E-posta hesabı bağla"
 
-#: ui/dialogs/settings-dialog.slint:2507
+#: ui/dialogs/settings-dialog.slint:2501
 msgid "Edit {}"
 msgstr "Düzenle: {}"
 
-#: ui/dialogs/settings-dialog.slint:2508
+#: ui/dialogs/settings-dialog.slint:2502
 msgid "Uses JMAP for mail sync and sending, with automatic discovery."
 msgstr "Otomatik keşifle eşitleme ve gönderme için JMAP kullanır."
 
-#: ui/dialogs/settings-dialog.slint:2508
+#: ui/dialogs/settings-dialog.slint:2502
 msgid ""
 "Reads mail stored on this computer. An SMTP server is only needed to send."
 msgstr ""
 
-#: ui/dialogs/settings-dialog.slint:2508
+#: ui/dialogs/settings-dialog.slint:2502
 msgid "Uses separate IMAP and SMTP servers for mail sync and sending."
 msgstr "Eşitleme ve gönderme için ayrı IMAP ve SMTP sunucuları kullanır."
 
-#: ui/dialogs/settings-dialog.slint:2568
+#: ui/dialogs/settings-dialog.slint:2562
 msgid "Save account"
 msgstr "Hesabı kaydet"
 
-#: ui/dialogs/settings-dialog.slint:2568 ui/views/onboarding-view.slint:313
+#: ui/dialogs/settings-dialog.slint:2562 ui/views/onboarding-view.slint:313
 msgid "Connect account"
 msgstr "Hesabı bağla"
 
-#: ui/dialogs/settings-dialog.slint:2589 ui/dialogs/settings-dialog.slint:2642
+#: ui/dialogs/settings-dialog.slint:2583 ui/dialogs/settings-dialog.slint:2636
 msgid "Create profile"
 msgstr "Profil oluştur"
 
-#: ui/dialogs/settings-dialog.slint:2643
+#: ui/dialogs/settings-dialog.slint:2637
 msgid "A local group for account colors and mail-list identification."
 msgstr "Hesap renkleri ve posta listesinde tanımlama için yerel bir grup."
 
-#: ui/dialogs/settings-dialog.slint:2649
+#: ui/dialogs/settings-dialog.slint:2643
 msgid "Profile name"
 msgstr "Profil adı"
 
-#: ui/dialogs/settings-dialog.slint:2651
+#: ui/dialogs/settings-dialog.slint:2645
 msgid "Personal or Work"
 msgstr "Kişisel veya İş"
 
-#: ui/dialogs/settings-dialog.slint:2655 ui/views/mail-reading-pane.slint:1982
+#: ui/dialogs/settings-dialog.slint:2649 ui/views/mail-reading-pane.slint:1982
 msgid "Color"
 msgstr "Renk"
 
-#: ui/dialogs/settings-dialog.slint:2664
+#: ui/dialogs/settings-dialog.slint:2658
 msgid "Profile color {}"
 msgstr "Profil rengi {}"
 
-#: ui/dialogs/settings-dialog.slint:2673 ui/dialogs/settings-dialog.slint:2780
+#: ui/dialogs/settings-dialog.slint:2667 ui/dialogs/settings-dialog.slint:2774
 msgid "Custom color…"
 msgstr "Özel renk…"
 
-#: ui/dialogs/settings-dialog.slint:2693
+#: ui/dialogs/settings-dialog.slint:2687
 msgid "Save profile"
 msgstr "Profili kaydet"
 
-#: ui/dialogs/settings-dialog.slint:2701
+#: ui/dialogs/settings-dialog.slint:2695
 msgid "Could not save this profile. Check the name and try again."
 msgstr "Bu profil kaydedilemedi. Adı kontrol edip tekrar deneyin."
 
-#: ui/dialogs/settings-dialog.slint:2719
+#: ui/dialogs/settings-dialog.slint:2713
 msgid "Choose a profile for {}"
 msgstr "{} için bir profil seçin"
 
-#: ui/dialogs/settings-dialog.slint:2739
+#: ui/dialogs/settings-dialog.slint:2733
 msgid "Choose profile"
 msgstr "Profil seç"
 
-#: ui/dialogs/settings-dialog.slint:2756
+#: ui/dialogs/settings-dialog.slint:2750
 msgid "No profile · Account color"
 msgstr "Profil yok · Hesap rengi"
 
-#: ui/dialogs/settings-dialog.slint:2759
+#: ui/dialogs/settings-dialog.slint:2753
 msgid "Generated color"
 msgstr "Oluşturulan renk"
 
-#: ui/dialogs/settings-dialog.slint:2774
+#: ui/dialogs/settings-dialog.slint:2768
 msgid "Account color {}"
 msgstr "Hesap rengi {}"
 
-#: ui/dialogs/settings-dialog.slint:2794
+#: ui/dialogs/settings-dialog.slint:2788
 msgid "Use custom color"
 msgstr "Özel renk kullan"
 
-#: ui/dialogs/settings-dialog.slint:2808
+#: ui/dialogs/settings-dialog.slint:2802
 msgid "Delete all local data?"
 msgstr "Tüm yerel veriler silinsin mi?"
 
-#: ui/dialogs/settings-dialog.slint:2809
+#: ui/dialogs/settings-dialog.slint:2803
 msgid ""
 "This removes every account, downloaded message, calendar, contact, "
 "preference, and credential stored by Rustmail on this device."
@@ -5117,41 +5109,41 @@ msgstr ""
 "Bu işlem Rustmail'in bu cihazda depoladığı tüm hesapları, indirilen "
 "iletileri, takvimleri, kişileri, tercihleri ve kimlik bilgilerini kaldırır."
 
-#: ui/dialogs/settings-dialog.slint:2810
+#: ui/dialogs/settings-dialog.slint:2804
 msgid ""
 "Mail and events on Gmail, Outlook, and IMAP servers will not be deleted."
 msgstr ""
 "Gmail, Outlook ve IMAP sunucularındaki e-postalar ve etkinlikler silinmez."
 
-#: ui/dialogs/settings-dialog.slint:2812
+#: ui/dialogs/settings-dialog.slint:2806
 msgid "Keep my data"
 msgstr "Verilerimi koru"
 
-#: ui/dialogs/settings-dialog.slint:2826
+#: ui/dialogs/settings-dialog.slint:2820
 msgid "Remove account?"
 msgstr "Hesap kaldırılsın mı?"
 
-#: ui/dialogs/settings-dialog.slint:2828
+#: ui/dialogs/settings-dialog.slint:2822
 msgid "Remove this account and its downloaded mail from this device."
 msgstr "Bu hesabı ve indirilmiş e-postalarını bu cihazdan kaldırır."
 
-#: ui/dialogs/settings-dialog.slint:2829
+#: ui/dialogs/settings-dialog.slint:2823
 msgid "Messages on the mail server will not be deleted."
 msgstr "E-posta sunucusundaki iletiler silinmez."
 
-#: ui/dialogs/settings-dialog.slint:2830
+#: ui/dialogs/settings-dialog.slint:2824
 msgid "Remove account"
 msgstr "Hesabı kaldır"
 
-#: ui/dialogs/settings-dialog.slint:2831
+#: ui/dialogs/settings-dialog.slint:2825
 msgid "Keep account"
 msgstr "Hesabı koru"
 
-#: ui/dialogs/settings-dialog.slint:2845
+#: ui/dialogs/settings-dialog.slint:2839
 msgid "Delete profile?"
 msgstr "Profil silinsin mi?"
 
-#: ui/dialogs/settings-dialog.slint:2847
+#: ui/dialogs/settings-dialog.slint:2841
 msgid ""
 "Accounts assigned to this profile will return to their individual or "
 "generated account colors."
@@ -5159,11 +5151,11 @@ msgstr ""
 "Bu profile atanmış hesaplar kendi hesap renklerine veya oluşturulan renklere "
 "dönecek."
 
-#: ui/dialogs/settings-dialog.slint:2848
+#: ui/dialogs/settings-dialog.slint:2842
 msgid "Accounts and provider data are not changed."
 msgstr "Hesaplar ve sağlayıcı verileri değiştirilmez."
 
-#: ui/dialogs/settings-dialog.slint:2850
+#: ui/dialogs/settings-dialog.slint:2844
 msgid "Keep profile"
 msgstr "Profili koru"
 
@@ -6609,6 +6601,9 @@ msgstr "Önceki boyuta getir"
 #: ui/window-chrome.slint:202 ui/window-chrome.slint:239
 msgid "Maximize"
 msgstr "Ekranı kapla"
+
+#~ msgid "Russian"
+#~ msgstr "Rusça"
 
 #~ msgid "Built by Rustmail with help from the open-source community."
 #~ msgstr ""

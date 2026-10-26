@@ -4,7 +4,7 @@
     Rustmail
   </h1>
   <p>
-    <strong>English</strong> · <a href="README.zh_Hans.md">简体中文</a>
+    <strong>English</strong>
   </p>
   <div align="center">
     <h3>Email, made fast again</h3>

@@ -952,38 +952,21 @@ fn normalized_language_preference(language: &str) -> &'static str {
         "en" => "en",
         "es" => "es",
         "tr" => "tr",
-        "ru" | "ru-RU" | "ru_RU" => "ru",
-        "zh" | "zh-Hans" | "zh_Hans" => "zh_Hans",
         _ => "system",
     }
 }
 
 fn bundled_language_for_locale(locale: &str) -> Option<&'static str> {
-    let mut subtags = locale
+    let language = locale
         .split(['-', '_', '.', '@'])
-        .filter(|part| !part.is_empty());
-    let language = subtags.next()?;
+        .find(|part| !part.is_empty())?;
     if language.eq_ignore_ascii_case("es") {
         return Some("es");
     }
     if language.eq_ignore_ascii_case("tr") {
         return Some("tr");
     }
-    if language.eq_ignore_ascii_case("ru") {
-        return Some("ru");
-    }
-    if !language.eq_ignore_ascii_case("zh") {
-        return None;
-    }
-
-    // Bare `zh` defaults to Hans. A Hant script or Traditional Chinese region
-    // must not fall back to the Simplified Chinese catalog.
-    let is_traditional = subtags.next().is_some_and(|subtag| {
-        ["hant", "tw", "hk", "mo"]
-            .iter()
-            .any(|value| subtag.eq_ignore_ascii_case(value))
-    });
-    (!is_traditional).then_some("zh_Hans")
+    None
 }
 
 fn apply_language(app: &AppWindow, preference: &str) {
@@ -7841,12 +7824,9 @@ mod tests {
 
     #[test]
     fn language_preferences_use_the_bundled_catalog_name() {
-        assert_eq!(normalized_language_preference("ru"), "ru");
-        assert_eq!(normalized_language_preference("ru-RU"), "ru");
-        assert_eq!(normalized_language_preference("ru_RU"), "ru");
-        assert_eq!(normalized_language_preference("zh_Hans"), "zh_Hans");
-        assert_eq!(normalized_language_preference("zh-Hans"), "zh_Hans");
-        assert_eq!(normalized_language_preference("zh"), "zh_Hans");
+        // Removed catalogs fall back to the system language.
+        assert_eq!(normalized_language_preference("ru"), "system");
+        assert_eq!(normalized_language_preference("zh_Hans"), "system");
         assert_eq!(normalized_language_preference("unknown"), "system");
     }
 
@@ -7855,15 +7835,8 @@ mod tests {
         for (locale, expected) in [
             ("es_MX.UTF-8", Some("es")),
             ("tr-TR", Some("tr")),
-            ("ru", Some("ru")),
-            ("ru_RU.UTF-8", Some("ru")),
-            ("ru-RU", Some("ru")),
-            ("ru_UA", Some("ru")),
-            ("RU-ru", Some("ru")),
-            ("zh", Some("zh_Hans")),
-            ("zh_CN.UTF-8", Some("zh_Hans")),
-            ("zh_SG", Some("zh_Hans")),
-            ("zh-Hans-TW", Some("zh_Hans")),
+            ("ru_RU.UTF-8", None),
+            ("zh_CN.UTF-8", None),
             ("zh_TW", None),
             ("zh_HK", None),
             ("zh_MO", None),

@@ -110,7 +110,7 @@ jobs:
         run: |
           cargo install slint-tr-extractor --version 1.18.1 --locked
           bash scripts/check-translations.sh
-          for language in es ru; do
+          for language in es; do
             catalog="lang/$language/LC_MESSAGES/rustmail.po"
             msgfmt --check --check-header --check-format \
               -o "/tmp/rustmail-$language.mo" "$catalog"
