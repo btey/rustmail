@@ -599,6 +599,7 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
         context: "computer".into(),
         assignee: "AD".into(),
         status: String::new().into(),
+        no_reply_days: if id % 2 == 0 { 12 } else { -1 },
     };
     let column = |id: i32, name: &str, cards: Vec<TaskCardRow>| TaskColumnRow {
         id,

@@ -789,6 +789,9 @@ fn an_unanswered_follow_up_lists_the_task_under_today() {
     };
 
     assert_eq!(today(&mut s, follow_up - 1), (0, 0), "not due yet");
+    assert!(s.no_reply_days(follow_up - 1).unwrap().is_empty());
+    let three_days = follow_up + 3 * 86_400_000;
+    assert_eq!(s.no_reply_days(three_days).unwrap(), vec![(task.id, 3)]);
     assert_eq!(
         today(&mut s, follow_up),
         (1, 1),
@@ -805,6 +808,7 @@ fn an_unanswered_follow_up_lists_the_task_under_today() {
         )
         .unwrap();
     assert_eq!(today(&mut s, follow_up + 1), (0, 0), "answered");
+    assert!(s.no_reply_days(three_days).unwrap().is_empty(), "answered");
 
     // A task due today still shows on its own account, and counts once.
     s.update_task(

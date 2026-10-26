@@ -23,6 +23,8 @@ export struct TaskCardRow {
     context: string,
     assignee: string,
     status: string,
+    // Whole days since the sent mail; -1 = not waiting on a reply.
+    no-reply-days: int,
 }
 
 export struct TaskColumnRow {
@@ -330,6 +332,11 @@ component TaskCard inherits Rectangle {
             color: AppTheme.accent;
             font-size: TypeScale.micro;
             overflow: elide;
+        }
+        if root.card.no-reply-days >= 0 : Text {
+            text: @tr("No reply · {}d", root.card.no-reply-days);
+            color: AppTheme.destructive;
+            font-size: TypeScale.micro;
         }
         HorizontalLayout {
             spacing: 10px;

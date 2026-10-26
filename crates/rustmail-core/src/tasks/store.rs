@@ -642,6 +642,29 @@ impl SqliteTaskStore<'_> {
         self.get_task(task_id)
     }
 
+    /// Open tasks whose follow-up time has passed with no incoming mail since
+    /// the sent mail was linked, with the whole days since that mail was sent.
+    pub fn no_reply_days(&mut self, now_ms: i64) -> Result<Vec<(i64, i64)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT t.id, (?1 - MIN(l.created_at)) / 86400000
+             FROM tasks t JOIN task_links l ON l.task_id = t.id
+             WHERE t.deleted_at IS NULL AND t.completed_at IS NULL
+               AND t.follow_up_at IS NOT NULL AND t.follow_up_at <= ?1
+               AND l.deleted_at IS NULL AND l.kind = 'mail_sent'
+               AND NOT EXISTS (
+                 SELECT 1 FROM task_links l2
+                 JOIN messages m ON m.message_id = l2.message_id
+                 JOIN messages x ON x.thread_id = m.thread_id
+                      AND x.is_outgoing = 0 AND x.date > l2.created_at
+                 WHERE l2.task_id = t.id AND l2.deleted_at IS NULL
+                   AND l2.kind = 'mail_sent')
+             GROUP BY t.id",
+        )?;
+        Ok(stmt
+            .query_map([now_ms], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
     /// Mail arrived in `thread_ids`: for every open task linked to one of
     /// them, note the reply in its activity (once per reply) and, if the task
     /// is in Waiting for with `move_back_on_reply`, move it to Next actions.

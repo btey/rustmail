@@ -277,6 +277,7 @@ impl Core {
     reads! {
         task_projects() -> Vec<TaskProject>, |s| s.list_projects();
         task_columns(project_id: i64) -> Vec<TaskColumn>, |s| s.list_columns(project_id);
+        task_no_reply_days(now_ms: i64) -> Vec<(i64, i64)>, |s| s.no_reply_days(now_ms);
         task_get(id: i64) -> Task, |s| s.get_task(id);
         task_list(filter: TaskFilter) -> Vec<Task>, |s| s.list_tasks(&filter);
         task_counts(today_end_ms: i64) -> TaskCounts, |s| s.counts(today_end_ms);

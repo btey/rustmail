@@ -118,6 +118,8 @@ struct CardSnap {
     assignee: String,
     /// Column name, filled in for a project shown as a list.
     status: String,
+    /// Whole days since the sent mail while no reply has come; -1 = none.
+    no_reply_days: i64,
 }
 
 struct ColumnSnap {
@@ -230,6 +232,7 @@ fn card(
             task.assignee_email.as_deref(),
         ),
         status: String::new(),
+        no_reply_days: -1,
     }
 }
 
@@ -620,6 +623,18 @@ async fn load(
             })
             .collect();
     }
+    let waiting: HashMap<i64, i64> = core
+        .task_no_reply_days(chrono::Utc::now().timestamp_millis())
+        .await?
+        .into_iter()
+        .collect();
+    if !waiting.is_empty() {
+        for k in snap.columns.iter_mut().flat_map(|c| c.cards.iter_mut()) {
+            if let Some(days) = waiting.get(&k.id) {
+                k.no_reply_days = *days;
+            }
+        }
+    }
     if let Some(id) = detail_id
         && let Some((detail, targets)) = load_detail(core, id, &projects).await
     {
@@ -739,6 +754,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         context: k.context.into(),
                         assignee: k.assignee.into(),
                         status: k.status.into(),
+                        no_reply_days: k.no_reply_days as i32,
                     })
                     .collect::<Vec<_>>(),
             )),
