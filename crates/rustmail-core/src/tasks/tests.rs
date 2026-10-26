@@ -869,6 +869,77 @@ async fn a_delivered_draft_is_linked_to_its_task_with_a_follow_up_time() {
 }
 
 #[tokio::test]
+async fn a_queued_send_links_and_announces_once_delivery_is_confirmed() {
+    let tmp = tempfile::tempdir().unwrap();
+    let core = crate::Core::start(crate::Paths::for_tests(tmp.path()))
+        .await
+        .unwrap();
+    core.tasks_open().await.unwrap();
+    let (task_id, queued) = core
+        .db
+        .write(|conn: &mut Connection| {
+            seed_mail(conn, "Quarterly invoice", 1, "<sent@x>");
+            let draft: i64 = conn.query_row("SELECT MAX(id) FROM messages", [], |r| r.get(0))?;
+            let action = crate::db::repo::actions::enqueue(
+                conn,
+                1,
+                "send",
+                Some(draft),
+                Some(1),
+                &serde_json::json!({}),
+                None,
+            )?;
+            let mut s = SqliteTaskStore::new(conn);
+            let p = s.list_projects()?[0].id;
+            let t = plain_task(&mut s, p, "Ask about the invoice");
+            Ok((
+                t.id,
+                crate::models::QueueSendResult {
+                    action_id: action,
+                    draft_id: draft,
+                    dispatch_at: 0,
+                },
+            ))
+        })
+        .await
+        .unwrap();
+
+    let mut events = core.bus.subscribe();
+    core.task_link_after_send(&queued, task_id, AfterSend::Waiting, Some(2), None);
+
+    // Still queued: nothing is linked and nothing is announced.
+    tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+    assert_eq!(core.task_get(task_id).await.unwrap().link_count, 0);
+    assert!(!matches!(
+        events.try_recv(),
+        Ok(crate::events::CoreEvent::TaskMailSent { .. })
+    ));
+
+    let action = queued.action_id;
+    core.db
+        .write(move |conn| {
+            conn.execute(
+                "UPDATE pending_actions SET state = 'done' WHERE id = ?1",
+                [action],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let title = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            if let Ok(crate::events::CoreEvent::TaskMailSent { title }) = events.recv().await {
+                break title;
+            }
+        }
+    })
+    .await
+    .expect("TaskMailSent after delivery");
+    assert_eq!(title, "Ask about the invoice");
+    assert_eq!(core.task_get(task_id).await.unwrap().link_count, 1);
+}
+
+#[tokio::test]
 async fn a_follow_up_event_is_booked_and_linked_to_the_task() {
     let tmp = tempfile::tempdir().unwrap();
     let core = crate::Core::start(crate::Paths::for_tests(tmp.path()))
