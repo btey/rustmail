@@ -22,7 +22,7 @@ parley = { path = "crates/parley" }
 
 [package]
 name = "rustmail"
-version = "0.1.0-alpha.7"
+version = "0.1.0-alpha.8"
 description = "A native email client built with Rust, Slint, and Blitz"
 license = "AGPL-3.0-only"
 repository = "https://github.com/btey/rustmail"

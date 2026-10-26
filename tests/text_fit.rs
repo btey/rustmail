@@ -370,7 +370,7 @@ fn apply_fixture(app: &AppWindow) {
     app.set_mail_labels(model(labels));
     app.set_selected_mail_label_count(1);
     app.set_sync_message(message("Local data ready."));
-    app.set_app_version("0.1.0-alpha.7".into());
+    app.set_app_version("0.1.0-alpha.8".into());
     app.set_storage_loaded(true);
     app.set_storage_total("18.42 GB".into());
     app.set_storage_usage(model(
