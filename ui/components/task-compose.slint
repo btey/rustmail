@@ -1,0 +1,12 @@
+// State of the composer's "email from a task" options. The values are
+// indexes; the app owns them and the labels live in composer-actions.slint.
+export global TaskComposeUi {
+    // True while the open composer will link its mail to a task.
+    in-out property <bool> active: false;
+    // 0 Waiting for, 1 Keep in place, 2 Done.
+    in-out property <int> after: 0;
+    // 0 four days, 1 two days, 2 one week, 3 no follow-up.
+    in-out property <int> follow-up: 0;
+    callback cycle-after();
+    callback cycle-follow-up();
+}

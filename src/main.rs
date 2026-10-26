@@ -5580,6 +5580,35 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         }
     });
 
+    for follow_up in [false, true] {
+        let app_weak = app.as_weak();
+        let intent_for_options = Rc::clone(&compose_intent);
+        let apply = move || {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let options = app.global::<TaskComposeUi>();
+            let mut intent = intent_for_options.borrow_mut();
+            let Some(task) = intent.task else {
+                return;
+            };
+            let (after, follow) = if follow_up {
+                (options.get_after(), (options.get_follow_up() + 1) % 4)
+            } else {
+                ((options.get_after() + 1) % 3, options.get_follow_up())
+            };
+            options.set_after(after);
+            options.set_follow_up(follow);
+            intent.task = Some(TaskSend::from_choices(task.task_id, after, follow));
+        };
+        let options = app.global::<TaskComposeUi>();
+        if follow_up {
+            options.on_cycle_follow_up(apply);
+        } else {
+            options.on_cycle_after(apply);
+        }
+    }
+
     let app_weak = app.as_weak();
     let intent_for_task = Rc::clone(&compose_intent);
     let document_for_task = Rc::clone(&compose_document);
@@ -5592,11 +5621,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             return;
         }
         *intent_for_task.borrow_mut() = ComposeIntent {
-            task: Some(TaskSend {
-                task_id: i64::from(task_id),
-                after: rustmail_core::tasks::AfterSend::Waiting,
-                follow_up_days: Some(4),
-            }),
+            task: Some(TaskSend::initial(i64::from(task_id))),
             ..ComposeIntent::default()
         };
         app.set_compose_mode("new".into());
@@ -5605,9 +5630,10 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             .invoke_composer_reset();
         app.global::<AccountMailPreferences>()
             .invoke_composer_account_changed(app.get_compose_account_id());
-        app.set_compose_notice(UiMessage::plain(
-            "Linked to the task once sent; it moves to Waiting for, with a follow-up in 4 days.",
-        ));
+        let options = app.global::<TaskComposeUi>();
+        options.set_after(0);
+        options.set_follow_up(0);
+        options.set_active(true);
         app.set_compose_notice_is_error(false);
         app.set_compose_open(true);
         let document = document_for_task.borrow();

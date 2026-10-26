@@ -5,6 +5,7 @@ import { IconButton } from "controls.slint";
 import { TypeScale } from "../typography.slint";
 import { UserActions } from "user-actions.slint";
 import { LayoutMetrics } from "../design-system.slint";
+import { TaskComposeUi } from "task-compose.slint";
 
 export component ComposerToolbar inherits Rectangle {
     in property <bool> compact: false;
@@ -178,11 +179,46 @@ export component ComposerNotice inherits Rectangle {
     in property <color> accent-background;
     in property <color> accent-color;
 
-            visible: root.notice != "";
-            height: root.notice == "" ? 0px : 24px;
+            visible: root.notice != "" || TaskComposeUi.active;
+            height: TaskComposeUi.active ? 40px : root.notice == "" ? 0px : 24px;
             background: root.notice-is-error ? #d73a4920 : root.accent-background;
 
-            Text {
+            if TaskComposeUi.active: HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                spacing: 8px;
+                alignment: start;
+                Text {
+                    text: @tr("After sending");
+                    color: root.accent-color;
+                    font-size: TypeScale.caption;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                }
+                Button {
+                    y: (parent.height - self.height) / 2;
+                    height: 28px;
+                    text: TaskComposeUi.after == 0 ? @tr("Waiting for") : TaskComposeUi.after == 1 ? @tr("Stay in place") : @tr("Done");
+                    width: max(90px, self.content-width + 24px);
+                    clicked => { TaskComposeUi.cycle-after(); }
+                }
+                Text {
+                    text: @tr("If no reply in");
+                    color: root.accent-color;
+                    font-size: TypeScale.caption;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                }
+                Button {
+                    y: (parent.height - self.height) / 2;
+                    height: 28px;
+                    text: TaskComposeUi.follow-up == 0 ? @tr("4 days") : TaskComposeUi.follow-up == 1 ? @tr("2 days") : TaskComposeUi.follow-up == 2 ? @tr("1 week") : @tr("Never");
+                    width: max(80px, self.content-width + 24px);
+                    clicked => { TaskComposeUi.cycle-follow-up(); }
+                }
+            }
+
+            if !TaskComposeUi.active: Text {
                 x: 14px;
                 width: parent.width - 28px;
                 height: parent.height;

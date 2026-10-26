@@ -20,6 +20,32 @@ pub(super) struct TaskSend {
     pub follow_up_days: Option<u32>,
 }
 
+impl TaskSend {
+    /// The options the composer starts with: Waiting for, follow-up in 4 days.
+    pub fn initial(task_id: i64) -> Self {
+        Self::from_choices(task_id, 0, 0)
+    }
+
+    /// Build from the composer's picker positions (see `TaskComposeUi`).
+    pub fn from_choices(task_id: i64, after: i32, follow_up: i32) -> Self {
+        use rustmail_core::tasks::AfterSend;
+        Self {
+            task_id,
+            after: match after {
+                1 => AfterSend::Keep,
+                2 => AfterSend::Done,
+                _ => AfterSend::Waiting,
+            },
+            follow_up_days: match follow_up {
+                1 => Some(2),
+                2 => Some(7),
+                3 => None,
+                _ => Some(4),
+            },
+        }
+    }
+}
+
 impl Default for ComposeIntent {
     fn default() -> Self {
         Self {
@@ -560,6 +586,7 @@ pub(super) fn clear_compose(
     editor: &Rc<RefCell<LazyComposeEditor>>,
     contacts: &Rc<RefCell<Vec<rustmail_core::models::Address>>>,
 ) {
+    app.global::<TaskComposeUi>().set_active(false);
     files.borrow_mut().clear();
     // A picker still open for this composer must not attach to the next one.
     session.set(session.get().wrapping_add(1));
