@@ -1467,10 +1467,8 @@ impl CoreMailSource {
                 send_at: None,
             })
             .await?;
-        self.core
-            .send_now(queued.action_id)
-            .await
-            .map_err(|error| error.to_string())?;
+        // The queue holds the message for the undo-send window (a setting; 0
+        // sends at once) and fires it when it comes due.
         Ok(queued)
     }
 

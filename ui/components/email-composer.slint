@@ -1,3 +1,5 @@
+import { SendUndoUi } from "send-undo.slint";
+import { Button } from "button.slint";
 import { AccountMailPreferences } from "account-mail-preferences.slint";
 import { SettingsSelectRow } from "settings-components.slint";
 import { ScrollView, VerticalBox } from "std-widgets.slint";
@@ -616,5 +618,14 @@ export component EmailComposer inherits Rectangle {
         width: parent.width;
         height: parent.height;
         mouse-cursor: wait;
+    }
+
+    if root.sending && SendUndoUi.can-undo : Button {
+        x: root.compact ? 112px : 130px;
+        y: parent.height - 44px;
+        width: max(110px, self.content-width + 28px);
+        height: 34px;
+        text: @tr("Undo send");
+        clicked => { SendUndoUi.undo-send(); }
     }
 }

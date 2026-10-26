@@ -1,0 +1,6 @@
+// The undo-send window: after Send the composer stays frozen until the queued
+// message comes due, and this button is the only live control meanwhile.
+export global SendUndoUi {
+    in-out property <bool> can-undo: false;
+    callback undo-send();
+}

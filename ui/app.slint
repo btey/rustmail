@@ -18,6 +18,7 @@ import { TypeScale } from "typography.slint";
 export { AppTheme, MotionSettings, ThemeUtilities } from "design-system.slint";
 import { AppTheme, LayoutMetrics } from "design-system.slint";
 import { Button } from "components/button.slint";
+import { TaskComposeUi } from "components/task-compose.slint";
 import { LoadingSkeletonBlock } from "components/loading-skeleton.slint";
 import { AccountRow, AdvancedOptions, CalendarAgendaRow, CalendarAgendaFilterRow, CalendarDay, CalendarEventRow, CalendarSourceRow, CalendarWeekDay, ComposeAttachment, ComposeContact, ComposeEditorTile, ContactSidebarRow, ContactRow, EmailLink, EmailRow, EmailTemplateRow, EmailTile, LocalizedMessage, MailListEntry, MailProfileRow, SidebarRow, MailLabelRow, StorageUsageRow, ThreadMessageRow } from "models.slint";
 export { EmailReader, ReaderCaret, ReaderImage, ReaderItem, MailDragApi } from "models.slint";
@@ -42,6 +43,7 @@ export { MessageColors } from "message-colors.slint";
 export { FilesUi, FileRow, OperationRow } from "views/files-view.slint";
 import { FilesView, FilesUi } from "views/files-view.slint";
 export { TaskComposeUi } from "components/task-compose.slint";
+export { SendUndoUi } from "components/send-undo.slint";
 export { TasksUi, TaskCardRow, TaskColumnRow, TaskNavRow, TaskDetailRow, ChecklistRow, LinkRow, ActivityRow } from "views/tasks-view.slint";
 import { TasksView, TasksUi } from "views/tasks-view.slint";
 import { ContactsView } from "views/contacts-view.slint";
@@ -429,6 +431,7 @@ export global I18n {
         if (key == "Message action completed.") { return @tr("Message action completed."); }
         if (key == "Permanent deletion queued. Mail will disappear after the server confirms.") { return @tr("Permanent deletion queued. Mail will disappear after the server confirms."); }
         if (key == "Sent and linked to the task: {}") { return @tr("Sent and linked to the task: {}", argument); }
+        if (key == "Undo send failed: {}") { return @tr("Undo send failed: {}", argument); }
         if (key == "Message action failed: {}") { return @tr("Message action failed: {}", argument); }
         if (key == "Message action failed: message is no longer available") { return @tr("Message action failed: message is no longer available"); }
         if (key == "Label added.") { return @tr("Label added."); }
@@ -475,6 +478,8 @@ export global I18n {
         if (key == "Message queued for delivery (action {}).") { return @tr("Message queued for delivery (action {}).", argument); }
         if (key == "Sending message…") { return @tr("Sending message…"); }
         if (key == "Message sent.") { return @tr("Message sent."); }
+        if (key == "Send cancelled.") { return @tr("Send cancelled."); }
+        if (key == "Send cancelled. Your message is back in the editor.") { return @tr("Send cancelled. Your message is back in the editor."); }
         if (key == "Message was not sent: {} Your draft is preserved.") { return @tr("Message was not sent: {} Your draft is preserved.", argument); }
         if (key == "Draft saved locally (#{}).") { return @tr("Draft saved locally (#{}).", argument); }
         if (key == "Compose failed: {}") { return @tr("Compose failed: {}", argument); }
@@ -2306,6 +2311,69 @@ export component AppWindow inherits Window {
             clicked => { root.toast-message = { key: "", argument: "", second_argument: "", third_argument: "" }; }
             Text { text: "×"; color: AppTheme.secondary; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
         }
+    }
+    if TaskComposeUi.sent-title != "" : Rectangle {
+        z: 45001;
+        width: min(420px, root.width - 32px);
+        height: 96px;
+        x: (root.width - self.width) / 2;
+        y: root.height - self.height - 28px - (root.toast_text != "" ? 56px : 0px);
+        background: AppTheme.surface;
+        border-radius: 10px;
+        border-width: 1px;
+        border-color: AppTheme.control-border;
+        drop-shadow-blur: 16px;
+        drop-shadow-offset-y: 4px;
+        drop-shadow-color: #00000044;
+        accessible-role: groupbox;
+        accessible-label: @tr("Sent and linked") + ": " + TaskComposeUi.sent-title;
+        Text {
+            x: 16px;
+            y: 12px;
+            width: parent.width - 56px;
+            text: @tr("Sent and linked");
+            color: AppTheme.heading;
+            font-size: TypeScale.secondary;
+            font-weight: 700;
+        }
+        Text {
+            x: 16px;
+            y: 34px;
+            width: parent.width - 56px;
+            text: TaskComposeUi.sent-title;
+            overflow: elide;
+            color: AppTheme.secondary;
+            font-size: TypeScale.secondary;
+        }
+        Button {
+            x: 16px;
+            y: 56px;
+            height: 30px;
+            width: max(120px, self.content-width + 28px);
+            text: @tr("Back to board");
+            clicked => {
+                root.active_view = "tasks";
+                root.settings_open = false;
+                TaskComposeUi.sent-title = "";
+            }
+        }
+        TouchArea {
+            x: parent.width - 40px;
+            y: 0px;
+            width: 40px;
+            height: 44px;
+            mouse-cursor: pointer;
+            accessible-role: button;
+            accessible-label: @tr("Dismiss");
+            accessible-action-default => { TaskComposeUi.sent-title = ""; }
+            clicked => { TaskComposeUi.sent-title = ""; }
+            Text { text: "×"; color: AppTheme.secondary; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
+        }
+    }
+    Timer {
+        interval: 15s;
+        running: TaskComposeUi.sent-title != "";
+        triggered => { TaskComposeUi.sent-title = ""; }
     }
     Timer {
         interval: 9s;

@@ -7,6 +7,8 @@ export global TaskComposeUi {
     in-out property <int> after: 0;
     // 0 four days, 1 two days, 2 one week, 3 no follow-up.
     in-out property <int> follow-up: 0;
+    // Title of the task whose mail was just sent and linked; empty hides the card.
+    in-out property <string> sent-title: "";
     callback cycle-after();
     callback cycle-follow-up();
 }

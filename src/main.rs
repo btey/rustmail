@@ -3386,6 +3386,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         if let Some(title) = pending.task_mail_sent.clone()
             && let Some(app) = mail_update_app.upgrade()
         {
+            app.global::<TaskComposeUi>().set_sent_title(title.clone().into());
             app.set_sync_status(UiMessage::detail("Sent and linked to the task: {}", title));
         }
         if pending.calendar_changed
@@ -6364,6 +6365,19 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                         );
                     }
                     send_action_for_save.set(Some(queued.action_id));
+                    let window_ms = queued.dispatch_at - rustmail_core::models::now_ms();
+                    if window_ms > 0 {
+                        app.global::<SendUndoUi>().set_can_undo(true);
+                        let undo_app = app_weak.clone();
+                        Timer::single_shot(
+                            Duration::from_millis(window_ms.unsigned_abs()),
+                            move || {
+                                if let Some(app) = undo_app.upgrade() {
+                                    app.global::<SendUndoUi>().set_can_undo(false);
+                                }
+                            },
+                        );
+                    }
                     app.set_compose_sending(true);
                     app.set_compose_notice(UiMessage::plain("Sending message…"));
                     app.set_compose_notice_is_error(false);
@@ -6448,6 +6462,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             };
             send_action_for_result.set(None);
             app.set_compose_sending(false);
+            app.global::<SendUndoUi>().set_can_undo(false);
             match update.result {
                 Ok(()) => {
                     clear_compose(
@@ -6478,6 +6493,39 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                     app.set_sync_status(message);
                 }
             }
+        }
+    });
+
+    let app_weak = app.as_weak();
+    let state_for_undo = Rc::clone(&state);
+    let runtime_for_undo = Rc::clone(&runtime);
+    let send_action_for_undo = Rc::clone(&compose_send_action);
+    app.global::<SendUndoUi>().on_undo_send(move || {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        let (Some(action_id), Some(core)) = (
+            send_action_for_undo.get(),
+            state_for_undo.borrow().core.clone(),
+        ) else {
+            return;
+        };
+        match runtime_for_undo.block_on(core.file_core().cancel_send(action_id)) {
+            Ok(true) => {
+                // The late result of the cancelled wait is ignored: its
+                // action id no longer matches.
+                send_action_for_undo.set(None);
+                app.global::<SendUndoUi>().set_can_undo(false);
+                app.set_compose_sending(false);
+                app.set_compose_notice(UiMessage::plain(
+                    "Send cancelled. Your message is back in the editor.",
+                ));
+                app.set_compose_notice_is_error(false);
+                app.set_sync_status(UiMessage::plain("Send cancelled."));
+            }
+            // Already delivering: nothing to undo any more.
+            Ok(false) => app.global::<SendUndoUi>().set_can_undo(false),
+            Err(error) => app.set_sync_status(UiMessage::detail("Undo send failed: {}", error)),
         }
     });
 
