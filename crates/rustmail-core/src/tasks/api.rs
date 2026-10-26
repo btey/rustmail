@@ -2,9 +2,9 @@
 //! method on the mail database; mutations emit [`CoreEvent::TasksChanged`].
 
 use super::*;
-use crate::Core;
 use crate::events::CoreEvent;
 use crate::models::now_ms;
+use crate::{Core, CoreError};
 
 const TOMBSTONE_RETENTION_MS: i64 = 90 * 24 * 60 * 60 * 1000;
 
@@ -81,6 +81,70 @@ impl Core {
             .await?;
         self.bus.emit(CoreEvent::TasksChanged);
         Ok(task)
+    }
+
+    /// Send a draft for a task (Phase 9): queue it through the normal send
+    /// path, and once delivery is confirmed link the sent message to the task
+    /// (`task_record_sent`). `follow_up_days` sets the follow-up time from the
+    /// moment of sending. The link is made by a background waiter, so it is
+    /// lost if the app quits between queueing and delivery; a failed or
+    /// cancelled send changes nothing.
+    pub async fn task_send_and_link(
+        &self,
+        args: crate::models::QueueSendArgs,
+        task_id: i64,
+        after: AfterSend,
+        follow_up_days: Option<u32>,
+    ) -> Result<crate::models::QueueSendResult> {
+        self.db
+            .read(move |conn| SqliteTaskStore::new(conn).get_task(task_id).map(|_| ()))
+            .await?;
+        let queued = self.queue_send(args).await?;
+        let core = self.clone();
+        let (action_id, draft_id) = (queued.action_id, queued.draft_id);
+        tokio::spawn(async move {
+            if core.wait_for_send(action_id).await.is_err() {
+                return;
+            }
+            if let Err(e) = core
+                .task_link_sent_draft(task_id, draft_id, after, follow_up_days)
+                .await
+            {
+                tracing::warn!(task_id, draft_id, "linking the sent mail failed: {e}");
+            }
+        });
+        Ok(queued)
+    }
+
+    pub(super) async fn task_link_sent_draft(
+        &self,
+        task_id: i64,
+        draft_id: i64,
+        after: AfterSend,
+        follow_up_days: Option<u32>,
+    ) -> Result<Task> {
+        let sent = self
+            .db
+            .read(move |conn| {
+                let row = crate::db::repo::messages::get_row(conn, draft_id)?
+                    .ok_or_else(|| CoreError::NotFound("sent message".into()))?;
+                let account_email: String = conn.query_row(
+                    "SELECT email FROM accounts WHERE id = ?1",
+                    [row.account_id],
+                    |r| r.get(0),
+                )?;
+                Ok(SentMail {
+                    account_email,
+                    thread_id: row
+                        .thread_id
+                        .ok_or_else(|| CoreError::NotFound("thread of the sent message".into()))?,
+                    message_id: row.message_id.unwrap_or_default(),
+                })
+            })
+            .await?;
+        let follow_up_at = follow_up_days.map(|d| now_ms() + i64::from(d) * 24 * 60 * 60 * 1000);
+        self.task_record_sent(task_id, sent, after, follow_up_at)
+            .await
     }
 
     /// Like `task_create_from_thread`, but does nothing when the thread

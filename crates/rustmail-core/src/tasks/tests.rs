@@ -817,3 +817,49 @@ fn an_unanswered_follow_up_lists_the_task_under_today() {
     .unwrap();
     assert_eq!(today(&mut s, follow_up + 1), (1, 1));
 }
+
+#[tokio::test]
+async fn a_delivered_draft_is_linked_to_its_task_with_a_follow_up_time() {
+    let tmp = tempfile::tempdir().unwrap();
+    let core = crate::Core::start(crate::Paths::for_tests(tmp.path()))
+        .await
+        .unwrap();
+    core.tasks_open().await.unwrap();
+    let (task_id, draft_id) = core
+        .db
+        .write(|conn: &mut Connection| {
+            seed_mail(conn, "Quarterly invoice", 1, "<sent@x>");
+            let draft: i64 = conn.query_row("SELECT MAX(id) FROM messages", [], |r| r.get(0))?;
+            let mut s = SqliteTaskStore::new(conn);
+            let p = s.list_projects()?[0].id;
+            let t = plain_task(&mut s, p, "Ask about the invoice");
+            Ok((t.id, draft))
+        })
+        .await
+        .unwrap();
+
+    let before = crate::models::now_ms();
+    let task = core
+        .task_link_sent_draft(task_id, draft_id, AfterSend::Waiting, Some(2))
+        .await
+        .unwrap();
+    assert_eq!(task.link_count, 1);
+    let follow_up = task.follow_up_at.unwrap();
+    assert!(follow_up >= before + 2 * 86_400_000);
+
+    // A draft that never got a Message-ID is refused and changes nothing.
+    let bare = core
+        .db
+        .write(|conn| {
+            conn.execute("UPDATE messages SET message_id = NULL", [])?;
+            Ok(())
+        })
+        .await;
+    bare.unwrap();
+    assert!(
+        core.task_link_sent_draft(task_id, draft_id, AfterSend::Done, None)
+            .await
+            .is_err()
+    );
+    assert_eq!(core.task_get(task_id).await.unwrap().link_count, 1);
+}
