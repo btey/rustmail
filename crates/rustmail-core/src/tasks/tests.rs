@@ -764,6 +764,50 @@ fn a_sent_email_is_linked_and_the_task_moves_as_chosen() {
 }
 
 #[test]
+fn a_reply_to_a_task_mail_is_noted_and_moves_the_task_back() {
+    let (mut c, p) = setup();
+    let next = col(&mut c, p, ColumnKind::Next);
+    let waiting = col(&mut c, p, ColumnKind::Waiting);
+    seed_mail(&c, "Quarterly invoice", 1, "<sent@x>");
+    let mut s = SqliteTaskStore::new(&mut c);
+    let task = plain_task(&mut s, p, "Chase the invoice");
+    s.update_task(
+        task.id,
+        TaskPatch {
+            move_back_on_reply: Some(true),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let sent = SentMail {
+        account_email: "me@test.dev".into(),
+        thread_id: 1,
+        message_id: "<sent@x>".into(),
+    };
+    s.record_sent(task.id, sent, AfterSend::Waiting, None)
+        .unwrap();
+    assert_eq!(s.get_task(task.id).unwrap().column_id, waiting.id);
+    assert!(s.note_replies(&[1]).unwrap().is_empty(), "no reply yet");
+
+    s.conn
+        .execute(
+            "INSERT INTO messages (account_id, thread_id, folder_id, uid, message_id, subject,
+                from_addr, to_json, cc_json, date, snippet)
+             VALUES (1, 1, 1, 22, '<reply@x>', 'Re: Quarterly invoice', 'a@x.dev', '[]', '[]', ?1, '')",
+            [crate::models::now_ms() + 5_000],
+        )
+        .unwrap();
+    assert_eq!(s.note_replies(&[1]).unwrap(), vec![task.id]);
+    assert_eq!(s.get_task(task.id).unwrap().column_id, next.id);
+    assert!(
+        s.list_activity(task.id)
+            .unwrap()
+            .iter()
+            .any(|a| a.kind == "reply" && a.text.contains("Re: Quarterly invoice"))
+    );
+}
+
+#[test]
 fn an_unanswered_follow_up_lists_the_task_under_today() {
     let (mut c, p) = setup();
     seed_mail(&c, "Quarterly invoice", 1, "<sent@x>");
