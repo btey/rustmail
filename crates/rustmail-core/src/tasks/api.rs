@@ -294,6 +294,39 @@ impl Core {
         }
     }
 
+    /// Announce follow-ups that came due since the last check.
+    pub async fn task_check_follow_ups(&self) -> Result<Vec<i64>> {
+        let now = crate::models::now_ms();
+        let due = self
+            .db
+            .write(move |conn| SqliteTaskStore::new(conn).note_follow_ups_due(now))
+            .await?;
+        if !due.is_empty() {
+            self.bus.emit(CoreEvent::TasksChanged);
+        }
+        let mut ids = Vec::with_capacity(due.len());
+        for item in due {
+            ids.push(item.task_id);
+            self.bus.emit(CoreEvent::TaskFollowUpDue {
+                task_id: item.task_id,
+                title: item.title,
+                days: item.days,
+            });
+        }
+        Ok(ids)
+    }
+
+    /// Long-lived loop: check once a minute whether a follow-up came due.
+    pub(crate) async fn task_follow_up_loop(&self) {
+        let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
+        loop {
+            tick.tick().await;
+            if let Err(error) = self.task_check_follow_ups().await {
+                tracing::warn!("task follow-up check failed: {error}");
+            }
+        }
+    }
+
     /// Tasks linked to the given mail threads (all linked threads for `None`).
     pub async fn task_threads(&self, only: Option<Vec<i64>>) -> Result<Vec<ThreadTask>> {
         self.db

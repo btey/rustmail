@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-26 21:01+0000\n"
+"POT-Creation-Date: 2026-10-27 03:11+0000\n"
 "PO-Revision-Date: 2026-09-20 23:21+0000\n"
 "Last-Translator: Admin <admin@rustmail.org>\n"
 "Language-Team: Spanish <https://translate.rustmail.org/projects/rustmail/"
@@ -3515,13 +3515,17 @@ msgstr "Nueva etiqueta"
 msgid "No folders found"
 msgstr "No se encontraron carpetas"
 
-#: ui/components/task-reply.slint:11
+#: ui/components/task-reply.slint:13
 msgid "Reply received"
 msgstr "Respuesta recibida"
 
-#: ui/components/task-reply.slint:12
+#: ui/components/task-reply.slint:14
 msgid "Reply received, task moved to Next actions"
 msgstr "Respuesta recibida; tarea movida a Próximas acciones"
+
+#: ui/components/task-reply.slint:15
+msgid "No reply yet"
+msgstr "Aún sin respuesta"
 
 #: ui/components/theme-editor.slint:232
 msgid "Color saturation and brightness"

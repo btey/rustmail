@@ -2386,12 +2386,12 @@ export component AppWindow inherits Window {
         drop-shadow-offset-y: 4px;
         drop-shadow-color: #00000044;
         accessible-role: groupbox;
-        accessible-label: TaskReplyUi.notification-title + ": " + TaskReplyUi.title;
+        accessible-label: (TaskReplyUi.follow-up ? TaskReplyUi.notification-title-follow-up : TaskReplyUi.notification-title) + ": " + TaskReplyUi.title;
         Text {
             x: 16px;
             y: 12px;
             width: parent.width - 56px;
-            text: TaskReplyUi.moved-back ? TaskReplyUi.notification-title-moved : TaskReplyUi.notification-title;
+            text: TaskReplyUi.follow-up ? TaskReplyUi.notification-title-follow-up : TaskReplyUi.moved-back ? TaskReplyUi.notification-title-moved : TaskReplyUi.notification-title;
             overflow: elide;
             color: AppTheme.heading;
             font-size: TypeScale.secondary;

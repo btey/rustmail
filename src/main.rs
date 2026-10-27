@@ -849,6 +849,7 @@ fn announce_task_replies(app: &AppWindow, replies: &[startup::TaskReplyUpdate]) 
         ui.set_task_id(i32::try_from(latest.task_id).unwrap_or(-1));
         ui.set_subject(latest.subject.clone().into());
         ui.set_moved_back(latest.moved_back);
+        ui.set_follow_up(latest.follow_up);
         ui.set_title(latest.title.clone().into());
     }
     if !app.get_notifications_enabled() {
@@ -856,14 +857,20 @@ fn announce_task_replies(app: &AppWindow, replies: &[startup::TaskReplyUpdate]) 
     }
     let sound = app.get_notification_sound_enabled();
     for reply in replies {
-        let summary = if reply.moved_back {
+        let summary = if reply.follow_up {
+            ui.get_notification_title_follow_up()
+        } else if reply.moved_back {
             ui.get_notification_title_moved()
         } else {
             ui.get_notification_title()
         };
         desktop_notify::show(
             summary.to_string(),
-            format!("{}\n{}", reply.title, reply.subject),
+            if reply.subject.is_empty() {
+                reply.title.clone()
+            } else {
+                format!("{}\n{}", reply.title, reply.subject)
+            },
             sound,
         );
     }

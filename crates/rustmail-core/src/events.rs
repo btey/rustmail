@@ -124,6 +124,12 @@ pub enum CoreEvent {
     TaskMailSent {
         title: String,
     },
+    /// A task's follow-up time passed and its sent mail is still unanswered.
+    TaskFollowUpDue {
+        task_id: i64,
+        title: String,
+        days: i64,
+    },
     /// Incoming mail answered a mail linked to an open task.
     TaskReplyReceived {
         task_id: i64,

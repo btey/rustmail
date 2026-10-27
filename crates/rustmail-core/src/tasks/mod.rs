@@ -419,6 +419,15 @@ pub struct RepliedTask {
     pub moved_back: bool,
 }
 
+/// A task whose follow-up time passed with no reply.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FollowUpDue {
+    pub task_id: i64,
+    pub title: String,
+    /// Whole days since the mail was sent.
+    pub days: i64,
+}
+
 /// The task a mail thread is linked to, for the message list and the mail
 /// sidebar's smart folders.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

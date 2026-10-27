@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-26 21:01+0000\n"
+"POT-Creation-Date: 2026-10-27 03:11+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3457,12 +3457,16 @@ msgstr ""
 msgid "No folders found"
 msgstr ""
 
-#: ui/components/task-reply.slint:11
+#: ui/components/task-reply.slint:13
 msgid "Reply received"
 msgstr ""
 
-#: ui/components/task-reply.slint:12
+#: ui/components/task-reply.slint:14
 msgid "Reply received, task moved to Next actions"
+msgstr ""
+
+#: ui/components/task-reply.slint:15
+msgid "No reply yet"
 msgstr ""
 
 #: ui/components/theme-editor.slint:232

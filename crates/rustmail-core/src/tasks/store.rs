@@ -665,6 +665,40 @@ impl SqliteTaskStore<'_> {
             .collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
+    /// Tasks whose follow-up time has passed with no reply and that have not
+    /// been announced for this follow-up time yet. Each is noted once in its
+    /// activity (a later follow-up time announces again) and returned.
+    pub fn note_follow_ups_due(&mut self, now_ms: i64) -> Result<Vec<FollowUpDue>> {
+        let mut due = Vec::new();
+        for (task_id, days) in self.no_reply_days(now_ms)? {
+            let (title, follow_up_at): (String, i64) = self.conn.query_row(
+                "SELECT title, follow_up_at FROM tasks WHERE id = ?1",
+                [task_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?;
+            let noted: bool = self.conn.query_row(
+                "SELECT EXISTS (SELECT 1 FROM task_activity
+                 WHERE task_id = ?1 AND kind = 'follow_up' AND at >= ?2)",
+                params![task_id, follow_up_at],
+                |r| r.get(0),
+            )?;
+            if noted {
+                continue;
+            }
+            self.conn.execute(
+                "INSERT INTO task_activity (task_id, kind, text, at)
+                 VALUES (?1, 'follow_up', 'No reply yet: follow-up due', ?2)",
+                params![task_id, now_ms],
+            )?;
+            due.push(FollowUpDue {
+                task_id,
+                title,
+                days,
+            });
+        }
+        Ok(due)
+    }
+
     /// Mail arrived in `thread_ids`: for every open task linked to one of
     /// them, note the reply in its activity (once per reply) and, if the task
     /// is in Waiting for with `move_back_on_reply`, move it to Next actions.

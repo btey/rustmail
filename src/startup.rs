@@ -536,6 +536,8 @@ pub(crate) struct TaskReplyUpdate {
     pub(crate) title: String,
     pub(crate) subject: String,
     pub(crate) moved_back: bool,
+    /// A follow-up came due with no reply (`subject` is empty).
+    pub(crate) follow_up: bool,
 }
 
 impl PendingCoreUpdates {
@@ -714,6 +716,22 @@ pub(crate) fn spawn_core_event_listener(
                             title,
                             subject,
                             moved_back,
+                            follow_up: false,
+                        });
+                    }
+                    true
+                }
+                Ok(CoreEvent::TaskFollowUpDue { task_id, title, .. }) => {
+                    let mut pending = pending
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    if pending.task_replies.len() < MAX_PENDING_TASK_REPLIES {
+                        pending.task_replies.push(TaskReplyUpdate {
+                            task_id,
+                            title,
+                            subject: String::new(),
+                            moved_back: false,
+                            follow_up: true,
                         });
                     }
                     true

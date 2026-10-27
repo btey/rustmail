@@ -815,6 +815,54 @@ fn a_reply_to_a_task_mail_is_noted_and_moves_the_task_back() {
     );
 }
 
+#[test]
+fn a_due_follow_up_is_announced_once_until_the_time_changes() {
+    let (mut c, p) = setup();
+    seed_mail(&c, "Quarterly invoice", 1, "<sent@x>");
+    let mut s = SqliteTaskStore::new(&mut c);
+    let task = plain_task(&mut s, p, "Chase the invoice");
+    let sent = SentMail {
+        account_email: "me@test.dev".into(),
+        thread_id: 1,
+        message_id: "<sent@x>".into(),
+    };
+    let follow_up = crate::models::now_ms() + 10_000;
+    s.record_sent(task.id, sent, AfterSend::Waiting, Some(follow_up))
+        .unwrap();
+
+    assert!(
+        s.note_follow_ups_due(follow_up - 1).unwrap().is_empty(),
+        "not due"
+    );
+    let due = s.note_follow_ups_due(follow_up + 1).unwrap();
+    assert_eq!(due.len(), 1);
+    assert_eq!(due[0].task_id, task.id);
+    assert_eq!(due[0].title, "Chase the invoice");
+    assert!(
+        s.note_follow_ups_due(follow_up + 2).unwrap().is_empty(),
+        "announced once"
+    );
+    assert!(
+        s.list_activity(task.id)
+            .unwrap()
+            .iter()
+            .any(|a| a.kind == "follow_up")
+    );
+
+    // A new follow-up time is announced again when it passes.
+    let later = follow_up + 3 * 86_400_000;
+    s.update_task(
+        task.id,
+        TaskPatch {
+            follow_up_at: Some(Some(later)),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(s.note_follow_ups_due(later - 1).unwrap().is_empty());
+    assert_eq!(s.note_follow_ups_due(later + 1).unwrap().len(), 1);
+}
+
 #[tokio::test]
 async fn a_reply_announces_itself_on_the_event_bus() {
     let tmp = tempfile::tempdir().unwrap();
