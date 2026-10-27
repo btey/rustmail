@@ -103,6 +103,9 @@ impl Sort {
     }
 }
 
+/// Cards beyond this many linked tasks show no link row.
+const MAX_CARD_LINK_LOOKUPS: usize = 150;
+
 const DAY_MS: i64 = 24 * 60 * 60 * 1000;
 
 
@@ -163,6 +166,8 @@ struct CardSnap {
     status: String,
     /// Whole days since the sent mail while no reply has come; -1 = none.
     no_reply_days: i64,
+    /// The first linked mail or event, for the card's link row.
+    link: Option<(String, String)>,
 }
 
 struct ColumnSnap {
@@ -276,6 +281,7 @@ fn card(
         ),
         status: String::new(),
         no_reply_days: -1,
+        link: None,
     }
 }
 
@@ -679,6 +685,25 @@ async fn load(
             })
             .collect();
     }
+    // Each card shows its first linked mail or event. One read per linked
+    // task, so a very large board shows the rows for the first cards only.
+    let mut looked_up = 0;
+    for k in snap.columns.iter_mut().flat_map(|c| c.cards.iter_mut()) {
+        if k.links == 0 || looked_up >= MAX_CARD_LINK_LOOKUPS {
+            continue;
+        }
+        looked_up += 1;
+        let found = core.task_links(k.id).await?.into_iter().find_map(|l| {
+            use rustmail_core::tasks::LinkTarget;
+            let text = match &l.target {
+                LinkTarget::Mail { subject, .. } => subject.clone(),
+                LinkTarget::Event => l.link.event_uid.clone().unwrap_or_default(),
+                _ => return None,
+            };
+            Some((l.link.kind.as_str().to_owned(), text))
+        });
+        k.link = found;
+    }
     let waiting: HashMap<i64, i64> = core
         .task_no_reply_days(chrono::Utc::now().timestamp_millis())
         .await?
@@ -811,6 +836,8 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         assignee: k.assignee.into(),
                         status: k.status.into(),
                         no_reply_days: k.no_reply_days as i32,
+                        link_kind: k.link.as_ref().map(|l| l.0.clone()).unwrap_or_default().into(),
+                        link_text: k.link.map(|l| l.1).unwrap_or_default().into(),
                     })
                     .collect::<Vec<_>>(),
             )),
@@ -1805,6 +1832,35 @@ mod tests {
                 .iter()
                 .any(|(id, text)| id == "sort:title" && text.starts_with("✓"))
         );
+    }
+
+    #[tokio::test]
+    async fn a_card_shows_its_first_linked_event() {
+        let (_tmp, core, sel) = board().await;
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let inbox = snap.columns[0].id.to_string();
+        run(&core, &sel, "add-task", &inbox, "Plan the offsite").await.unwrap();
+        run(&core, &sel, "add-task", &inbox, "No links here").await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
+        core.task_link_add(
+            id_of("Plan the offsite"),
+            rustmail_core::tasks::NewLink {
+                kind: rustmail_core::tasks::LinkKind::Event,
+                account_email: None,
+                thread_id: None,
+                message_id: None,
+                event_uid: Some("offsite-2026".into()),
+                other_task_uid: None,
+            },
+        )
+        .await
+        .unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let cards = &snap.columns[0].cards;
+        let linked = cards.iter().find(|c| c.title == "Plan the offsite").unwrap();
+        assert_eq!(linked.link, Some(("event".to_owned(), "offsite-2026".to_owned())));
+        assert!(cards.iter().find(|c| c.title == "No links here").unwrap().link.is_none());
     }
 
     #[tokio::test]
