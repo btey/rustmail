@@ -180,6 +180,7 @@ export component MailListPane inherits Rectangle {
     in property <string> search_filter: "All mail";
     in property <bool> sync_in_progress: false;
     in property <bool> mail_fetching: false;
+    in property <string> last_sync_text: "";
     in property <bool> can_load_more: false;
     in property <bool> loading_more: false;
     in property <int> content_revision: 0;
@@ -376,7 +377,7 @@ export component MailListPane inherits Rectangle {
                             filter-tooltip: @tr("Filter mail");
                             filter-accessible-id: "mail-filter-button";
                             refresh-enabled: !root.sync_in_progress;
-                            refresh-tooltip: root.sync_in_progress ? @tr("Synchronizing mail") : @tr("Reload mail");
+                            refresh-tooltip: root.sync_in_progress ? @tr("Synchronizing mail") : root.last_sync_text != "" ? @tr("Reload mail (updated {})", root.last_sync_text) : @tr("Reload mail");
                             refresh-accessible-id: "mail-refresh-button";
                             leading-clicked => {
                                 if (root.single-pane-navigation) {

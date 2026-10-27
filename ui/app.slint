@@ -835,6 +835,8 @@ export component AppWindow inherits Window {
     in property <bool> sync_in_progress: false;
     // Some account is fetching mail right now (any trigger, not only a click).
     in-out property <bool> mail_fetching: false;
+    // Local time (HH:MM) an account last finished fetching in this session.
+    in-out property <string> last_sync_text: "";
     in property <[EmailTile]> email_tiles: [];
     in property <[EmailLink]> email_links: [];
     // The renderer reports the total laid-out content height while retaining
@@ -1395,6 +1397,7 @@ export component AppWindow inherits Window {
             clipboard_request_id: root.clipboard_request_id;
             sync_in_progress: root.sync_in_progress;
             mail_fetching: root.mail_fetching;
+            last_sync_text: root.last_sync_text;
             can_load_more: root.can_load_more;
             loading_more: root.mail_loading_more;
             list_content_revision: root.mail_list_revision;

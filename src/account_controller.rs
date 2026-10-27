@@ -552,9 +552,13 @@ pub(super) fn apply_account_states(
 ) {
     let mut state_guard = inbox_state.borrow_mut();
     let mut changed = false;
+    let mut finished_sync = false;
     for account in &mut state_guard.connected_accounts {
         if let Some((sync_state, sync_error)) = states.get(&account.id) {
             if account.sync_state != *sync_state {
+                if account.sync_state == "syncing" && sync_state == "idle" {
+                    finished_sync = true;
+                }
                 account.sync_state.clone_from(sync_state);
                 changed = true;
             }
@@ -563,6 +567,11 @@ pub(super) fn apply_account_states(
                 changed = true;
             }
         }
+    }
+    if finished_sync {
+        let now = chrono::Local::now();
+        state_guard.last_mail_sync_ms = Some(now.timestamp_millis());
+        app.set_last_sync_text(now.format("%H:%M").to_string().into());
     }
     drop(state_guard);
     if changed {

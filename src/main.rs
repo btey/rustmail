@@ -616,6 +616,8 @@ struct InboxState {
     remote_images_enabled: bool,
     remote_images_override_id: Option<i32>,
     mark_read_on_open: bool,
+    /// When an account last finished fetching in this session (UTC ms).
+    last_mail_sync_ms: Option<i64>,
     warm_start_cache: WarmStartCacheWriter,
 }
 
@@ -1119,6 +1121,7 @@ impl InboxState {
             remote_images_enabled,
             remote_images_override_id: None,
             mark_read_on_open: true,
+            last_mail_sync_ms: None,
             warm_start_cache,
         }
     }
