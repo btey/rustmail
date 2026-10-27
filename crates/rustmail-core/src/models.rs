@@ -1017,6 +1017,11 @@ pub enum View {
     Trash,
     Spam,
     All,
+    /// Conversations linked to an open task.
+    WithTasks,
+    /// Conversations linked to an open Waiting-for task with no incoming
+    /// message since the link was made.
+    WaitingOnReply,
 }
 
 #[derive(Debug, Clone, Serialize)]

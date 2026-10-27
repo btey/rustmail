@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-27 20:48+0000\n"
+"POT-Creation-Date: 2026-10-27 23:18+0000\n"
 "PO-Revision-Date: 2026-09-24 11:59+0000\n"
 "Last-Translator: Christoph Seibel <christoph_seibel@t-online.de>\n"
 "Language-Team: German <https://translate.rustmail.org/projects/rustmail/mail/"
@@ -3394,45 +3394,45 @@ msgstr ""
 msgid "Inbox"
 msgstr ""
 
-#: ui/components/sidebar.slint:301
+#: ui/components/sidebar.slint:303
 msgid "Categories"
 msgstr ""
 
-#: ui/components/sidebar.slint:319
+#: ui/components/sidebar.slint:321
 msgid "Important"
 msgstr ""
 
-#: ui/components/sidebar.slint:339 ui/dialogs/settings-dialog.slint:296
+#: ui/components/sidebar.slint:341 ui/dialogs/settings-dialog.slint:296
 msgid "Other"
 msgstr ""
 
-#: ui/components/sidebar.slint:382 ui/components/sidebar.slint:537
+#: ui/components/sidebar.slint:384 ui/components/sidebar.slint:539
 msgid "Labels"
 msgstr ""
 
-#: ui/components/sidebar.slint:401
+#: ui/components/sidebar.slint:403
 msgid "Global label {}"
 msgstr ""
 
-#: ui/components/sidebar.slint:433 ui/views/contacts-view.slint:208
+#: ui/components/sidebar.slint:435 ui/views/contacts-view.slint:208
 msgid "ACCOUNTS"
 msgstr ""
 
-#: ui/components/sidebar.slint:557
+#: ui/components/sidebar.slint:559
 msgid "{} label, {} account"
 msgstr ""
 
-#: ui/components/sidebar.slint:599 ui/dialogs/folder-dialog.slint:27
+#: ui/components/sidebar.slint:601 ui/dialogs/folder-dialog.slint:27
 #: ui/views/files-view.slint:336
 msgid "New folder"
 msgstr ""
 
-#: ui/components/sidebar.slint:616 ui/dialogs/folder-dialog.slint:26
+#: ui/components/sidebar.slint:618 ui/dialogs/folder-dialog.slint:26
 #: ui/views/tasks-view.slint:770
 msgid "New label"
 msgstr ""
 
-#: ui/components/sidebar.slint:636
+#: ui/components/sidebar.slint:638
 msgid "No folders found"
 msgstr ""
 

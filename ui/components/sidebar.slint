@@ -271,6 +271,7 @@ export component MailSidebar inherits CollapsibleWorkspaceSidebar {
                             || entry.mailbox.scope == "Unified Trash";
                         mail-drop-copies: entry.mailbox.scope == "Unified Starred";
                         icon: entry.mailbox.scope == "Unified Starred" ? @image-url("../icons/lucide/filled/star.svg")
+                            : entry.mailbox.context == "Tasks" ? @image-url("../icons/lucide/filled/tasks.svg")
                             : entry.mailbox.scope == "Unified Sent" ? @image-url("../icons/lucide/filled/paper-airplane.svg")
                             : entry.mailbox.scope == "Unified Spam" ? @image-url("../icons/lucide/filled/alert.svg")
                             : entry.mailbox.scope == "Unified Trash" ? @image-url("../icons/lucide/filled/trash.svg")
@@ -284,6 +285,7 @@ export component MailSidebar inherits CollapsibleWorkspaceSidebar {
                         muted-color: root.muted-color;
                         icon-color: root.monochrome-icons ? (entry.mailbox.scope == root.selected-scope ? root.accent-color : root.muted-color)
                             : entry.mailbox.scope == "Unified Starred" ? MailIconPalette.starred
+                            : entry.mailbox.context == "Tasks" ? MailIconPalette.starred
                             : entry.mailbox.scope == "Unified Sent" ? MailIconPalette.sent
                             : entry.mailbox.scope == "Unified Spam" ? MailIconPalette.spam
                             : entry.mailbox.scope == "Unified Trash" ? MailIconPalette.trash

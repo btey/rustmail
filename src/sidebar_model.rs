@@ -565,6 +565,18 @@ fn make_sidebar_rows(
         SidebarLayout::SingleAccount => {
             let mut rows = accounts;
             rows.extend(shared);
+            // The unified shortcuts are hidden, but the task folders span
+            // every account and stay reachable.
+            rows.extend(
+                unified
+                    .into_iter()
+                    .filter(|mailbox| mailbox.scope.starts_with("TaskFolder:"))
+                    .map(|mailbox| SidebarRow {
+                        key: format!("unified:{}", mailbox.scope).into(),
+                        mailbox,
+                        ..row(SidebarRowKind::UnifiedMailbox, "")
+                    }),
+            );
             rows
         }
     }
@@ -1014,6 +1026,52 @@ mod tests {
                 .iter()
                 .any(|row| { row.kind == Kind::NewLabel && row.mailbox.account_id == 2 })
         );
+    }
+
+    #[test]
+    fn the_task_folders_are_listed_in_both_layouts_and_the_other_shortcuts_only_in_one() {
+        let shortcut = |scope: &str, context: &str| MailboxRow {
+            scope: scope.into(),
+            label: scope.into(),
+            context: context.into(),
+            ..Default::default()
+        };
+        let unified = || {
+            vec![
+                shortcut("Unified Starred", "Unified"),
+                shortcut("TaskFolder:with", "Tasks"),
+                shortcut("TaskFolder:waiting", "Tasks"),
+            ]
+        };
+        let scopes = |rows: &[SidebarRow]| {
+            rows.iter()
+                .filter(|row| row.kind == Kind::UnifiedMailbox)
+                .map(|row| row.mailbox.scope.to_string())
+                .collect::<Vec<_>>()
+        };
+        let many = make_sidebar_rows(
+            SidebarLayout::Unified,
+            accounts(2, 1),
+            unified(),
+            vec![],
+            &HashSet::new(),
+            &HashSet::new(),
+        );
+        assert_eq!(
+            scopes(&many),
+            ["Unified Starred", "TaskFolder:with", "TaskFolder:waiting"]
+        );
+        let single = make_sidebar_rows(
+            SidebarLayout::SingleAccount,
+            accounts(1, 1),
+            unified(),
+            vec![],
+            &HashSet::new(),
+            &HashSet::new(),
+        );
+        // With one account the unified shortcuts are hidden; the task
+        // folders span accounts and stay.
+        assert_eq!(scopes(&single), ["TaskFolder:with", "TaskFolder:waiting"]);
     }
 
     #[test]

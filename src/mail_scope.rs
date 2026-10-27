@@ -81,6 +81,39 @@ impl LabelKind {
     }
 }
 
+/// Virtual folders over the task links (the Mail sidebar's "With tasks" and
+/// "Waiting on reply"). They span every account.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum TaskFolder {
+    /// Conversations linked to an open task.
+    WithTasks,
+    /// Conversations linked to an open Waiting-for task that nobody has
+    /// answered since the link was made.
+    WaitingOnReply,
+}
+
+impl TaskFolder {
+    pub(crate) const ALL: [Self; 2] = [Self::WithTasks, Self::WaitingOnReply];
+
+    const fn token(self) -> &'static str {
+        match self {
+            Self::WithTasks => "with",
+            Self::WaitingOnReply => "waiting",
+        }
+    }
+
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::WithTasks => "With tasks",
+            Self::WaitingOnReply => "Waiting on reply",
+        }
+    }
+
+    fn from_token(token: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|folder| folder.token() == token)
+    }
+}
+
 /// A selectable mail view.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Scope {
@@ -91,6 +124,8 @@ pub(crate) enum Scope {
     /// Gmail-style split inbox, remaining half.
     Other,
     Label { kind: LabelKind, id: i64 },
+    /// A virtual folder over the task links.
+    Tasks(TaskFolder),
     /// A provider folder outside the standard mailboxes.
     Folder(i64),
     /// One standard mailbox of one account, whether or not the provider
@@ -136,6 +171,7 @@ impl Scope {
 const UNIFIED_PREFIX: &str = "Unified ";
 const FOLDER_PREFIX: &str = "Folder:";
 const ACCOUNT_PREFIX: &str = "Account:";
+const TASKS_PREFIX: &str = "TaskFolder:";
 
 impl fmt::Display for Scope {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -145,6 +181,7 @@ impl fmt::Display for Scope {
             Self::Other => formatter.write_str("Other"),
             Self::Label { kind, id } => write!(formatter, "{}:{id}", kind.prefix()),
             Self::Folder(id) => write!(formatter, "{FOLDER_PREFIX}{id}"),
+            Self::Tasks(folder) => write!(formatter, "{TASKS_PREFIX}{}", folder.token()),
             Self::Account {
                 account_id,
                 mailbox,
@@ -173,6 +210,11 @@ impl FromStr for Scope {
         if let Some(label) = key.strip_prefix(UNIFIED_PREFIX) {
             return StandardMailbox::from_label(label)
                 .map(Self::Unified)
+                .ok_or_else(error);
+        }
+        if let Some(token) = key.strip_prefix(TASKS_PREFIX) {
+            return TaskFolder::from_token(token)
+                .map(Self::Tasks)
                 .ok_or_else(error);
         }
         if let Some(folder_id) = key.strip_prefix(FOLDER_PREFIX) {
@@ -258,6 +300,7 @@ mod tests {
 
     fn every_scope() -> Vec<Scope> {
         let mut scopes = vec![Scope::Important, Scope::Other, Scope::Folder(-3)];
+        scopes.extend(TaskFolder::ALL.map(Scope::Tasks));
         for mailbox in StandardMailbox::ALL {
             scopes.push(Scope::Unified(mailbox));
             scopes.push(Scope::Account {

@@ -1308,3 +1308,57 @@ fn due_today_is_announced_once_a_day_even_when_nothing_is_due() {
     assert_eq!(s.note_due_today(end_of_day, "2026-10-28").unwrap(), Some(1));
     assert_eq!(s.note_due_today(end_of_day, "2026-10-28").unwrap(), None);
 }
+
+#[test]
+fn the_task_views_list_conversations_with_open_and_waiting_tasks() {
+    use crate::db::repo::threads::{ListArgs, count};
+    use crate::models::View;
+
+    let (mut c, p) = setup();
+    seed_mail(&c, "Quarterly invoice", 1, "<sent@x>");
+    seed_mail(&c, "Unrelated", 2, "<other@x>");
+    let counts = |c: &Connection, view: View| {
+        count(
+            c,
+            &ListArgs {
+                view,
+                tab: None,
+                account_id: None,
+                folder_id: None,
+                cursor: None,
+                limit: 50,
+            },
+        )
+        .unwrap()
+    };
+    assert_eq!(counts(&c, View::WithTasks), 0);
+    assert_eq!(counts(&c, View::WaitingOnReply), 0);
+
+    let mut s = SqliteTaskStore::new(&mut c);
+    let task = plain_task(&mut s, p, "Chase the invoice");
+    let sent = SentMail {
+        account_email: "me@test.dev".into(),
+        thread_id: 1,
+        message_id: "<sent@x>".into(),
+    };
+    s.record_sent(task.id, sent, AfterSend::Waiting, None)
+        .unwrap();
+    assert_eq!(counts(&c, View::WithTasks), 1);
+    assert_eq!(counts(&c, View::WaitingOnReply), 1);
+
+    // An answer arrives: still a task conversation, no longer waiting.
+    c.execute(
+        "INSERT INTO messages (account_id, thread_id, folder_id, uid, message_id, subject,
+            from_addr, to_json, cc_json, date, snippet)
+         VALUES (1, 1, 1, 22, '<reply@x>', 'Re: Quarterly invoice', 'a@x.dev', '[]', '[]', ?1, '')",
+        [crate::models::now_ms() + 5_000],
+    )
+    .unwrap();
+    assert_eq!(counts(&c, View::WithTasks), 1);
+    assert_eq!(counts(&c, View::WaitingOnReply), 0);
+
+    // Done tasks drop out of both views.
+    let mut s = SqliteTaskStore::new(&mut c);
+    s.complete_task(task.id).unwrap();
+    assert_eq!(counts(&c, View::WithTasks), 0);
+}

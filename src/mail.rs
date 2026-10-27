@@ -1,5 +1,5 @@
 use crate::favicon::domain_from_address;
-use crate::mail_scope::{LabelKind, Scope, StandardMailbox};
+use crate::mail_scope::{LabelKind, Scope, StandardMailbox, TaskFolder};
 use chrono::{DateTime, Datelike, Local, Utc};
 use rustmail_core::{
     Core,
@@ -398,6 +398,18 @@ impl CoreMailSource {
             .mailbox_badge_counts()
             .await
             .map_err(|error| error.to_string())?;
+        let mut task_counts = [0usize; 2];
+        for (slot, view) in task_counts
+            .iter_mut()
+            .zip([View::WithTasks, View::WaitingOnReply])
+        {
+            // A count that cannot be read leaves the row without a badge.
+            *slot = self
+                .core
+                .count_threads(view, None, None)
+                .await
+                .unwrap_or_default();
+        }
         Ok(MailMetadata {
             account_revision: self.account_revision(),
             scope,
@@ -406,7 +418,7 @@ impl CoreMailSource {
                 .map(|counts| counts.inbox.max(0) as usize)
                 .sum(),
             mailboxes: mailbox_entries_with_counts(accounts, folders, &badges),
-            unified_mailboxes: unified_mailbox_entries(&badges),
+            unified_mailboxes: unified_mailbox_entries(&badges, task_counts),
         })
     }
 
@@ -1882,7 +1894,13 @@ fn mailbox_entries_with_counts(
     entries
 }
 
-fn unified_mailbox_entries(badges: &[MailboxBadgeCounts]) -> Vec<MailboxEntry> {
+/// The unified shortcuts, then the task folders (`task_counts` is in
+/// `TaskFolder::ALL` order). The sidebar shows the task folders in every
+/// layout.
+fn unified_mailbox_entries(
+    badges: &[MailboxBadgeCounts],
+    task_counts: [usize; 2],
+) -> Vec<MailboxEntry> {
     let total = MailboxBadgeCounts {
         account_id: 0,
         inbox: badges.iter().map(|counts| counts.inbox).sum(),
@@ -1913,6 +1931,31 @@ fn unified_mailbox_entries(badges: &[MailboxBadgeCounts]) -> Vec<MailboxEntry> {
             avatar: String::new(),
             is_account: false,
             count: mailbox_badge(mailbox, &total),
+        });
+    }
+    for (folder, count) in TaskFolder::ALL.into_iter().zip(task_counts) {
+        entries.push(MailboxEntry {
+            account_id: 0,
+            folder_id: -1,
+            parent_folder_id: -1,
+            depth: 0,
+            has_children: false,
+            is_standard: true,
+            is_selectable: true,
+            can_create_children: false,
+            can_rename: false,
+            can_delete: false,
+            label: folder.label().to_owned(),
+            scope: Some(Scope::Tasks(folder)),
+            context: "Tasks".to_owned(),
+            detail: String::new(),
+            avatar: String::new(),
+            is_account: false,
+            count: if count > 0 {
+                count.to_string()
+            } else {
+                String::new()
+            },
         });
     }
     entries
@@ -1963,6 +2006,13 @@ fn resolve_scope(scope: Scope, folders: &[FolderInfo], labels: &[Label]) -> Scop
             split_id: Some(-2),
             ..unfiltered(View::Inbox, "Other")
         },
+        Scope::Tasks(folder) => unfiltered(
+            match folder {
+                TaskFolder::WithTasks => View::WithTasks,
+                TaskFolder::WaitingOnReply => View::WaitingOnReply,
+            },
+            folder.label(),
+        ),
         Scope::Label { id, .. } => match labels.iter().find(|label| label.id == id) {
             Some(label) => ScopeResolution {
                 account_id: label.owner_account_id,
@@ -2007,7 +2057,7 @@ fn validated_startup_scope(
     labels: &[Label],
 ) -> Scope {
     let scope = match preferred {
-        Scope::Unified(_) | Scope::Important | Scope::Other => Some(preferred),
+        Scope::Unified(_) | Scope::Important | Scope::Other | Scope::Tasks(_) => Some(preferred),
         // A label can move between sections, e.g. when it becomes automatic.
         Scope::Label { id, .. } => labels
             .iter()

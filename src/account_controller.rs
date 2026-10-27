@@ -223,7 +223,7 @@ pub(super) fn account_owns_scope(state: &InboxState, account_id: i64) -> bool {
             .labels
             .iter()
             .any(|label| label.id == id && label.owner_account_id == Some(account_id)),
-        Scope::Unified(_) | Scope::Important | Scope::Other => false,
+        Scope::Unified(_) | Scope::Important | Scope::Other | Scope::Tasks(_) => false,
     }
 }
 

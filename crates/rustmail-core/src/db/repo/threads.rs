@@ -271,6 +271,30 @@ const AUTO_BUCKET: &str = "(SELECT m.is_automated FROM messages m
         WHERE m.thread_id = t.id AND m.is_draft = 0 AND m.is_outgoing = 0
         ORDER BY m.date DESC, m.id DESC LIMIT 1) = 1";
 
+/// A conversation has an open task linked to one of its mail (through the
+/// Message-ID, like the task engine does). `waiting` narrows it to a task in
+/// Waiting for whose conversation has had no incoming message since the link.
+pub(crate) fn task_link_exists(waiting: bool) -> String {
+    let waiting_sql = if waiting {
+        "JOIN task_columns tc ON tc.id = tk.column_id AND tc.kind = 'waiting'
+         AND NOT EXISTS (SELECT 1 FROM messages x
+                          WHERE x.thread_id = t.id AND x.is_outgoing = 0
+                            AND x.date > l.created_at)"
+    } else {
+        ""
+    };
+    format!(
+        "EXISTS (SELECT 1 FROM task_links l
+                 JOIN tasks tk ON tk.id = l.task_id
+                  AND tk.deleted_at IS NULL AND tk.completed_at IS NULL
+                 {waiting_sql}
+                 JOIN messages lm ON lm.message_id = l.message_id AND lm.thread_id = t.id
+                 JOIN accounts la ON la.id = lm.account_id
+                  AND (l.account_email IS NULL OR la.email = l.account_email)
+                 WHERE l.deleted_at IS NULL AND l.kind IN ('mail_received', 'mail_sent'))"
+    )
+}
+
 fn build_filter(
     args: &ListArgs,
     include_cursor: bool,
@@ -336,6 +360,8 @@ fn build_filter(
             where_clauses.push(c);
         }
         View::All => {}
+        View::WithTasks => where_clauses.push(task_link_exists(false)),
+        View::WaitingOnReply => where_clauses.push(task_link_exists(true)),
     }
 
     if let Some(acc) = args.account_id {

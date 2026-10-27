@@ -762,6 +762,9 @@ fn resolve_single_mail_drop(
         Scope::Unified(_) => {
             return Err("this unified mailbox is not a drop destination".to_owned());
         }
+        Scope::Tasks(_) => {
+            return Err("a task folder is not a drop destination".to_owned());
+        }
         Scope::Folder(_) | Scope::Account { .. } => {
             if i64::from(target_account_id) != message.account_id {
                 return Err("messages cannot be moved between accounts".to_owned());
@@ -3360,6 +3363,14 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         if pending.all_mail_changed || !pending.changed_threads.is_empty() {
             mail_list_refresh_requested_for_core.set(true);
             mail_metadata_refresh_requested_for_core.set(true);
+        }
+        // A task change moves conversations in and out of the task folders.
+        if pending.tasks_changed {
+            mail_metadata_refresh_requested_for_core.set(true);
+            // The open task folder lists exactly what the change affects.
+            if matches!(mail_update_state.borrow().scope, mail_scope::Scope::Tasks(_)) {
+                mail_list_refresh_requested_for_core.set(true);
+            }
         }
         let mail_active = mail_update_app
             .upgrade()

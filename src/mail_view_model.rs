@@ -846,7 +846,7 @@ pub(super) fn scope_matches(email: &MailMessage, scope: Scope) -> bool {
         // These scopes are filtered by the core query before projection. Their
         // stable route/folder ids are intentionally not duplicated in every UI
         // row.
-        Scope::Important | Scope::Other | Scope::Folder(_) => true,
+        Scope::Important | Scope::Other | Scope::Folder(_) | Scope::Tasks(_) => true,
     }
 }
 
@@ -1473,6 +1473,7 @@ fn mailbox_scope_title(
     };
     match scope {
         Scope::Unified(_) | Scope::Important | Scope::Other => scope.to_string(),
+        Scope::Tasks(folder) => folder.label().to_owned(),
         Scope::Folder(_) => mailbox().map_or_else(|| "Folder".into(), |mailbox| mailbox.label.clone()),
         Scope::Label { id, .. } => labels
             .iter()
