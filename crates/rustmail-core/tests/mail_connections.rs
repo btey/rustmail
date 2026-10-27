@@ -954,6 +954,143 @@ async fn smtp_sent_policy(provider: Provider, policy: SentCopyPolicy, expected_a
     smtp_task.await.unwrap();
 }
 
+/// The whole task send path against local fixtures: queue the draft, deliver it
+/// to the SMTP stub, then link it to the task, move the task and announce it.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_task_mail_is_delivered_linked_and_moves_the_task() {
+    use rustmail_core::events::CoreEvent;
+    use rustmail_core::tasks::{AfterSend, ColumnKind, NewTask};
+
+    let (imap_port, imap_task) = imap_server(false, false).await;
+    let (smtp_port, delivered, smtp_task) = smtp_test_and_delivery_server().await;
+    let temp = tempfile::tempdir().unwrap();
+    let credentials = Arc::new(DevelopmentFileCredentialStore::new(
+        temp.path().join("credentials.json"),
+    ));
+    let core = Core::start_mail_ui_with_credentials(Paths::for_tests(temp.path()), credentials)
+        .await
+        .unwrap();
+    let account = core
+        .add_account_password(AddPasswordAccountArgs {
+            smtp_password: None,
+            client_key_pem: None,
+            email: "sender@example.com".into(),
+            display_name: Some("Sender".into()),
+            username: "sender@example.com".into(),
+            password: "test-password".into(),
+            mail_protocol: MailProtocol::Imap,
+            jmap_url: String::new(),
+            imap_host: "127.0.0.1".into(),
+            imap_port,
+            smtp_host: "127.0.0.1".into(),
+            smtp_port,
+            connection: settings(ConnectionSecurity::Tls),
+        })
+        .await
+        .unwrap();
+    imap_task.await.unwrap();
+
+    core.tasks_open().await.unwrap();
+    let project = core.task_projects().await.unwrap()[0].id;
+    let columns = core.task_columns(project).await.unwrap();
+    let waiting = columns
+        .iter()
+        .find(|column| column.kind == ColumnKind::Waiting)
+        .unwrap()
+        .id;
+    let task = core
+        .task_create(NewTask {
+            project_id: project,
+            title: "Ask about the invoice".into(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    assert_ne!(task.column_id, waiting);
+
+    let draft_id = core
+        .save_draft(SaveDraftArgs {
+            draft_id: None,
+            account_id: account.id,
+            from: None,
+            to: vec![Address {
+                name: Some("Recipient".into()),
+                email: "recipient@example.com".into(),
+            }],
+            cc: Vec::new(),
+            bcc: Vec::new(),
+            subject: "Invoice question".into(),
+            body_text: "Could you confirm the invoice total?".into(),
+            body_html: None,
+            mode: "new".into(),
+            in_reply_to_message_id: None,
+            attachments: Vec::new(),
+        })
+        .await
+        .unwrap();
+    let mut events = core.bus.subscribe();
+    let sent_at = now_ms();
+    core.task_send_and_link(
+        QueueSendArgs {
+            draft_id,
+            send_at: Some(sent_at),
+        },
+        task.id,
+        AfterSend::Waiting,
+        Some(4),
+        None,
+    )
+    .await
+    .unwrap();
+
+    let announced = tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        loop {
+            if let Ok(CoreEvent::TaskMailSent {
+                title,
+                after,
+                follow_up_days,
+                event_booked,
+            }) = events.recv().await
+            {
+                break (title, after, follow_up_days, event_booked);
+            }
+        }
+    })
+    .await
+    .expect("TaskMailSent after delivery");
+    assert_eq!(
+        announced,
+        (
+            "Ask about the invoice".to_string(),
+            AfterSend::Waiting,
+            Some(4),
+            false
+        )
+    );
+
+    let message = tokio::time::timeout(std::time::Duration::from_secs(2), delivered)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(message.contains("Subject: Invoice question"));
+    assert!(message.contains("Could you confirm the invoice total?"));
+
+    let task = core.task_get(task.id).await.unwrap();
+    assert_eq!(task.column_id, waiting);
+    assert_eq!(task.link_count, 1);
+    // Four days from the send, to within the time the test itself took.
+    let follow_up = task.follow_up_at.expect("follow-up time is set");
+    let four_days = 4 * 24 * 60 * 60 * 1000;
+    assert!((follow_up - (sent_at + four_days)).abs() < 60_000);
+    let activity = core.task_activity(task.id).await.unwrap();
+    assert!(
+        activity
+            .iter()
+            .any(|entry| entry.text.contains("Email sent"))
+    );
+    smtp_task.await.unwrap();
+}
+
 #[tokio::test]
 async fn proton_bridge_ca_certificate_works_for_imap_and_smtp() {
     let (port, task) = imap_server_with_certificate(true, false, PROTON_BRIDGE_CERT).await;
