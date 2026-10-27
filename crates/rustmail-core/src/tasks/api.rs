@@ -318,7 +318,10 @@ impl Core {
 
     /// Long-lived loop: check once a minute whether a follow-up came due.
     pub(crate) async fn task_follow_up_loop(&self) {
-        let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
+        // The first check waits a full period so start-up keeps its database
+        // connections for the foreground reads.
+        let period = std::time::Duration::from_secs(60);
+        let mut tick = tokio::time::interval_at(tokio::time::Instant::now() + period, period);
         loop {
             tick.tick().await;
             if let Err(error) = self.task_check_follow_ups().await {

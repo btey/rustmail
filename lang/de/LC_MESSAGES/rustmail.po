@@ -1517,15 +1517,15 @@ msgstr ""
 
 #: ui/app.slint:2331 ui/app.slint:2336
 msgid "Sent and linked"
-msgstr ""
+msgstr "Gesendet und verknüpft"
 
 #: ui/app.slint:2355
 msgid "Back to board"
-msgstr ""
+msgstr "Zurück zum Board"
 
 #: ui/app.slint:2414 ui/components/linked-task-banner.slint:114
 msgid "Open task"
-msgstr ""
+msgstr "Aufgabe öffnen"
 
 #: ui/app.slint:2459 ui/components/workspace-navigation.slint:126
 msgid "Tasks"
@@ -2651,7 +2651,7 @@ msgstr ""
 
 #: ui/components/email-composer.slint:628
 msgid "Undo send"
-msgstr ""
+msgstr "Senden rückgängig"
 
 #: ui/components/email-link-context-area.slint:25
 msgid "Open link"
@@ -3363,15 +3363,15 @@ msgstr ""
 
 #: ui/components/task-reply.slint:13
 msgid "Reply received"
-msgstr ""
+msgstr "Antwort erhalten"
 
 #: ui/components/task-reply.slint:14
 msgid "Reply received, task moved to Next actions"
-msgstr ""
+msgstr "Antwort erhalten, Aufgabe nach Nächste Aktionen verschoben"
 
 #: ui/components/task-reply.slint:15
 msgid "No reply yet"
-msgstr ""
+msgstr "Noch keine Antwort"
 
 #: ui/components/theme-editor.slint:232
 msgid "Color saturation and brightness"
