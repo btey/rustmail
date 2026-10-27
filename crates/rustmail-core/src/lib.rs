@@ -9898,13 +9898,15 @@ mod local_data_reset_tests {
         let temp = tempfile::tempdir().unwrap();
         let paths = Paths::for_tests(temp.path());
         let core = start_test_core(&paths).await;
-        core.db
+        let thread_id = core
+            .db
             .write(|conn| {
                 db::testutil::seed_account(conn);
-                Ok(())
+                Ok(db::testutil::seed_message(conn, "bank@example.com", "Your statement", false).0)
             })
             .await
             .unwrap();
+        let account_email = core.list_accounts().await.unwrap()[0].email.clone();
         core.tasks_open().await.unwrap();
         let project = core.task_projects().await.unwrap()[0].id;
         let task = core
@@ -9915,6 +9917,23 @@ mod local_data_reset_tests {
             })
             .await
             .unwrap();
+        core.task_link_add(
+            task.id,
+            tasks::NewLink {
+                kind: tasks::LinkKind::MailReceived,
+                account_email: Some(account_email),
+                thread_id: Some(thread_id),
+                message_id: Some(format!("mid-{thread_id}")),
+                event_uid: None,
+                other_task_uid: None,
+            },
+        )
+        .await
+        .unwrap();
+        assert!(matches!(
+            core.task_links(task.id).await.unwrap()[0].target,
+            tasks::LinkTarget::Mail { .. }
+        ));
         core.task_context_create("phone".into()).await.unwrap();
         core.task_checklist_add(task.id, "Find the number".into())
             .await
@@ -9944,6 +9963,10 @@ mod local_data_reset_tests {
         core.remove_account(1).await.unwrap();
         let (tasks, checklist, contexts, _) = task_rows(&core).await;
         assert_eq!((tasks, checklist, contexts), (1, 1, 1));
+        // The link stays; its mail is gone with the account.
+        let links = core.task_links(task.id).await.unwrap();
+        assert_eq!(links.len(), 1);
+        assert!(matches!(links[0].target, tasks::LinkTarget::MailNotFound));
 
         core.delete_all_local_data().await.unwrap();
         assert_eq!(task_rows(&core).await, (0, 0, 0, 0));
