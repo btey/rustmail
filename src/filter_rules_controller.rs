@@ -31,20 +31,9 @@ const TEXT_OPS: [FilterOp; 6] = [
 ];
 const NUMBER_OPS: [FilterOp; 2] = [FilterOp::Greater, FilterOp::Less];
 const FLAG_OPS: [FilterOp; 2] = [FilterOp::Yes, FilterOp::No];
-/// Action kinds in the order of the editor's list.
-const ACTION_KINDS: [&str; 11] = [
-    "mark_read",
-    "mark_unread",
-    "star",
-    "archive",
-    "spam",
-    "trash",
-    "move",
-    "add_label",
-    "copy",
-    "forward",
-    "run_command",
-];
+/// Action kinds in the order of the editor's list: the engine's own list, so
+/// an action the engine learns is never missing here.
+const ACTION_KINDS: [&str; 12] = rustmail_core::filters::ACTION_KINDS;
 /// The first action kind that takes a value.
 const FIRST_VALUE_KIND: i32 = 6;
 const MAX_CONDITIONS: usize = 8;
@@ -106,6 +95,7 @@ fn action_label(action: &FilterAction) -> String {
         "copy" => format!("copy to {}", action.value),
         "forward" => format!("forward to {}", action.value),
         "run_command" => format!("run {}", action.value),
+        "create_task" => format!("create task ({})", action.value),
         other => other.into(),
     }
 }
@@ -424,4 +414,32 @@ pub(super) fn register(
             },
         );
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_editor_lists_every_engine_action_and_the_value_kinds_start_at_move() {
+        assert_eq!(ACTION_KINDS[FIRST_VALUE_KIND as usize], "move");
+        assert_eq!(ACTION_KINDS.last(), Some(&"create_task"));
+        // Every kind from "move" on takes a value, every earlier kind none.
+        for (index, kind) in ACTION_KINDS.iter().enumerate() {
+            let takes_value = matches!(
+                *kind,
+                "move" | "add_label" | "copy" | "forward" | "run_command" | "create_task"
+            );
+            assert_eq!(index as i32 >= FIRST_VALUE_KIND, takes_value, "{kind}");
+        }
+    }
+
+    #[test]
+    fn create_task_is_described_in_the_list() {
+        let action = FilterAction {
+            kind: "create_task".into(),
+            value: "next;Taxes".into(),
+        };
+        assert_eq!(action_label(&action), "create task (next;Taxes)");
+    }
 }

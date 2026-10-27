@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-27 19:12+0000\n"
+"POT-Creation-Date: 2026-10-27 20:18+0000\n"
 "PO-Revision-Date: 2026-09-20 23:21+0000\n"
 "Last-Translator: Admin <admin@rustmail.org>\n"
 "Language-Team: Spanish <https://translate.rustmail.org/projects/rustmail/"
@@ -3062,6 +3062,11 @@ msgstr "Reenviar a la dirección"
 msgid "Run command"
 msgstr "Ejecutar comando"
 
+#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:968
+#: ui/views/mail-reading-pane.slint:405
+msgid "Create task"
+msgstr "Crear tarea"
+
 #: ui/components/filter-rules.slint:155
 msgid "Action value"
 msgstr "Valor de la acción"
@@ -3077,6 +3082,10 @@ msgstr "Nombre de la etiqueta"
 #: ui/components/filter-rules.slint:156
 msgid "Address, for example me@example.org"
 msgstr "Dirección, por ejemplo yo@ejemplo.org"
+
+#: ui/components/filter-rules.slint:156
+msgid "Status: inbox, next, waiting or scheduled; then ;project and ;context"
+msgstr "Estado: inbox, next, waiting o scheduled; luego ;proyecto y ;contexto"
 
 #: ui/components/filter-rules.slint:156
 msgid "Command; %f is the message file"
@@ -5577,11 +5586,6 @@ msgstr "Establecer contexto"
 #: ui/dialogs/task-from-mail-dialog.slint:165
 msgid "Archive email once the task exists"
 msgstr "Archivar el correo al crear"
-
-#: ui/dialogs/task-from-mail-dialog.slint:186
-#: ui/views/mail-reading-pane.slint:387
-msgid "Create task"
-msgstr "Crear tarea"
 
 #: ui/tray.slint:22
 msgid "Show Rustmail"

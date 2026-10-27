@@ -142,7 +142,7 @@ component ActionRow inherits HorizontalBox {
     ComboBox {
         width: 230px;
         enabled: root.enabled;
-        model: [@tr("Mark as read"), @tr("Mark as unread"), @tr("Star"), @tr("Archive"), @tr("Mark as spam"), @tr("Move to trash"), @tr("Move to folder"), @tr("Add label"), @tr("Copy to folder"), @tr("Forward to address"), @tr("Run command")];
+        model: [@tr("Mark as read"), @tr("Mark as unread"), @tr("Star"), @tr("Archive"), @tr("Mark as spam"), @tr("Move to trash"), @tr("Move to folder"), @tr("Add label"), @tr("Copy to folder"), @tr("Forward to address"), @tr("Run command"), @tr("Create task")];
         current-index: root.data.kind;
         selected(value) => {
             root.changed({ kind: self.current-index, value: "" });
@@ -153,7 +153,7 @@ component ActionRow inherits HorizontalBox {
         enabled: root.enabled;
         text: root.data.value;
         input-label: @tr("Action value");
-        placeholder-text: root.data.kind == 6 || root.data.kind == 8 ? @tr("Folder name, for example Receipts") : root.data.kind == 7 ? @tr("Label name") : root.data.kind == 9 ? @tr("Address, for example me@example.org") : @tr("Command; %f is the message file");
+        placeholder-text: root.data.kind == 6 || root.data.kind == 8 ? @tr("Folder name, for example Receipts") : root.data.kind == 7 ? @tr("Label name") : root.data.kind == 9 ? @tr("Address, for example me@example.org") : root.data.kind == 11 ? @tr("Status: inbox, next, waiting or scheduled; then ;project and ;context") : @tr("Command; %f is the message file");
         edited(text) => {
             root.changed({ kind: root.data.kind, value: text });
         }

@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-27 19:12+0000\n"
+"POT-Creation-Date: 2026-10-27 20:18+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3026,6 +3026,12 @@ msgstr ""
 msgid "Run command"
 msgstr ""
 
+#: ui/components/filter-rules.slint:145
+#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:968
+#: ui/components/filter-rules.slint:145 ui/views/mail-list-pane.slint:968 ui/views/mail-reading-pane.slint:405
+msgid "Create task"
+msgstr ""
+
 #: ui/components/filter-rules.slint:155
 msgid "Action value"
 msgstr ""
@@ -3040,6 +3046,10 @@ msgstr ""
 
 #: ui/components/filter-rules.slint:156
 msgid "Address, for example me@example.org"
+msgstr ""
+
+#: ui/components/filter-rules.slint:156
+msgid "Status: inbox, next, waiting or scheduled; then ;project and ;context"
 msgstr ""
 
 #: ui/components/filter-rules.slint:156
@@ -5433,12 +5443,6 @@ msgstr ""
 
 #: ui/dialogs/task-from-mail-dialog.slint:165
 msgid "Archive email once the task exists"
-msgstr ""
-
-#: ui/dialogs/task-from-mail-dialog.slint:186
-#: ui/dialogs/task-from-mail-dialog.slint:186 ui/views/mail-reading-pane.slint:387
-#: ui/dialogs/task-from-mail-dialog.slint:186 ui/views/mail-reading-pane.slint:387
-msgid "Create task"
 msgstr ""
 
 #: ui/tray.slint:22
