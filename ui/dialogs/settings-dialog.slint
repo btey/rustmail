@@ -10,6 +10,7 @@ import { AccountSetupForm } from "../components/account-setup-form.slint";
 import { AccountRow, AdvancedOptions, MailProfileRow, StorageUsageRow } from "../models.slint";
 import { Avatar } from "../components/avatar.slint";
 import { Button } from "../components/button.slint";
+import { SendUndoUi } from "../components/send-undo.slint";
 import { ConfirmationDialog } from "../components/confirmation-dialog.slint";
 import { IconButton, LineEdit, RadioButton, Switch } from "../components/controls.slint";
 import { CopyableDiagnostic } from "../components/copyable-diagnostic.slint";
@@ -524,6 +525,17 @@ export component SettingsDialog inherits Rectangle {
         @tr("1 year"),
         @tr("All mail"),
     ];
+    private property <[string]> undo-send-options: [
+        @tr("Send immediately"),
+        @tr("5 seconds"),
+        @tr("10 seconds"),
+        @tr("20 seconds"),
+        @tr("30 seconds"),
+    ];
+    private property <int> undo-send-index: SendUndoUi.seconds <= 0 ? 0
+        : SendUndoUi.seconds <= 5 ? 1
+        : SendUndoUi.seconds <= 10 ? 2
+        : SendUndoUi.seconds <= 20 ? 3 : 4;
     private property <[string]> language-options: [
         @tr("System language"),
         @tr("English"),
@@ -1057,6 +1069,19 @@ export component SettingsDialog inherits Rectangle {
                                                 root.mark_read_on_open = self.checked;
                                                 root.save_mark_read_on_open(self.checked);
                                             }
+                                        }
+                                    }
+                                    Rectangle { height: 1px; background: root.border-subtle; }
+                                    SettingsSelectRow {
+                                        compact: root.compact;
+                                        title: @tr("Undo send window");
+                                        description: @tr("How long a sent message can be taken back before it leaves.");
+                                        choices: root.undo-send-options;
+                                        selected-index: root.undo-send-index;
+                                        title-color: root.body-text;
+                                        description-color: root.faint-text;
+                                        selected(index, value) => {
+                                            SendUndoUi.save-seconds(index == 0 ? 0 : index == 1 ? 5 : index == 2 ? 10 : index == 3 ? 20 : 30);
                                         }
                                     }
                                 }

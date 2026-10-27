@@ -123,6 +123,12 @@ pub enum CoreEvent {
     /// A mail written from a task was delivered and linked to it.
     TaskMailSent {
         title: String,
+        /// What happened to the task: where it went.
+        after: crate::tasks::AfterSend,
+        /// Days until the follow-up, when one was set.
+        follow_up_days: Option<u32>,
+        /// Whether a follow-up calendar event was booked.
+        event_booked: bool,
     },
     /// A task's follow-up time passed and its sent mail is still unanswered.
     TaskFollowUpDue {

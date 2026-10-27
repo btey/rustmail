@@ -30,8 +30,9 @@ use rustmail::{
     CalendarSourceRow, CalendarWeekDay, ContactAccountRow, ContactRow, ContactSidebarRow,
     ContactSidebarRowKind, EmailRow, LinkRow, LinkedTask, LocalizedMessage, MailAttachment,
     MailAttachments, MailLabelRow, MailListEntry, MailProfileRow, MailboxRow, MotionSettings,
-    SidebarRow, SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipEntry, TaskChipRow,
-    TaskChips, TaskColumnRow, TaskDetailRow, TaskFromMail, TaskNavRow, TasksUi, ThreadMessageRow,
+    SendUndoUi, SidebarRow, SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipEntry,
+    TaskChipRow, TaskChips, TaskColumnRow, TaskComposeUi, TaskDetailRow, TaskFromMail, TaskNavRow,
+    TaskReplyUi, TasksUi, ThreadMessageRow,
 };
 use slint::platform::{
     Platform, WindowAdapter,
@@ -576,6 +577,11 @@ fn reset(app: &AppWindow) {
     app.global::<LinkedTask>().set_task_id(-1);
     app.global::<LinkedTask>().set_undo_task_id(-1);
     app.global::<TaskChips>().set_rows(model(Vec::new()));
+    app.set_compose_sending(false);
+    app.global::<SendUndoUi>().set_can_undo(false);
+    app.global::<TaskComposeUi>().set_active(false);
+    app.global::<TaskComposeUi>().set_sent_title("".into());
+    app.global::<TaskReplyUi>().set_title("".into());
     let tasks = app.global::<TasksUi>();
     tasks.set_detail_open(false);
     tasks.set_navigation_open(false);
@@ -940,6 +946,29 @@ fn states() -> Vec<State> {
                 dialog.set_open(true);
             })
         },
+        state("task sent card", |app| {
+            let compose = app.global::<TaskComposeUi>();
+            compose.set_sent_moved(1);
+            compose.set_sent_follow_up_days(4);
+            compose.set_sent_event(true);
+            compose.set_sent_title("Ask the accounting team about the quarterly invoice".into());
+        }),
+        state("task reply and sent cards", |app| {
+            let compose = app.global::<TaskComposeUi>();
+            compose.set_sent_moved(2);
+            compose.set_sent_follow_up_days(0);
+            compose.set_sent_event(false);
+            compose.set_sent_title("Ask the accounting team about the quarterly invoice".into());
+            let reply = app.global::<TaskReplyUi>();
+            reply.set_follow_up(false);
+            reply.set_moved_back(true);
+            reply.set_title("Ask the accounting team about the quarterly invoice".into());
+        }),
+        state("task follow-up card", |app| {
+            let reply = app.global::<TaskReplyUi>();
+            reply.set_follow_up(true);
+            reply.set_title("Ask the accounting team about the quarterly invoice".into());
+        }),
         state("tasks board", |app| {
             tasks_fixture(app, false);
             app.set_active_view("tasks".into());
@@ -952,6 +981,23 @@ fn states() -> Vec<State> {
             app.set_compose_to("jamie.rivera@example.com".into());
             app.set_compose_subject("Re: Quarterly planning notes".into());
             app.set_compose_open(true);
+        }),
+        state("compose task options", |app| {
+            app.set_compose_to("jamie.rivera@example.com".into());
+            app.set_compose_subject("Ask the accounting team about the quarterly invoice".into());
+            app.set_compose_open(true);
+            let options = app.global::<TaskComposeUi>();
+            options.set_follow_up_date("2026-11-03".into());
+            options.set_active(true);
+        }),
+        state("compose undo send", |app| {
+            app.set_compose_to("jamie.rivera@example.com".into());
+            app.set_compose_subject("Re: Quarterly planning notes".into());
+            app.set_compose_open(true);
+            app.set_compose_sending(true);
+            let undo = app.global::<SendUndoUi>();
+            undo.set_can_undo(true);
+            undo.set_remaining(10);
         }),
         state("rendering info", |app| app.set_rendering_info_open(true)),
         state("oauth setup", |app| app.set_oauth_setup_open(true)),

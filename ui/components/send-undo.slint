@@ -2,5 +2,10 @@
 // message comes due, and this button is the only live control meanwhile.
 export global SendUndoUi {
     in-out property <bool> can-undo: false;
+    // Length of the undo window in seconds (0 sends at once); the setting.
+    in-out property <int> seconds: 10;
+    // Whole seconds left in the open window; counted down by the composer.
+    in-out property <int> remaining: 0;
+    callback save-seconds(int);
     callback undo-send();
 }

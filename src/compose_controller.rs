@@ -26,6 +26,19 @@ impl TaskSend {
         Self::from_choices(task_id, 0, 0)
     }
 
+    /// The follow-up date for a picker position as `YYYY-MM-DD` in local
+    /// time, counted from today; empty for "Never".
+    pub fn follow_up_date_label(follow_up: i32) -> String {
+        Self::from_choices(0, 0, follow_up)
+            .follow_up_days
+            .map(|days| {
+                (chrono::Local::now() + chrono::Duration::days(i64::from(days)))
+                    .format("%Y-%m-%d")
+                    .to_string()
+            })
+            .unwrap_or_default()
+    }
+
     /// Build from the composer's picker positions (see `TaskComposeUi`).
     pub fn from_choices(task_id: i64, after: i32, follow_up: i32) -> Self {
         use rustmail_core::tasks::AfterSend;

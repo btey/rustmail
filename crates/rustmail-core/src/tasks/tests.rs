@@ -1091,7 +1091,16 @@ async fn a_queued_send_links_and_announces_once_delivery_is_confirmed() {
         .unwrap();
     let title = tokio::time::timeout(std::time::Duration::from_secs(10), async {
         loop {
-            if let Ok(crate::events::CoreEvent::TaskMailSent { title }) = events.recv().await {
+            if let Ok(crate::events::CoreEvent::TaskMailSent {
+                title,
+                after,
+                follow_up_days,
+                event_booked,
+            }) = events.recv().await
+            {
+                assert_eq!(after, AfterSend::Waiting);
+                assert_eq!(follow_up_days, Some(2));
+                assert!(!event_booked);
                 break title;
             }
         }

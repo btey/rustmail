@@ -98,6 +98,27 @@ pub(super) fn register_settings_preference_callbacks(
     });
 
     let app_weak = app.as_weak();
+    let state_for_undo = Rc::clone(state);
+    let runtime_for_undo = Rc::clone(runtime);
+    app.global::<SendUndoUi>().on_save_seconds(move |seconds| {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        let seconds = i64::from(seconds.clamp(0, 30));
+        app.global::<SendUndoUi>().set_seconds(seconds as i32);
+        let Some(core) = state_for_undo.borrow().core.clone() else {
+            return;
+        };
+        match runtime_for_undo.block_on(core.set_undo_send_seconds(seconds)) {
+            Ok(()) => app.set_sync_status(UiMessage::plain("Undo send window saved.")),
+            Err(error) => app.set_sync_status(UiMessage::detail(
+                "Could not save the undo send window: {}",
+                error,
+            )),
+        }
+    });
+
+    let app_weak = app.as_weak();
     let state_for_contacts = Rc::clone(state);
     let runtime_for_contacts = Rc::clone(runtime);
     app.on_save_contact_discovery_settings(move |outgoing, incoming, all_accounts, suggest| {

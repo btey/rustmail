@@ -123,23 +123,32 @@ impl Core {
             if core.wait_for_send(action_id).await.is_err() {
                 return;
             }
-            match core
+            let task = match core
                 .task_link_sent_draft(task_id, draft_id, after, follow_up_days)
                 .await
             {
-                Ok(task) => core.bus.emit(CoreEvent::TaskMailSent { title: task.title }),
+                Ok(task) => task,
                 Err(e) => {
                     tracing::warn!(task_id, draft_id, "linking the sent mail failed: {e}");
                     return;
                 }
-            }
-            if let (Some((account_id, calendar_id)), Some(_)) = (follow_up_event, follow_up_days)
-                && let Err(e) = core
+            };
+            let mut event_booked = false;
+            if let (Some((account_id, calendar_id)), Some(_)) = (follow_up_event, follow_up_days) {
+                match core
                     .task_create_follow_up_event(task_id, account_id, calendar_id)
                     .await
-            {
-                tracing::warn!(task_id, "booking the follow-up event failed: {e}");
+                {
+                    Ok(_) => event_booked = true,
+                    Err(e) => tracing::warn!(task_id, "booking the follow-up event failed: {e}"),
+                }
             }
+            core.bus.emit(CoreEvent::TaskMailSent {
+                title: task.title,
+                after,
+                follow_up_days,
+                event_booked,
+            });
         });
     }
 

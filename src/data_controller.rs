@@ -610,6 +610,7 @@ fn import_account_backup_document(
             app.set_notification_scope(settings.notification_scope.clone().into());
             app.set_sync_interval_minutes(settings.sync_interval_minutes as i32);
             app.set_mark_read_on_open(settings.mark_read_on_open);
+            app.global::<SendUndoUi>().set_seconds(settings.undo_send_seconds.clamp(0, 30) as i32);
             app.set_collect_outgoing_contacts(settings.collect_outgoing_contacts);
             app.set_collect_incoming_contacts(settings.collect_incoming_contacts);
             app.set_contact_suggest_all_accounts(settings.contact_suggest_all_accounts);

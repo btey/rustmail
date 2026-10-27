@@ -7,8 +7,17 @@ export global TaskComposeUi {
     in-out property <int> after: 0;
     // 0 four days, 1 two days, 2 one week, 3 no follow-up.
     in-out property <int> follow-up: 0;
+    // The follow-up date the choice above works out to (YYYY-MM-DD); empty for never.
+    in-out property <string> follow-up-date: "";
     // Title of the task whose mail was just sent and linked; empty hides the card.
     in-out property <string> sent-title: "";
+    // What happened besides the link, for the card: 0 nothing, 1 moved to
+    // Waiting for, 2 marked done; follow-up days (0 none); event booked.
+    in-out property <int> sent-moved: 0;
+    in-out property <int> sent-follow-up-days: 0;
+    in-out property <bool> sent-event: false;
+    // Height of the card: one 22px line for each thing that happened.
+    out property <length> card-height: 96px + 22px * ((sent-moved > 0 ? 1 : 0) + (sent-follow-up-days > 0 ? 1 : 0) + (sent-event ? 1 : 0));
     callback cycle-after();
     callback cycle-follow-up();
 }

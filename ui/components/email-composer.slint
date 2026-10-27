@@ -625,7 +625,12 @@ export component EmailComposer inherits Rectangle {
         y: parent.height - 44px;
         width: max(110px, self.content-width + 28px);
         height: 34px;
-        text: @tr("Undo send");
+        text: SendUndoUi.remaining > 0 ? @tr("Undo send") + " (" + SendUndoUi.remaining + ")" : @tr("Undo send");
         clicked => { SendUndoUi.undo-send(); }
+    }
+    Timer {
+        interval: 1s;
+        running: SendUndoUi.can-undo && SendUndoUi.remaining > 0;
+        triggered => { SendUndoUi.remaining = SendUndoUi.remaining - 1; }
     }
 }

@@ -1,7 +1,7 @@
 //! Background startup snapshot and coalesced core-event ingestion.
 
 use crate::{
-    AccountRow, AppTheme, AppWindow, InboxState, MessageColors, PAGE_SIZE,
+    AccountRow, AppTheme, AppWindow, InboxState, MessageColors, PAGE_SIZE, SendUndoUi,
     account_controller::apply_connected_account_rows,
     avatar_initials,
     calendar::{
@@ -523,13 +523,21 @@ pub(crate) struct PendingCoreUpdates {
     pub(crate) calendar_changed: bool,
     pub(crate) contacts_changed: bool,
     pub(crate) tasks_changed: bool,
-    pub(crate) task_mail_sent: Option<String>,
+    pub(crate) task_mail_sent: Option<TaskSentUpdate>,
     pub(crate) task_replies: Vec<TaskReplyUpdate>,
 }
 
 /// Most replies announced per drain; a burst beyond this is still noted in
 /// each task's activity, just not announced one by one.
 const MAX_PENDING_TASK_REPLIES: usize = 8;
+
+/// What the "Sent and linked" card reports about a delivered task mail.
+pub(crate) struct TaskSentUpdate {
+    pub(crate) title: String,
+    pub(crate) after: rustmail_core::tasks::AfterSend,
+    pub(crate) follow_up_days: Option<u32>,
+    pub(crate) event_booked: bool,
+}
 
 pub(crate) struct TaskReplyUpdate {
     pub(crate) task_id: i64,
@@ -694,11 +702,21 @@ pub(crate) fn spawn_core_event_listener(
                         .tasks_changed = true;
                     true
                 }
-                Ok(CoreEvent::TaskMailSent { title }) => {
+                Ok(CoreEvent::TaskMailSent {
+                    title,
+                    after,
+                    follow_up_days,
+                    event_booked,
+                }) => {
                     pending
                         .lock()
                         .unwrap_or_else(|poisoned| poisoned.into_inner())
-                        .task_mail_sent = Some(title);
+                        .task_mail_sent = Some(TaskSentUpdate {
+                        title,
+                        after,
+                        follow_up_days,
+                        event_booked,
+                    });
                     true
                 }
                 Ok(CoreEvent::TaskReplyReceived {
@@ -789,6 +807,7 @@ pub(crate) fn apply_settings(app: &AppWindow, settings: &Settings) {
         _ => 5,
     });
     app.set_mark_read_on_open(settings.mark_read_on_open);
+    app.global::<SendUndoUi>().set_seconds(settings.undo_send_seconds.clamp(0, 30) as i32);
     app.set_collect_outgoing_contacts(settings.collect_outgoing_contacts);
     app.set_collect_incoming_contacts(settings.collect_incoming_contacts);
     app.set_contact_suggest_all_accounts(settings.contact_suggest_all_accounts);

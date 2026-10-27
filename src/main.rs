@@ -852,7 +852,8 @@ fn announce_task_replies(app: &AppWindow, replies: &[startup::TaskReplyUpdate]) 
         ui.set_follow_up(latest.follow_up);
         ui.set_title(latest.title.clone().into());
     }
-    if !app.get_notifications_enabled() {
+    // The card is enough while the user is looking at the window.
+    if !app.get_notifications_enabled() || app.global::<WindowChrome>().get_active() {
         return;
     }
     let sound = app.get_notification_sound_enabled();
@@ -864,6 +865,15 @@ fn announce_task_replies(app: &AppWindow, replies: &[startup::TaskReplyUpdate]) 
         } else {
             ui.get_notification_title()
         };
+        let weak = app.as_weak();
+        let task_id = i32::try_from(reply.task_id).unwrap_or(-1);
+        let on_click: Box<dyn FnOnce() + Send> = Box::new(move || {
+            let _ = weak.upgrade_in_event_loop(move |app| {
+                let ui = app.global::<TaskReplyUi>();
+                ui.set_task_id(task_id);
+                ui.invoke_open();
+            });
+        });
         desktop_notify::show(
             summary.to_string(),
             if reply.subject.is_empty() {
@@ -872,6 +882,7 @@ fn announce_task_replies(app: &AppWindow, replies: &[startup::TaskReplyUpdate]) 
                 format!("{}\n{}", reply.title, reply.subject)
             },
             sound,
+            Some((ui.get_notification_open().to_string(), on_click)),
         );
     }
 }
@@ -3419,11 +3430,22 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             app.set_render_status(message.clone());
             app.set_sync_status(message);
         }
-        if let Some(title) = pending.task_mail_sent.clone()
+        if let Some(sent) = pending.task_mail_sent.as_ref()
             && let Some(app) = mail_update_app.upgrade()
         {
-            app.global::<TaskComposeUi>().set_sent_title(title.clone().into());
-            app.set_sync_status(UiMessage::detail("Sent and linked to the task: {}", title));
+            let compose = app.global::<TaskComposeUi>();
+            compose.set_sent_moved(match sent.after {
+                rustmail_core::tasks::AfterSend::Waiting => 1,
+                rustmail_core::tasks::AfterSend::Done => 2,
+                rustmail_core::tasks::AfterSend::Keep => 0,
+            });
+            compose.set_sent_follow_up_days(sent.follow_up_days.map_or(0, |days| days as i32));
+            compose.set_sent_event(sent.event_booked);
+            compose.set_sent_title(sent.title.clone().into());
+            app.set_sync_status(UiMessage::detail(
+                "Sent and linked to the task: {}",
+                sent.title.clone(),
+            ));
         }
         if !pending.task_replies.is_empty()
             && let Some(app) = mail_update_app.upgrade()
@@ -5646,6 +5668,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             };
             options.set_after(after);
             options.set_follow_up(follow);
+            options.set_follow_up_date(TaskSend::follow_up_date_label(follow).into());
             intent.task = Some(TaskSend::from_choices(task.task_id, after, follow));
         };
         let options = app.global::<TaskComposeUi>();
@@ -5680,6 +5703,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         let options = app.global::<TaskComposeUi>();
         options.set_after(0);
         options.set_follow_up(0);
+        options.set_follow_up_date(TaskSend::follow_up_date_label(0).into());
         options.set_active(true);
         app.set_compose_notice_is_error(false);
         app.set_compose_open(true);
@@ -6409,6 +6433,8 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                     let window_ms = queued.dispatch_at - rustmail_core::models::now_ms();
                     if window_ms > 0 {
                         app.global::<SendUndoUi>().set_can_undo(true);
+                        app.global::<SendUndoUi>()
+                            .set_remaining(((window_ms + 999) / 1000) as i32);
                         let undo_app = app_weak.clone();
                         Timer::single_shot(
                             Duration::from_millis(window_ms.unsigned_abs()),

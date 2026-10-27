@@ -778,6 +778,15 @@ impl CoreMailSource {
         self.core.set_account_sent_copy_policy(account_id, policy).await.map_err(|e| e.to_string())
     }
 
+    pub async fn set_undo_send_seconds(&self, seconds: i64) -> Result<(), String> {
+        let mut settings = self.load_settings().await?;
+        settings.undo_send_seconds = seconds;
+        self.core
+            .set_settings(settings)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn set_mark_read_on_open(&self, enabled: bool) -> Result<(), String> {
         let mut settings = self.load_settings().await?;
         settings.mark_read_on_open = enabled;

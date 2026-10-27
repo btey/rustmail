@@ -216,6 +216,12 @@ export component ComposerNotice inherits Rectangle {
                     width: max(80px, self.content-width + 24px);
                     clicked => { TaskComposeUi.cycle-follow-up(); }
                 }
+                Text {
+                    text: TaskComposeUi.follow-up-date;
+                    color: root.accent-color;
+                    font-size: TypeScale.caption;
+                    vertical-alignment: center;
+                }
             }
 
             if !TaskComposeUi.active: Text {

@@ -186,7 +186,9 @@ export global I18n {
         if (key == "Could not save sync interval: {}") { return @tr("Could not save sync interval: {}", argument); }
         if (key == "Message-opening preference updated for this session.") { return @tr("Message-opening preference updated for this session."); }
         if (key == "Message-opening preference saved.") { return @tr("Message-opening preference saved."); }
+        if (key == "Undo send window saved.") { return @tr("Undo send window saved."); }
         if (key == "Could not save message-opening preference: {}") { return @tr("Could not save message-opening preference: {}", argument); }
+        if (key == "Could not save the undo send window: {}") { return @tr("Could not save the undo send window: {}", argument); }
         if (key == "Contact suggestion preferences are active for this session.") { return @tr("Contact suggestion preferences are active for this session."); }
         if (key == "Contact suggestion preferences saved.") { return @tr("Contact suggestion preferences saved."); }
         if (key == "Could not save contact suggestion preferences: {}") { return @tr("Could not save contact suggestion preferences: {}", argument); }
@@ -2317,7 +2319,7 @@ export component AppWindow inherits Window {
     if TaskComposeUi.sent-title != "" : Rectangle {
         z: 45001;
         width: min(420px, root.width - 32px);
-        height: 96px;
+        height: TaskComposeUi.card-height;
         x: (root.width - self.width) / 2;
         y: root.height - self.height - 28px - (root.toast_text != "" ? 56px : 0px);
         background: AppTheme.surface;
@@ -2347,9 +2349,36 @@ export component AppWindow inherits Window {
             color: AppTheme.secondary;
             font-size: TypeScale.secondary;
         }
-        Button {
+        if TaskComposeUi.sent-moved > 0 : Text {
             x: 16px;
             y: 56px;
+            width: parent.width - 56px;
+            text: TaskComposeUi.sent-moved == 1 ? @tr("Task moved to Waiting for") : @tr("Task marked as done");
+            overflow: elide;
+            color: AppTheme.secondary;
+            font-size: TypeScale.secondary;
+        }
+        if TaskComposeUi.sent-follow-up-days > 0 : Text {
+            x: 16px;
+            y: TaskComposeUi.sent-moved > 0 ? 78px : 56px;
+            width: parent.width - 56px;
+            text: @tr("Follow-up in {} days", TaskComposeUi.sent-follow-up-days);
+            overflow: elide;
+            color: AppTheme.secondary;
+            font-size: TypeScale.secondary;
+        }
+        if TaskComposeUi.sent-event : Text {
+            x: 16px;
+            y: 56px + 22px * ((TaskComposeUi.sent-moved > 0 ? 1 : 0) + (TaskComposeUi.sent-follow-up-days > 0 ? 1 : 0));
+            width: parent.width - 56px;
+            text: @tr("Follow-up added to the calendar");
+            overflow: elide;
+            color: AppTheme.secondary;
+            font-size: TypeScale.secondary;
+        }
+        Button {
+            x: 16px;
+            y: TaskComposeUi.card-height - 40px;
             height: 30px;
             width: max(120px, self.content-width + 28px);
             text: @tr("Back to board");
@@ -2377,7 +2406,7 @@ export component AppWindow inherits Window {
         width: min(420px, root.width - 32px);
         height: 96px;
         x: (root.width - self.width) / 2;
-        y: root.height - self.height - 28px - (root.toast_text != "" ? 56px : 0px) - (TaskComposeUi.sent-title != "" ? 108px : 0px);
+        y: root.height - self.height - 28px - (root.toast_text != "" ? 56px : 0px) - (TaskComposeUi.sent-title != "" ? TaskComposeUi.card-height + 12px : 0px);
         background: AppTheme.surface;
         border-radius: 10px;
         border-width: 1px;
