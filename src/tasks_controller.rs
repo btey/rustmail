@@ -61,6 +61,48 @@ impl Group {
     }
 }
 
+/// How the flat lists are ordered; the board keeps its manual order.
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum Sort {
+    /// The order tasks were put in.
+    #[default]
+    Manual,
+    Due,
+    Priority,
+    Title,
+}
+
+impl Sort {
+    fn parse(token: &str) -> Self {
+        match token {
+            "due" => Self::Due,
+            "priority" => Self::Priority,
+            "title" => Self::Title,
+            _ => Self::Manual,
+        }
+    }
+
+    fn token(self) -> &'static str {
+        match self {
+            Self::Manual => "manual",
+            Self::Due => "due",
+            Self::Priority => "priority",
+            Self::Title => "title",
+        }
+    }
+
+    /// Stable sort: ties keep their manual order. Due dates ascend with
+    /// undated tasks last, priority runs from high to low.
+    fn apply(self, tasks: &mut [Task]) {
+        match self {
+            Self::Manual => {}
+            Self::Due => tasks.sort_by_key(|t| (t.due_at.is_none(), t.due_at)),
+            Self::Priority => tasks.sort_by_key(|t| std::cmp::Reverse(t.priority)),
+            Self::Title => tasks.sort_by_key(|t| t.title.to_lowercase()),
+        }
+    }
+}
+
 const DAY_MS: i64 = 24 * 60 * 60 * 1000;
 
 
@@ -77,6 +119,7 @@ struct Session {
     /// Sidebar search over project and context names.
     nav: String,
     group: Group,
+    sort: Sort,
 }
 
 struct DetailSnap {
@@ -402,7 +445,7 @@ async fn load(
     selection: &str,
     query: &str,
     detail_id: Option<i64>,
-    chips: (Option<i64>, Option<i64>, bool, Group),
+    chips: (Option<i64>, Option<i64>, bool, Group, Sort),
 ) -> rustmail_core::error::Result<Snapshot> {
     core.tasks_open().await?;
     let today_end = today_end_ms();
@@ -431,7 +474,7 @@ async fn load(
         text: Some(query.to_owned()).filter(|q| !q.trim().is_empty()),
         ..Default::default()
     };
-    let (label_chip, context_chip, list_mode, group) = chips;
+    let (label_chip, context_chip, list_mode, group, sort) = chips;
     filter.label_id = label_chip.filter(|l| label_map.contains_key(l));
     if kind != "context" {
         filter.context_id = context_chip.filter(|c| context_map.contains_key(c));
@@ -520,7 +563,7 @@ async fn load(
     snap.list_mode = kind == "project" && list_mode;
     snap.can_switch_view = kind == "project";
     filter.include_done = board;
-    let tasks = core.task_list(filter).await?;
+    let mut tasks = core.task_list(filter).await?;
     snap.task_count = tasks.iter().filter(|t| t.completed_at.is_none()).count() as i64;
     if board {
         let columns = core.task_columns(project_id.unwrap_or_default()).await?;
@@ -579,7 +622,20 @@ async fn load(
                 let tick = if *g == group { "✓ " } else { "" };
                 (g.token().to_owned(), format!("{tick}{}", titles(*g)))
             })
+            .chain(
+                [
+                    (Sort::Manual, "Manual order"),
+                    (Sort::Due, "Sort by due date"),
+                    (Sort::Priority, "Sort by priority"),
+                    (Sort::Title, "Sort by title"),
+                ]
+                .map(|(option, title)| {
+                    let tick = if option == sort { "✓ " } else { "" };
+                    (format!("sort:{}", option.token()), format!("{tick}{title}"))
+                }),
+            )
             .collect();
+        sort.apply(&mut tasks);
         let cards: Vec<(&Task, CardSnap)> = tasks
             .iter()
             .map(|t| {
@@ -1259,7 +1315,10 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             },
             "view" => s.list = arg(0) == "list",
             "nav-filter" => s.nav = arg(0),
-            "group" => s.group = Group::parse(&arg(0)),
+            "group" => match arg(0).strip_prefix("sort:") {
+                Some(token) => s.sort = Sort::parse(token),
+                None => s.group = Group::parse(&arg(0)),
+            },
             "filter-remove" => match arg(0).as_str() {
                 "label" => s.label = None,
                 "context" => s.context = None,
@@ -1281,7 +1340,7 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             s.selection.clone(),
             s.query.clone(),
             s.detail_id,
-            (s.label, s.context, s.list, s.group),
+            (s.label, s.context, s.list, s.group, s.sort),
             s.nav.clone(),
         )
     };
@@ -1685,31 +1744,78 @@ mod tests {
     #[tokio::test]
     async fn list_mode_flattens_a_project_and_names_each_status() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         assert!(snap.can_switch_view && !snap.list_mode);
         let inbox = snap.columns[0].clone_id_name();
         run(&core, &sel, "add-task", &inbox.0.to_string(), "One").await.unwrap();
 
-        let snap = load(&core, &sel, "", None, (None, None, true, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, true, Group::None, Sort::Manual)).await.unwrap();
         assert!(snap.list_mode);
         assert_eq!(snap.columns.len(), 1);
         assert_eq!(snap.columns[0].id, -1);
         assert_eq!(snap.columns[0].cards[0].status, inbox.1);
 
         // Focus lists have no board to switch to.
-        let snap = load(&core, "focus:inbox", "", None, (None, None, true, Group::None)).await.unwrap();
+        let snap = load(&core, "focus:inbox", "", None, (None, None, true, Group::None, Sort::Manual)).await.unwrap();
         assert!(!snap.can_switch_view && !snap.list_mode);
+    }
+
+    #[tokio::test]
+    async fn the_flat_list_sorts_by_due_date_priority_and_title() {
+        let (_tmp, core, sel) = board().await;
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let inbox = snap.columns[0].id.to_string();
+        for title in ["banana", "Cherry", "apple"] {
+            run(&core, &sel, "add-task", &inbox, title).await.unwrap();
+        }
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
+        run(&core, &sel, "detail-due", &id_of("Cherry").to_string(), "2026-12-01").await.unwrap();
+        run(&core, &sel, "detail-due", &id_of("banana").to_string(), "2026-11-01").await.unwrap();
+        run(&core, &sel, "toggle-priority", &id_of("Cherry").to_string(), "").await.unwrap();
+
+        let order = |sort: Sort| {
+            let core = &core;
+            let sel = &sel;
+            async move {
+                load(core, sel, "", None, (None, None, true, Group::None, sort))
+                    .await
+                    .unwrap()
+                    .columns[0]
+                    .cards
+                    .iter()
+                    .map(|c| c.title.clone())
+                    .collect::<Vec<_>>()
+            }
+        };
+        // Soonest first, tasks without a date last.
+        assert_eq!(order(Sort::Due).await, ["banana", "Cherry", "apple"]);
+        // High priority first; ties keep the manual order.
+        assert_eq!(order(Sort::Priority).await, ["Cherry", "banana", "apple"]);
+        // Case-insensitive title order.
+        assert_eq!(order(Sort::Title).await, ["apple", "banana", "Cherry"]);
+        assert_eq!(order(Sort::Manual).await, ["banana", "Cherry", "apple"]);
+        // The menu offers the sorts and ticks the active one.
+        let by_title = load(&core, &sel, "", None, (None, None, true, Group::None, Sort::Title))
+            .await
+            .unwrap();
+        assert!(
+            by_title
+                .group_menu
+                .iter()
+                .any(|(id, text)| id == "sort:title" && text.starts_with("✓"))
+        );
     }
 
     #[tokio::test]
     async fn grouping_splits_the_list_into_sections() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         for title in ["Soon", "Whenever", "Tagged"] {
             run(&core, &sel, "add-task", &inbox, title).await.unwrap();
         }
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
         run(&core, &sel, "detail-due", &id_of("Soon").to_string(), "today").await.unwrap();
         run(&core, &sel, "detail-label-new", &id_of("Tagged").to_string(), "urgent")
@@ -1722,46 +1828,46 @@ mod tests {
                 .map(|c| (c.name.clone(), c.cards.len()))
                 .collect::<Vec<_>>()
         };
-        let by_due = load(&core, &sel, "", None, (None, None, true, Group::Due)).await.unwrap();
+        let by_due = load(&core, &sel, "", None, (None, None, true, Group::Due, Sort::Manual)).await.unwrap();
         assert_eq!(
             names(&by_due),
             [("Today".to_owned(), 1), ("No due date".to_owned(), 2)]
         );
-        let by_label = load(&core, &sel, "", None, (None, None, true, Group::Label))
+        let by_label = load(&core, &sel, "", None, (None, None, true, Group::Label, Sort::Manual))
             .await
             .unwrap();
         assert_eq!(
             names(&by_label),
             [("No label".to_owned(), 2), ("urgent".to_owned(), 1)]
         );
-        let by_status = load(&core, &sel, "", None, (None, None, true, Group::Status))
+        let by_status = load(&core, &sel, "", None, (None, None, true, Group::Status, Sort::Manual))
             .await
             .unwrap();
         assert_eq!(by_status.columns.len(), 1);
         assert!(by_status.group_menu.iter().any(|(id, t)| id == "status" && t.starts_with("✓")));
         // A group that does not fit the view falls back to no grouping.
-        let focus = load(&core, "focus:inbox", "", None, (None, None, false, Group::Status))
+        let focus = load(&core, "focus:inbox", "", None, (None, None, false, Group::Status, Sort::Manual))
             .await
             .unwrap();
         assert!(focus.group_menu.iter().all(|(id, _)| id != "status"));
         // The board has no Group menu.
-        let board = load(&core, &sel, "", None, (None, None, false, Group::Due)).await.unwrap();
+        let board = load(&core, &sel, "", None, (None, None, false, Group::Due, Sort::Manual)).await.unwrap();
         assert!(board.group_menu.is_empty());
     }
 
     #[tokio::test]
     async fn task_links_are_added_by_title_and_removed() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         run(&core, &sel, "add-task", &inbox, "Draft").await.unwrap();
         run(&core, &sel, "add-task", &inbox, "Publish").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
         let (draft, publish) = (id_of("Draft"), id_of("Publish"));
 
         run(&core, &sel, "link-task", &publish.to_string(), "depends:draft").await.unwrap();
-        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let links = &snap.detail.as_ref().unwrap().links;
         assert_eq!(links.len(), 1);
         assert_eq!(links[0].1, "task_depends");
@@ -1772,7 +1878,7 @@ mod tests {
         assert!(own.is_err());
 
         run(&core, &sel, "link-remove", &links[0].0.to_string(), "").await.unwrap();
-        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         assert!(snap.detail.unwrap().links.is_empty());
     }
 
@@ -1859,7 +1965,7 @@ mod tests {
     async fn column_commands_validate_and_apply() {
         let (_tmp, core, sel) = board().await;
         run(&core, &sel, "add-column", "Review", "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let review = first_column(&snap, "Review");
         assert!(!review.fixed);
         let id = review.id.to_string();
@@ -1867,7 +1973,7 @@ mod tests {
         run(&core, &sel, "column-rename", &id, "QA").await.unwrap();
         run(&core, &sel, "column-wip", &id, "3").await.unwrap();
         run(&core, &sel, "column-colour", &id, "colour:#ef4444").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let qa = first_column(&snap, "QA");
         assert_eq!((qa.wip, qa.colour.as_str()), (3, "#ef4444"));
 
@@ -1877,7 +1983,7 @@ mod tests {
 
         let before: Vec<_> = snap.columns.iter().map(|c| c.id).collect();
         run(&core, &sel, "column-move", &id, "left").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let after: Vec<_> = snap.columns.iter().map(|c| c.id).collect();
         let at = |v: &[i64]| v.iter().position(|c| c.to_string() == id).unwrap();
         assert_eq!(at(&after) + 1, at(&before));
@@ -1886,7 +1992,7 @@ mod tests {
         let refused = run(&core, &sel, "column-delete", &built_in, "").await;
         assert_eq!(refused, Err("Built-in columns cannot be deleted".into()));
         run(&core, &sel, "column-delete", &id, "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         assert!(snap.columns.iter().all(|c| c.name != "QA"));
     }
 
@@ -1894,60 +2000,60 @@ mod tests {
     async fn card_move_due_and_assignee_commands() {
         let (_tmp, core, sel) = board().await;
         run(&core, &sel, "add-column", "Review", "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         let review = first_column(&snap, "Review").id.to_string();
         run(&core, &sel, "add-task", &inbox, "Write report").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let task = snap.columns[0].cards[0].id;
         let tid = task.to_string();
 
         // What a drop sends: the card menu's move command.
         run(&core, &sel, "card-menu", &tid, &format!("move:{review}")).await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         assert_eq!(first_column(&snap, "Review").cards[0].id, task);
 
         run(&core, &sel, "detail-due", &tid, "tomorrow").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().due, iso_date(today_end_ms() + 1000));
         run(&core, &sel, "detail-due", &tid, "none").await.unwrap();
 
         run(&core, &sel, "detail-assignee", &tid, "Ana Diaz <ana@example.org>")
             .await
             .unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "Ana Diaz <ana@example.org>");
         run(&core, &sel, "detail-assignee", &tid, "bob@example.org").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "bob@example.org");
         assert!(run(&core, &sel, "detail-assignee", &tid, "nobody known").await.is_err());
         run(&core, &sel, "detail-assignee", &tid, "").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "");
     }
 
     #[tokio::test]
     async fn label_and_context_chips_filter_the_board() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         run(&core, &sel, "add-task", &inbox, "Tagged").await.unwrap();
         run(&core, &sel, "add-task", &inbox, "Plain").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let tagged = snap.columns[0].cards.iter().find(|c| c.title == "Tagged").unwrap().id;
         run(&core, &sel, "detail-label-new", &tagged.to_string(), "urgent")
             .await
             .unwrap();
         let label = core.task_labels().await.unwrap()[0].id;
 
-        let snap = load(&core, &sel, "", None, (Some(label), None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (Some(label), None, false, Group::None, Sort::Manual)).await.unwrap();
         let titles: Vec<_> = snap.columns.iter().flat_map(|c| &c.cards).map(|c| c.title.as_str()).collect();
         assert_eq!(titles, ["Tagged"]);
         assert_eq!(snap.chips, [("label".to_owned(), "Label: urgent".to_owned())]);
         // The label is active, so it is no longer offered in the menu.
         assert!(snap.filter_menu.iter().all(|(id, _)| !id.starts_with("label:")));
         // An unknown label id is ignored instead of emptying the board.
-        let snap = load(&core, &sel, "", None, (Some(9999), None, false, Group::None)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (Some(9999), None, false, Group::None, Sort::Manual)).await.unwrap();
         assert!(snap.chips.is_empty());
     }
 }
