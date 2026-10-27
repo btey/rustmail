@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-27 16:14+0000\n"
+"POT-Creation-Date: 2026-10-27 17:35+0000\n"
 "PO-Revision-Date: 2026-09-24 11:59+0000\n"
 "Last-Translator: Christoph Seibel <christoph_seibel@t-online.de>\n"
 "Language-Team: German <https://translate.rustmail.org/projects/rustmail/mail/"
@@ -1587,7 +1587,7 @@ msgid "Back to board"
 msgstr "Zurück zum Board"
 
 #: ui/app.slint:2456 ui/components/linked-task-banner.slint:114
-#: ui/components/task-reply.slint:16
+#: ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr "Aufgabe öffnen"
 
@@ -3426,15 +3426,27 @@ msgstr ""
 msgid "No folders found"
 msgstr ""
 
-#: ui/components/task-reply.slint:13
+#: ui/components/task-reply.slint:15
+msgid "Due today"
+msgstr "Heute fällig"
+
+#: ui/components/task-reply.slint:16
+msgid "Show today"
+msgstr "Heute anzeigen"
+
+#: ui/components/task-reply.slint:18
+msgid "Tasks due: {}"
+msgstr "Fällige Aufgaben: {}"
+
+#: ui/components/task-reply.slint:20
 msgid "Reply received"
 msgstr "Antwort erhalten"
 
-#: ui/components/task-reply.slint:14
+#: ui/components/task-reply.slint:21
 msgid "Reply received, task moved to Next actions"
 msgstr "Antwort erhalten, Aufgabe nach Nächste Aktionen verschoben"
 
-#: ui/components/task-reply.slint:15
+#: ui/components/task-reply.slint:22
 msgid "No reply yet"
 msgstr "Noch keine Antwort"
 

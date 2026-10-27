@@ -582,6 +582,7 @@ fn reset(app: &AppWindow) {
     app.global::<TaskComposeUi>().set_active(false);
     app.global::<TaskComposeUi>().set_sent_title("".into());
     app.global::<TaskReplyUi>().set_title("".into());
+    app.global::<TaskReplyUi>().set_due_today(false);
     let tasks = app.global::<TasksUi>();
     tasks.set_detail_open(false);
     tasks.set_detail_expanded(false);
@@ -983,6 +984,12 @@ fn states() -> Vec<State> {
             reply.set_follow_up(false);
             reply.set_moved_back(true);
             reply.set_title("Ask the accounting team about the quarterly invoice".into());
+        }),
+        state("task due today card", |app| {
+            let reply = app.global::<TaskReplyUi>();
+            reply.set_task_id(-1);
+            reply.set_due_today(true);
+            reply.set_title(reply.invoke_due_text(12));
         }),
         state("task follow-up card", |app| {
             let reply = app.global::<TaskReplyUi>();

@@ -1287,3 +1287,24 @@ fn an_import_creates_missing_projects_and_columns_and_rejects_other_versions() {
     wrong.version = 99;
     assert!(s.import_all(&wrong).is_err());
 }
+
+#[test]
+fn due_today_is_announced_once_a_day_even_when_nothing_is_due() {
+    let (mut c, p) = setup();
+    let mut s = SqliteTaskStore::new(&mut c);
+    let end_of_day = 2_000_000_000_000;
+    // Nothing due: the day is used up and the first check reports nothing.
+    assert_eq!(s.note_due_today(end_of_day, "2026-10-27").unwrap(), None);
+    s.create_task(NewTask {
+        project_id: p,
+        title: "Pay the rent".into(),
+        due_at: Some(end_of_day - 1000),
+        ..Default::default()
+    })
+    .unwrap();
+    // A task added later the same day does not start an announcement.
+    assert_eq!(s.note_due_today(end_of_day, "2026-10-27").unwrap(), None);
+    // The next day announces what is listed under Today, once.
+    assert_eq!(s.note_due_today(end_of_day, "2026-10-28").unwrap(), Some(1));
+    assert_eq!(s.note_due_today(end_of_day, "2026-10-28").unwrap(), None);
+}

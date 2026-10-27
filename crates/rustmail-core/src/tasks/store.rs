@@ -665,6 +665,32 @@ impl SqliteTaskStore<'_> {
             .collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
+    /// The number of open tasks listed under Today, once for each `day_key`
+    /// (a local date such as `2026-10-27`): the first call of a day returns
+    /// the count and remembers the day, later calls the same day return
+    /// `None`. A day with nothing due is remembered too, so a task added
+    /// later that day does not start an announcement.
+    pub fn note_due_today(&mut self, today_end_ms: i64, day_key: &str) -> Result<Option<i64>> {
+        let announced: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT value FROM app_settings WHERE key = 'task_due_today_day'",
+                [],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if announced.as_deref() == Some(day_key) {
+            return Ok(None);
+        }
+        let count = count_focus(self.conn, TaskFocus::Today, today_end_ms)?;
+        self.conn.execute(
+            "INSERT INTO app_settings (key, value) VALUES ('task_due_today_day', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            [day_key],
+        )?;
+        Ok((count > 0).then_some(count))
+    }
+
     /// Tasks whose follow-up time has passed with no reply and that have not
     /// been announced for this follow-up time yet. Each is noted once in its
     /// activity (a later follow-up time announces again) and returned.

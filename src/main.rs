@@ -845,12 +845,17 @@ fn resolve_mail_drop(
 /// and every one natively when the user has notifications on.
 fn announce_task_replies(app: &AppWindow, replies: &[startup::TaskReplyUpdate]) {
     let ui = app.global::<TaskReplyUi>();
+    let text_of = |reply: &startup::TaskReplyUpdate| match reply.due_today {
+        Some(count) => ui.invoke_due_text(i32::try_from(count).unwrap_or(i32::MAX)).to_string(),
+        None => reply.title.clone(),
+    };
     if let Some(latest) = replies.last() {
         ui.set_task_id(i32::try_from(latest.task_id).unwrap_or(-1));
         ui.set_subject(latest.subject.clone().into());
         ui.set_moved_back(latest.moved_back);
         ui.set_follow_up(latest.follow_up);
-        ui.set_title(latest.title.clone().into());
+        ui.set_due_today(latest.due_today.is_some());
+        ui.set_title(text_of(latest).into());
     }
     // The card is enough while the user is looking at the window.
     if !app.get_notifications_enabled() || app.global::<WindowChrome>().get_active() {
@@ -858,7 +863,9 @@ fn announce_task_replies(app: &AppWindow, replies: &[startup::TaskReplyUpdate]) 
     }
     let sound = app.get_notification_sound_enabled();
     for reply in replies {
-        let summary = if reply.follow_up {
+        let summary = if reply.due_today.is_some() {
+            ui.get_notification_title_due()
+        } else if reply.follow_up {
             ui.get_notification_title_follow_up()
         } else if reply.moved_back {
             ui.get_notification_title_moved()
@@ -867,22 +874,31 @@ fn announce_task_replies(app: &AppWindow, replies: &[startup::TaskReplyUpdate]) 
         };
         let weak = app.as_weak();
         let task_id = i32::try_from(reply.task_id).unwrap_or(-1);
+        let due_today = reply.due_today.is_some();
         let on_click: Box<dyn FnOnce() + Send> = Box::new(move || {
             let _ = weak.upgrade_in_event_loop(move |app| {
                 let ui = app.global::<TaskReplyUi>();
                 ui.set_task_id(task_id);
+                ui.set_due_today(due_today);
                 ui.invoke_open();
             });
         });
         desktop_notify::show(
             summary.to_string(),
             if reply.subject.is_empty() {
-                reply.title.clone()
+                text_of(reply)
             } else {
                 format!("{}\n{}", reply.title, reply.subject)
             },
             sound,
-            Some((ui.get_notification_open().to_string(), on_click)),
+            Some((
+                if reply.due_today.is_some() {
+                    ui.get_notification_open_today().to_string()
+                } else {
+                    ui.get_notification_open().to_string()
+                },
+                on_click,
+            )),
         );
     }
 }

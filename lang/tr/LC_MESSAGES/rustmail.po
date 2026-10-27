@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-27 16:14+0000\n"
+"POT-Creation-Date: 2026-10-27 17:35+0000\n"
 "PO-Revision-Date: 2026-09-15 12:00+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Turkish\n"
@@ -1598,7 +1598,7 @@ msgid "Back to board"
 msgstr "Panoya dön"
 
 #: ui/app.slint:2456 ui/components/linked-task-banner.slint:114
-#: ui/components/task-reply.slint:16
+#: ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr "Görevi aç"
 
@@ -3475,15 +3475,27 @@ msgstr "Yeni etiket"
 msgid "No folders found"
 msgstr "Klasör bulunamadı"
 
-#: ui/components/task-reply.slint:13
+#: ui/components/task-reply.slint:15
+msgid "Due today"
+msgstr "Bugün son gün"
+
+#: ui/components/task-reply.slint:16
+msgid "Show today"
+msgstr "Bugünü göster"
+
+#: ui/components/task-reply.slint:18
+msgid "Tasks due: {}"
+msgstr "Bekleyen görevler: {}"
+
+#: ui/components/task-reply.slint:20
 msgid "Reply received"
 msgstr "Yanıt alındı"
 
-#: ui/components/task-reply.slint:14
+#: ui/components/task-reply.slint:21
 msgid "Reply received, task moved to Next actions"
 msgstr "Yanıt alındı, görev Sonraki eylemlere taşındı"
 
-#: ui/components/task-reply.slint:15
+#: ui/components/task-reply.slint:22
 msgid "No reply yet"
 msgstr "Henüz yanıt yok"
 

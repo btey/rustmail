@@ -325,6 +325,26 @@ impl Core {
         Ok(ids)
     }
 
+    /// Announce the tasks listed under Today, once for each local day.
+    pub async fn task_check_due_today(&self) -> Result<Option<i64>> {
+        use chrono::{Duration, Local, TimeZone};
+        let now = Local::now();
+        let day_key = now.format("%Y-%m-%d").to_string();
+        let tomorrow = (now.date_naive() + Duration::days(1))
+            .and_hms_opt(0, 0, 0)
+            .and_then(|midnight| Local.from_local_datetime(&midnight).earliest())
+            .map(|midnight| midnight.timestamp_millis())
+            .unwrap_or_else(|| now.timestamp_millis() + 24 * 60 * 60 * 1000);
+        let due = self
+            .db
+            .write(move |conn| SqliteTaskStore::new(conn).note_due_today(tomorrow, &day_key))
+            .await?;
+        if let Some(count) = due {
+            self.bus.emit(CoreEvent::TaskDueToday { count });
+        }
+        Ok(due)
+    }
+
     /// Long-lived loop: check once a minute whether a follow-up came due.
     pub(crate) async fn task_follow_up_loop(&self) {
         // The first check waits a full period so start-up keeps its database
@@ -335,6 +355,9 @@ impl Core {
             tick.tick().await;
             if let Err(error) = self.task_check_follow_ups().await {
                 tracing::warn!("task follow-up check failed: {error}");
+            }
+            if let Err(error) = self.task_check_due_today().await {
+                tracing::warn!("task due-today check failed: {error}");
             }
         }
     }

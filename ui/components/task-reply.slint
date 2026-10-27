@@ -10,6 +10,13 @@ export global TaskReplyUi {
     in-out property <bool> moved-back: false;
     // A follow-up came due with no reply, instead of a reply arriving.
     in-out property <bool> follow-up: false;
+    // The first check of a day found tasks under Today (no single task).
+    in-out property <bool> due-today: false;
+    out property <string> notification-title-due: @tr("Due today");
+    out property <string> notification-open-today: @tr("Show today");
+    pure public function due-text(count: int) -> string {
+        return @tr("Tasks due: {}", count);
+    }
     out property <string> notification-title: @tr("Reply received");
     out property <string> notification-title-moved: @tr("Reply received, task moved to Next actions");
     out property <string> notification-title-follow-up: @tr("No reply yet");

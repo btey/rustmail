@@ -130,6 +130,10 @@ pub enum CoreEvent {
         /// Whether a follow-up calendar event was booked.
         event_booked: bool,
     },
+    /// The first check of a day found open tasks listed under Today.
+    TaskDueToday {
+        count: i64,
+    },
     /// A task's follow-up time passed and its sent mail is still unanswered.
     TaskFollowUpDue {
         task_id: i64,

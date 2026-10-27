@@ -546,6 +546,8 @@ pub(crate) struct TaskReplyUpdate {
     pub(crate) moved_back: bool,
     /// A follow-up came due with no reply (`subject` is empty).
     pub(crate) follow_up: bool,
+    /// The day's first check found this many tasks under Today (`task_id` is -1).
+    pub(crate) due_today: Option<i64>,
 }
 
 impl PendingCoreUpdates {
@@ -735,6 +737,7 @@ pub(crate) fn spawn_core_event_listener(
                             subject,
                             moved_back,
                             follow_up: false,
+                            due_today: None,
                         });
                     }
                     true
@@ -750,6 +753,23 @@ pub(crate) fn spawn_core_event_listener(
                             subject: String::new(),
                             moved_back: false,
                             follow_up: true,
+                            due_today: None,
+                        });
+                    }
+                    true
+                }
+                Ok(CoreEvent::TaskDueToday { count }) => {
+                    let mut pending = pending
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    if pending.task_replies.len() < MAX_PENDING_TASK_REPLIES {
+                        pending.task_replies.push(TaskReplyUpdate {
+                            task_id: -1,
+                            title: String::new(),
+                            subject: String::new(),
+                            moved_back: false,
+                            follow_up: false,
+                            due_today: Some(count),
                         });
                     }
                     true

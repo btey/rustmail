@@ -879,6 +879,13 @@ pub(crate) fn register(
         };
         let task_id = app.global::<TaskReplyUi>().get_task_id();
         if task_id < 0 {
+            // The due-today card has no single task: show the Today list.
+            if app.global::<TaskReplyUi>().get_due_today() {
+                app.set_active_view("tasks".into());
+                app.set_settings_open(false);
+                app.global::<TasksUi>()
+                    .invoke_command("select".into(), "focus:today".into(), "".into());
+            }
             return;
         }
         app.set_active_view("tasks".into());
