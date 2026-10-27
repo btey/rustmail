@@ -2607,6 +2607,12 @@ impl Core {
                      DELETE FROM split_rules;
                      DELETE FROM route_cache;
                      DELETE FROM ai_usage_events;
+                     DELETE FROM task_changes;
+                     DELETE FROM tasks;
+                     DELETE FROM task_columns;
+                     DELETE FROM task_projects;
+                     DELETE FROM task_contexts;
+                     DELETE FROM task_labels;
                      DELETE FROM app_settings;",
                 )?;
                 Ok(())
@@ -9885,6 +9891,75 @@ mod local_data_reset_tests {
         assert!(!paths.models_dir().exists());
         assert!(core.list_accounts().await.unwrap().is_empty());
         assert_eq!(core.get_settings().await.unwrap().theme, "system");
+    }
+
+    #[tokio::test]
+    async fn removing_an_account_keeps_tasks_and_deleting_all_data_removes_them() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = Paths::for_tests(temp.path());
+        let core = start_test_core(&paths).await;
+        core.db
+            .write(|conn| {
+                db::testutil::seed_account(conn);
+                Ok(())
+            })
+            .await
+            .unwrap();
+        core.tasks_open().await.unwrap();
+        let project = core.task_projects().await.unwrap()[0].id;
+        let task = core
+            .task_create(tasks::NewTask {
+                project_id: project,
+                title: "Call the bank".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        core.task_context_create("phone".into()).await.unwrap();
+        core.task_checklist_add(task.id, "Find the number".into())
+            .await
+            .unwrap();
+
+        let task_rows = |core: &Core| {
+            let db = core.db.clone();
+            async move {
+                db.read(|conn| {
+                    let count = |table: &str| {
+                        conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                            row.get::<_, i64>(0)
+                        })
+                    };
+                    Ok((
+                        count("tasks")?,
+                        count("task_checklist_items")?,
+                        count("task_contexts")?,
+                        count("task_activity")?,
+                    ))
+                })
+                .await
+                .unwrap()
+            }
+        };
+
+        core.remove_account(1).await.unwrap();
+        let (tasks, checklist, contexts, _) = task_rows(&core).await;
+        assert_eq!((tasks, checklist, contexts), (1, 1, 1));
+
+        core.delete_all_local_data().await.unwrap();
+        assert_eq!(task_rows(&core).await, (0, 0, 0, 0));
+        // The task module starts again from its default project.
+        core.tasks_open().await.unwrap();
+        assert_eq!(core.task_projects().await.unwrap().len(), 1);
+        let project = core.task_projects().await.unwrap()[0].id;
+        let remaining = core
+            .task_list(tasks::TaskFilter {
+                project_id: Some(project),
+                include_done: true,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        assert!(remaining.is_empty());
     }
 
     #[tokio::test]

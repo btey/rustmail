@@ -217,6 +217,7 @@ Design: `Tasks · Timeline (Gantt)-html/Timeline.dc.html`.
 - [ ] Optional task sync (`optional`): first backend CalDAV VTODO (reuse `caldav/`), draining the Phase 6 `task_changes` log; deadlines, status and checklist mapping, links via `X-` properties; a Settings switch per account; needs the conflict policy from Phase 6
 - [ ] Optional: attach a task from the calendar event dialog ("Create task from event")
 - [ ] Data controller: count task data in storage usage and in account removal tests (removing a mail account must not delete tasks; links to its mail become "mail not found")
+  - Done so far: a test (`removing_an_account_keeps_tasks_and_deleting_all_data_removes_them`) shows that removing a mail account keeps its tasks, checklists and contexts, and it found that "Delete everything" left every task behind; `delete_all_local_data` now clears the task tables too. Still missing: task data in the storage usage page, and a test that a link to a removed account's mail shows "mail not found"
 - [ ] Accessibility pass: keyboard navigation of the board, screen-reader labels for cards and bars
 - [ ] Update `README`/docs and the `add-backend`-style skill note for the tasks module; record limits in this file
 - [ ] Try the whole flow in the real app with a throwaway profile (`run-app` skill) against a real IMAP account copy; only unit tests until then
