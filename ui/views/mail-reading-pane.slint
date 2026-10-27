@@ -427,7 +427,7 @@ export component MailReadingPane inherits Rectangle {
     private property <bool> show-navigation: root.toolbar-room >= (10 + root.compose-button-count) * root.toolbar-slot;
     // Compact pages never show navigation or spam, so read is the only
     // secondary action there.
-    private property <int> secondary-button-count: (root.compact ? 7 : 8) + root.compose-button-count;
+    private property <int> secondary-button-count: (root.compact ? 7 : 9) + root.compose-button-count;
     private property <bool> show-secondary-actions: root.toolbar-room
         >= root.secondary-button-count * root.toolbar-slot;
     private property <bool> show-primary-actions: root.toolbar-room >= (6 + root.compose-button-count) * root.toolbar-slot;
@@ -782,6 +782,16 @@ export component MailReadingPane inherits Rectangle {
                                 hover-background: root.muted-control-bg;
                                 tooltip-text: @tr("Move to spam");
                                 clicked => { root.message_action("spam"); }
+                            }
+                            if !root.compact && !root.selected_is_draft && root.show-secondary-actions : ToolbarIconButton {
+                                interactive: root.has_selected;
+                                icon: @image-url("../icons/lucide/outline/tasks.svg");
+                                icon-color: root.secondary-text;
+                                idle-background: root.control-bg;
+                                hover-background: root.muted-control-bg;
+                                tooltip-text: @tr("Create task");
+                                accessible-id: "message-toolbar-create-task-button";
+                                clicked => { root.message_action("create_task"); }
                             }
                             if root.show-primary-actions : ToolbarIconButton {
                                 interactive: root.has_selected;
