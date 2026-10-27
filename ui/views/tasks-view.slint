@@ -269,6 +269,16 @@ component TaskCard inherits Rectangle {
     opacity: root.card.done ? 0.75 : 1;
     accessible-role: list-item;
     accessible-label: root.card.title;
+    // What the sighted user reads on the card, in one sentence for a screen reader.
+    accessible-description:
+        (root.card.done ? @tr("Done") + ". " : "")
+        + (root.card.status != "" ? root.card.status + ". " : "")
+        + (root.card.due != "" ? @tr("Due {}", root.card.due) + ". " : "")
+        + (root.card.high-priority ? @tr("High priority") + ". " : "")
+        + (root.card.no-reply-days >= 0 ? @tr("No reply · {}d", root.card.no-reply-days) + ". " : "")
+        + (root.card.checklist-total > 0 ? @tr("{}/{} done", root.card.checklist-done, root.card.checklist-total) + ". " : "")
+        + (root.card.link-count > 0 ? @tr("{} linked", root.card.link-count) + ". " : "");
+    accessible-action-default => { root.open(); }
 
     DragArea {
         allow-move: true;

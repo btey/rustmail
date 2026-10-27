@@ -219,6 +219,7 @@ Design: `Tasks · Timeline (Gantt)-html/Timeline.dc.html`.
 - [x] Data controller: count task data in storage usage and in account removal tests (removing a mail account must not delete tasks; links to its mail become "mail not found")
   - Done so far: a test (`removing_an_account_keeps_tasks_and_deleting_all_data_removes_them`) shows that removing a mail account keeps its tasks, checklists and contexts, and it found that "Delete everything" left every task behind; `delete_all_local_data` now clears the task tables too. The same test checks that a link to the removed account's mail stays and shows "mail not found". Task data lives in the mail database, so the storage page already counts it under "Databases" (there is no separate size for tasks)
 - [ ] Accessibility pass: keyboard navigation of the board, screen-reader labels for cards and bars
+  - Done so far: each board card has an accessible description (done, status, due date, high priority, days without a reply, checklist progress, link count) and a default action that opens the task (screen readers only; not tried with a screen reader). Still missing: keyboard navigation of the board (focus, arrow keys, Enter), labels for the timeline bars (Phase 10)
 - [ ] Update `README`/docs and the `add-backend`-style skill note for the tasks module; record limits in this file
 - [ ] Try the whole flow in the real app with a throwaway profile (`run-app` skill) against a real IMAP account copy; only unit tests until then
 
