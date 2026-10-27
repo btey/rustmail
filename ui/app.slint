@@ -547,7 +547,14 @@ export global I18n {
 }
 
 export component AppWindow inherits Window {
-    title: @tr("Rustmail");
+    // Open tasks listed under Today; shown in the window title as "(3) Rustmail".
+    in-out property <int> tasks_due_today: 0;
+    title: root.tasks_due_today > 0 ? "(" + root.tasks_due_today + ") " + @tr("Rustmail") : @tr("Rustmail");
+    Timer {
+        interval: 60s;
+        running: true;
+        triggered => { TasksUi.command("due-badge", "", ""); }
+    }
     // Window managers show this at 256 px at most, and the decoded pixels stay
     // resident for the life of the process, including while in the tray.
     icon: @image-url("../resources/app-icon/rustmail-window.png");

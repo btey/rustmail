@@ -854,6 +854,12 @@ pub(crate) fn register(
     });
     let command = Rc::clone(&ctx);
     app.global::<TasksUi>().on_command(move |action, a, b| {
+        if action == "due-badge" {
+            if let Some(app) = command.weak.upgrade() {
+                refresh_due_badge(&app, &command.state, &command.handle);
+            }
+            return;
+        }
         dispatch(&command, action.to_string(), vec![a.to_string(), b.to_string()]);
     });
     app.global::<TasksUi>().on_to_transfer(slint::DataTransfer::from);
@@ -935,6 +941,28 @@ pub(crate) fn register(
                 ],
             );
         });
+}
+
+/// Count the open tasks listed under Today and show the number in the window
+/// title. Runs for any view, because the title is always visible.
+pub(crate) fn refresh_due_badge(
+    app: &AppWindow,
+    state: &Rc<RefCell<InboxState>>,
+    runtime: &tokio::runtime::Handle,
+) {
+    let Some(core) = state.borrow().core.as_ref().map(|c| c.file_core()) else {
+        return;
+    };
+    let weak = app.as_weak();
+    let today_end = today_end_ms();
+    runtime.spawn(async move {
+        let counts = core.task_counts(today_end).await;
+        let _ = weak.upgrade_in_event_loop(move |app| {
+            if let Ok(counts) = counts {
+                app.set_tasks_due_today(i32::try_from(counts.today).unwrap_or(i32::MAX));
+            }
+        });
+    });
 }
 
 /// Refresh the task badges on the mail list rows: one entry per conversation

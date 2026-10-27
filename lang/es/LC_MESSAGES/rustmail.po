@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-27 17:35+0000\n"
+"POT-Creation-Date: 2026-10-27 18:00+0000\n"
 "PO-Revision-Date: 2026-09-20 23:21+0000\n"
 "Last-Translator: Admin <admin@rustmail.org>\n"
 "Language-Team: Spanish <https://translate.rustmail.org/projects/rustmail/"
@@ -186,7 +186,7 @@ msgstr "Historial de conversaciones disponible"
 msgid "New address-book entry"
 msgstr "Nueva entrada de contactos"
 
-#: ui/app.slint:134 ui/app.slint:919 ui/components/composer-fields.slint:66
+#: ui/app.slint:134 ui/app.slint:926 ui/components/composer-fields.slint:66
 #: ui/dialogs/compose-dialog.slint:37
 msgid "No connected account"
 msgstr "No hay ninguna cuenta conectada"
@@ -1531,115 +1531,115 @@ msgstr "No se pudo marcar el mensaje como leído: {}"
 msgid "Loading message…"
 msgstr "Cargando mensaje…"
 
-#: ui/app.slint:550 ui/components/workspace-navigation.slint:579
+#: ui/app.slint:552 ui/components/workspace-navigation.slint:579
 #: ui/dialogs/settings-dialog.slint:2263 ui/tray.slint:13
 #: ui/views/onboarding-view.slint:129
 msgid "Rustmail"
 msgstr "Rustmail"
 
-#: ui/app.slint:1140 ui/app.slint:1153
+#: ui/app.slint:1147 ui/app.slint:1160
 msgid "Global Labels (local only)"
 msgstr "Etiquetas globales (solo locales)"
 
-#: ui/app.slint:2041
+#: ui/app.slint:2048
 msgid "Empty Trash?"
 msgstr "¿Vaciar la papelera?"
 
-#: ui/app.slint:2041 ui/views/files-view.slint:539
+#: ui/app.slint:2048 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr "¿Eliminar permanentemente?"
 
-#: ui/app.slint:2045
+#: ui/app.slint:2052
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 "¿Eliminar permanentemente todos los mensajes de la papelera de todas las "
 "cuentas conectadas?"
 
-#: ui/app.slint:2046
+#: ui/app.slint:2053
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr ""
 "¿Eliminar permanentemente todos los mensajes de la papelera de esta cuenta?"
 
-#: ui/app.slint:2048
+#: ui/app.slint:2055
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr ""
 "¿Eliminar permanentemente las conversaciones seleccionadas de la papelera?"
 
-#: ui/app.slint:2049
+#: ui/app.slint:2056
 msgid "Permanently delete this conversation from Trash?"
 msgstr "¿Eliminar permanentemente esta conversación de la papelera?"
 
-#: ui/app.slint:2050 ui/components/calendar.slint:937
+#: ui/app.slint:2057 ui/components/calendar.slint:937
 msgid "This action cannot be undone."
 msgstr "Esta acción no se puede deshacer."
 
-#: ui/app.slint:2051
+#: ui/app.slint:2058
 msgid "Empty Trash"
 msgstr "Vaciar la papelera"
 
-#: ui/app.slint:2051 ui/views/files-view.slint:621
+#: ui/app.slint:2058 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr "Eliminar permanentemente"
 
-#: ui/app.slint:2225
+#: ui/app.slint:2232
 msgid "Mailbox startup failed"
 msgstr "Error al iniciar el buzón"
 
-#: ui/app.slint:2231
+#: ui/app.slint:2238
 msgid "Rustmail could not open local storage"
 msgstr "Rustmail no pudo abrir el almacenamiento local"
 
-#: ui/app.slint:2244
+#: ui/app.slint:2251
 msgid "Diagnostic ID: {}"
 msgstr "ID de diagnóstico: {}"
 
-#: ui/app.slint:2247
+#: ui/app.slint:2254
 msgid "Diagnostic ID {}"
 msgstr "ID de diagnóstico {}"
 
-#: ui/app.slint:2252
+#: ui/app.slint:2259
 msgid "Retry"
 msgstr "Reintentar"
 
-#: ui/app.slint:2260 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2267 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr "Copiar datos de diagnóstico"
 
-#: ui/app.slint:2326 ui/app.slint:2411 ui/app.slint:2469
+#: ui/app.slint:2333 ui/app.slint:2418 ui/app.slint:2476
 msgid "Dismiss"
 msgstr "Descartar"
 
-#: ui/app.slint:2346 ui/app.slint:2351
+#: ui/app.slint:2353 ui/app.slint:2358
 msgid "Sent and linked"
 msgstr "Enviado y vinculado"
 
-#: ui/app.slint:2369
+#: ui/app.slint:2376
 msgid "Task moved to Waiting for"
 msgstr "Tarea movida a En espera"
 
-#: ui/app.slint:2369
+#: ui/app.slint:2376
 msgid "Task marked as done"
 msgstr "Tarea marcada como hecha"
 
-#: ui/app.slint:2378
+#: ui/app.slint:2385
 msgid "Follow-up in {} days"
 msgstr "Seguimiento en {} días"
 
-#: ui/app.slint:2387
+#: ui/app.slint:2394
 msgid "Follow-up added to the calendar"
 msgstr "Seguimiento añadido al calendario"
 
-#: ui/app.slint:2397
+#: ui/app.slint:2404
 msgid "Back to board"
 msgstr "Volver al tablero"
 
-#: ui/app.slint:2456 ui/components/linked-task-banner.slint:114
+#: ui/app.slint:2463 ui/components/linked-task-banner.slint:114
 #: ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr "Abrir tarea"
 
-#: ui/app.slint:2501 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2508 ui/components/workspace-navigation.slint:126
 #: ui/dialogs/settings-dialog.slint:2044
 msgid "Tasks"
 msgstr "Tareas"
