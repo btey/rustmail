@@ -339,6 +339,35 @@ impl Core {
         }
     }
 
+    /// All tasks as a JSON document (see `tasks::transfer`).
+    pub async fn task_export_json(&self) -> Result<String> {
+        let now = now_ms();
+        let export = self
+            .db
+            .read(move |conn| SqliteTaskStore::new(conn).export_all(now))
+            .await?;
+        serde_json::to_string_pretty(&export)
+            .map_err(|error| CoreError::Other(format!("task export failed: {error}")))
+    }
+
+    /// Add the tasks of a JSON export to the database; existing tasks with
+    /// the same project, title and description are skipped.
+    pub async fn task_import_json(&self, json: &str) -> Result<transfer::ImportReport> {
+        if json.len() > transfer::MAX_IMPORT_BYTES {
+            return Err(CoreError::Other("the task file is too large".into()));
+        }
+        let export: transfer::TaskExport = serde_json::from_str(json)
+            .map_err(|error| CoreError::Other(format!("not a task export: {error}")))?;
+        let report = self
+            .db
+            .write(move |conn| SqliteTaskStore::new(conn).import_all(&export))
+            .await?;
+        if report.tasks_created > 0 || report.projects_created > 0 {
+            self.bus.emit(CoreEvent::TasksChanged);
+        }
+        Ok(report)
+    }
+
     /// Tasks linked to the given mail threads (all linked threads for `None`).
     pub async fn task_threads(&self, only: Option<Vec<i64>>) -> Result<Vec<ThreadTask>> {
         self.db

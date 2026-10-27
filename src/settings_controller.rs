@@ -97,6 +97,43 @@ pub(super) fn register_settings_preference_callbacks(
         }
     });
 
+    for archive in [false, true] {
+        let app_weak = app.as_weak();
+        let state_for_tasks = Rc::clone(state);
+        let runtime_for_tasks = Rc::clone(runtime);
+        let save = move |follow_up: Option<i32>, archive_value: Option<bool>| {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let ui = app.global::<TaskSettingsUi>();
+            if let Some(follow_up) = follow_up {
+                ui.set_follow_up(follow_up.clamp(0, 3));
+            }
+            if let Some(archive_value) = archive_value {
+                ui.set_archive(archive_value);
+            }
+            let Some(core) = state_for_tasks.borrow().core.clone() else {
+                return;
+            };
+            match runtime_for_tasks.block_on(core.set_task_settings(
+                i64::from(ui.get_follow_up()),
+                ui.get_archive(),
+            )) {
+                Ok(()) => app.set_sync_status(UiMessage::plain("Task settings saved.")),
+                Err(error) => app.set_sync_status(UiMessage::detail(
+                    "Could not save the task settings: {}",
+                    error,
+                )),
+            }
+        };
+        let ui = app.global::<TaskSettingsUi>();
+        if archive {
+            ui.on_save_archive(move |value| save(None, Some(value)));
+        } else {
+            ui.on_save_follow_up(move |value| save(Some(value), None));
+        }
+    }
+
     let app_weak = app.as_weak();
     let state_for_undo = Rc::clone(state);
     let runtime_for_undo = Rc::clone(runtime);

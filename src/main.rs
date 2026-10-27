@@ -5691,7 +5691,11 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             return;
         }
         *intent_for_task.borrow_mut() = ComposeIntent {
-            task: Some(TaskSend::initial(i64::from(task_id))),
+            task: Some(TaskSend::from_choices(
+                i64::from(task_id),
+                0,
+                app.global::<TaskSettingsUi>().get_follow_up(),
+            )),
             ..ComposeIntent::default()
         };
         app.set_compose_mode("new".into());
@@ -5702,8 +5706,9 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             .invoke_composer_account_changed(app.get_compose_account_id());
         let options = app.global::<TaskComposeUi>();
         options.set_after(0);
-        options.set_follow_up(0);
-        options.set_follow_up_date(TaskSend::follow_up_date_label(0).into());
+        let follow_up = app.global::<TaskSettingsUi>().get_follow_up();
+        options.set_follow_up(follow_up);
+        options.set_follow_up_date(TaskSend::follow_up_date_label(follow_up).into());
         options.set_active(true);
         app.set_compose_notice_is_error(false);
         app.set_compose_open(true);

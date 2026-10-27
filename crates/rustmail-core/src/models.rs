@@ -1832,6 +1832,13 @@ pub struct Settings {
     #[serde(default = "default_calendar_week_start")]
     pub calendar_week_start: String,
     pub undo_send_seconds: i64,
+    /// The composer's starting "If no reply in" choice for a task mail:
+    /// 0 four days, 1 two days, 2 one week, 3 never.
+    #[serde(default)]
+    pub task_follow_up_default: i64,
+    /// Whether "Archive email once the task exists" starts ticked.
+    #[serde(default)]
+    pub task_archive_on_create: bool,
     #[serde(default)]
     pub load_remote_images: bool,
     /// Mark unread conversations as read when the user opens them.
@@ -2163,6 +2170,8 @@ impl Default for Settings {
             language: "system".into(),
             calendar_week_start: default_calendar_week_start(),
             undo_send_seconds: 10,
+            task_follow_up_default: 0,
+            task_archive_on_create: false,
             load_remote_images: false,
             mark_read_on_open: true,
             ai_base_url: default_ai_base_url(),

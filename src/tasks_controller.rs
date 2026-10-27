@@ -3,7 +3,7 @@
 //! reloads one `Snapshot` (plain `Send` data) that is applied to the models.
 use crate::{
     ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, TaskCardRow, TaskColumnRow,
-    LinkedTask, TaskChipEntry, TaskChips, TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TaskReplyUi, TasksUi,
+    LinkedTask, TaskChipEntry, TaskChips, TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TaskReplyUi, TaskSettingsUi, TasksUi,
 };
 use chrono::{Local, TimeZone};
 use rustmail_core::Core;
@@ -1081,7 +1081,7 @@ fn open_from_mail(ctx: &Rc<Ctx>, row_id: i32) {
             dialog.set_title(subject.into());
             dialog.set_status("inbox".into());
             dialog.set_due("".into());
-            dialog.set_archive(false);
+            dialog.set_archive(app.global::<TaskSettingsUi>().get_archive());
             dialog.set_error("".into());
             dialog.set_busy(false);
             dialog.set_open(true);

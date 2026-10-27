@@ -1,3 +1,13 @@
+// The "Tasks" settings; the app loads them at start and writes changes back.
+export global TaskSettingsUi {
+    // 0 four days, 1 two days, 2 one week, 3 never (see TaskComposeUi.follow-up).
+    in-out property <int> follow-up: 0;
+    // "Archive email once the task exists" starts ticked.
+    in-out property <bool> archive: false;
+    callback save-follow-up(int);
+    callback save-archive(bool);
+}
+
 // State of the composer's "email from a task" options. The values are
 // indexes; the app owns them and the labels live in composer-actions.slint.
 export global TaskComposeUi {

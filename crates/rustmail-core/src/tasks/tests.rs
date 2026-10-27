@@ -1157,3 +1157,133 @@ async fn a_follow_up_event_is_booked_and_linked_to_the_task() {
         Some("Follow up: Ask about the invoice")
     );
 }
+
+#[test]
+fn an_export_imports_into_another_database_and_twice_changes_nothing() {
+    let (mut source, p) = setup();
+    let waiting = col(&mut source, p, ColumnKind::Waiting).id;
+    let mut s = SqliteTaskStore::new(&mut source);
+    let context = s.create_context("computer").unwrap();
+    let label = s.create_label("finance", "#ff8800").unwrap();
+    let open = s
+        .create_task(NewTask {
+            project_id: p,
+            column_id: Some(waiting),
+            title: "Ask about the invoice".into(),
+            description: "Total and VAT.".into(),
+            due_at: Some(1_800_000_000_000),
+            priority: 2,
+            context_id: Some(context.id),
+            label_ids: vec![label.id],
+            ..Default::default()
+        })
+        .unwrap();
+    let first = s.add_checklist_item(open.id, "Find the number").unwrap();
+    s.add_checklist_item(open.id, "Write the mail").unwrap();
+    s.update_checklist_item(first.id, None, Some(true)).unwrap();
+    let finished = plain_task(&mut s, p, "Book the room");
+    s.complete_task(finished.id).unwrap();
+    let export = s.export_all(1).unwrap();
+    let json = serde_json::to_string(&export).unwrap();
+
+    let (mut target, _) = setup();
+    let parsed: transfer::TaskExport = serde_json::from_str(&json).unwrap();
+    let mut t = SqliteTaskStore::new(&mut target);
+    let report = t.import_all(&parsed).unwrap();
+    assert_eq!(report.tasks_created, 2);
+    assert_eq!(report.tasks_skipped, 0);
+    assert_eq!(report.projects_created, 0);
+
+    let project = t.list_projects().unwrap()[0].id;
+    let tasks = t
+        .list_tasks(&TaskFilter {
+            project_id: Some(project),
+            include_done: true,
+            ..Default::default()
+        })
+        .unwrap();
+    let imported = tasks
+        .iter()
+        .find(|x| x.title == "Ask about the invoice")
+        .unwrap();
+    assert_eq!(imported.description, "Total and VAT.");
+    assert_eq!(imported.due_at, Some(1_800_000_000_000));
+    assert_eq!(imported.priority, 2);
+    assert_eq!((imported.checklist_total, imported.checklist_done), (2, 1));
+    let columns = t.list_columns(project).unwrap();
+    let column = columns.iter().find(|c| c.id == imported.column_id).unwrap();
+    assert_eq!(column.kind, ColumnKind::Waiting);
+    assert_eq!(
+        t.list_contexts()
+            .unwrap()
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect::<Vec<_>>(),
+        ["computer"]
+    );
+    assert_eq!(imported.label_ids.len(), 1);
+    let done = tasks.iter().find(|x| x.title == "Book the room").unwrap();
+    assert!(done.completed_at.is_some());
+
+    // The same file again adds nothing.
+    let again = t.import_all(&parsed).unwrap();
+    assert_eq!(again.tasks_created, 0);
+    assert_eq!(again.tasks_skipped, 2);
+}
+
+#[test]
+fn an_import_creates_missing_projects_and_columns_and_rejects_other_versions() {
+    let (mut c, _) = setup();
+    let mut s = SqliteTaskStore::new(&mut c);
+    let export = transfer::TaskExport {
+        app: "rustmail".into(),
+        version: transfer::EXPORT_VERSION,
+        exported_at: 0,
+        projects: vec![transfer::ExportProject {
+            name: "Move house".into(),
+            colour: "#3366ff".into(),
+            columns: vec![transfer::ExportColumn {
+                name: "Boxes".into(),
+                kind: ColumnKind::Custom,
+            }],
+            tasks: vec![transfer::ExportTask {
+                title: "Pack the kitchen".into(),
+                description: String::new(),
+                column: "Boxes".into(),
+                due_at: None,
+                start_at: None,
+                priority: 9,
+                context: None,
+                assignee_email: None,
+                assignee_name: None,
+                labels: Vec::new(),
+                checklist: Vec::new(),
+                completed_at: None,
+            }],
+        }],
+    };
+    let report = s.import_all(&export).unwrap();
+    assert_eq!(report.projects_created, 1);
+    assert_eq!(report.tasks_created, 1);
+    let project = s
+        .list_projects()
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == "Move house")
+        .unwrap();
+    let columns = s.list_columns(project.id).unwrap();
+    assert!(columns.iter().any(|c| c.name == "Boxes"));
+    let task = &s
+        .list_tasks(&TaskFilter {
+            project_id: Some(project.id),
+            include_done: true,
+            ..Default::default()
+        })
+        .unwrap()[0];
+    // An out-of-range priority is clamped, not stored as given.
+    assert_eq!(task.priority, 3);
+
+    let mut wrong = export;
+    wrong.version = 99;
+    assert!(s.import_all(&wrong).is_err());
+}

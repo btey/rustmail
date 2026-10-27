@@ -146,6 +146,8 @@ mod tests {
         assert_eq!(s.undo_send_seconds, 20);
         assert!(s.load_remote_images);
         assert!(s.mark_read_on_open);
+        assert_eq!(s.task_follow_up_default, 0);
+        assert!(!s.task_archive_on_create);
         assert!(!s.monochrome_sidebar_icons);
         assert!(s.show_avatars);
         assert!(s.group_mail_by_date);

@@ -43,7 +43,7 @@ import { MailView } from "views/mail-view.slint";
 export { MessageColors } from "message-colors.slint";
 export { FilesUi, FileRow, OperationRow } from "views/files-view.slint";
 import { FilesView, FilesUi } from "views/files-view.slint";
-export { TaskComposeUi } from "components/task-compose.slint";
+export { TaskComposeUi, TaskSettingsUi } from "components/task-compose.slint";
 export { TaskReplyUi } from "components/task-reply.slint";
 export { SendUndoUi } from "components/send-undo.slint";
 export { TasksUi, TaskCardRow, TaskColumnRow, TaskNavRow, TaskDetailRow, ChecklistRow, LinkRow, ActivityRow } from "views/tasks-view.slint";
@@ -187,8 +187,10 @@ export global I18n {
         if (key == "Message-opening preference updated for this session.") { return @tr("Message-opening preference updated for this session."); }
         if (key == "Message-opening preference saved.") { return @tr("Message-opening preference saved."); }
         if (key == "Undo send window saved.") { return @tr("Undo send window saved."); }
+        if (key == "Task settings saved.") { return @tr("Task settings saved."); }
         if (key == "Could not save message-opening preference: {}") { return @tr("Could not save message-opening preference: {}", argument); }
         if (key == "Could not save the undo send window: {}") { return @tr("Could not save the undo send window: {}", argument); }
+        if (key == "Could not save the task settings: {}") { return @tr("Could not save the task settings: {}", argument); }
         if (key == "Contact suggestion preferences are active for this session.") { return @tr("Contact suggestion preferences are active for this session."); }
         if (key == "Contact suggestion preferences saved.") { return @tr("Contact suggestion preferences saved."); }
         if (key == "Could not save contact suggestion preferences: {}") { return @tr("Could not save contact suggestion preferences: {}", argument); }
@@ -306,6 +308,13 @@ export global I18n {
         if (key == "Export Rustmail account backup") { return @tr("Export Rustmail account backup"); }
         if (key == "Import Rustmail account backup") { return @tr("Import Rustmail account backup"); }
         if (key == "Rustmail backup") { return @tr("Rustmail backup"); }
+        if (key == "Export tasks") { return @tr("Export tasks"); }
+        if (key == "Import tasks") { return @tr("Import tasks"); }
+        if (key == "Rustmail tasks") { return @tr("Rustmail tasks"); }
+        if (key == "Tasks exported.") { return @tr("Tasks exported."); }
+        if (key == "Could not export tasks: {}") { return @tr("Could not export tasks: {}", argument); }
+        if (key == "Could not import tasks: {}") { return @tr("Could not import tasks: {}", argument); }
+        if (key == "Imported {} tasks; {} skipped as already present; {} projects added.") { return @tr("Imported {} tasks; {} skipped as already present; {} projects added.", argument, second-argument, third-argument); }
         if (key == "Choose where to export the database snapshot") { return @tr("Choose where to export the database snapshot"); }
         if (key == "Backup exported. Passwords and OAuth tokens were not included.") { return @tr("Backup exported. Passwords and OAuth tokens were not included."); }
         if (key == "Could not export backup: {}") { return @tr("Could not export backup: {}", argument); }
@@ -648,6 +657,8 @@ export component AppWindow inherits Window {
     callback export_account_backup();
     callback import_account_backup();
     callback export_database_snapshot();
+    callback export_tasks();
+    callback import_tasks();
     callback delete_all_data();
     callback load_storage_usage();
     callback cancel_storage_usage();
@@ -1901,6 +1912,8 @@ export component AppWindow inherits Window {
             export_account_backup => { root.export_account_backup(); }
             import_account_backup => { root.import_account_backup(); }
             export_database_snapshot => { root.export_database_snapshot(); }
+            export_tasks => { root.export_tasks(); }
+            import_tasks => { root.import_tasks(); }
             delete_all_data => { root.delete_all_data(); }
             load_storage_usage => { root.load_storage_usage(); }
             open-link(url) => { root.open_email_link(url); }

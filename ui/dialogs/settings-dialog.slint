@@ -11,6 +11,7 @@ import { AccountRow, AdvancedOptions, MailProfileRow, StorageUsageRow } from "..
 import { Avatar } from "../components/avatar.slint";
 import { Button } from "../components/button.slint";
 import { SendUndoUi } from "../components/send-undo.slint";
+import { TaskSettingsUi } from "../components/task-compose.slint";
 import { ConfirmationDialog } from "../components/confirmation-dialog.slint";
 import { IconButton, LineEdit, RadioButton, Switch } from "../components/controls.slint";
 import { CopyableDiagnostic } from "../components/copyable-diagnostic.slint";
@@ -503,6 +504,8 @@ export component SettingsDialog inherits Rectangle {
     callback export_account_backup();
     callback import_account_backup();
     callback export_database_snapshot();
+    callback export_tasks();
+    callback import_tasks();
     callback delete_all_data();
     callback load_storage_usage();
     pure callback settings-search-matches(string, string) -> bool;
@@ -536,6 +539,12 @@ export component SettingsDialog inherits Rectangle {
         : SendUndoUi.seconds <= 5 ? 1
         : SendUndoUi.seconds <= 10 ? 2
         : SendUndoUi.seconds <= 20 ? 3 : 4;
+    private property <[string]> task-follow-up-options: [
+        @tr("4 days"),
+        @tr("2 days"),
+        @tr("1 week"),
+        @tr("Never"),
+    ];
     private property <[string]> language-options: [
         @tr("System language"),
         @tr("English"),
@@ -1083,6 +1092,42 @@ export component SettingsDialog inherits Rectangle {
                                         selected(index, value) => {
                                             SendUndoUi.save-seconds(index == 0 ? 0 : index == 1 ? 5 : index == 2 ? 10 : index == 3 ? 20 : 30);
                                         }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                height: max(root.compact ? 230px : 176px, self.preferred-height);
+                                background: root.surface;
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: root.border-subtle;
+                                VerticalBox {
+                                    padding-top: 15px;
+                                    padding-right: 20px;
+                                    padding-bottom: 15px;
+                                    padding-left: 20px;
+                                    spacing: 5px;
+                                    Text { text: @tr("Tasks"); color: root.heading; font-size: TypeScale.subtitle; font-weight: 700; wrap: word-wrap; }
+                                    SettingsSelectRow {
+                                        compact: root.compact;
+                                        title: @tr("Follow-up for task email");
+                                        description: @tr("How long to wait for a reply before a task is flagged.");
+                                        choices: root.task-follow-up-options;
+                                        selected-index: TaskSettingsUi.follow-up;
+                                        title-color: root.body-text;
+                                        description-color: root.faint-text;
+                                        selected(index, value) => { TaskSettingsUi.save-follow-up(index); }
+                                    }
+                                    Rectangle { height: 1px; background: root.border-subtle; }
+                                    SettingsSwitchRow {
+                                        compact: root.compact;
+                                        title: @tr("Archive the email when making a task");
+                                        description: @tr("Tick “Archive email once the task exists” by default.");
+                                        checked: TaskSettingsUi.archive;
+                                        title-color: root.body-text;
+                                        description-color: root.faint-text;
+                                        toggled(checked) => { TaskSettingsUi.save-archive(checked); }
                                     }
                                 }
                             }
@@ -1982,6 +2027,29 @@ export component SettingsDialog inherits Rectangle {
                                 font-size: TypeScale.secondary;
                                 vertical-alignment: center;
                                 wrap: word-wrap;
+                            }
+
+                            Rectangle {
+                                height: max(root.compact ? 190px : 150px, self.preferred-height);
+                                background: root.surface;
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: root.border-subtle;
+                                VerticalBox {
+                                    padding-top: 15px;
+                                    padding-right: 20px;
+                                    padding-bottom: 15px;
+                                    padding-left: 20px;
+                                    spacing: 8px;
+                                    Text { text: @tr("Tasks"); color: root.heading; font-size: TypeScale.subtitle; font-weight: 700; wrap: word-wrap; }
+                                    Text { text: @tr("Export tasks to a JSON file, or add the tasks of such a file. Tasks that already exist are skipped. Links to mail are not included."); color: root.faint-text; font-size: TypeScale.caption; wrap: word-wrap; }
+                                    HorizontalBox {
+                                        spacing: 8px;
+                                        alignment: start;
+                                        Button { text: @tr("Export tasks"); width: max(130px, self.content-width + 28px); clicked => { root.export_tasks(); } }
+                                        Button { text: @tr("Import tasks"); width: max(130px, self.content-width + 28px); clicked => { root.import_tasks(); } }
+                                    }
+                                }
                             }
 
                             StorageUsageCard {

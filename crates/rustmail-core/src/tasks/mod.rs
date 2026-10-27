@@ -25,6 +25,7 @@
 mod api;
 pub mod position;
 mod store;
+pub mod transfer;
 
 pub use store::SqliteTaskStore;
 

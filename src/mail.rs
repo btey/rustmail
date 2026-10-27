@@ -778,6 +778,20 @@ impl CoreMailSource {
         self.core.set_account_sent_copy_policy(account_id, policy).await.map_err(|e| e.to_string())
     }
 
+    pub async fn set_task_settings(
+        &self,
+        follow_up_default: i64,
+        archive_on_create: bool,
+    ) -> Result<(), String> {
+        let mut settings = self.load_settings().await?;
+        settings.task_follow_up_default = follow_up_default.clamp(0, 3);
+        settings.task_archive_on_create = archive_on_create;
+        self.core
+            .set_settings(settings)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn set_undo_send_seconds(&self, seconds: i64) -> Result<(), String> {
         let mut settings = self.load_settings().await?;
         settings.undo_send_seconds = seconds;

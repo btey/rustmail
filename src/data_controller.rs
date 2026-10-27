@@ -341,6 +341,22 @@ fn read_account_backup(path: &std::path::Path) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
+/// Reads a task export, refusing files above the importer's limit.
+fn read_task_file(path: &std::path::Path) -> Result<String, String> {
+    use std::io::Read;
+
+    let limit = rustmail_core::tasks::transfer::MAX_IMPORT_BYTES as u64;
+    let file = std::fs::File::open(path).map_err(|error| error.to_string())?;
+    let mut bytes = Vec::new();
+    file.take(limit + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    if bytes.len() as u64 > limit {
+        return Err("the task file is larger than the 16 MB limit".into());
+    }
+    String::from_utf8(bytes).map_err(|_| "the task file is not UTF-8 text".into())
+}
+
 /// Applies an account backup the host already imported. The caller keeps the
 /// imported document alive until this returns.
 fn import_account_backup_document(
@@ -611,6 +627,10 @@ fn import_account_backup_document(
             app.set_sync_interval_minutes(settings.sync_interval_minutes as i32);
             app.set_mark_read_on_open(settings.mark_read_on_open);
             app.global::<SendUndoUi>().set_seconds(settings.undo_send_seconds.clamp(0, 30) as i32);
+            app.global::<crate::TaskSettingsUi>()
+                .set_follow_up(settings.task_follow_up_default.clamp(0, 3) as i32);
+            app.global::<crate::TaskSettingsUi>()
+                .set_archive(settings.task_archive_on_create);
             app.set_collect_outgoing_contacts(settings.collect_outgoing_contacts);
             app.set_collect_incoming_contacts(settings.collect_incoming_contacts);
             app.set_contact_suggest_all_accounts(settings.contact_suggest_all_accounts);
@@ -978,6 +998,126 @@ pub(super) fn register_data_management_callbacks(
         }
         // Staging runs on the runtime; only the export picker goes through
         // the shared document request path.
+    });
+
+    let app_weak = app.as_weak();
+    let state_for_task_export = Rc::clone(state);
+    let runtime_for_task_export = Rc::clone(runtime);
+    let documents_for_task_export = documents.clone();
+    let paths_for_task_export = paths.clone();
+    let task_transfer_busy = Rc::new(Cell::new(false));
+    let busy_for_task_export = Rc::clone(&task_transfer_busy);
+    app.on_export_tasks(move || {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        if busy_for_task_export.get() {
+            return;
+        }
+        let Some(core) = state_for_task_export.borrow().core.clone() else {
+            app.set_sync_status(UiMessage::plain(
+                "Local data storage is unavailable. Retry startup.",
+            ));
+            return;
+        };
+        let json = match runtime_for_task_export.block_on(core.file_core().task_export_json()) {
+            Ok(json) => json,
+            Err(error) => {
+                app.set_sync_status(UiMessage::detail("Could not export tasks: {}", error));
+                return;
+            }
+        };
+        let name = format!("rustmail-tasks-{}.json", Local::now().format("%Y-%m-%d"));
+        let dialog = documents::DocumentDialog {
+            title: translated(&app, &UiMessage::plain("Export tasks")).to_string(),
+            filter: Some((
+                translated(&app, &UiMessage::plain("Rustmail tasks")).to_string(),
+                &["json"],
+            )),
+        };
+        let request = export_document_bytes(
+            documents_for_task_export.clone(),
+            paths_for_task_export.temp_dir(),
+            json.into_bytes(),
+            name,
+            dialog,
+        );
+        let app_weak = app.as_weak();
+        let busy = Rc::clone(&busy_for_task_export);
+        busy.set(true);
+        documents::run_request(&runtime_for_task_export, request, move |result| {
+            busy.set(false);
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            match result {
+                Ok(true) => app.set_sync_status(UiMessage::plain("Tasks exported.")),
+                Ok(false) => {}
+                Err(error) => {
+                    app.set_sync_status(UiMessage::detail("Could not export tasks: {}", error))
+                }
+            }
+        });
+    });
+
+    let app_weak = app.as_weak();
+    let state_for_task_import = Rc::clone(state);
+    let runtime_for_task_import = Rc::clone(runtime);
+    let documents_for_task_import = documents.clone();
+    let busy_for_task_import = Rc::clone(&task_transfer_busy);
+    app.on_import_tasks(move || {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        if busy_for_task_import.get() {
+            return;
+        }
+        let Some(core) = state_for_task_import.borrow().core.clone() else {
+            app.set_sync_status(UiMessage::plain(
+                "Local data storage is unavailable. Retry startup.",
+            ));
+            return;
+        };
+        let dialog = documents::DocumentDialog {
+            title: translated(&app, &UiMessage::plain("Import tasks")).to_string(),
+            filter: Some((
+                translated(&app, &UiMessage::plain("Rustmail tasks")).to_string(),
+                &["json"],
+            )),
+        };
+        let request = documents_for_task_import.import_with(dialog);
+        let app_weak = app.as_weak();
+        let runtime = Rc::clone(&runtime_for_task_import);
+        let busy = Rc::clone(&busy_for_task_import);
+        busy.set(true);
+        documents::run_request(&runtime_for_task_import, request, move |imported| {
+            busy.set(false);
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let document = match imported {
+                Ok(Some(document)) => document,
+                Ok(None) => return,
+                Err(error) => {
+                    app.set_sync_status(UiMessage::detail("Could not import tasks: {}", error));
+                    return;
+                }
+            };
+            let result = read_task_file(document.path()).and_then(|json| {
+                runtime
+                    .block_on(core.file_core().task_import_json(&json))
+                    .map_err(|error| error.to_string())
+            });
+            app.set_sync_status(match result {
+                Ok(report) => UiMessage::three_arguments(
+                    "Imported {} tasks; {} skipped as already present; {} projects added.",
+                    report.tasks_created.to_string(),
+                    report.tasks_skipped.to_string(),
+                    report.projects_created.to_string(),
+                ),
+                Err(error) => UiMessage::detail("Could not import tasks: {}", error),
+            });
+        });
     });
 
     let app_weak = app.as_weak();

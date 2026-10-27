@@ -21,11 +21,6 @@ pub(super) struct TaskSend {
 }
 
 impl TaskSend {
-    /// The options the composer starts with: Waiting for, follow-up in 4 days.
-    pub fn initial(task_id: i64) -> Self {
-        Self::from_choices(task_id, 0, 0)
-    }
-
     /// The follow-up date for a picker position as `YYYY-MM-DD` in local
     /// time, counted from today; empty for "Never".
     pub fn follow_up_date_label(follow_up: i32) -> String {
