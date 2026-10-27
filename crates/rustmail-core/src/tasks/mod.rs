@@ -408,6 +408,17 @@ pub trait TaskStore {
     fn purge_tombstones(&mut self, older_than_ms: i64) -> Result<usize>;
 }
 
+/// A reply that `SqliteTaskStore::note_replies_detailed` recorded on a task.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RepliedTask {
+    pub task_id: i64,
+    pub title: String,
+    /// Subject of the incoming mail.
+    pub subject: String,
+    /// The task left Waiting for because of this reply.
+    pub moved_back: bool,
+}
+
 /// The task a mail thread is linked to, for the message list and the mail
 /// sidebar's smart folders.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

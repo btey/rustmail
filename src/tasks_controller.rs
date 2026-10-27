@@ -3,7 +3,7 @@
 //! reloads one `Snapshot` (plain `Send` data) that is applied to the models.
 use crate::{
     ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, TaskCardRow, TaskColumnRow,
-    LinkedTask, TaskChipEntry, TaskChips, TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TasksUi,
+    LinkedTask, TaskChipEntry, TaskChips, TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TaskReplyUi, TasksUi,
 };
 use chrono::{Local, TimeZone};
 use rustmail_core::Core;
@@ -869,6 +869,20 @@ pub(crate) fn register(
             return;
         }
         app.set_active_view("tasks".into());
+        app.global::<TasksUi>()
+            .invoke_command("open".into(), format!("task:{task_id}").into(), "".into());
+    });
+    let reply_weak = app.as_weak();
+    app.global::<TaskReplyUi>().on_open(move || {
+        let Some(app) = reply_weak.upgrade() else {
+            return;
+        };
+        let task_id = app.global::<TaskReplyUi>().get_task_id();
+        if task_id < 0 {
+            return;
+        }
+        app.set_active_view("tasks".into());
+        app.set_settings_open(false);
         app.global::<TasksUi>()
             .invoke_command("open".into(), format!("task:{task_id}").into(), "".into());
     });

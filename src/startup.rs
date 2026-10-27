@@ -524,6 +524,18 @@ pub(crate) struct PendingCoreUpdates {
     pub(crate) contacts_changed: bool,
     pub(crate) tasks_changed: bool,
     pub(crate) task_mail_sent: Option<String>,
+    pub(crate) task_replies: Vec<TaskReplyUpdate>,
+}
+
+/// Most replies announced per drain; a burst beyond this is still noted in
+/// each task's activity, just not announced one by one.
+const MAX_PENDING_TASK_REPLIES: usize = 8;
+
+pub(crate) struct TaskReplyUpdate {
+    pub(crate) task_id: i64,
+    pub(crate) title: String,
+    pub(crate) subject: String,
+    pub(crate) moved_back: bool,
 }
 
 impl PendingCoreUpdates {
@@ -685,6 +697,25 @@ pub(crate) fn spawn_core_event_listener(
                         .lock()
                         .unwrap_or_else(|poisoned| poisoned.into_inner())
                         .task_mail_sent = Some(title);
+                    true
+                }
+                Ok(CoreEvent::TaskReplyReceived {
+                    task_id,
+                    title,
+                    subject,
+                    moved_back,
+                }) => {
+                    let mut pending = pending
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    if pending.task_replies.len() < MAX_PENDING_TASK_REPLIES {
+                        pending.task_replies.push(TaskReplyUpdate {
+                            task_id,
+                            title,
+                            subject,
+                            moved_back,
+                        });
+                    }
                     true
                 }
                 Ok(CoreEvent::ContactsUpdated { .. }) => {

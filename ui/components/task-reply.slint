@@ -1,0 +1,14 @@
+// The "Reply received" card: shown when mail answers a mail linked to an open
+// task. The host fills it; an empty title hides it. The notification-title
+// properties hold the translated text for the native notification, which
+// the host cannot translate itself.
+export global TaskReplyUi {
+    in-out property <int> task-id: -1;
+    in-out property <string> title: "";
+    in-out property <string> subject: "";
+    // The task left Waiting for because of the reply.
+    in-out property <bool> moved-back: false;
+    out property <string> notification-title: @tr("Reply received");
+    out property <string> notification-title-moved: @tr("Reply received, task moved to Next actions");
+    callback open();
+}

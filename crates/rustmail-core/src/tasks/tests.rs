@@ -797,7 +797,15 @@ fn a_reply_to_a_task_mail_is_noted_and_moves_the_task_back() {
             [crate::models::now_ms() + 5_000],
         )
         .unwrap();
-    assert_eq!(s.note_replies(&[1]).unwrap(), vec![task.id]);
+    assert_eq!(
+        s.note_replies_detailed(&[1]).unwrap(),
+        vec![RepliedTask {
+            task_id: task.id,
+            title: "Chase the invoice".into(),
+            subject: "Re: Quarterly invoice".into(),
+            moved_back: true,
+        }]
+    );
     assert_eq!(s.get_task(task.id).unwrap().column_id, next.id);
     assert!(
         s.list_activity(task.id)
@@ -805,6 +813,69 @@ fn a_reply_to_a_task_mail_is_noted_and_moves_the_task_back() {
             .iter()
             .any(|a| a.kind == "reply" && a.text.contains("Re: Quarterly invoice"))
     );
+}
+
+#[tokio::test]
+async fn a_reply_announces_itself_on_the_event_bus() {
+    let tmp = tempfile::tempdir().unwrap();
+    let core = crate::Core::start(crate::Paths::for_tests(tmp.path()))
+        .await
+        .unwrap();
+    core.tasks_open().await.unwrap();
+    let task_id = core
+        .db
+        .write(|conn| {
+            seed_mail(conn, "Quarterly invoice", 1, "<sent@x>");
+            let mut s = SqliteTaskStore::new(conn);
+            let p = s.list_projects()?[0].id;
+            let task = plain_task(&mut s, p, "Chase the invoice");
+            let sent = SentMail {
+                account_email: "me@test.dev".into(),
+                thread_id: 1,
+                message_id: "<sent@x>".into(),
+            };
+            s.record_sent(task.id, sent, AfterSend::Waiting, None)?;
+            conn.execute(
+                "INSERT INTO messages (account_id, thread_id, folder_id, uid, message_id, subject,
+                    from_addr, to_json, cc_json, date, snippet)
+                 VALUES (1, 1, 1, 22, '<reply@x>', 'Re: Quarterly invoice', 'a@x.dev', '[]', '[]', ?1, '')",
+                [crate::models::now_ms() + 5_000],
+            )?;
+            Ok(task.id)
+        })
+        .await
+        .unwrap();
+
+    let mut events = core.bus.subscribe();
+    assert_eq!(
+        core.task_note_replies(vec![1]).await.unwrap(),
+        vec![task_id]
+    );
+    let announced = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            if let Ok(crate::events::CoreEvent::TaskReplyReceived {
+                task_id,
+                title,
+                subject,
+                ..
+            }) = events.recv().await
+            {
+                break (task_id, title, subject);
+            }
+        }
+    })
+    .await
+    .expect("TaskReplyReceived");
+    assert_eq!(
+        announced,
+        (
+            task_id,
+            "Chase the invoice".into(),
+            "Re: Quarterly invoice".into()
+        )
+    );
+    // The same reply is never announced twice.
+    assert!(core.task_note_replies(vec![1]).await.unwrap().is_empty());
 }
 
 #[test]

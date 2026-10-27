@@ -256,12 +256,22 @@ impl Core {
 
     /// New mail arrived in these threads (see `SqliteTaskStore::note_replies`).
     pub async fn task_note_replies(&self, thread_ids: Vec<i64>) -> Result<Vec<i64>> {
-        let touched = self
+        let replies = self
             .db
-            .write(move |conn| SqliteTaskStore::new(conn).note_replies(&thread_ids))
+            .write(move |conn| SqliteTaskStore::new(conn).note_replies_detailed(&thread_ids))
             .await?;
-        if !touched.is_empty() {
+        if !replies.is_empty() {
             self.bus.emit(CoreEvent::TasksChanged);
+        }
+        let mut touched = Vec::with_capacity(replies.len());
+        for reply in replies {
+            touched.push(reply.task_id);
+            self.bus.emit(CoreEvent::TaskReplyReceived {
+                task_id: reply.task_id,
+                title: reply.title,
+                subject: reply.subject,
+                moved_back: reply.moved_back,
+            });
         }
         Ok(touched)
     }

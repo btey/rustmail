@@ -19,6 +19,7 @@ pub mod documents;
 mod email_document;
 pub mod favicon;
 mod files_controller;
+mod desktop_notify;
 mod tasks_controller;
 mod latest_load;
 mod mail;
@@ -838,6 +839,34 @@ fn resolve_mail_drop(
             .map(|(thread_id, destination)| (item.message_id, thread_id, destination))
         })
         .collect()
+}
+
+/// Announce replies that reached tasks: the newest one on the in-app card,
+/// and every one natively when the user has notifications on.
+fn announce_task_replies(app: &AppWindow, replies: &[startup::TaskReplyUpdate]) {
+    let ui = app.global::<TaskReplyUi>();
+    if let Some(latest) = replies.last() {
+        ui.set_task_id(i32::try_from(latest.task_id).unwrap_or(-1));
+        ui.set_subject(latest.subject.clone().into());
+        ui.set_moved_back(latest.moved_back);
+        ui.set_title(latest.title.clone().into());
+    }
+    if !app.get_notifications_enabled() {
+        return;
+    }
+    let sound = app.get_notification_sound_enabled();
+    for reply in replies {
+        let summary = if reply.moved_back {
+            ui.get_notification_title_moved()
+        } else {
+            ui.get_notification_title()
+        };
+        desktop_notify::show(
+            summary.to_string(),
+            format!("{}\n{}", reply.title, reply.subject),
+            sound,
+        );
+    }
 }
 
 fn perform_mail_drop(
@@ -3388,6 +3417,11 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         {
             app.global::<TaskComposeUi>().set_sent_title(title.clone().into());
             app.set_sync_status(UiMessage::detail("Sent and linked to the task: {}", title));
+        }
+        if !pending.task_replies.is_empty()
+            && let Some(app) = mail_update_app.upgrade()
+        {
+            announce_task_replies(&app, &pending.task_replies);
         }
         if pending.calendar_changed
             && let Some(app) = mail_update_app.upgrade()

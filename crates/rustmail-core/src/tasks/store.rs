@@ -670,6 +670,16 @@ impl SqliteTaskStore<'_> {
     /// is in Waiting for with `move_back_on_reply`, move it to Next actions.
     /// Returns the ids of the tasks that were touched.
     pub fn note_replies(&mut self, thread_ids: &[i64]) -> Result<Vec<i64>> {
+        Ok(self
+            .note_replies_detailed(thread_ids)?
+            .into_iter()
+            .map(|reply| reply.task_id)
+            .collect())
+    }
+
+    /// Like `note_replies`, but says what arrived and whether the task moved,
+    /// so the host can announce it.
+    pub fn note_replies_detailed(&mut self, thread_ids: &[i64]) -> Result<Vec<RepliedTask>> {
         if thread_ids.is_empty() {
             return Ok(Vec::new());
         }
@@ -723,6 +733,7 @@ impl SqliteTaskStore<'_> {
                 params![task_id, format!("Reply received: {subject}"), reply_at],
             )?;
             let task = fetch_task(self.conn, task_id)?;
+            let mut moved_back = false;
             if kind == "waiting" && task.move_back_on_reply {
                 let next: Option<i64> = self
                     .conn
@@ -744,9 +755,15 @@ impl SqliteTaskStore<'_> {
                         "Moved back to Next actions: a reply arrived",
                     )?;
                     tx.commit()?;
+                    moved_back = true;
                 }
             }
-            touched.push(task_id);
+            touched.push(RepliedTask {
+                task_id,
+                title: task.title,
+                subject,
+                moved_back,
+            });
         }
         Ok(touched)
     }

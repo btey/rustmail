@@ -19,6 +19,7 @@ export { AppTheme, MotionSettings, ThemeUtilities } from "design-system.slint";
 import { AppTheme, LayoutMetrics } from "design-system.slint";
 import { Button } from "components/button.slint";
 import { TaskComposeUi } from "components/task-compose.slint";
+import { TaskReplyUi } from "components/task-reply.slint";
 import { LoadingSkeletonBlock } from "components/loading-skeleton.slint";
 import { AccountRow, AdvancedOptions, CalendarAgendaRow, CalendarAgendaFilterRow, CalendarDay, CalendarEventRow, CalendarSourceRow, CalendarWeekDay, ComposeAttachment, ComposeContact, ComposeEditorTile, ContactSidebarRow, ContactRow, EmailLink, EmailRow, EmailTemplateRow, EmailTile, LocalizedMessage, MailListEntry, MailProfileRow, SidebarRow, MailLabelRow, StorageUsageRow, ThreadMessageRow } from "models.slint";
 export { EmailReader, ReaderCaret, ReaderImage, ReaderItem, MailDragApi } from "models.slint";
@@ -43,6 +44,7 @@ export { MessageColors } from "message-colors.slint";
 export { FilesUi, FileRow, OperationRow } from "views/files-view.slint";
 import { FilesView, FilesUi } from "views/files-view.slint";
 export { TaskComposeUi } from "components/task-compose.slint";
+export { TaskReplyUi } from "components/task-reply.slint";
 export { SendUndoUi } from "components/send-undo.slint";
 export { TasksUi, TaskCardRow, TaskColumnRow, TaskNavRow, TaskDetailRow, ChecklistRow, LinkRow, ActivityRow } from "views/tasks-view.slint";
 import { TasksView, TasksUi } from "views/tasks-view.slint";
@@ -2369,6 +2371,69 @@ export component AppWindow inherits Window {
             clicked => { TaskComposeUi.sent-title = ""; }
             Text { text: "×"; color: AppTheme.secondary; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
         }
+    }
+    if TaskReplyUi.title != "" : Rectangle {
+        z: 45002;
+        width: min(420px, root.width - 32px);
+        height: 96px;
+        x: (root.width - self.width) / 2;
+        y: root.height - self.height - 28px - (root.toast_text != "" ? 56px : 0px) - (TaskComposeUi.sent-title != "" ? 108px : 0px);
+        background: AppTheme.surface;
+        border-radius: 10px;
+        border-width: 1px;
+        border-color: AppTheme.control-border;
+        drop-shadow-blur: 16px;
+        drop-shadow-offset-y: 4px;
+        drop-shadow-color: #00000044;
+        accessible-role: groupbox;
+        accessible-label: TaskReplyUi.notification-title + ": " + TaskReplyUi.title;
+        Text {
+            x: 16px;
+            y: 12px;
+            width: parent.width - 56px;
+            text: TaskReplyUi.moved-back ? TaskReplyUi.notification-title-moved : TaskReplyUi.notification-title;
+            overflow: elide;
+            color: AppTheme.heading;
+            font-size: TypeScale.secondary;
+            font-weight: 700;
+        }
+        Text {
+            x: 16px;
+            y: 34px;
+            width: parent.width - 56px;
+            text: TaskReplyUi.title;
+            overflow: elide;
+            color: AppTheme.secondary;
+            font-size: TypeScale.secondary;
+        }
+        Button {
+            x: 16px;
+            y: 56px;
+            height: 30px;
+            width: max(120px, self.content-width + 28px);
+            text: @tr("Open task");
+            clicked => {
+                TaskReplyUi.open();
+                TaskReplyUi.title = "";
+            }
+        }
+        TouchArea {
+            x: parent.width - 40px;
+            y: 0px;
+            width: 40px;
+            height: 44px;
+            mouse-cursor: pointer;
+            accessible-role: button;
+            accessible-label: @tr("Dismiss");
+            accessible-action-default => { TaskReplyUi.title = ""; }
+            clicked => { TaskReplyUi.title = ""; }
+            Text { text: "×"; color: AppTheme.secondary; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
+        }
+    }
+    Timer {
+        interval: 20s;
+        running: TaskReplyUi.title != "";
+        triggered => { TaskReplyUi.title = ""; }
     }
     Timer {
         interval: 15s;

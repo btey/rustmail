@@ -124,6 +124,13 @@ pub enum CoreEvent {
     TaskMailSent {
         title: String,
     },
+    /// Incoming mail answered a mail linked to an open task.
+    TaskReplyReceived {
+        task_id: i64,
+        title: String,
+        subject: String,
+        moved_back: bool,
+    },
 }
 
 #[derive(Clone)]
