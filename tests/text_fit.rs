@@ -831,6 +831,7 @@ fn state(name: &str, setup: impl Fn(&AppWindow) + 'static) -> State {
 fn states() -> Vec<State> {
     let mut states = vec![
         state("mail", |_| {}),
+        state("mail fetching", |app| app.set_mail_fetching(true)),
         state("mail grouped", |app| {
             app.set_mail_list_entries(model(mail_entries(true)))
         }),

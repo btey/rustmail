@@ -179,6 +179,7 @@ export component MailListPane inherits Rectangle {
     in property <string> search_query: "";
     in property <string> search_filter: "All mail";
     in property <bool> sync_in_progress: false;
+    in property <bool> mail_fetching: false;
     in property <bool> can_load_more: false;
     in property <bool> loading_more: false;
     in property <int> content_revision: 0;
@@ -390,6 +391,25 @@ export component MailListPane inherits Rectangle {
                         }
                     }
 
+                    // Shown while any account is fetching, so an empty list or a
+                    // late refresh is not mistaken for "no mail".
+                    if root.mail_fetching : Rectangle {
+                        height: 26px;
+                        background: root.surface;
+                        z: 1;
+                        accessible-role: text;
+                        accessible-label: @tr("Fetching mail…");
+                        Text {
+                            x: root.compact ? LayoutMetrics.compact-inset : LayoutMetrics.content-inset;
+                            width: parent.width - 2 * self.x;
+                            height: parent.height;
+                            text: @tr("Fetching mail…");
+                            color: root.secondary-text;
+                            font-size: TypeScale.caption;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
                     bulk-toolbar := Rectangle {
                         height: root.bulk-toolbar-height;
                         background: root.surface;

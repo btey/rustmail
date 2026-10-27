@@ -318,6 +318,7 @@ pub(super) fn apply_connected_accounts(
     avatars: &HashMap<i64, ProfileAvatarImages>,
     presentation: &AccountPresentationSettings,
 ) {
+    app.set_mail_fetching(accounts.iter().any(|account| account.sync_state == "syncing"));
     let configs: HashMap<i64, &AccountConfig> =
         configs.iter().map(|config| (config.id, config)).collect();
     let calendar_connections: HashMap<i64, &CalendarConnection> = calendar_connections

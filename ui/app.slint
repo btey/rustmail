@@ -833,6 +833,8 @@ export component AppWindow inherits Window {
     in property <LocalizedMessage> sync-message;
     property <string> sync_status: I18n.ui-message(root.sync-message.key, root.sync-message.argument, root.sync-message.second_argument, root.sync-message.third_argument);
     in property <bool> sync_in_progress: false;
+    // Some account is fetching mail right now (any trigger, not only a click).
+    in-out property <bool> mail_fetching: false;
     in property <[EmailTile]> email_tiles: [];
     in property <[EmailLink]> email_links: [];
     // The renderer reports the total laid-out content height while retaining
@@ -1392,6 +1394,7 @@ export component AppWindow inherits Window {
             clipboard_request: root.clipboard_request;
             clipboard_request_id: root.clipboard_request_id;
             sync_in_progress: root.sync_in_progress;
+            mail_fetching: root.mail_fetching;
             can_load_more: root.can_load_more;
             loading_more: root.mail_loading_more;
             list_content_revision: root.mail_list_revision;
