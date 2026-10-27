@@ -294,7 +294,7 @@ async fn rescans_pick_up_new_removed_and_externally_changed_mail() {
 
     // Another program delivers mail, removes mail and marks mail read.
     std::fs::write(
-        root.join("new/1700000009.M9P1.host"),
+        root.join(format!("new/{}.M9P1.host", chrono::Utc::now().timestamp())),
         message("Late arrival", "l1", "delivered later"),
     )
     .unwrap();
@@ -753,5 +753,231 @@ async fn new_local_mail_notifies_and_sent_mail_teaches_contacts() {
     assert_eq!(
         count("SELECT COUNT(*) FROM contacts WHERE email='bob@example.net'").await,
         1
+    );
+}
+
+/// "Archive email once the task exists" and its Undo, against a Maildir.
+#[tokio::test]
+async fn a_task_made_from_local_mail_archives_the_mail_and_undo_restores_both() {
+    use rustmail_core::tasks::{ColumnKind, TaskDraft};
+
+    let temp = tempfile::tempdir().unwrap();
+    let root = maildir_fixture(temp.path());
+    make_maildir(&root.join(".Archive"));
+    let core = start(temp.path()).await;
+    let account = core
+        .add_account_password(args(&root, LocalFormat::Maildir))
+        .await
+        .unwrap();
+    settle(&core, account.id).await;
+    core.tasks_open().await.unwrap();
+    let target = rows(&core)
+        .await
+        .into_iter()
+        .find(|r| r.subject == "Read one")
+        .unwrap();
+    assert_eq!(target.folder, "INBOX");
+
+    let task = core
+        .task_create_from_thread(
+            target.thread_id,
+            TaskDraft {
+                title: None,
+                project_id: None,
+                status: ColumnKind::Next,
+                due_at: None,
+                context_id: None,
+                label_ids: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(task.title, "Read one");
+    core.perform_action(PerformActionArgs {
+        kind: ActionKind::Archive,
+        thread_ids: vec![target.thread_id],
+        params: None,
+    })
+    .await
+    .unwrap();
+    settle(&core, account.id).await;
+    let archived = rows(&core)
+        .await
+        .into_iter()
+        .find(|r| r.subject == "Read one")
+        .unwrap();
+    assert_eq!(archived.folder, "Archive");
+    assert_eq!(files(&root.join(".Archive/cur")).len(), 1);
+    // The task keeps pointing at the conversation after the move.
+    let links = core.task_links(task.id).await.unwrap();
+    assert!(matches!(
+        links[0].target,
+        rustmail_core::tasks::LinkTarget::Mail { .. }
+    ));
+
+    // Undo: the task goes and the mail returns to the inbox.
+    core.task_delete(task.id).await.unwrap();
+    core.perform_action(PerformActionArgs {
+        kind: ActionKind::Unarchive,
+        thread_ids: vec![target.thread_id],
+        params: None,
+    })
+    .await
+    .unwrap();
+    settle(&core, account.id).await;
+    let restored = rows(&core)
+        .await
+        .into_iter()
+        .find(|r| r.subject == "Read one")
+        .unwrap();
+    assert_eq!(restored.folder, "INBOX");
+    assert!(files(&root.join(".Archive/cur")).is_empty());
+    assert!(
+        core.task_threads(None)
+            .await
+            .unwrap()
+            .iter()
+            .all(|t| t.thread_id != target.thread_id)
+    );
+}
+
+/// With no Archive folder the archive step fails, and the task made first
+/// stays: the dialog reports the error but does not undo the task.
+#[tokio::test]
+async fn archiving_without_an_archive_folder_fails_and_the_task_remains() {
+    use rustmail_core::tasks::{ColumnKind, TaskDraft};
+
+    let temp = tempfile::tempdir().unwrap();
+    let root = maildir_fixture(temp.path());
+    let core = start(temp.path()).await;
+    let account = core
+        .add_account_password(args(&root, LocalFormat::Maildir))
+        .await
+        .unwrap();
+    settle(&core, account.id).await;
+    core.tasks_open().await.unwrap();
+    let target = rows(&core)
+        .await
+        .into_iter()
+        .find(|r| r.subject == "Read one")
+        .unwrap();
+    let task = core
+        .task_create_from_thread(
+            target.thread_id,
+            TaskDraft {
+                title: None,
+                project_id: None,
+                status: ColumnKind::Inbox,
+                due_at: None,
+                context_id: None,
+                label_ids: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+    let archive = core
+        .perform_action(PerformActionArgs {
+            kind: ActionKind::Archive,
+            thread_ids: vec![target.thread_id],
+            params: None,
+        })
+        .await;
+    assert!(archive.is_err());
+    assert_eq!(core.task_get(task.id).await.unwrap().link_count, 1);
+    assert_eq!(
+        rows(&core)
+            .await
+            .into_iter()
+            .find(|r| r.subject == "Read one")
+            .unwrap()
+            .folder,
+        "INBOX"
+    );
+}
+
+/// A reply that arrives in a Maildir moves a Waiting-for task back to Next
+/// actions and is noted in its activity (the Phase 8 reply tracker).
+#[tokio::test]
+async fn a_reply_in_a_local_maildir_moves_the_waiting_task_back() {
+    use rustmail_core::tasks::{ColumnKind, TaskDraft, TaskPatch};
+
+    let temp = tempfile::tempdir().unwrap();
+    let root = maildir_fixture(temp.path());
+    let core = start(temp.path()).await;
+    let account = core
+        .add_account_password(args(&root, LocalFormat::Maildir))
+        .await
+        .unwrap();
+    settle(&core, account.id).await;
+    core.tasks_open().await.unwrap();
+    let target = rows(&core)
+        .await
+        .into_iter()
+        .find(|r| r.subject == "Read one")
+        .unwrap();
+    let task = core
+        .task_create_from_thread(
+            target.thread_id,
+            TaskDraft {
+                title: None,
+                project_id: None,
+                status: ColumnKind::Waiting,
+                due_at: None,
+                context_id: None,
+                label_ids: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+    core.task_update(
+        task.id,
+        TaskPatch {
+            move_back_on_reply: Some(true),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    let project = core.task_projects().await.unwrap()[0].id;
+    let columns = core.task_columns(project).await.unwrap();
+    let kind_of = |column_id: i64| columns.iter().find(|c| c.id == column_id).unwrap().kind;
+    assert_eq!(
+        kind_of(core.task_get(task.id).await.unwrap().column_id),
+        ColumnKind::Waiting
+    );
+
+    // The answer lands in the same conversation, in the inbox.
+    // Dated and named for now: a reply only counts when it is newer than the
+    // task's link, and only recent files announce themselves as new mail.
+    // A minute ahead: Date headers have whole-second precision, so a reply
+    // written within the link's own second would not look newer than it.
+    let date = (chrono::Utc::now() + chrono::Duration::seconds(60)).to_rfc2822();
+    std::fs::write(
+        root.join(format!("new/{}.M9P1.host", chrono::Utc::now().timestamp())),
+        format!(
+            "From: Alice <alice@example.org>\r\nTo: me@example.org\r\nSubject: Re: Read one\r\nMessage-ID: <reply1@example.org>\r\nIn-Reply-To: <r1@example.org>\r\nReferences: <r1@example.org>\r\nDate: {date}\r\n\r\nHere is the answer.\r\n"
+        ),
+    )
+    .unwrap();
+    settle(&core, account.id).await;
+    // The tracker runs on the new-mail event; give it a moment.
+    let mut moved = false;
+    for _ in 0..50 {
+        let now = core.task_get(task.id).await.unwrap();
+        if kind_of(now.column_id) == ColumnKind::Next {
+            moved = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(
+        moved,
+        "the task should return to Next actions after a reply"
+    );
+    let activity = core.task_activity(task.id).await.unwrap();
+    assert!(
+        activity
+            .iter()
+            .any(|entry| entry.text.contains("Reply received"))
     );
 }
