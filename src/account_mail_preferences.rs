@@ -1311,30 +1311,79 @@ fn register_composer(
     let weak = app.as_weak();
     let document = document.clone();
     let editor = editor.clone();
+    let signature_work = UiWork {
+        runtime: tasks.runtime.clone(),
+        generation: tasks.generation.clone(),
+    };
     ui.on_composer_signature(move |index| {
-        let Some(app) = weak.upgrade() else { return }; let mut document = document.borrow_mut();
-        let current = document.text().to_owned();
-        let old = inserted.borrow().clone();
-        let body = match remove_managed_signature(&current, old.as_deref()) {
-            Ok(body) => body,
-            Err(()) if index == 0 => {
-                *inserted.borrow_mut() = None;
-                app.global::<AccountMailPreferences>().set_composer_signature_index(0);
-                return;
-            }
-            Err(()) => {
-                app.set_compose_notice(UiMessage::plain("Your edited signature was preserved. Choose No signature to keep it as message text before inserting another."));
-                app.set_compose_notice_is_error(true); return;
+        let Some(app) = weak.upgrade() else { return };
+        let signature = usize::try_from(index - 1)
+            .ok()
+            .and_then(|i| available.borrow().get(i).cloned());
+        let apply = {
+            let document = document.clone();
+            let editor = editor.clone();
+            let inserted = inserted.clone();
+            move |app: AppWindow, text: String| {
+                apply_composer_signature(&app, &document, &editor, &inserted, index, text)
             }
         };
-        let signature = usize::try_from(index - 1).ok().and_then(|i| available.borrow().get(i).cloned());
-        let text = signature.as_ref().map(rustmail_core::signatures::resolve_text).unwrap_or_default();
-        let new_body = rustmail_core::signatures::insert(&body, &text);
-        *inserted.borrow_mut() = if text.is_empty() { None } else { Some(format!("\n\n-- \n{}", text.trim())) };
-        let selection = document.synchronize(&new_body, 0, 0);
-        apply_rich_compose(&app, &document, selection, &mut editor.borrow_mut());
-        app.global::<AccountMailPreferences>().set_composer_signature_index(index);
+        let Some(signature) = signature else {
+            apply(app, String::new());
+            return;
+        };
+        if signature.source == rustmail_core::models::SignatureSource::Text {
+            let text = rustmail_core::signatures::resolve_text(&signature);
+            apply(app, text);
+            return;
+        }
+        // A file or command signature can take seconds (a command is allowed
+        // three): resolve it off the UI thread and apply the result, unless
+        // the composer was reset meanwhile.
+        signature_work.spawn(
+            &app,
+            false,
+            async move {
+                tokio::task::spawn_blocking(move || rustmail_core::signatures::resolve_text(&signature))
+                    .await
+                    .map_err(|error| error.to_string())
+            },
+            move |app, result| apply(app, result.unwrap_or_default()),
+        );
     });
+}
+
+/// Replace the signature block this composer inserted earlier with `text`,
+/// keeping any edit the user made to it.
+fn apply_composer_signature(
+    app: &AppWindow,
+    document: &Rc<RefCell<RichComposeDocument>>,
+    editor: &Rc<RefCell<LazyComposeEditor>>,
+    inserted: &Rc<RefCell<Option<String>>>,
+    index: i32,
+    text: String,
+) {
+    let mut document = document.borrow_mut();
+    let current = document.text().to_owned();
+    let old = inserted.borrow().clone();
+    let body = match remove_managed_signature(&current, old.as_deref()) {
+        Ok(body) => body,
+        Err(()) if index == 0 => {
+            *inserted.borrow_mut() = None;
+            app.global::<AccountMailPreferences>().set_composer_signature_index(0);
+            return;
+        }
+        Err(()) => {
+            app.set_compose_notice(UiMessage::plain("Your edited signature was preserved. Choose No signature to keep it as message text before inserting another."));
+            app.set_compose_notice_is_error(true);
+            return;
+        }
+    };
+    let new_body = rustmail_core::signatures::insert(&body, &text);
+    *inserted.borrow_mut() = if text.is_empty() { None } else { Some(format!("\n\n-- \n{}", text.trim())) };
+    let selection = document.synchronize(&new_body, 0, 0);
+    apply_rich_compose(app, &document, selection, &mut editor.borrow_mut());
+    app.global::<AccountMailPreferences>().set_composer_signature_index(index);
 }
 
 fn remove_managed_signature(body: &str, managed: Option<&str>) -> Result<String, ()> {

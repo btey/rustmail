@@ -226,7 +226,7 @@ Design: `Tasks · Timeline (Gantt)-html/Timeline.dc.html`.
 - [ ] Setting "Reverse scroll direction" (global, window-level wheel hook) for natural-scrolling devices such as the Apple Magic Mouse
 - [ ] IMAP CRAM-MD5/DIGEST-MD5, proxy login, proxying of non-mail traffic
 - [x] Filters: arbitrary-header/body/age/flag conditions, copy/forward/run-command actions, more than 3 conditions/2 actions in the editor; actions on several messages (see the Phase 3 table for limits)
-- [ ] Run the signature command off the UI thread
+- [x] Run the signature command off the UI thread: choosing a file or command signature in the composer now resolves it on a blocking worker (`spawn_blocking`, still limited to 3 s and 32 KiB) and applies the text when it arrives; text signatures stay immediate. A result that arrives after the composer was reset is dropped. Limit: while a command runs the composer shows no progress and the signature picker already shows the new choice (not run on screen)
 - [ ] Re-check the Claws Mail option list against the current manual
 - [ ] Translate the new strings in the six non-English catalogs
 - [ ] Mail list feedback: after start or a manual refresh the list can stay empty for a while with no sign that mail is being fetched (reported while trying the refresh button repeatedly; mail then arrived all at once). Show a visible "fetching mail" indicator (per account or in the list header) while a sync or refresh is running, disable or debounce repeated refresh clicks, and show when the last sync finished or failed
