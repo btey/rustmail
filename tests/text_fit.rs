@@ -26,7 +26,7 @@ use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::window::WindowInner;
 use rustmail::{
-    AccountRow, AppTheme, AppWindow, CalendarAgendaRow, CalendarDay, CalendarEventRow,
+    AccountRow, ActivityRow, AppTheme, AppWindow, CalendarAgendaRow, CalendarDay, CalendarEventRow,
     CalendarSourceRow, CalendarWeekDay, ContactAccountRow, ContactRow, ContactSidebarRow,
     ContactSidebarRowKind, EmailRow, LinkRow, LinkedTask, LocalizedMessage, MailAttachment,
     MailAttachments, MailLabelRow, MailListEntry, MailProfileRow, MailboxRow, MotionSettings,
@@ -584,6 +584,7 @@ fn reset(app: &AppWindow) {
     app.global::<TaskReplyUi>().set_title("".into());
     let tasks = app.global::<TasksUi>();
     tasks.set_detail_open(false);
+    tasks.set_detail_expanded(false);
     tasks.set_navigation_open(false);
     tasks.set_sidebar_collapsed(false);
     WindowInner::from_pub(app.window()).close_all_popups();
@@ -678,6 +679,25 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
             text: "Quarterly invoice from the finance department".into(),
             found: true,
         }]));
+        tasks.set_activity(model(
+            [
+                (
+                    "Email sent: Quarterly invoice from the finance department",
+                    "Today 09:14",
+                ),
+                (
+                    "Waiting for the finance department to answer the invoice question",
+                    "Yesterday",
+                ),
+                ("Task created", "Mon 12 Oct"),
+            ]
+            .into_iter()
+            .map(|(text, at)| ActivityRow {
+                text: text.into(),
+                at: at.into(),
+            })
+            .collect(),
+        ));
         tasks.set_detail_open(true);
     }
 }
@@ -971,6 +991,11 @@ fn states() -> Vec<State> {
         }),
         state("tasks board", |app| {
             tasks_fixture(app, false);
+            app.set_active_view("tasks".into());
+        }),
+        state("tasks page", |app| {
+            tasks_fixture(app, true);
+            app.global::<TasksUi>().set_detail_expanded(true);
             app.set_active_view("tasks".into());
         }),
         state("tasks drawer", |app| {

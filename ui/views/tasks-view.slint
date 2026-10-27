@@ -93,6 +93,8 @@ export struct ActivityRow {
 export global TasksUi {
     in-out property <TaskDetailRow> detail;
     in-out property <bool> detail-open: false;
+    // The open task fills the page: form on the left, link trail on the right.
+    in-out property <bool> detail-expanded: false;
     in-out property <[ChecklistRow]> checklist;
     in-out property <[LinkRow]> links;
     in-out property <[ActivityRow]> activity;
@@ -604,10 +606,15 @@ component TaskDrawer inherits Rectangle {
         height: parent.height;
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
-        VerticalLayout {
-            padding: 16px;
+        HorizontalLayout {
+          padding: 16px;
+          spacing: 32px;
+          alignment: start;
+          VerticalLayout {
             spacing: 10px;
             alignment: start;
+            horizontal-stretch: 1;
+            max-width: 640px;
             HorizontalLayout {
                 spacing: 8px;
                 Text {
@@ -627,12 +634,22 @@ component TaskDrawer inherits Rectangle {
                     tooltip-text: @tr("Move to column");
                     activated(id) => { TasksUi.command("card-menu", "" + TasksUi.detail.id, id); }
                 }
+                if !root.compact : TasksIconButton {
+                    width: 32px;
+                    height: 32px;
+                    icon: @image-url("../icons/lucide/outline/screen-full.svg");
+                    tooltip-text: TasksUi.detail-expanded ? @tr("Back to the side panel") : @tr("Open as a page");
+                    clicked => { TasksUi.detail-expanded = !TasksUi.detail-expanded; }
+                }
                 TasksIconButton {
                     width: 32px;
                     height: 32px;
                     icon: @image-url("../icons/lucide/outline/x.svg");
                     tooltip-text: @tr("Close");
-                    clicked => { TasksUi.command("close-detail", "", ""); }
+                    clicked => {
+                        TasksUi.detail-expanded = false;
+                        TasksUi.command("close-detail", "", "");
+                    }
                 }
             }
             LineEdit {
@@ -864,19 +881,22 @@ component TaskDrawer inherits Rectangle {
                     activated(id) => { root.link-kind = id; }
                 }
             }
-            DetailSection { text: @tr("ACTIVITY"); visible: TasksUi.activity.length > 0; height: self.visible ? self.preferred-height : 0px; }
-            for entry in TasksUi.activity : VerticalLayout {
-                spacing: 1px;
-                Text {
-                    text: entry.text;
-                    color: AppTheme.body;
-                    font-size: TypeScale.caption;
-                    wrap: word-wrap;
-                }
-                Text {
-                    text: entry.at;
-                    color: AppTheme.muted;
-                    font-size: TypeScale.micro;
+            if !TasksUi.detail-expanded : DetailSection { text: @tr("ACTIVITY"); visible: TasksUi.activity.length > 0; height: self.visible ? self.preferred-height : 0px; }
+            if !TasksUi.detail-expanded : VerticalLayout {
+                spacing: 10px;
+                for entry in TasksUi.activity : VerticalLayout {
+                    spacing: 1px;
+                    Text {
+                        text: entry.text;
+                        color: AppTheme.body;
+                        font-size: TypeScale.caption;
+                        wrap: word-wrap;
+                    }
+                    Text {
+                        text: entry.at;
+                        color: AppTheme.muted;
+                        font-size: TypeScale.micro;
+                    }
                 }
             }
             Button {
@@ -885,6 +905,52 @@ component TaskDrawer inherits Rectangle {
                 width: max(120px, self.content-width + 28px);
                 clicked => { TasksUi.command("delete", "" + TasksUi.detail.id, ""); }
             }
+          }
+          if TasksUi.detail-expanded : VerticalLayout {
+            width: 340px;
+            spacing: 0px;
+            alignment: start;
+            DetailSection { text: @tr("LINK TRAIL"); height: self.preferred-height + 10px; }
+            for entry[index] in TasksUi.activity : HorizontalLayout {
+                spacing: 10px;
+                Rectangle {
+                    width: 12px;
+                    // A dot on a vertical line that runs to the next entry.
+                    Rectangle {
+                        x: 5px;
+                        y: 8px;
+                        width: 2px;
+                        height: parent.height - 8px;
+                        background: AppTheme.border;
+                        visible: index < TasksUi.activity.length - 1;
+                    }
+                    Rectangle {
+                        y: 4px;
+                        width: 12px;
+                        height: 12px;
+                        border-radius: 6px;
+                        background: index == 0 ? AppTheme.accent : AppTheme.surface;
+                        border-width: 2px;
+                        border-color: index == 0 ? AppTheme.accent : AppTheme.control-border;
+                    }
+                }
+                VerticalLayout {
+                    padding-bottom: 14px;
+                    spacing: 1px;
+                    Text {
+                        text: entry.text;
+                        color: AppTheme.body;
+                        font-size: TypeScale.caption;
+                        wrap: word-wrap;
+                    }
+                    Text {
+                        text: entry.at;
+                        color: AppTheme.muted;
+                        font-size: TypeScale.micro;
+                    }
+                }
+            }
+          }
         }
     }
 }
@@ -920,7 +986,9 @@ export component TasksView inherits Rectangle {
         }
     }
 
-    private property <length> drawer-width: root.single-surface ? root.width : 392px;
+    private property <length> drawer-width: root.single-surface ? root.width
+        : TasksUi.detail-expanded ? root.width - (root.sidebar-visible ? LayoutMetrics.sidebar-width : 0px)
+        : 392px;
     private property <bool> drawer-visible: TasksUi.detail-open && !TasksUi.navigation-open;
 
     if root.board-visible && !(root.single-surface && root.drawer-visible) : Rectangle {
