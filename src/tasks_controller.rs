@@ -387,6 +387,15 @@ async fn load_detail(
         .find(|c| Some(c.id) == task.context_id)
         .map(|c| c.name.clone())
         .unwrap_or_default();
+    // An event link holds the calendar UID; show the event's title.
+    let mut event_titles = HashMap::new();
+    for l in &links {
+        if let (rustmail_core::tasks::LinkTarget::Event, Some(uid)) = (&l.target, &l.link.event_uid)
+            && let Ok(Some(title)) = core.task_event_title(uid.clone()).await
+        {
+            event_titles.insert(uid.clone(), title);
+        }
+    }
     let links = links
         .into_iter()
         .map(|l| {
@@ -397,7 +406,8 @@ async fn load_detail(
                     (title.clone(), true, format!("task:{task_id}"))
                 }
                 LinkTarget::Event => {
-                    (l.link.event_uid.clone().unwrap_or_default(), true, String::new())
+                    let uid = l.link.event_uid.clone().unwrap_or_default();
+                    (event_titles.get(&uid).cloned().unwrap_or(uid), true, String::new())
                 }
                 LinkTarget::MailNotFound | LinkTarget::TaskNotFound => {
                     (String::new(), false, String::new())
@@ -700,9 +710,17 @@ async fn load(
                 LinkTarget::Event => l.link.event_uid.clone().unwrap_or_default(),
                 _ => return None,
             };
-            Some((l.link.kind.as_str().to_owned(), text))
+            Some((l.link.kind.as_str().to_owned(), text, matches!(l.target, LinkTarget::Event)))
         });
-        k.link = found;
+        k.link = match found {
+            // An event link holds the calendar UID; show the event's title.
+            Some((kind, uid, true)) => {
+                let title = core.task_event_title(uid.clone()).await?;
+                Some((kind, title.unwrap_or(uid)))
+            }
+            Some((kind, text, false)) => Some((kind, text)),
+            None => None,
+        };
     }
     let waiting: HashMap<i64, i64> = core
         .task_no_reply_days(chrono::Utc::now().timestamp_millis())
@@ -2068,6 +2086,53 @@ mod tests {
         let cards = &snap.columns[0].cards;
         let linked = cards.iter().find(|c| c.title == "Plan the offsite").unwrap();
         assert_eq!(linked.link, Some(("event".to_owned(), "offsite-2026".to_owned())));
+
+        // An event that exists in the calendar shows its title, on the card
+        // and in the drawer.
+        let event = core
+            .create_event(rustmail_core::models::CreateEventArgs {
+                account_id: 0,
+                calendar_id: None,
+                summary: "Offsite planning".into(),
+                description: None,
+                location: None,
+                join_url: None,
+                starts_at: 1_800_000_000_000,
+                ends_at: 1_800_003_600_000,
+                all_day: false,
+                attendees: Vec::new(),
+            })
+            .await
+            .unwrap();
+        let event_id = event.id;
+        let uid: String = core
+            .calendar_db
+            .read(move |conn| {
+                Ok(conn.query_row(
+                    "SELECT ical_uid FROM calendar_events WHERE id = ?1",
+                    [event_id],
+                    |r| r.get(0),
+                )?)
+            })
+            .await
+            .unwrap();
+        core.task_link_add(
+            id_of("No links here"),
+            rustmail_core::tasks::NewLink {
+                kind: rustmail_core::tasks::LinkKind::Event,
+                account_email: None,
+                thread_id: None,
+                message_id: None,
+                event_uid: Some(uid),
+                other_task_uid: None,
+            },
+        )
+        .await
+        .unwrap();
+        let snap = load(&core, &sel, "", Some(id_of("No links here")), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let card = snap.columns[0].cards.iter().find(|c| c.title == "No links here").unwrap();
+        assert_eq!(card.link, Some(("event".to_owned(), "Offsite planning".to_owned())));
+        assert_eq!(snap.detail.as_ref().unwrap().links[0].2, "Offsite planning");
         assert!(cards.iter().find(|c| c.title == "No links here").unwrap().link.is_none());
     }
 

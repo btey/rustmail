@@ -191,6 +191,25 @@ impl Core {
             .await
     }
 
+    /// The title of the calendar event a task link points at, by its iCalendar
+    /// UID; `None` when the event is not (or no longer) in the calendar.
+    pub async fn task_event_title(&self, uid: String) -> Result<Option<String>> {
+        self.calendar_db
+            .read(move |conn| {
+                use rusqlite::OptionalExtension;
+                Ok(conn
+                    .query_row(
+                        "SELECT summary FROM calendar_events WHERE ical_uid = ?1 LIMIT 1",
+                        [uid],
+                        |r| r.get::<_, Option<String>>(0),
+                    )
+                    .optional()?
+                    .flatten()
+                    .filter(|s| !s.trim().is_empty()))
+            })
+            .await
+    }
+
     /// Book the task's follow-up as a calendar event (Phase 9): a 30 minute
     /// event "Follow up: <title>" at `follow_up_at`, linked to the task. Needs
     /// a follow-up time on the task; `account_id` 0 keeps the event local.
