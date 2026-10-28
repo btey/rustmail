@@ -937,6 +937,12 @@ pub(crate) fn register(
     });
     let command = Rc::clone(&ctx);
     app.global::<TasksUi>().on_command(move |action, a, b| {
+        if action == "board-key" {
+            if let Some(app) = command.weak.upgrade() {
+                board_key(&app, &command, a.as_str());
+            }
+            return;
+        }
         if action == "due-badge" {
             if let Some(app) = command.weak.upgrade() {
                 refresh_due_badge(&app, &command.state, &command.handle);
@@ -1047,6 +1053,79 @@ pub(crate) fn refresh_due_badge(
             }
         });
     });
+}
+
+/// Where an arrow key moves the board cursor. `columns` lists the card ids of
+/// each column left to right; a collapsed column counts as empty. Returns the
+/// new cursor, or `None` when the board has no card. With no cursor (or one
+/// that is gone after a reload) any key lands on the first card.
+fn board_step(columns: &[Vec<i64>], cursor: i64, key: &str) -> Option<i64> {
+    let first = columns.iter().find_map(|c| c.first().copied());
+    let Some((col, row)) = columns.iter().enumerate().find_map(|(ci, cards)| {
+        cards.iter().position(|id| *id == cursor).map(|ri| (ci, ri))
+    }) else {
+        return first;
+    };
+    let cards = &columns[col];
+    match key {
+        "up" => Some(cards[row.saturating_sub(1)]),
+        "down" => Some(cards[(row + 1).min(cards.len() - 1)]),
+        "home" => cards.first().copied(),
+        "end" => cards.last().copied(),
+        "left" | "right" => {
+            let next = if key == "left" {
+                columns[..col].iter().rposition(|c| !c.is_empty())
+            } else {
+                columns[col + 1..]
+                    .iter()
+                    .position(|c| !c.is_empty())
+                    .map(|i| col + 1 + i)
+            };
+            Some(match next {
+                Some(ci) => columns[ci][row.min(columns[ci].len() - 1)],
+                None => cursor,
+            })
+        }
+        _ => Some(cursor),
+    }
+}
+
+/// A key pressed on the focused board: move the cursor, open the card under
+/// it, or complete / reopen it.
+fn board_key(app: &AppWindow, ctx: &Rc<Ctx>, key: &str) {
+    let ui = app.global::<TasksUi>();
+    let rows: Vec<_> = ui.get_columns().iter().collect();
+    let columns: Vec<Vec<i64>> = rows
+        .iter()
+        .map(|c| {
+            if c.collapsed {
+                Vec::new()
+            } else {
+                c.cards.iter().map(|card| i64::from(card.id)).collect()
+            }
+        })
+        .collect();
+    let cursor = i64::from(ui.get_cursor());
+    match key {
+        "open" | "toggle" => {
+            let card = rows
+                .iter()
+                .flat_map(|c| c.cards.iter())
+                .find(|card| i64::from(card.id) == cursor);
+            let Some(card) = card else { return };
+            let action = match key {
+                "open" => "open",
+                _ if card.done => "reopen",
+                _ => "complete",
+            };
+            dispatch(ctx, action.to_owned(), vec![card.id.to_string(), String::new()]);
+        }
+        _ => {
+            if let Some(next) = board_step(&columns, cursor, key) {
+                ui.set_cursor(i32::try_from(next).unwrap_or(-1));
+            }
+        }
+    }
 }
 
 const DEFAULT_STATUSES: [&str; 4] = ["inbox", "next", "waiting", "scheduled"];
@@ -1860,6 +1939,31 @@ async fn mutate(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn board_keys_move_the_cursor_between_cards_and_skip_empty_columns() {
+        let board = vec![vec![1, 2, 3], vec![], vec![4, 5]];
+        let step = |cursor, key| super::board_step(&board, cursor, key);
+        // No cursor, or a card that is gone: the first card.
+        assert_eq!(step(-1, "down"), Some(1));
+        assert_eq!(step(99, "right"), Some(1));
+        // Up and down stop at the ends of the column.
+        assert_eq!(step(2, "up"), Some(1));
+        assert_eq!(step(1, "up"), Some(1));
+        assert_eq!(step(2, "down"), Some(3));
+        assert_eq!(step(3, "down"), Some(3));
+        // Left and right skip the empty column and keep the row, clamped.
+        assert_eq!(step(2, "right"), Some(5));
+        assert_eq!(step(3, "right"), Some(5));
+        assert_eq!(step(5, "left"), Some(2));
+        assert_eq!(step(1, "left"), Some(1));
+        assert_eq!(step(5, "right"), Some(5));
+        // Home and End.
+        assert_eq!(step(2, "end"), Some(3));
+        assert_eq!(step(3, "home"), Some(1));
+        // An empty board has no cursor.
+        assert_eq!(super::board_step(&[vec![], vec![]], 1, "down"), None);
+    }
+
     use super::*;
 
     #[tokio::test]

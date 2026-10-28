@@ -134,6 +134,10 @@ export global TasksUi {
     in-out property <bool> sidebar-collapsed: false;
     in-out property <bool> navigation-open: false;
     callback command(string, string, string);
+    // Keyboard cursor of the board: the focused card's id (-1 = none) and
+    // whether the board has keyboard focus (the cursor is drawn only then).
+    in-out property <int> cursor: -1;
+    in-out property <bool> board-focused: false;
     // Drag payloads are opaque in Slint; the host builds and reads them.
     pure callback to-transfer(string) -> data-transfer;
     pure callback text-of(data-transfer) -> string;
@@ -259,6 +263,8 @@ component TasksSidebar inherits Rectangle {
 
 component TaskCard inherits Rectangle {
     in property <TaskCardRow> card;
+    // The keyboard cursor is on this card.
+    in property <bool> cursor: false;
     callback open;
     callback toggle-done;
     callback delete-task;
@@ -267,8 +273,8 @@ component TaskCard inherits Rectangle {
     private property <length> pad: 10px;
     height: content.preferred-height + 2 * root.pad;
     border-radius: LayoutMetrics.corner-radius;
-    border-width: TasksUi.detail-open && TasksUi.detail.id == root.card.id ? 2px : 1px;
-    border-color: TasksUi.detail-open && TasksUi.detail.id == root.card.id ? AppTheme.accent : AppTheme.border;
+    border-width: root.cursor || (TasksUi.detail-open && TasksUi.detail.id == root.card.id) ? 2px : 1px;
+    border-color: root.cursor || (TasksUi.detail-open && TasksUi.detail.id == root.card.id) ? AppTheme.accent : AppTheme.border;
     background: AppTheme.surface;
     opacity: root.card.done ? 0.75 : 1;
     accessible-role: list-item;
@@ -428,6 +434,8 @@ component TaskCard inherits Rectangle {
 
 component TaskColumnView inherits Rectangle {
     in property <TaskColumnRow> column;
+    // A card was clicked: the board takes keyboard focus there.
+    callback card-used(int);
     in property <length> column-width: 272px;
     private property <bool> adding: TasksUi.adding-column == root.column.id;
     // "" | "rename" | "wip": inline editor under the header.
@@ -574,7 +582,8 @@ component TaskColumnView inherits Rectangle {
                 alignment: start;
                 for card in root.column.cards : TaskCard {
                     card: card;
-                    open => { TasksUi.command("open", "" + card.id, ""); }
+                    cursor: TasksUi.board-focused && TasksUi.cursor == card.id;
+                    open => { root.card-used(card.id); TasksUi.command("open", "" + card.id, ""); }
                     toggle-done => { TasksUi.command(card.done ? "reopen" : "complete", "" + card.id, ""); }
                     delete-task => { TasksUi.command("delete", "" + card.id, ""); }
                     menu-action(id) => { TasksUi.command("card-menu", "" + card.id, id); }
@@ -1127,8 +1136,25 @@ export component TasksView inherits Rectangle {
                 vertical-stretch: 1;
                 title: @tr("No tasks");
             }
+            board-focus := FocusScope {
+              vertical-stretch: 1;
+              accessible-role: list;
+              accessible-label: @tr("Task board");
+              changed has-focus => { TasksUi.board-focused = self.has-focus; }
+              key-pressed(event) => {
+                if event.text == Key.UpArrow { TasksUi.command("board-key", "up", ""); return accept; }
+                if event.text == Key.DownArrow { TasksUi.command("board-key", "down", ""); return accept; }
+                if event.text == Key.LeftArrow { TasksUi.command("board-key", "left", ""); return accept; }
+                if event.text == Key.RightArrow { TasksUi.command("board-key", "right", ""); return accept; }
+                if event.text == Key.Home { TasksUi.command("board-key", "home", ""); return accept; }
+                if event.text == Key.End { TasksUi.command("board-key", "end", ""); return accept; }
+                if event.text == Key.Return { TasksUi.command("board-key", "open", ""); return accept; }
+                if event.text == " " { TasksUi.command("board-key", "toggle", ""); return accept; }
+                return reject;
+              }
             ScrollView {
-                vertical-stretch: 1;
+                width: parent.width;
+                height: parent.height;
                 visible: TasksUi.columns.length > 0;
                 content-height: self.visible-height;
                 vertical-scrollbar-policy: always-off;
@@ -1138,6 +1164,7 @@ export component TasksView inherits Rectangle {
                     for column in TasksUi.columns : TaskColumnView {
                         column: column;
                         column-width: root.single-surface ? max(240px, root.width - 56px) : 272px;
+                        card-used(id) => { TasksUi.cursor = id; board-focus.focus(); }
                     }
                     if TasksUi.selection.starts-with("project:") : Rectangle {
                         width: 220px;
@@ -1159,6 +1186,7 @@ export component TasksView inherits Rectangle {
                         }
                     }
                 }
+            }
             }
         }
     }
