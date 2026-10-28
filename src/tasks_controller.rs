@@ -940,6 +940,7 @@ pub(crate) fn register(
         if action == "due-badge" {
             if let Some(app) = command.weak.upgrade() {
                 refresh_due_badge(&app, &command.state, &command.handle);
+                refresh_task_setting_choices(&app, &command.state, &command.handle);
             }
             return;
         }
@@ -1044,6 +1045,80 @@ pub(crate) fn refresh_due_badge(
             if let Ok(counts) = counts {
                 app.set_tasks_due_today(i32::try_from(counts.today).unwrap_or(i32::MAX));
             }
+        });
+    });
+}
+
+const DEFAULT_STATUSES: [&str; 4] = ["inbox", "next", "waiting", "scheduled"];
+
+/// Show the stored "New task from email" defaults in the Tasks settings.
+/// The choice lists arrive later from `refresh_task_setting_choices`.
+pub(crate) fn apply_task_defaults(app: &AppWindow, settings: &rustmail_core::models::Settings) {
+    let ui = app.global::<TaskSettingsUi>();
+    ui.set_project(settings.task_default_project.clone().into());
+    ui.set_context(settings.task_default_context.clone().into());
+    ui.set_status_index(
+        DEFAULT_STATUSES
+            .iter()
+            .position(|s| *s == settings.task_default_status)
+            .unwrap_or(0) as i32,
+    );
+    ui.set_columns_index(i32::from(settings.task_project_columns == "simple"));
+    set_choice_indexes(&ui);
+}
+
+/// Point the two select rows at the stored names; a name that no longer
+/// exists falls back to entry 0 (first project / no context).
+fn set_choice_indexes(ui: &TaskSettingsUi<'_>) {
+    let index_of = |choices: ModelRc<slint::SharedString>, name: slint::SharedString| {
+        (1..choices.row_count())
+            .find(|i| choices.row_data(*i).as_ref() == Some(&name))
+            .unwrap_or(0) as i32
+    };
+    ui.set_project_index(index_of(ui.get_project_choices(), ui.get_project()));
+    ui.set_context_index(index_of(ui.get_context_choices(), ui.get_context()));
+}
+
+/// Fill the project and context choices of the Tasks settings from the task
+/// database. Entry 0 stands for "the first project" and "no context".
+pub(crate) fn refresh_task_setting_choices(
+    app: &AppWindow,
+    state: &Rc<RefCell<InboxState>>,
+    runtime: &tokio::runtime::Handle,
+) {
+    let Some(core) = state.borrow().core.as_ref().map(|c| c.file_core()) else {
+        return;
+    };
+    let weak = app.as_weak();
+    runtime.spawn(async move {
+        let loaded = async {
+            core.tasks_open().await?;
+            Ok::<_, rustmail_core::error::CoreError>((
+                core.task_projects().await?,
+                core.task_contexts().await?,
+            ))
+        }
+        .await;
+        let _ = weak.upgrade_in_event_loop(move |app| {
+            let Ok((projects, contexts)) = loaded else { return };
+            let list = |first: &str, names: Vec<String>| {
+                ModelRc::new(VecModel::from(
+                    std::iter::once(first.to_owned())
+                        .chain(names)
+                        .map(slint::SharedString::from)
+                        .collect::<Vec<_>>(),
+                ))
+            };
+            let ui = app.global::<TaskSettingsUi>();
+            ui.set_project_choices(list(
+                "First project",
+                projects.into_iter().map(|p| p.name).collect(),
+            ));
+            ui.set_context_choices(list(
+                "No context",
+                contexts.into_iter().map(|c| c.name).collect(),
+            ));
+            set_choice_indexes(&ui);
         });
     });
 }
@@ -1176,7 +1251,12 @@ fn open_from_mail(ctx: &Rc<Ctx>, row_id: i32) {
                 disabled: false,
                 destructive: false,
             };
-            let first = projects.first();
+            let defaults = app.global::<TaskSettingsUi>();
+            let wanted_project = defaults.get_project();
+            let first = projects
+                .iter()
+                .find(|p| !wanted_project.is_empty() && p.name == wanted_project.as_str())
+                .or_else(|| projects.first());
             dialog.set_project_id(first.map_or(String::new(), |p| p.id.to_string()).into());
             dialog.set_project_name(first.map_or(String::new(), |p| p.name.clone()).into());
             dialog.set_project_menu(ModelRc::new(VecModel::from(
@@ -1192,12 +1272,26 @@ fn open_from_mail(ctx: &Rc<Ctx>, row_id: i32) {
                     .map(|c| entry(c.id.to_string(), format!("@{}", c.name))),
             );
             dialog.set_context_menu(ModelRc::new(VecModel::from(context_entries)));
-            dialog.set_context_id("none".into());
-            dialog.set_context_name("".into());
+            let wanted_context = defaults.get_context();
+            let default_context = contexts
+                .iter()
+                .find(|c| !wanted_context.is_empty() && c.name == wanted_context.as_str());
+            dialog.set_context_id(
+                default_context.map_or("none".to_owned(), |c| c.id.to_string()).into(),
+            );
+            dialog.set_context_name(
+                default_context.map_or(String::new(), |c| format!("@{}", c.name)).into(),
+            );
             dialog.set_thread_id(thread_id as i32);
             dialog.set_mail_label(format!("{sender} · {subject}").into());
             dialog.set_title(subject.into());
-            dialog.set_status("inbox".into());
+            dialog.set_status(
+                DEFAULT_STATUSES
+                    .get(usize::try_from(defaults.get_status_index()).unwrap_or(0))
+                    .copied()
+                    .unwrap_or("inbox")
+                    .into(),
+            );
             dialog.set_due("".into());
             dialog.set_archive(app.global::<TaskSettingsUi>().get_archive());
             dialog.set_error("".into());
@@ -1750,7 +1844,7 @@ async fn mutate(
         }
         "create-project" if !a.trim().is_empty() => {
             let project = core
-                .task_project_create(a.to_owned(), String::new())
+                .task_project_create_default(a.to_owned())
                 .await
                 .map_err(err)?;
             return Ok(Some(format!("project:{}", project.id)));

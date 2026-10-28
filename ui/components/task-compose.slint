@@ -4,8 +4,25 @@ export global TaskSettingsUi {
     in-out property <int> follow-up: 0;
     // "Archive email once the task exists" starts ticked.
     in-out property <bool> archive: false;
+    // Defaults of "New task from email". The choice lists come from the task
+    // database (entry 0 means "first project" / "no context"); `project` and
+    // `context` hold the chosen names, empty for entry 0.
+    in-out property <[string]> project-choices: [];
+    in-out property <[string]> context-choices: [];
+    in-out property <string> project: "";
+    in-out property <string> context: "";
+    in-out property <int> project-index: 0;
+    in-out property <int> context-index: 0;
+    // 0 inbox, 1 next, 2 waiting, 3 scheduled.
+    in-out property <int> status-index: 0;
+    // Columns a new project starts with: 0 all six, 1 simple (four).
+    in-out property <int> columns-index: 0;
+    callback save-columns(int);
     callback save-follow-up(int);
     callback save-archive(bool);
+    callback save-project(int);
+    callback save-context(int);
+    callback save-status(int);
 }
 
 // State of the composer's "email from a task" options. The values are

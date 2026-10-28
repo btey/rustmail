@@ -545,6 +545,16 @@ export component SettingsDialog inherits Rectangle {
         @tr("1 week"),
         @tr("Never"),
     ];
+    private property <[string]> task-status-options: [
+        @tr("Inbox"),
+        @tr("Next actions"),
+        @tr("Waiting for"),
+        @tr("Scheduled"),
+    ];
+    private property <[string]> task-columns-options: [
+        @tr("All columns"),
+        @tr("Simple (no Scheduled or Someday)"),
+    ];
     private property <[string]> language-options: [
         @tr("System language"),
         @tr("English"),
@@ -1128,6 +1138,50 @@ export component SettingsDialog inherits Rectangle {
                                         title-color: root.body-text;
                                         description-color: root.faint-text;
                                         toggled(checked) => { TaskSettingsUi.save-archive(checked); }
+                                    }
+                                    Rectangle { height: 1px; background: root.border-subtle; }
+                                    SettingsSelectRow {
+                                        compact: root.compact;
+                                        title: @tr("Default list for a new task");
+                                        description: @tr("Where “New task from email” puts the task.");
+                                        choices: root.task-status-options;
+                                        selected-index: TaskSettingsUi.status-index;
+                                        title-color: root.body-text;
+                                        description-color: root.faint-text;
+                                        selected(index, value) => { TaskSettingsUi.save-status(index); }
+                                    }
+                                    Rectangle { height: 1px; background: root.border-subtle; }
+                                    SettingsSelectRow {
+                                        compact: root.compact;
+                                        title: @tr("Default project");
+                                        description: @tr("The project a task made from email starts in.");
+                                        choices: TaskSettingsUi.project-choices;
+                                        selected-index: TaskSettingsUi.project-index;
+                                        title-color: root.body-text;
+                                        description-color: root.faint-text;
+                                        selected(index, value) => { TaskSettingsUi.save-project(index); }
+                                    }
+                                    Rectangle { height: 1px; background: root.border-subtle; }
+                                    SettingsSelectRow {
+                                        compact: root.compact;
+                                        title: @tr("Default context");
+                                        description: @tr("The context a task made from email starts with.");
+                                        choices: TaskSettingsUi.context-choices;
+                                        selected-index: TaskSettingsUi.context-index;
+                                        title-color: root.body-text;
+                                        description-color: root.faint-text;
+                                        selected(index, value) => { TaskSettingsUi.save-context(index); }
+                                    }
+                                    Rectangle { height: 1px; background: root.border-subtle; }
+                                    SettingsSelectRow {
+                                        compact: root.compact;
+                                        title: @tr("Columns of a new project");
+                                        description: @tr("Which columns a project starts with when you create it.");
+                                        choices: root.task-columns-options;
+                                        selected-index: TaskSettingsUi.columns-index;
+                                        title-color: root.body-text;
+                                        description-color: root.faint-text;
+                                        selected(index, value) => { TaskSettingsUi.save-columns(index); }
                                     }
                                 }
                             }

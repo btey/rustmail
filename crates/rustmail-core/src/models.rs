@@ -1844,6 +1844,18 @@ pub struct Settings {
     /// Whether "Archive email once the task exists" starts ticked.
     #[serde(default)]
     pub task_archive_on_create: bool,
+    /// Name of the project "New task from email" starts with; empty = the first project.
+    #[serde(default)]
+    pub task_default_project: String,
+    /// Name of the context it starts with; empty = no context.
+    #[serde(default)]
+    pub task_default_context: String,
+    /// The "Add to" column it starts with: inbox, next, waiting or scheduled (empty = inbox).
+    #[serde(default)]
+    pub task_default_status: String,
+    /// Columns a new project starts with: "full" or "simple" (empty = full).
+    #[serde(default)]
+    pub task_project_columns: String,
     #[serde(default)]
     pub load_remote_images: bool,
     /// Mark unread conversations as read when the user opens them.
@@ -2177,6 +2189,10 @@ impl Default for Settings {
             undo_send_seconds: 10,
             task_follow_up_default: 0,
             task_archive_on_create: false,
+            task_default_project: String::new(),
+            task_default_context: String::new(),
+            task_default_status: String::new(),
+            task_project_columns: String::new(),
             load_remote_images: false,
             mark_read_on_open: true,
             ai_base_url: default_ai_base_url(),

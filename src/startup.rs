@@ -832,6 +832,7 @@ pub(crate) fn apply_settings(app: &AppWindow, settings: &Settings) {
         .set_follow_up(settings.task_follow_up_default.clamp(0, 3) as i32);
     app.global::<crate::TaskSettingsUi>()
         .set_archive(settings.task_archive_on_create);
+    crate::tasks_controller::apply_task_defaults(app, settings);
     app.set_collect_outgoing_contacts(settings.collect_outgoing_contacts);
     app.set_collect_incoming_contacts(settings.collect_incoming_contacts);
     app.set_contact_suggest_all_accounts(settings.contact_suggest_all_accounts);

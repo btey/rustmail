@@ -804,6 +804,30 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    pub async fn set_task_defaults(
+        &self,
+        project: String,
+        context: String,
+        status: String,
+        columns: String,
+    ) -> Result<(), String> {
+        let mut settings = self.load_settings().await?;
+        settings.task_project_columns = match columns.as_str() {
+            "simple" => columns,
+            _ => "full".into(),
+        };
+        settings.task_default_project = project;
+        settings.task_default_context = context;
+        settings.task_default_status = match status.as_str() {
+            "next" | "waiting" | "scheduled" => status,
+            _ => "inbox".into(),
+        };
+        self.core
+            .set_settings(settings)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn set_undo_send_seconds(&self, seconds: i64) -> Result<(), String> {
         let mut settings = self.load_settings().await?;
         settings.undo_send_seconds = seconds;

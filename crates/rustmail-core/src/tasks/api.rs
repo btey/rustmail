@@ -64,6 +64,14 @@ impl Core {
         Ok(task)
     }
 
+    /// Create a project with the starting columns the user chose in the Tasks
+    /// settings (`Settings.task_project_columns`).
+    pub async fn task_project_create_default(&self, name: String) -> Result<TaskProject> {
+        let columns = ColumnSet::from_setting(&self.get_settings().await?.task_project_columns);
+        self.task_project_create_with(name, String::new(), columns)
+            .await
+    }
+
     /// A task's email was sent (Phase 9): link it, move the task, set the
     /// follow-up time. See `SqliteTaskStore::record_sent`.
     pub async fn task_record_sent(
@@ -415,6 +423,8 @@ impl Core {
     writes! {
         task_project_create(name: String, colour: String) -> TaskProject,
             |s| s.create_project(&name, &colour);
+        task_project_create_with(name: String, colour: String, columns: ColumnSet) -> TaskProject,
+            |s| s.create_project_with(&name, &colour, columns);
         task_project_update(id: i64, name: String, colour: String) -> (),
             |s| s.update_project(id, &name, &colour);
         task_project_delete(id: i64) -> (), |s| s.delete_project(id);

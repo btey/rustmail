@@ -125,7 +125,12 @@ fn project_from_row(r: &Row) -> rusqlite::Result<TaskProject> {
     })
 }
 
-fn insert_project(tx: &Connection, name: &str, colour: &str) -> Result<TaskProject> {
+fn insert_project(
+    tx: &Connection,
+    name: &str,
+    colour: &str,
+    columns: ColumnSet,
+) -> Result<TaskProject> {
     let last: Option<String> = tx
         .query_row(
             "SELECT MAX(position) FROM task_projects WHERE deleted_at IS NULL",
@@ -143,7 +148,9 @@ fn insert_project(tx: &Connection, name: &str, colour: &str) -> Result<TaskProje
     let id = tx.last_insert_rowid();
     stamp(tx, "project", "task_projects", id, "create")?;
     for (name, icon, colour, kind) in DEFAULT_COLUMNS {
-        insert_column(tx, id, name, icon, colour, kind)?;
+        if columns.includes(kind) {
+            insert_column(tx, id, name, icon, colour, kind)?;
+        }
     }
     get_project(tx, id)
 }
@@ -978,7 +985,7 @@ impl TaskStore for SqliteTaskStore<'_> {
             )
             .optional()?;
         if seeded.is_none() {
-            insert_project(&tx, "Personal", "#2563eb")?;
+            insert_project(&tx, "Personal", "#2563eb", ColumnSet::Full)?;
             tx.execute(
                 "INSERT INTO app_settings (key, value) VALUES (?1, '1')",
                 [SEED_FLAG],
@@ -999,9 +1006,18 @@ impl TaskStore for SqliteTaskStore<'_> {
     }
 
     fn create_project(&mut self, name: &str, colour: &str) -> Result<TaskProject> {
+        self.create_project_with(name, colour, ColumnSet::Full)
+    }
+
+    fn create_project_with(
+        &mut self,
+        name: &str,
+        colour: &str,
+        columns: ColumnSet,
+    ) -> Result<TaskProject> {
         let name = clean_name(name)?;
         let tx = self.conn.transaction()?;
-        let p = insert_project(&tx, &name, colour)?;
+        let p = insert_project(&tx, &name, colour, columns)?;
         tx.commit()?;
         Ok(p)
     }

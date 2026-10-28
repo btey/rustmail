@@ -1362,3 +1362,38 @@ fn the_task_views_list_conversations_with_open_and_waiting_tasks() {
     s.complete_task(task.id).unwrap();
     assert_eq!(counts(&c, View::WithTasks), 0);
 }
+
+#[test]
+fn a_simple_project_starts_with_four_columns_and_tasks_still_land_somewhere() {
+    let (mut c, _) = setup();
+    let mut s = SqliteTaskStore::new(&mut c);
+    let full = s.create_project("Full", "").unwrap();
+    let simple = s
+        .create_project_with("Simple", "", ColumnSet::Simple)
+        .unwrap();
+    let kinds = |s: &mut SqliteTaskStore, id| -> Vec<ColumnKind> {
+        s.list_columns(id).unwrap().iter().map(|c| c.kind).collect()
+    };
+    assert_eq!(kinds(&mut s, full.id).len(), 6);
+    assert_eq!(
+        kinds(&mut s, simple.id),
+        vec![
+            ColumnKind::Inbox,
+            ColumnKind::Next,
+            ColumnKind::Waiting,
+            ColumnKind::Done
+        ]
+    );
+    assert_eq!(ColumnSet::from_setting("simple"), ColumnSet::Simple);
+    assert_eq!(ColumnSet::from_setting("anything"), ColumnSet::Full);
+    // A task whose wanted column kind is missing is still created.
+    let task = s
+        .create_task(NewTask {
+            project_id: simple.id,
+            column_id: None,
+            title: "t".into(),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(task.project_id, simple.id);
+}

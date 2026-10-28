@@ -44,6 +44,36 @@ pub enum ColumnKind {
     Custom,
 }
 
+/// The columns a new project starts with.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ColumnSet {
+    /// Inbox, Next actions, Waiting for, Scheduled, Done, Someday / Maybe.
+    #[default]
+    Full,
+    /// Inbox, Next actions, Waiting for, Done.
+    Simple,
+}
+
+impl ColumnSet {
+    /// The stored setting; anything unknown is the full set.
+    pub fn from_setting(value: &str) -> Self {
+        match value {
+            "simple" => ColumnSet::Simple,
+            _ => ColumnSet::Full,
+        }
+    }
+
+    fn includes(self, kind: ColumnKind) -> bool {
+        match self {
+            ColumnSet::Full => true,
+            ColumnSet::Simple => matches!(
+                kind,
+                ColumnKind::Inbox | ColumnKind::Next | ColumnKind::Waiting | ColumnKind::Done
+            ),
+        }
+    }
+}
+
 impl ColumnKind {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -353,6 +383,13 @@ pub trait TaskStore {
     fn ensure_default_project(&mut self) -> Result<()>;
     fn list_projects(&mut self) -> Result<Vec<TaskProject>>;
     fn create_project(&mut self, name: &str, colour: &str) -> Result<TaskProject>;
+    /// Like `create_project`, with the chosen starting columns.
+    fn create_project_with(
+        &mut self,
+        name: &str,
+        colour: &str,
+        columns: ColumnSet,
+    ) -> Result<TaskProject>;
     fn update_project(&mut self, id: i64, name: &str, colour: &str) -> Result<()>;
     fn delete_project(&mut self, id: i64) -> Result<()>;
     fn list_columns(&mut self, project_id: i64) -> Result<Vec<TaskColumn>>;

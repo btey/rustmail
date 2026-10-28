@@ -134,6 +134,63 @@ pub(super) fn register_settings_preference_callbacks(
         }
     }
 
+    // Defaults of "New task from email": project, context and starting list.
+    for kind in ["project", "context", "status", "columns"] {
+        let app_weak = app.as_weak();
+        let state_for_defaults = Rc::clone(state);
+        let runtime_for_defaults = Rc::clone(runtime);
+        let save = move |index: i32| {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let ui = app.global::<TaskSettingsUi>();
+            // Entry 0 of a list means the built-in default, stored as empty.
+            let name_at = |choices: slint::ModelRc<slint::SharedString>| {
+                usize::try_from(index)
+                    .ok()
+                    .filter(|i| *i > 0)
+                    .and_then(|i| slint::Model::row_data(&choices, i))
+                    .unwrap_or_default()
+            };
+            match kind {
+                "project" => {
+                    ui.set_project(name_at(ui.get_project_choices()));
+                    ui.set_project_index(index.max(0));
+                }
+                "context" => {
+                    ui.set_context(name_at(ui.get_context_choices()));
+                    ui.set_context_index(index.max(0));
+                }
+                "columns" => ui.set_columns_index(index.clamp(0, 1)),
+                _ => ui.set_status_index(index.clamp(0, 3)),
+            }
+            let Some(core) = state_for_defaults.borrow().core.clone() else {
+                return;
+            };
+            let status = ["inbox", "next", "waiting", "scheduled"]
+                [usize::try_from(ui.get_status_index().clamp(0, 3)).unwrap_or(0)];
+            match runtime_for_defaults.block_on(core.set_task_defaults(
+                ui.get_project().to_string(),
+                ui.get_context().to_string(),
+                status.to_owned(),
+                if ui.get_columns_index() == 1 { "simple" } else { "full" }.to_owned(),
+            )) {
+                Ok(()) => app.set_sync_status(UiMessage::plain("Task settings saved.")),
+                Err(error) => app.set_sync_status(UiMessage::detail(
+                    "Could not save the task settings: {}",
+                    error,
+                )),
+            }
+        };
+        let ui = app.global::<TaskSettingsUi>();
+        match kind {
+            "project" => ui.on_save_project(save),
+            "context" => ui.on_save_context(save),
+            "columns" => ui.on_save_columns(save),
+            _ => ui.on_save_status(save),
+        }
+    }
+
     let app_weak = app.as_weak();
     let state_for_undo = Rc::clone(state);
     let runtime_for_undo = Rc::clone(runtime);

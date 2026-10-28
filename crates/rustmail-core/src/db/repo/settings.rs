@@ -62,6 +62,10 @@ mod tests {
         s.theme = "carbon".into();
         s.message_appearance = crate::models::MessageAppearance::Light;
         s.calendar_week_start = "sunday".into();
+        s.task_default_project = "Home".into();
+        s.task_default_context = "phone".into();
+        s.task_default_status = "waiting".into();
+        s.task_project_columns = "simple".into();
         s.notifications_enabled = false;
         s.monochrome_sidebar_icons = true;
         s.show_avatars = false;
@@ -111,6 +115,10 @@ mod tests {
             crate::models::MessageAppearance::Light
         );
         assert_eq!(back.calendar_week_start, "sunday");
+        assert_eq!(back.task_default_project, "Home");
+        assert_eq!(back.task_default_context, "phone");
+        assert_eq!(back.task_default_status, "waiting");
+        assert_eq!(back.task_project_columns, "simple");
         assert!(!back.notifications_enabled);
         assert!(back.monochrome_sidebar_icons);
         assert!(!back.show_avatars);
@@ -148,6 +156,9 @@ mod tests {
         assert!(s.mark_read_on_open);
         assert_eq!(s.task_follow_up_default, 0);
         assert!(!s.task_archive_on_create);
+        assert!(s.task_default_project.is_empty());
+        assert!(s.task_default_context.is_empty());
+        assert!(s.task_default_status.is_empty());
         assert!(!s.monochrome_sidebar_icons);
         assert!(s.show_avatars);
         assert!(s.group_mail_by_date);
