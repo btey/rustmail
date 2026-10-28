@@ -680,6 +680,7 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
         tasks.set_links(model(vec![LinkRow {
             id: 1,
             open: String::new().into(),
+            thread_id: -1,
             kind: "mail_received".into(),
             text: "Quarterly invoice from the finance department".into(),
             found: true,

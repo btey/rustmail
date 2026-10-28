@@ -68,6 +68,28 @@ fraction of the memory of a typical web-based mail client.
 Browse JMAP/WebDAV storage, search mail attachments, keep files offline, and
 preview PDFs, images and text.
 
+## ✅ Tasks
+
+Rustmail has a local task manager built on the Getting Things Done method. It
+is an early feature: it works on the desktop, but several parts are still
+being finished (see `ROADMAP.md`).
+
+- **Board and list.** Projects have status columns (Inbox, Next actions,
+  Waiting for, Scheduled, Done, Someday / Maybe, plus your own) with drag and
+  drop, keyboard navigation, and a flat list you can sort and group.
+- **Details.** Due dates (with a month picker), contexts, labels, a checklist,
+  an assignee, high priority, links between tasks, and an activity log.
+- **From your mail.** Make a task from a conversation, optionally archiving
+  the email, and see it again under "With tasks" and "Waiting on reply" in the
+  Mail sidebar. Link a mail or a calendar event to a task, or make a task from
+  a calendar event you created in Rustmail.
+- **Email from a task.** Send a message from a task, link it, move the task to
+  Waiting for, and set a follow-up. Rustmail notes a reply, can move the task
+  back to Next actions, and tells you when a follow-up has had no reply.
+- **Your data stays here.** Tasks live in the local mail database. Nothing is
+  synced or sent to a server; export and import use a JSON file under
+  Settings → Data, and the task defaults are under Settings → General.
+
 ## ✍🏻 Account signatures and OpenPGP
 
 Settings → Accounts → Signatures & OpenPGP provides named signatures, separate

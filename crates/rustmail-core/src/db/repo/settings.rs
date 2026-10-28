@@ -41,6 +41,7 @@ mod tests {
         assert!(d.mark_read_on_open);
         assert!(!d.load_remote_images);
         assert!(!d.monochrome_sidebar_icons);
+        assert!(!d.reverse_scroll);
         assert!(d.show_avatars);
         assert!(d.group_mail_by_date);
         assert!(d.collect_outgoing_contacts);
@@ -68,6 +69,7 @@ mod tests {
         s.task_project_columns = "simple".into();
         s.notifications_enabled = false;
         s.monochrome_sidebar_icons = true;
+        s.reverse_scroll = true;
         s.show_avatars = false;
         s.group_mail_by_date = false;
         s.workspace_layout = "minimal".into();
@@ -121,6 +123,7 @@ mod tests {
         assert_eq!(back.task_project_columns, "simple");
         assert!(!back.notifications_enabled);
         assert!(back.monochrome_sidebar_icons);
+        assert!(back.reverse_scroll);
         assert!(!back.show_avatars);
         assert!(!back.group_mail_by_date);
         assert!(back.contact_suggest_all_accounts);

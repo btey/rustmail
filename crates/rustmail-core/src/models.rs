@@ -1830,6 +1830,10 @@ pub struct Settings {
     /// the default semantic palette.
     #[serde(default)]
     pub monochrome_sidebar_icons: bool,
+    /// Flip the vertical mouse-wheel and touchpad scroll direction in the
+    /// whole window, for devices whose own setting cannot be changed.
+    #[serde(default)]
+    pub reverse_scroll: bool,
     /// UI language: "system" follows the OS locale, otherwise a code like "en".
     #[serde(default = "default_language")]
     pub language: String,
@@ -2184,6 +2188,7 @@ impl Default for Settings {
             workspace_list_pane_width: default_workspace_list_pane_width(),
             window_frame: default_window_frame(),
             monochrome_sidebar_icons: false,
+            reverse_scroll: false,
             language: "system".into(),
             calendar_week_start: default_calendar_week_start(),
             undo_send_seconds: 10,

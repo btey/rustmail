@@ -936,6 +936,15 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    pub async fn set_reverse_scroll(&self, enabled: bool) -> Result<(), String> {
+        let mut settings = self.load_settings().await?;
+        settings.reverse_scroll = enabled;
+        self.core
+            .set_settings(settings)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn set_show_avatars(&self, enabled: bool) -> Result<(), String> {
         let mut settings = self.load_settings().await?;
         settings.show_avatars = enabled;

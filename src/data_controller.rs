@@ -420,6 +420,12 @@ fn import_account_backup_document(
                 settings.monochrome_sidebar_icons = enabled;
             }
             if let Some(enabled) = preferences
+                .get("reverseScroll")
+                .and_then(|value| value.as_bool())
+            {
+                settings.reverse_scroll = enabled;
+            }
+            if let Some(enabled) = preferences
                 .get("showAvatars")
                 .and_then(|value| value.as_bool())
             {
@@ -609,6 +615,9 @@ fn import_account_backup_document(
                 .into(),
             );
             app.set_monochrome_sidebar_icons(settings.monochrome_sidebar_icons);
+            app.global::<crate::WindowChrome>()
+                .set_reverse_scroll(settings.reverse_scroll);
+            crate::window_chrome::set_reverse_scroll(settings.reverse_scroll);
             app.global::<MessageColors>()
                 .set_preference(settings.message_appearance.as_str().into());
             app.set_show_avatars(settings.show_avatars);
@@ -849,6 +858,7 @@ pub(super) fn register_data_management_callbacks(
                     "workspaceLayout": settings.workspace_layout,
                     "workspaceListPaneWidth": settings.workspace_list_pane_width,
                     "monochromeSidebarIcons": settings.monochrome_sidebar_icons,
+                    "reverseScroll": settings.reverse_scroll,
                     "language": settings.language,
                     "calendarWeekStart": settings.calendar_week_start,
                     "loadRemoteImages": settings.load_remote_images,
@@ -1237,6 +1247,8 @@ pub(super) fn register_data_management_callbacks(
                     app.set_theme_mode("system".into());
                     app.global::<MessageColors>().set_preference("system".into());
                     app.set_monochrome_sidebar_icons(false);
+                    app.global::<crate::WindowChrome>().set_reverse_scroll(false);
+                    crate::window_chrome::set_reverse_scroll(false);
                     app.set_show_avatars(true);
                     app.set_show_account_markers(false);
                     app.set_workspace_layout("default".into());

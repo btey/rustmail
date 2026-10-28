@@ -160,6 +160,7 @@ fn register_desktop_events(app: &AppWindow) {
 
     // Slint keeps one winit event filter per window; this module owns it.
     let weak = app.as_weak();
+    let pointer = Cell::new((0.0_f64, 0.0_f64));
     let modifiers = Cell::new(winit::keyboard::ModifiersState::empty());
     app.window().on_winit_window_event(move |_, event| {
         let Some(app) = weak.upgrade() else {
@@ -167,6 +168,28 @@ fn register_desktop_events(app: &AppWindow) {
         };
         match event {
             winit::event::WindowEvent::ModifiersChanged(state) => modifiers.set(state.state()),
+            winit::event::WindowEvent::CursorMoved { position, .. } => {
+                pointer.set((position.x, position.y));
+            }
+            // "Reverse scroll direction": the wheel is delivered to Slint again
+            // with its vertical direction flipped, as Slint's own backend would.
+            winit::event::WindowEvent::MouseWheel { delta, .. } if reverse_scroll() => {
+                let scale = app.window().scale_factor();
+                let (dx, dy) = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(x, y) => (x * 60.0, y * 60.0),
+                    winit::event::MouseScrollDelta::PixelDelta(d) => {
+                        (d.x as f32 / scale, d.y as f32 / scale)
+                    }
+                };
+                let (x, y) = pointer.get();
+                app.window()
+                    .dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+                        position: slint::LogicalPosition::new(x as f32 / scale, y as f32 / scale),
+                        delta_x: dx,
+                        delta_y: -dy,
+                    });
+                return EventResult::PreventDefault;
+            }
             // Tab shortcuts work wherever focus is, as in a browser.
             winit::event::WindowEvent::KeyboardInput { event, .. }
                 if event.state.is_pressed()
@@ -215,6 +238,18 @@ fn register_desktop_events(app: &AppWindow) {
         }
         EventResult::Propagate
     });
+}
+
+static REVERSE_SCROLL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Turn the "Reverse scroll direction" setting on or off for the window.
+pub(crate) fn set_reverse_scroll(enabled: bool) {
+    REVERSE_SCROLL.store(enabled, std::sync::atomic::Ordering::Relaxed);
+}
+
+#[cfg(desktop)]
+fn reverse_scroll() -> bool {
+    REVERSE_SCROLL.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 /// Forward the platform's minimized state to the window lifecycle. Wayland

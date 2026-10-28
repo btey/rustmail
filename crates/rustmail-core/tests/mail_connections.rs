@@ -955,11 +955,22 @@ async fn smtp_sent_policy(provider: Provider, policy: SentCopyPolicy, expected_a
 }
 
 /// The whole task send path against local fixtures: queue the draft, deliver it
-/// to the SMTP stub, then link it to the task, move the task and announce it.
-#[tokio::test(flavor = "multi_thread")]
-async fn a_task_mail_is_delivered_linked_and_moves_the_task() {
+/// to the SMTP stub, then link it to the task and announce it. Returns the
+/// task as it is afterwards, the column it started in, the project's columns
+/// and when the mail was sent; the callers check where the task went.
+async fn task_mail_round_trip(
+    after: rustmail_core::tasks::AfterSend,
+    follow_up_days: Option<u32>,
+    book_follow_up: bool,
+) -> (
+    rustmail_core::tasks::Task,
+    i64,
+    Vec<rustmail_core::tasks::TaskColumn>,
+    i64,
+    Core,
+) {
     use rustmail_core::events::CoreEvent;
-    use rustmail_core::tasks::{AfterSend, ColumnKind, NewTask};
+    use rustmail_core::tasks::NewTask;
 
     let (imap_port, imap_task) = imap_server(false, false).await;
     let (smtp_port, delivered, smtp_task) = smtp_test_and_delivery_server().await;
@@ -993,11 +1004,6 @@ async fn a_task_mail_is_delivered_linked_and_moves_the_task() {
     core.tasks_open().await.unwrap();
     let project = core.task_projects().await.unwrap()[0].id;
     let columns = core.task_columns(project).await.unwrap();
-    let waiting = columns
-        .iter()
-        .find(|column| column.kind == ColumnKind::Waiting)
-        .unwrap()
-        .id;
     let task = core
         .task_create(NewTask {
             project_id: project,
@@ -1006,7 +1012,7 @@ async fn a_task_mail_is_delivered_linked_and_moves_the_task() {
         })
         .await
         .unwrap();
-    assert_ne!(task.column_id, waiting);
+    let started_in = task.column_id;
 
     let draft_id = core
         .save_draft(SaveDraftArgs {
@@ -1036,9 +1042,10 @@ async fn a_task_mail_is_delivered_linked_and_moves_the_task() {
             send_at: Some(sent_at),
         },
         task.id,
-        AfterSend::Waiting,
-        Some(4),
-        None,
+        after,
+        follow_up_days,
+        // Account 0 keeps the event local.
+        book_follow_up.then_some((0, None)),
     )
     .await
     .unwrap();
@@ -1062,9 +1069,9 @@ async fn a_task_mail_is_delivered_linked_and_moves_the_task() {
         announced,
         (
             "Ask about the invoice".to_string(),
-            AfterSend::Waiting,
-            Some(4),
-            false
+            after,
+            follow_up_days,
+            book_follow_up && follow_up_days.is_some()
         )
     );
 
@@ -1076,12 +1083,15 @@ async fn a_task_mail_is_delivered_linked_and_moves_the_task() {
     assert!(message.contains("Could you confirm the invoice total?"));
 
     let task = core.task_get(task.id).await.unwrap();
-    assert_eq!(task.column_id, waiting);
-    assert_eq!(task.link_count, 1);
-    // Four days from the send, to within the time the test itself took.
-    let follow_up = task.follow_up_at.expect("follow-up time is set");
-    let four_days = 4 * 24 * 60 * 60 * 1000;
-    assert!((follow_up - (sent_at + four_days)).abs() < 60_000);
+    // The sent mail, plus the follow-up event when one was booked.
+    assert_eq!(
+        task.link_count,
+        if book_follow_up && follow_up_days.is_some() {
+            2
+        } else {
+            1
+        }
+    );
     let activity = core.task_activity(task.id).await.unwrap();
     assert!(
         activity
@@ -1089,6 +1099,175 @@ async fn a_task_mail_is_delivered_linked_and_moves_the_task() {
             .any(|entry| entry.text.contains("Email sent"))
     );
     smtp_task.await.unwrap();
+    (task, started_in, columns, sent_at, core)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_task_mail_is_delivered_linked_and_moves_the_task() {
+    use rustmail_core::tasks::{AfterSend, ColumnKind};
+    let (task, started_in, columns, sent_at, _) =
+        task_mail_round_trip(AfterSend::Waiting, Some(4), false).await;
+    let waiting = columns
+        .iter()
+        .find(|column| column.kind == ColumnKind::Waiting)
+        .unwrap()
+        .id;
+    assert_ne!(started_in, waiting);
+    assert_eq!(task.column_id, waiting);
+    // Four days from the send, to within the time the test itself took.
+    let follow_up = task.follow_up_at.expect("follow-up time is set");
+    let four_days = 4 * 24 * 60 * 60 * 1000;
+    assert!((follow_up - (sent_at + four_days)).abs() < 60_000);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_task_mail_can_leave_the_task_where_it_is() {
+    use rustmail_core::tasks::AfterSend;
+    let (task, started_in, _, _, _) = task_mail_round_trip(AfterSend::Keep, None, false).await;
+    assert_eq!(task.column_id, started_in);
+    assert!(task.completed_at.is_none());
+    assert_eq!(task.follow_up_at, None, "no follow-up was asked for");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_task_mail_books_its_follow_up_on_the_calendar() {
+    use rustmail_core::tasks::AfterSend;
+    let (task, _, _, sent_at, core) = task_mail_round_trip(AfterSend::Waiting, Some(2), true).await;
+    let follow_up = task.follow_up_at.expect("follow-up time is set");
+    assert!((follow_up - (sent_at + 2 * 24 * 60 * 60 * 1000)).abs() < 60_000);
+    let events = core
+        .list_events(follow_up - 1, follow_up + 1)
+        .await
+        .unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(
+        events[0].summary.as_deref(),
+        Some("Follow up: Ask about the invoice")
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_task_mail_can_complete_the_task() {
+    use rustmail_core::tasks::{AfterSend, ColumnKind};
+    let (task, started_in, columns, _, _) =
+        task_mail_round_trip(AfterSend::Done, None, false).await;
+    let done = columns
+        .iter()
+        .find(|column| column.kind == ColumnKind::Done)
+        .unwrap()
+        .id;
+    assert_ne!(started_in, done);
+    assert_eq!(task.column_id, done);
+    assert!(task.completed_at.is_some());
+}
+
+/// Undo send for a task mail: cancelling inside the undo window means nothing
+/// is delivered, nothing is linked and the task is left alone.
+#[tokio::test(flavor = "multi_thread")]
+async fn cancelling_a_task_mail_inside_the_undo_window_changes_nothing() {
+    use rustmail_core::events::CoreEvent;
+    use rustmail_core::tasks::{AfterSend, NewTask};
+
+    let (imap_port, imap_task) = imap_server(false, false).await;
+    let (smtp_port, delivered, smtp_task) = smtp_test_and_delivery_server().await;
+    let temp = tempfile::tempdir().unwrap();
+    let credentials = Arc::new(DevelopmentFileCredentialStore::new(
+        temp.path().join("credentials.json"),
+    ));
+    let core = Core::start_mail_ui_with_credentials(Paths::for_tests(temp.path()), credentials)
+        .await
+        .unwrap();
+    let account = core
+        .add_account_password(AddPasswordAccountArgs {
+            smtp_password: None,
+            client_key_pem: None,
+            email: "sender@example.com".into(),
+            display_name: Some("Sender".into()),
+            username: "sender@example.com".into(),
+            password: "test-password".into(),
+            mail_protocol: MailProtocol::Imap,
+            jmap_url: String::new(),
+            imap_host: "127.0.0.1".into(),
+            imap_port,
+            smtp_host: "127.0.0.1".into(),
+            smtp_port,
+            connection: settings(ConnectionSecurity::Tls),
+        })
+        .await
+        .unwrap();
+    imap_task.await.unwrap();
+
+    core.tasks_open().await.unwrap();
+    let project = core.task_projects().await.unwrap()[0].id;
+    let task = core
+        .task_create(NewTask {
+            project_id: project,
+            title: "Ask about the invoice".into(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+
+    let draft_id = core
+        .save_draft(SaveDraftArgs {
+            draft_id: None,
+            account_id: account.id,
+            from: None,
+            to: vec![Address {
+                name: Some("Recipient".into()),
+                email: "recipient@example.com".into(),
+            }],
+            cc: Vec::new(),
+            bcc: Vec::new(),
+            subject: "Invoice question".into(),
+            body_text: "Could you confirm the invoice total?".into(),
+            body_html: None,
+            mode: "new".into(),
+            in_reply_to_message_id: None,
+            attachments: Vec::new(),
+        })
+        .await
+        .unwrap();
+    let before = core.task_get(task.id).await.unwrap();
+    let mut events = core.bus.subscribe();
+    let queued = core
+        .task_send_and_link(
+            QueueSendArgs {
+                draft_id,
+                send_at: Some(now_ms() + 60_000),
+            },
+            task.id,
+            AfterSend::Waiting,
+            Some(4),
+            None,
+        )
+        .await
+        .unwrap();
+    assert!(core.cancel_send(queued.action_id).await.unwrap());
+    // A second cancel finds nothing left to cancel.
+    assert!(!core.cancel_send(queued.action_id).await.unwrap());
+
+    // Give a wrongly surviving send time to show itself.
+    let announced = tokio::time::timeout(std::time::Duration::from_millis(1500), async {
+        loop {
+            if let Ok(CoreEvent::TaskMailSent { .. }) = events.recv().await {
+                break;
+            }
+        }
+    })
+    .await;
+    assert!(announced.is_err(), "a cancelled send must not announce");
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(100), delivered)
+            .await
+            .is_err(),
+        "nothing reached the SMTP stub"
+    );
+    let after = core.task_get(task.id).await.unwrap();
+    assert_eq!(after.column_id, before.column_id);
+    assert_eq!(after.link_count, 0);
+    assert_eq!(after.follow_up_at, None);
+    smtp_task.abort();
 }
 
 #[tokio::test]

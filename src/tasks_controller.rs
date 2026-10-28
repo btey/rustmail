@@ -5,6 +5,7 @@ use crate::{
     ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, PickerDayRow, TaskCardRow, TaskColumnRow,
     LinkedTask, TaskChipEntry, TaskChips, TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TaskReplyUi, TaskSettingsUi, TasksUi,
 };
+use crate::ui_message::AppWindowMessages;
 use chrono::{Local, TimeZone};
 use rustmail_core::Core;
 use rustmail_core::models::{ActionKind, PerformActionArgs};
@@ -61,23 +62,30 @@ impl Group {
     }
 }
 
-/// How the flat lists are ordered; the board keeps its manual order.
+/// How the flat lists are ordered; the board keeps its manual order. Each
+/// order but Manual has a reversed twin, reached by choosing it again.
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 enum Sort {
     /// The order tasks were put in.
     #[default]
     Manual,
     Due,
+    DueReversed,
     Priority,
+    PriorityReversed,
     Title,
+    TitleReversed,
 }
 
 impl Sort {
     fn parse(token: &str) -> Self {
         match token {
             "due" => Self::Due,
+            "due-reversed" => Self::DueReversed,
             "priority" => Self::Priority,
+            "priority-reversed" => Self::PriorityReversed,
             "title" => Self::Title,
+            "title-reversed" => Self::TitleReversed,
             _ => Self::Manual,
         }
     }
@@ -86,19 +94,64 @@ impl Sort {
         match self {
             Self::Manual => "manual",
             Self::Due => "due",
+            Self::DueReversed => "due-reversed",
             Self::Priority => "priority",
+            Self::PriorityReversed => "priority-reversed",
             Self::Title => "title",
+            Self::TitleReversed => "title-reversed",
+        }
+    }
+
+    /// The other direction of the same order.
+    fn reversed(self) -> Self {
+        match self {
+            Self::Manual => Self::Manual,
+            Self::Due => Self::DueReversed,
+            Self::DueReversed => Self::Due,
+            Self::Priority => Self::PriorityReversed,
+            Self::PriorityReversed => Self::Priority,
+            Self::Title => Self::TitleReversed,
+            Self::TitleReversed => Self::Title,
+        }
+    }
+
+    /// The order without its direction, which names a menu entry.
+    fn base(self) -> Self {
+        match self {
+            Self::DueReversed => Self::Due,
+            Self::PriorityReversed => Self::Priority,
+            Self::TitleReversed => Self::Title,
+            other => other,
+        }
+    }
+
+    /// Choosing an order: the same one again turns it around.
+    fn chosen(self, token: &str) -> Self {
+        let wanted = Self::parse(token);
+        if self.base() == wanted {
+            self.reversed()
+        } else {
+            wanted
         }
     }
 
     /// Stable sort: ties keep their manual order. Due dates ascend with
-    /// undated tasks last, priority runs from high to low.
+    /// undated tasks last (latest first when reversed, still undated last),
+    /// priority runs from high to low (low to high when reversed), titles
+    /// ignore case and run A to Z (Z to A when reversed).
     fn apply(self, tasks: &mut [Task]) {
         match self {
             Self::Manual => {}
             Self::Due => tasks.sort_by_key(|t| (t.due_at.is_none(), t.due_at)),
+            Self::DueReversed => {
+                tasks.sort_by_key(|t| (t.due_at.is_none(), std::cmp::Reverse(t.due_at)))
+            }
             Self::Priority => tasks.sort_by_key(|t| std::cmp::Reverse(t.priority)),
+            Self::PriorityReversed => tasks.sort_by_key(|t| t.priority),
             Self::Title => tasks.sort_by_key(|t| t.title.to_lowercase()),
+            Self::TitleReversed => {
+                tasks.sort_by_key(|t| std::cmp::Reverse(t.title.to_lowercase()))
+            }
         }
     }
 }
@@ -211,6 +264,8 @@ struct Snapshot {
     can_switch_view: bool,
     /// `(menu id, title)` for the Group menu; empty when the view is a board.
     group_menu: Vec<(String, String)>,
+    /// Token of the order of a flat list (`Sort::token`), for the header row.
+    sort: String,
     filter_menu: Vec<(String, String)>,
 }
 
@@ -404,13 +459,16 @@ async fn load_detail(
         .map(|l| {
             use rustmail_core::tasks::LinkTarget;
             let (text, found, open) = match &l.target {
-                LinkTarget::Mail { subject, .. } => (subject.clone(), true, String::new()),
+                LinkTarget::Mail {
+                    subject, thread_id, ..
+                } => (subject.clone(), true, format!("mail:{thread_id}")),
                 LinkTarget::Task { task_id, title } => {
                     (title.clone(), true, format!("task:{task_id}"))
                 }
                 LinkTarget::Event => {
                     let uid = l.link.event_uid.clone().unwrap_or_default();
-                    (event_titles.get(&uid).cloned().unwrap_or(uid), true, String::new())
+                    let open = format!("event:{uid}");
+                    (event_titles.get(&uid).cloned().unwrap_or(uid), true, open)
                 }
                 LinkTarget::MailNotFound | LinkTarget::TaskNotFound => {
                     (String::new(), false, String::new())
@@ -636,6 +694,7 @@ async fn load(
             Group::Label => "Group by label",
             Group::Due => "Group by due date",
         };
+        snap.sort = sort.token().to_owned();
         snap.group_menu = options
             .iter()
             .map(|g| {
@@ -650,7 +709,12 @@ async fn load(
                     (Sort::Title, "Sort by title"),
                 ]
                 .map(|(option, title)| {
-                    let tick = if option == sort { "✓ " } else { "" };
+                    // A tick marks the active order, an arrow a reversed one.
+                    let tick = match (option == sort.base(), option == sort) {
+                        (true, true) => "✓ ",
+                        (true, false) => "✓↓ ",
+                        _ => "",
+                    };
                     (format!("sort:{}", option.token()), format!("{tick}{title}"))
                 }),
             )
@@ -791,19 +855,27 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
     ui.set_projects(nav_rows(snap.projects));
     ui.set_contexts(nav_rows(snap.contexts));
     ui.set_list_mode(snap.list_mode);
+    ui.set_sort(snap.sort.into());
     ui.set_can_switch_view(snap.can_switch_view);
-    ui.set_group_menu(ModelRc::new(VecModel::from(
-        snap.group_menu
-            .into_iter()
-            .map(|(id, title)| crate::ActionMenuEntry {
+    // The snapshot carries English names; the menu shows the translated ones,
+    // keeping the tick of the active entry.
+    let group_menu = snap
+        .group_menu
+        .into_iter()
+        .map(|(id, title)| {
+            // Titles start with letters; a tick and an arrow come before.
+            let tick: String = title.chars().take_while(|c| !c.is_alphabetic()).collect();
+            let name = ui.invoke_group_title(id.as_str().into());
+            crate::ActionMenuEntry {
                 id: id.into(),
-                title: title.into(),
+                title: format!("{tick}{name}").into(),
                 icon: Default::default(),
                 disabled: false,
                 destructive: false,
-            })
-            .collect::<Vec<_>>(),
-    )));
+            }
+        })
+        .collect::<Vec<_>>();
+    ui.set_group_menu(ModelRc::new(VecModel::from(group_menu)));
     ui.set_filter_chips(ModelRc::new(VecModel::from(
         snap.chips
             .into_iter()
@@ -921,6 +993,10 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                     .into_iter()
                     .map(|(id, kind, text, found, open)| LinkRow {
                         id: id as i32,
+                        thread_id: open
+                            .strip_prefix("mail:")
+                            .and_then(|thread| thread.parse().ok())
+                            .unwrap_or(-1),
                         open: open.into(),
                         kind: kind.into(),
                         text: text.into(),
@@ -967,6 +1043,7 @@ pub(crate) fn register(
         handle: runtime.handle().clone(),
     });
     let command = Rc::clone(&ctx);
+    let runtime_for_mail = Rc::clone(runtime);
     app.global::<TasksUi>().on_command(move |action, a, b| {
         if action == "board-key" {
             if let Some(app) = command.weak.upgrade() {
@@ -978,6 +1055,18 @@ pub(crate) fn register(
             if let Some(app) = command.weak.upgrade() {
                 show_date_picker(&app, b.as_str());
             }
+            return;
+        }
+        if action == "open-mail" {
+            if let Some(app) = command.weak.upgrade()
+                && let Ok(thread_id) = a.parse::<i32>()
+            {
+                open_linked_mail(&app, &command.state, &runtime_for_mail, thread_id, b.as_str());
+            }
+            return;
+        }
+        if action == "open" && a.starts_with("event:") {
+            open_linked_event(&command, a.trim_start_matches("event:"));
             return;
         }
         if action == "due-badge" {
@@ -1068,6 +1157,72 @@ pub(crate) fn register(
                 ],
             );
         });
+}
+
+/// Show a linked event in Calendar: the view switches to the day it starts
+/// on. An event that is no longer in the calendar only gets a status line.
+fn open_linked_event(ctx: &Rc<Ctx>, uid: &str) {
+    let Some(core) = ctx.state.borrow().core.as_ref().map(|c| c.file_core()) else {
+        return;
+    };
+    let uid = uid.to_owned();
+    let weak = ctx.weak.clone();
+    ctx.handle.spawn(async move {
+        let start = core.task_event_start(uid).await.ok().flatten();
+        let _ = weak.upgrade_in_event_loop(move |app| {
+            let Some(start) = start else {
+                app.set_sync_status(crate::UiMessage::plain(
+                    "That event is no longer in the calendar.",
+                ));
+                return;
+            };
+            let Some(day) = Local.timestamp_millis_opt(start).single() else {
+                return;
+            };
+            app.set_settings_open(false);
+            app.set_active_view("calendar".into());
+            app.invoke_calendar_select_date(day.format("%Y-%m-%d").to_string().into());
+        });
+    });
+}
+
+/// Open a linked conversation in Mail. The list is searched for its subject
+/// in every mailbox's unified inbox view, so a thread that is not in the
+/// inbox may not be listed; the reader then stays empty rather than showing
+/// an unrelated message.
+fn open_linked_mail(
+    app: &AppWindow,
+    state: &Rc<RefCell<InboxState>>,
+    runtime: &tokio::runtime::Runtime,
+    thread_id: i32,
+    subject: &str,
+) {
+    app.set_settings_open(false);
+    app.set_active_view("mail".into());
+    {
+        let mut state = state.borrow_mut();
+        let listed = state.messages.iter().any(|row| row.id == thread_id)
+            && state.query.is_empty();
+        if listed {
+            drop(state);
+            app.invoke_select_email(thread_id);
+            return;
+        }
+        state.set_scope(crate::mail_scope::Scope::UNIFIED_INBOX);
+        state.query = subject.to_owned();
+        state.search_filter = "All mail".to_owned();
+        state.pending_selection = Some(thread_id);
+        state.mail_groups.clear();
+        state.page = 1;
+        state.next_cursor = None;
+        state.selected_id = None;
+        state.checked_ids.clear();
+        state.preview_closed = false;
+    }
+    if let Err(error) = crate::mail_view_model::refresh_from_source(app, state, runtime, false, &[])
+    {
+        app.set_sync_status(crate::UiMessage::detail("Mail refresh failed: {}", error));
+    }
 }
 
 /// Count the open tasks listed under Today and show the number in the window
@@ -1553,7 +1708,7 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             "view" => s.list = arg(0) == "list",
             "nav-filter" => s.nav = arg(0),
             "group" => match arg(0).strip_prefix("sort:") {
-                Some(token) => s.sort = Sort::parse(token),
+                Some(token) => s.sort = s.sort.chosen(token),
                 None => s.group = Group::parse(&arg(0)),
             },
             "filter-remove" => match arg(0).as_str() {
@@ -2178,6 +2333,30 @@ mod tests {
         // Case-insensitive title order.
         assert_eq!(order(Sort::Title).await, ["apple", "banana", "Cherry"]);
         assert_eq!(order(Sort::Manual).await, ["banana", "Cherry", "apple"]);
+        // Choosing the active order again reverses it, and again restores it.
+        assert!(Sort::Title.chosen("title") == Sort::TitleReversed);
+        assert!(Sort::TitleReversed.chosen("title") == Sort::Title);
+        assert!(Sort::Title.chosen("due") == Sort::Due);
+        assert!(Sort::Manual.chosen("manual") == Sort::Manual);
+        let reversed = |sort: Sort| {
+            let core = &core;
+            let sel = &sel;
+            async move {
+                load(core, sel, "", None, (None, None, true, Group::None, sort))
+                    .await
+                    .unwrap()
+                    .columns[0]
+                    .cards
+                    .iter()
+                    .map(|c| c.title.clone())
+                    .collect::<Vec<_>>()
+            }
+        };
+        // Latest first with undated last; low priority first; Z to A.
+        assert_eq!(reversed(Sort::DueReversed).await, ["Cherry", "banana", "apple"]);
+        assert_eq!(reversed(Sort::PriorityReversed).await, ["banana", "apple", "Cherry"]);
+        assert_eq!(reversed(Sort::TitleReversed).await, ["Cherry", "banana", "apple"]);
+
         // The menu offers the sorts and ticks the active one.
         let by_title = load(&core, &sel, "", None, (None, None, true, Group::None, Sort::Title))
             .await
@@ -2359,6 +2538,7 @@ mod tests {
         assert_eq!(links.len(), 2);
         assert_eq!(links[1].1, "event");
         assert_eq!(links[1].2, "Team Offsite");
+        assert!(links[1].4.starts_with("event:"));
         run(&core, &sel, "link-remove", &links[1].0.to_string(), "").await.unwrap();
 
         run(&core, &sel, "link-remove", &links[0].0.to_string(), "").await.unwrap();

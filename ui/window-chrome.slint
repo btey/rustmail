@@ -13,6 +13,9 @@ export global WindowChrome {
     in property <string> preference: "system";
     in property <bool> integrated: false;
     in property <bool> active: true;
+    // Reverse the vertical scroll direction in the whole window (a setting).
+    in-out property <bool> reverse-scroll: false;
+    callback save-reverse-scroll(bool);
     // Linux button order from the GTK or KWin decoration layout. Entries are
     // "minimize", "maximize" and "close".
     in property <[string]> leading-controls: [];

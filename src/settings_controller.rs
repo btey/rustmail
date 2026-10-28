@@ -437,6 +437,27 @@ pub(super) fn register_settings_preference_callbacks(
     });
 
     let app_weak = app.as_weak();
+    let state_for_scroll = Rc::clone(state);
+    let runtime_for_scroll = Rc::clone(runtime);
+    app.global::<crate::WindowChrome>().on_save_reverse_scroll(move |enabled| {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        crate::window_chrome::set_reverse_scroll(enabled);
+        let Some(core) = state_for_scroll.borrow().core.clone() else {
+            app.set_sync_status(UiMessage::plain("Scroll direction changed for this session."));
+            return;
+        };
+        match runtime_for_scroll.block_on(core.set_reverse_scroll(enabled)) {
+            Ok(()) => app.set_sync_status(UiMessage::plain("Scroll direction saved.")),
+            Err(error) => app.set_sync_status(UiMessage::detail(
+                "Could not save the scroll direction: {}",
+                error,
+            )),
+        }
+    });
+
+    let app_weak = app.as_weak();
     let state_for_avatars = Rc::clone(state);
     let runtime_for_avatars = Rc::clone(runtime);
     app.on_save_avatar_visibility(move |enabled| {

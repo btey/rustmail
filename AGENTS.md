@@ -11,6 +11,7 @@ whenever you finish or add an item, and state limits honestly.
 ## Layout
 - `src/`, `ui/`: root crate `rustmail` (controllers, Slint UI). `ui/app.slint` is the root.
 - `crates/rustmail-core`: mail engine (IMAP `imap/`, SMTP `smtp/`, JMAP, Gmail, `local/` Maildir/mbox/MH, `nntp/`, `sync/engine.rs`, `db/` + `migrations/*.sql`, `actions.rs`, `filters.rs`, `signatures.rs`, `accounts/`).
+- Tasks: engine in `crates/rustmail-core/src/tasks/` (`mod.rs` documents the sync-readiness and iCalendar mapping; `store.rs` SQL behind the `TaskStore` trait, `api.rs` the `Core::task_*` calls, which emit `CoreEvent::TasksChanged`). UI: `src/tasks_controller.rs` with `ui/views/tasks-view.slint` and the `TasksUi` global (one `command(action, a, b)` callback). A new task setting means a `Settings` field (`#[serde(default)]`), `TaskSettingsUi`, and the `set_task_defaults` path.
 - `crates/blitz-*`, `parley*`, `candle-core`: vendored and patched. Never edit directly; use `scripts/blitz-patches.sh` / `patches/`.
 - `lang/`: gettext catalogs (de es fr tr). `scripts/`: checks, packaging, benchmarks.
 

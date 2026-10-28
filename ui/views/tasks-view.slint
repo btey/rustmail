@@ -94,8 +94,10 @@ export struct ChecklistRow {
 
 export struct LinkRow {
     id: int,
-    // "task:<id>" for a linked task, empty otherwise.
+    // "task:<id>" for a linked task, "mail:<thread id>" for a mail, empty otherwise.
     open: string,
+    // The conversation a found mail link points at, -1 for other links.
+    thread-id: int,
     // "mail_received" | "mail_sent" | "event" | "task_blocks" | "task_depends"
     kind: string,
     text: string,
@@ -131,8 +133,25 @@ export global TasksUi {
     in-out property <[ActionMenuEntry]> card-menu;
     // Drawer pickers: "ctx:<id>" / "ctx:none" and "lbl:<id>" entries.
     in-out property <bool> list-mode: false;
+    // Order of a flat list: "manual", "due", "due-reversed", "priority", ...
+    in-out property <string> sort: "manual";
     in-out property <bool> can-switch-view: false;
     in-out property <[ActionMenuEntry]> group-menu;
+    // The name of a Group menu entry (a grouping or "sort:<order>").
+    pure callback group-title(string) -> string;
+    group-title(id) => {
+        return id == "none" ? @tr("No grouping")
+        : id == "status" ? @tr("Group by status")
+        : id == "project" ? @tr("Group by project")
+        : id == "context" ? @tr("Group by context")
+        : id == "label" ? @tr("Group by label")
+        : id == "due" ? @tr("Group by due date")
+        : id == "sort:manual" ? @tr("Manual order")
+        : id == "sort:due" ? @tr("Sort by due date")
+        : id == "sort:priority" ? @tr("Sort by priority")
+        : id == "sort:title" ? @tr("Sort by title")
+        : id;
+    }
     in-out property <[TaskChipRow]> filter-chips;
     in-out property <[ActionMenuEntry]> filter-menu;
     in-out property <[ActionMenuEntry]> context-menu;
@@ -1010,7 +1029,13 @@ component TaskDrawer inherits Rectangle {
                         wrap: word-wrap;
                         if link.open != "" : TouchArea {
                             mouse-cursor: pointer;
-                            clicked => { TasksUi.command("open", link.open, ""); }
+                            clicked => {
+                                if link.thread-id >= 0 {
+                                    TasksUi.command("open-mail", "" + link.thread-id, link.text);
+                                } else {
+                                    TasksUi.command("open", link.open, "");
+                                }
+                            }
                         }
                     }
                 }
@@ -1276,6 +1301,36 @@ export component TasksView inherits Rectangle {
             if TasksUi.columns.length == 0 && !TasksUi.loading : DetailEmptyState {
                 vertical-stretch: 1;
                 title: @tr("No tasks");
+            }
+            // The flat lists have a header row: a click orders by that column, a
+            // second click reverses it.
+            if TasksUi.group-menu.length > 0 : HorizontalLayout {
+                height: 28px;
+                spacing: 6px;
+                for column[i] in [
+                    { token: "title", text: @tr("Title") },
+                    { token: "due", text: @tr("Due") },
+                    { token: "priority", text: @tr("Priority") },
+                ] : Rectangle {
+                    width: max(72px, header-text.preferred-width + 28px);
+                    border-radius: 6px;
+                    background: header-touch.has-hover ? AppTheme.sidebar-bg : transparent;
+                    header-text := Text {
+                        x: 10px;
+                        y: (parent.height - self.height) / 2;
+                        text: column.text + (TasksUi.sort == column.token ? " ↑"
+                            : TasksUi.sort == column.token + "-reversed" ? " ↓" : "");
+                        color: TasksUi.sort == column.token || TasksUi.sort == column.token + "-reversed" ? AppTheme.heading : AppTheme.secondary;
+                        font-size: TypeScale.caption;
+                        font-weight: 600;
+                    }
+                    header-touch := TouchArea {
+                        accessible-role: button;
+                        accessible-label: @tr("Sort by {}", column.text);
+                        mouse-cursor: pointer;
+                        clicked => { TasksUi.command("group", "sort:" + column.token, ""); }
+                    }
+                }
             }
             board-focus := FocusScope {
               vertical-stretch: 1;

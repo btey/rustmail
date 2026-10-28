@@ -259,6 +259,23 @@ impl Core {
             .await
     }
 
+    /// When the calendar event with this iCalendar UID starts (Unix ms);
+    /// `None` when it is not in the calendar.
+    pub async fn task_event_start(&self, uid: String) -> Result<Option<i64>> {
+        self.calendar_db
+            .read(move |conn| {
+                use rusqlite::OptionalExtension;
+                Ok(conn
+                    .query_row(
+                        "SELECT starts_at FROM calendar_events WHERE ical_uid = ?1 LIMIT 1",
+                        [uid],
+                        |r| r.get::<_, i64>(0),
+                    )
+                    .optional()?)
+            })
+            .await
+    }
+
     /// The title of the calendar event a task link points at, by its iCalendar
     /// UID; `None` when the event is not (or no longer) in the calendar.
     pub async fn task_event_title(&self, uid: String) -> Result<Option<String>> {

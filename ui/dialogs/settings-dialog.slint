@@ -983,6 +983,19 @@ export component SettingsDialog inherits Rectangle {
                                         }
                                     }
                                     Rectangle { height: 1px; background: root.border-subtle; }
+                                    SettingsSwitchRow {
+                                        compact: root.compact;
+                                        title: @tr("Reverse scroll direction");
+                                        description: @tr("Flip the mouse wheel and touchpad direction in this window.");
+                                        checked: WindowChrome.reverse-scroll;
+                                        title-color: root.body-text;
+                                        description-color: root.faint-text;
+                                        toggled(checked) => {
+                                            WindowChrome.reverse-scroll = checked;
+                                            WindowChrome.save-reverse-scroll(checked);
+                                        }
+                                    }
+                                    Rectangle { height: 1px; background: root.border-subtle; }
                                     if WindowChrome.available : SettingsSwitchRow {
                                         compact: root.compact;
                                         title: @tr("Frameless window");

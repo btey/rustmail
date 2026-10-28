@@ -843,6 +843,9 @@ pub(crate) fn apply_settings(app: &AppWindow, settings: &Settings) {
         crate::window_chrome::WindowFrame::parse(&settings.window_frame),
     );
     app.set_monochrome_sidebar_icons(settings.monochrome_sidebar_icons);
+    app.global::<crate::WindowChrome>()
+        .set_reverse_scroll(settings.reverse_scroll);
+    crate::window_chrome::set_reverse_scroll(settings.reverse_scroll);
     app.set_show_avatars(settings.show_avatars);
     app.set_group_mail_by_date(settings.group_mail_by_date);
     app.set_show_account_markers(settings.show_account_badges);
