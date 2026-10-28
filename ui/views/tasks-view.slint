@@ -265,6 +265,9 @@ component TaskCard inherits Rectangle {
     in property <TaskCardRow> card;
     // The keyboard cursor is on this card.
     in property <bool> cursor: false;
+    // A card dropped on this one lands right below it (id of the dragged task).
+    in property <bool> drop-enabled: true;
+    callback dropped-on(string);
     callback open;
     callback toggle-done;
     callback delete-task;
@@ -289,6 +292,15 @@ component TaskCard inherits Rectangle {
         + (root.card.checklist-total > 0 ? @tr("{}/{} done", root.card.checklist-done, root.card.checklist-total) + ". " : "")
         + (root.card.link-count > 0 ? @tr("{} linked", root.card.link-count) + ". " : "");
     accessible-action-default => { root.open(); }
+
+    DropArea {
+        enabled: root.drop-enabled;
+        can-drop(event) => { DragAction.move }
+        dropped(event) => {
+            root.dropped-on(TasksUi.text-of(event.data));
+            return event.proposed-action;
+        }
+    }
 
     DragArea {
         allow-move: true;
@@ -583,6 +595,8 @@ component TaskColumnView inherits Rectangle {
                 for card in root.column.cards : TaskCard {
                     card: card;
                     cursor: TasksUi.board-focused && TasksUi.cursor == card.id;
+                    drop-enabled: root.column.id >= 0;
+                    dropped-on(dragged) => { TasksUi.command("card-menu", dragged, "after:" + root.column.id + ":" + card.id); }
                     open => { root.card-used(card.id); TasksUi.command("open", "" + card.id, ""); }
                     toggle-done => { TasksUi.command(card.done ? "reopen" : "complete", "" + card.id, ""); }
                     delete-task => { TasksUi.command("delete", "" + card.id, ""); }

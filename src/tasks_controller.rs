@@ -1655,6 +1655,16 @@ async fn mutate(
                 core.task_move(id.ok_or("bad task")?, column, None)
                     .await
                     .map_err(err)?;
+            } else if let Some((column, target)) = b
+                .strip_prefix("after:")
+                .and_then(|rest| rest.split_once(':'))
+                .and_then(|(c, t)| Some((c.parse::<i64>().ok()?, t.parse::<i64>().ok()?)))
+            {
+                // A card dropped on another card: it lands right below it.
+                let id = id.ok_or("bad task")?;
+                if id != target {
+                    core.task_move(id, column, Some(target)).await.map_err(err)?;
+                }
             }
         }
         "detail-context" => {
@@ -2266,6 +2276,26 @@ mod tests {
         run(&core, &sel, "card-menu", &tid, &format!("move:{review}")).await.unwrap();
         let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         assert_eq!(first_column(&snap, "Review").cards[0].id, task);
+
+        // A card dropped on another card lands right below it, in any column.
+        run(&core, &sel, "add-task", &review, "Second").await.unwrap();
+        run(&core, &sel, "add-task", &review, "Third").await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let titles = |snap: &Snapshot| -> Vec<String> {
+            first_column(snap, "Review").cards.iter().map(|c| c.title.to_string()).collect()
+        };
+        let order = titles(&snap);
+        assert_eq!(order.len(), 3);
+        let first = first_column(&snap, "Review").cards[0].id.to_string();
+        let last = first_column(&snap, "Review").cards[2].id;
+        run(&core, &sel, "card-menu", &first, &format!("after:{review}:{last}")).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let moved = titles(&snap);
+        assert_eq!(moved, vec![order[1].clone(), order[2].clone(), order[0].clone()]);
+        // Dropping a card on itself changes nothing.
+        run(&core, &sel, "card-menu", &first, &format!("after:{review}:{first}")).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        assert_eq!(titles(&snap), moved);
 
         run(&core, &sel, "detail-due", &tid, "tomorrow").await.unwrap();
         let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
