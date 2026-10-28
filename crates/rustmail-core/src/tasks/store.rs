@@ -672,6 +672,20 @@ impl SqliteTaskStore<'_> {
             .collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
+    /// Open tasks whose newest activity entry is a received reply: the
+    /// answer arrived and nothing has been done with the task since.
+    pub fn replied_tasks(&mut self) -> Result<Vec<i64>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT t.id FROM tasks t
+             WHERE t.deleted_at IS NULL AND t.completed_at IS NULL
+               AND (SELECT a.kind FROM task_activity a WHERE a.task_id = t.id
+                    ORDER BY a.at DESC, a.id DESC LIMIT 1) = 'reply'",
+        )?;
+        Ok(stmt
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
     /// The number of open tasks listed under Today, once for each `day_key`
     /// (a local date such as `2026-10-27`): the first call of a day returns
     /// the count and remembers the day, later calls the same day return

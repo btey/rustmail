@@ -680,6 +680,13 @@ fn a_reply_is_noted_once_and_moves_a_waiting_task_back_when_asked() {
     assert_eq!(s.note_replies(&[2]).unwrap(), vec![stays.id]);
     assert_eq!(s.get_task(stays.id).unwrap().column_id, waiting.id);
 
+    // Both tasks show a "reply received" pill until they are completed.
+    let mut replied = s.replied_tasks().unwrap();
+    replied.sort();
+    assert_eq!(replied, vec![moves.id, stays.id]);
+    s.complete_task(stays.id).unwrap();
+    assert_eq!(s.replied_tasks().unwrap(), vec![moves.id]);
+
     // The same reply is not noted twice.
     assert!(s.note_replies(&[1, 2]).unwrap().is_empty());
     let replies = |s: &mut SqliteTaskStore, id| {

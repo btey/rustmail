@@ -609,6 +609,7 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
         assignee: "AD".into(),
         status: String::new().into(),
         no_reply_days: if id % 2 == 0 { 12 } else { -1 },
+        replied: id % 3 == 0,
         link_kind: "mail_received".into(),
         link_text: "Quarterly invoice from the finance department".into(),
     };

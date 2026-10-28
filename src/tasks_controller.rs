@@ -166,6 +166,7 @@ struct CardSnap {
     status: String,
     /// Whole days since the sent mail while no reply has come; -1 = none.
     no_reply_days: i64,
+    replied: bool,
     /// The first linked mail or event, for the card's link row.
     link: Option<(String, String)>,
 }
@@ -281,6 +282,7 @@ fn card(
         ),
         status: String::new(),
         no_reply_days: -1,
+        replied: false,
         link: None,
     }
 }
@@ -734,6 +736,12 @@ async fn load(
             }
         }
     }
+    let replied: std::collections::HashSet<i64> = core.task_replied().await?.into_iter().collect();
+    if !replied.is_empty() {
+        for k in snap.columns.iter_mut().flat_map(|c| c.cards.iter_mut()) {
+            k.replied = replied.contains(&k.id);
+        }
+    }
     if let Some(id) = detail_id
         && let Some((detail, targets)) = load_detail(core, id, &projects).await
     {
@@ -854,6 +862,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         assignee: k.assignee.into(),
                         status: k.status.into(),
                         no_reply_days: k.no_reply_days as i32,
+                        replied: k.replied,
                         link_kind: k.link.as_ref().map(|l| l.0.clone()).unwrap_or_default().into(),
                         link_text: k.link.map(|l| l.1).unwrap_or_default().into(),
                     })

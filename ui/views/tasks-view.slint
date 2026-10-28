@@ -25,6 +25,8 @@ export struct TaskCardRow {
     status: string,
     // Whole days since the sent mail; -1 = not waiting on a reply.
     no-reply-days: int,
+    // The newest thing that happened is a reply to the linked mail.
+    replied: bool,
     // The first linked mail or event: "mail_received" | "mail_sent" | "event"
     // with its text, empty when the task has none.
     link-kind: string,
@@ -381,6 +383,12 @@ component TaskCard inherits Rectangle {
             text: @tr("No reply · {}d", root.card.no-reply-days);
             color: AppTheme.destructive;
             font-size: TypeScale.micro;
+        }
+        if root.card.replied : Text {
+            text: @tr("Reply received");
+            color: AppTheme.accent;
+            font-size: TypeScale.micro;
+            font-weight: 600;
         }
         HorizontalLayout {
             spacing: 10px;
