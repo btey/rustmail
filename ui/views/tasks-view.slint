@@ -33,10 +33,21 @@ export struct TaskCardRow {
     link-text: string,
 }
 
+export struct PickerDayRow {
+    label: string,
+    // ISO date, sent back when the day is chosen.
+    date: string,
+    in-month: bool,
+    today: bool,
+    selected: bool,
+}
+
 export struct TaskColumnRow {
     // -1 for the synthetic list shown by focus, context and search views.
     id: int,
     name: string,
+    // Icon token: one of the `icon:` entries of the column menu.
+    icon: string,
     colour: color,
     count: string,
     over-wip: bool,
@@ -99,6 +110,11 @@ export struct ActivityRow {
 export global TasksUi {
     in-out property <TaskDetailRow> detail;
     in-out property <bool> detail-open: false;
+    // The drawer's date picker: month shown ("YYYY-MM"), its title, 6 x 7 days.
+    in-out property <bool> picker-open: false;
+    in-out property <string> picker-month;
+    in-out property <string> picker-title;
+    in-out property <[PickerDayRow]> picker-days;
     // The open task fills the page: form on the left, link trail on the right.
     in-out property <bool> detail-expanded: false;
     in-out property <[ChecklistRow]> checklist;
@@ -146,6 +162,19 @@ export global TasksUi {
 }
 
 global TasksText {
+    // Tokens come from the column menu and the default columns.
+    pure public function column-icon(token: string) -> image {
+        return token == "inbox" ? @image-url("../icons/lucide/outline/mail-open.svg")
+        : token == "bolt" ? @image-url("../icons/lucide/outline/star.svg")
+        : token == "hourglass" ? @image-url("../icons/lucide/outline/history.svg")
+        : token == "calendar" ? @image-url("../icons/lucide/outline/calendar.svg")
+        : token == "check" ? @image-url("../icons/lucide/outline/check-circle.svg")
+        : token == "moon" ? @image-url("../icons/lucide/outline/archive.svg")
+        : token == "mail" ? @image-url("../icons/lucide/outline/mail.svg")
+        : token == "alert" ? @image-url("../icons/lucide/outline/alert.svg")
+        : token == "people" ? @image-url("../icons/lucide/outline/people.svg")
+        : @image-url("../icons/lucide/outline/tasks.svg");
+    }
     pure public function focus-label(key: string) -> string {
         return key == "focus:inbox" ? @tr("Inbox")
         : key == "focus:today" ? @tr("Today")
@@ -470,6 +499,16 @@ component TaskColumnView inherits Rectangle {
         { id: "colour:#22c55e", title: @tr("Colour: Green") },
         { id: "colour:#f59e0b", title: @tr("Colour: Orange") },
         { id: "colour:#ef4444", title: @tr("Colour: Red") },
+        { id: "icon:inbox", title: @tr("Icon: Inbox") },
+        { id: "icon:bolt", title: @tr("Icon: Star") },
+        { id: "icon:hourglass", title: @tr("Icon: Clock") },
+        { id: "icon:calendar", title: @tr("Icon: Calendar") },
+        { id: "icon:check", title: @tr("Icon: Check") },
+        { id: "icon:moon", title: @tr("Icon: Archive") },
+        { id: "icon:mail", title: @tr("Icon: Mail") },
+        { id: "icon:alert", title: @tr("Icon: Alert") },
+        { id: "icon:people", title: @tr("Icon: People") },
+        { id: "icon:tasks", title: @tr("Icon: Tasks") },
         { id: "delete", title: @tr("Delete column"), disabled: root.column.fixed, destructive: true },
     ];
 
@@ -512,13 +551,23 @@ component TaskColumnView inherits Rectangle {
             height: 28px;
             spacing: 8px;
             Rectangle {
-                width: 10px;
+                width: 16px;
+                Image {
+                    y: (parent.height - self.height) / 2;
+                    width: 16px;
+                    height: 16px;
+                    source: TasksText.column-icon(root.column.icon);
+                    colorize: root.column.colour;
+                    visible: root.column.id >= 0;
+                }
                 Rectangle {
+                    x: 3px;
                     y: (parent.height - self.height) / 2;
                     width: 10px;
                     height: 10px;
                     border-radius: 5px;
                     background: root.column.colour;
+                    visible: root.column.id < 0;
                 }
             }
             Text {
@@ -555,7 +604,7 @@ component TaskColumnView inherits Rectangle {
                     if id == "rename" || id == "wip" {
                         root.editing = id;
                     } else {
-                        TasksUi.command("column-" + (id == "delete" ? "delete" : id == "left" || id == "right" ? "move" : "colour"),
+                        TasksUi.command("column-" + (id == "delete" ? "delete" : id == "left" || id == "right" ? "move" : id.starts-with("icon:") ? "icon" : "colour"),
                             "" + root.column.id, id);
                     }
                 }
@@ -830,6 +879,71 @@ component TaskDrawer inherits Rectangle {
                     tooltip-text: @tr("Quick due date");
                     activated(id) => { TasksUi.command("detail-due", "" + TasksUi.detail.id, id); }
                 }
+                TasksIconButton {
+                    width: 34px;
+                    height: 34px;
+                    icon: @image-url("../icons/lucide/outline/calendar.svg");
+                    tooltip-text: @tr("Pick a date");
+                    clicked => { TasksUi.command("picker", "", TasksUi.picker-open ? "close" : ""); }
+                }
+            }
+            if TasksUi.picker-open : Rectangle {
+                height: 6 * 30px + 40px;
+                border-radius: LayoutMetrics.corner-radius;
+                background: AppTheme.sidebar-bg;
+                for day[i] in TasksUi.picker-days : Rectangle {
+                    x: 8px + mod(i, 7) * ((parent.width - 16px) / 7);
+                    y: 36px + floor(i / 7) * 30px;
+                    width: (parent.width - 16px) / 7;
+                    height: 30px;
+                    border-radius: 6px;
+                    background: day.selected ? AppTheme.accent : day.today ? AppTheme.accent-soft : transparent;
+                    Text {
+                        text: day.label;
+                        color: day.selected ? #ffffff : day.in-month ? AppTheme.heading : AppTheme.secondary;
+                        font-size: TypeScale.caption;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                    TouchArea {
+                        accessible-role: button;
+                        accessible-label: day.date;
+                        clicked => {
+                            TasksUi.command("detail-due", "" + TasksUi.detail.id, day.date);
+                            TasksUi.command("picker", "", "close");
+                        }
+                    }
+                }
+                TasksIconButton {
+                    x: 6px;
+                    y: 4px;
+                    width: 28px;
+                    height: 28px;
+                    icon: @image-url("../icons/lucide/outline/chevron-left.svg");
+                    tooltip-text: @tr("Previous month");
+                    clicked => { TasksUi.command("picker", "", "prev:" + TasksUi.picker-month); }
+                }
+                Text {
+                    x: 36px;
+                    y: 4px;
+                    width: parent.width - 72px;
+                    height: 28px;
+                    text: TasksUi.picker-title;
+                    color: AppTheme.heading;
+                    font-size: TypeScale.body;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                TasksIconButton {
+                    x: parent.width - 34px;
+                    y: 4px;
+                    width: 28px;
+                    height: 28px;
+                    icon: @image-url("../icons/lucide/outline/chevron-right.svg");
+                    tooltip-text: @tr("Next month");
+                    clicked => { TasksUi.command("picker", "", "next:" + TasksUi.picker-month); }
+                }
             }
             DetailSection { text: @tr("DESCRIPTION"); }
             TextEdit {
@@ -914,8 +1028,11 @@ component TaskDrawer inherits Rectangle {
                 LineEdit {
                     horizontal-stretch: 1;
                     text <=> root.link-draft;
-                    placeholder-text: root.link-kind == "blocks" ? @tr("Blocks task (title)") : @tr("Depends on task (title)");
-                    input-label: @tr("Link a task");
+                    placeholder-text: root.link-kind == "blocks" ? @tr("Blocks task (title)")
+                        : root.link-kind == "event" ? @tr("Calendar event (title)")
+                        : root.link-kind == "mail" ? @tr("Mail (subject)")
+                        : @tr("Depends on task (title)");
+                    input-label: @tr("Link a task, event or mail");
                     accepted(text) => {
                         TasksUi.command("link-task", "" + TasksUi.detail.id, root.link-kind + ":" + text);
                         root.link-draft = "";
@@ -928,6 +1045,8 @@ component TaskDrawer inherits Rectangle {
                     entries: [
                         { id: "depends", title: @tr("Depends on") },
                         { id: "blocks", title: @tr("Blocks") },
+                        { id: "event", title: @tr("Calendar event") },
+                        { id: "mail", title: @tr("Mail") },
                     ];
                     menu-width: 180px;
                     tooltip-text: @tr("Link type");

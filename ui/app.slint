@@ -368,6 +368,8 @@ export global I18n {
         if (key == "Only events created in Rustmail can be deleted.") { return @tr("Only events created in Rustmail can be deleted."); }
         if (key == "Calendar storage is unavailable.") { return @tr("Calendar storage is unavailable."); }
         if (key == "Could not delete event: {}") { return @tr("Could not delete event: {}", argument); }
+        if (key == "Task created from the event.") { return @tr("Task created from the event."); }
+        if (key == "Could not create the task: {}") { return @tr("Could not create the task: {}", argument); }
         if (key == "Event deleted, but refresh failed: {}") { return @tr("Event deleted, but refresh failed: {}", argument); }
         if (key == "Event deleted.") { return @tr("Event deleted."); }
         if (key == "Use YYYY-MM-DD and a 24-hour time such as 09:30.") { return @tr("Use YYYY-MM-DD and a 24-hour time such as 09:30."); }
@@ -688,6 +690,7 @@ export component AppWindow inherits Window {
     callback calendar-edit-event(int);
     callback calendar-delete-event(int);
     callback calendar-save-event(string, string, string, string, int);
+    callback calendar-create-task();
     callback select-contact(int);
     callback search-contacts(string);
     callback select-contact-scope(string);
@@ -1733,6 +1736,7 @@ export component AppWindow inherits Window {
             calendar-save-event(title, date, time, duration, color) => {
                 root.calendar-save-event(title, date, time, duration, color);
             }
+            calendar-create-task() => { root.calendar-create-task(); }
         }
 
         if root.settings_open : WorkspaceFrame {

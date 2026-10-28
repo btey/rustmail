@@ -21,6 +21,7 @@ export component CalendarEventDialog inherits Rectangle {
     in-out property <string> calendar_event_duration: "60";
     in-out property <int> calendar_event_color: 0;
     callback calendar-save-event(string, string, string, string, int);
+    callback calendar-create-task();
 
         Rectangle {
             visible: root.calendar_editor_open;
@@ -80,6 +81,14 @@ export component CalendarEventDialog inherits Rectangle {
                     }
                 }
                 event-divider := Rectangle { x: 0px; y: root.compact ? root.height - 72px : duration-field.y + 64px; width: parent.width; height: 1px; background: root.border-subtle; }
+                if root.calendar_event_editing : Button {
+                    x: 24px;
+                    y: save-button.y;
+                    width: max(82px, self.content-width + 28px);
+                    height: root.compact ? 44px : 40px;
+                    text: @tr("Create task");
+                    clicked => { root.calendar-create-task(); }
+                }
                 Button { x: save-button.x - self.width - 8px; y: save-button.y; width: max(82px, self.content-width); height: root.compact ? 44px : 40px; text: @tr("Cancel"); clicked => { root.calendar_editor_open = false; } }
                 save-button := Button {
                     x: parent.width - self.width - 24px;

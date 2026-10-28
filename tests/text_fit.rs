@@ -616,6 +616,7 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
     let column = |id: i32, name: &str, cards: Vec<TaskCardRow>| TaskColumnRow {
         id,
         name: name.into(),
+        icon: "bolt".into(),
         colour: slint::Color::from_rgb_u8(0x3b, 0x82, 0xf6),
         count: format!("{} / 5", cards.len()).into(),
         over_wip: false,

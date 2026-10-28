@@ -1165,6 +1165,87 @@ async fn a_follow_up_event_is_booked_and_linked_to_the_task() {
     );
 }
 
+#[tokio::test]
+async fn a_task_made_from_an_event_is_due_at_its_start_and_linked() {
+    let tmp = tempfile::tempdir().unwrap();
+    let core = crate::Core::start(crate::Paths::for_tests(tmp.path()))
+        .await
+        .unwrap();
+    core.tasks_open().await.unwrap();
+    let at = crate::models::now_ms() + 86_400_000;
+    let event = core
+        .create_event(crate::models::CreateEventArgs {
+            account_id: 0,
+            calendar_id: None,
+            summary: "Budget review".into(),
+            description: None,
+            location: None,
+            join_url: None,
+            starts_at: at,
+            ends_at: at + 1_800_000,
+            all_day: false,
+            attendees: Vec::new(),
+        })
+        .await
+        .unwrap();
+    let task = core.task_create_from_event(event.id).await.unwrap();
+    assert_eq!(task.title, "Budget review");
+    assert_eq!(task.due_at, Some(at));
+    assert_eq!(task.link_count, 1);
+    let links = core.task_links(task.id).await.unwrap();
+    assert!(matches!(links[0].target, LinkTarget::Event));
+    assert!(core.task_create_from_event(9_999).await.is_err());
+}
+
+#[tokio::test]
+async fn a_mail_is_linked_to_a_task_by_part_of_its_subject() {
+    let tmp = tempfile::tempdir().unwrap();
+    let core = crate::Core::start(crate::Paths::for_tests(tmp.path()))
+        .await
+        .unwrap();
+    core.tasks_open().await.unwrap();
+    let task_id = core
+        .db
+        .write(|conn: &mut Connection| {
+            seed_mail(conn, "Quarterly invoice", 1, "<q@x>");
+            seed_mail(conn, "100% done_", 2, "<d@x>");
+            let mut s = SqliteTaskStore::new(conn);
+            let p = s.list_projects()?[0].id;
+            Ok(plain_task(&mut s, p, "Pay it").id)
+        })
+        .await
+        .unwrap();
+
+    let link = core
+        .task_link_mail_by_subject(task_id, "invoice".into())
+        .await
+        .unwrap();
+    assert_eq!(link.thread_id, Some(1));
+    // Linking the same mail again changes nothing.
+    core.task_link_mail_by_subject(task_id, "INVOICE".into())
+        .await
+        .unwrap();
+    assert_eq!(core.task_get(task_id).await.unwrap().link_count, 1);
+    // `%` and `_` are plain characters, not wildcards.
+    assert_eq!(
+        core.task_link_mail_by_subject(task_id, "100% done_".into())
+            .await
+            .unwrap()
+            .thread_id,
+        Some(2)
+    );
+    assert!(
+        core.task_link_mail_by_subject(task_id, "%".into())
+            .await
+            .is_ok()
+    );
+    assert!(
+        core.task_link_mail_by_subject(task_id, "no such subject".into())
+            .await
+            .is_err()
+    );
+}
+
 #[test]
 fn an_export_imports_into_another_database_and_twice_changes_nothing() {
     let (mut source, p) = setup();

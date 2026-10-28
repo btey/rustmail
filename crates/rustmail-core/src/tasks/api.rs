@@ -8,6 +8,14 @@ use crate::{Core, CoreError};
 
 const TOMBSTONE_RETENTION_MS: i64 = 90 * 24 * 60 * 60 * 1000;
 
+/// Escape `%`, `_` and `\` so text can sit inside `LIKE '%...%' ESCAPE '\'`.
+fn like_escape(text: &str) -> String {
+    text.trim()
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+}
+
 macro_rules! reads {
     ($($name:ident($($arg:ident: $ty:ty),*) -> $ret:ty, |$s:ident| $body:expr;)*) => {$(
         pub async fn $name(&self, $($arg: $ty),*) -> Result<$ret> {
@@ -191,6 +199,66 @@ impl Core {
             .await
     }
 
+    /// Link the newest mail whose subject contains `text` to a task as a
+    /// received mail (the drawer's "Mail" link). `NotFound` when nothing
+    /// matches.
+    pub async fn task_link_mail_by_subject(&self, task_id: i64, text: String) -> Result<TaskLink> {
+        let link = self
+            .db
+            .write(move |conn| {
+                use rusqlite::OptionalExtension;
+                let found: Option<(String, String, i64)> = conn
+                    .query_row(
+                        "SELECT a.email, m.message_id, m.thread_id
+                         FROM messages m JOIN accounts a ON a.id = m.account_id
+                         WHERE m.subject LIKE '%' || ?1 || '%' ESCAPE '\\'
+                           AND m.message_id IS NOT NULL AND m.message_id <> ''
+                         ORDER BY m.date DESC, m.id DESC LIMIT 1",
+                        [like_escape(&text)],
+                        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                    )
+                    .optional()?;
+                let (email, message_id, thread_id) =
+                    found.ok_or_else(|| CoreError::NotFound("a mail with that subject".into()))?;
+                SqliteTaskStore::new(conn).add_link(
+                    task_id,
+                    NewLink {
+                        kind: LinkKind::MailReceived,
+                        account_email: Some(email),
+                        thread_id: Some(thread_id),
+                        message_id: Some(message_id),
+                        event_uid: None,
+                        other_task_uid: None,
+                    },
+                )
+            })
+            .await?;
+        self.bus.emit(CoreEvent::TasksChanged);
+        Ok(link)
+    }
+
+    /// The iCalendar UID of the calendar event whose title contains `text`
+    /// (case-insensitive); the one starting nearest to now wins. `None` when
+    /// nothing matches.
+    pub async fn task_find_event(&self, text: String) -> Result<Option<String>> {
+        let now = now_ms();
+        self.calendar_db
+            .read(move |conn| {
+                use rusqlite::OptionalExtension;
+                let escaped = like_escape(&text);
+                Ok(conn
+                    .query_row(
+                        "SELECT ical_uid FROM calendar_events
+                         WHERE summary LIKE '%' || ?1 || '%' ESCAPE '\\'
+                         ORDER BY ABS(starts_at - ?2) LIMIT 1",
+                        rusqlite::params![escaped, now],
+                        |r| r.get::<_, String>(0),
+                    )
+                    .optional()?)
+            })
+            .await
+    }
+
     /// The title of the calendar event a task link points at, by its iCalendar
     /// UID; `None` when the event is not (or no longer) in the calendar.
     pub async fn task_event_title(&self, uid: String) -> Result<Option<String>> {
@@ -264,6 +332,61 @@ impl Core {
         )
         .await?;
         self.task_get(task_id).await
+    }
+
+    /// Create a task from a calendar event ("Create task from event"): titled
+    /// like the event, due when it starts, linked to it, in the Inbox of the
+    /// default project of the Tasks settings (the first project when that is
+    /// unset or gone).
+    pub async fn task_create_from_event(&self, event_id: i64) -> Result<Task> {
+        let (uid, summary, starts_at): (String, Option<String>, i64) = self
+            .calendar_db
+            .read(move |conn| {
+                Ok(conn.query_row(
+                    "SELECT ical_uid, summary, starts_at FROM calendar_events WHERE id = ?1",
+                    [event_id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )?)
+            })
+            .await?;
+        let wanted = self.get_settings().await?.task_default_project;
+        let projects = self.task_projects().await?;
+        let project = projects
+            .iter()
+            .find(|p| p.name == wanted)
+            .or(projects.first())
+            .ok_or_else(|| CoreError::Other("there is no task project".into()))?
+            .id;
+        let title = summary.filter(|t| !t.trim().is_empty());
+        let task = self
+            .task_create(NewTask {
+                project_id: project,
+                column_id: None,
+                title: title.unwrap_or_else(|| "Event".into()),
+                description: String::new(),
+                due_at: Some(starts_at),
+                start_at: None,
+                priority: 0,
+                context_id: None,
+                assignee_email: None,
+                assignee_name: None,
+                label_ids: Vec::new(),
+                from_mail: false,
+            })
+            .await?;
+        self.task_link_add(
+            task.id,
+            NewLink {
+                kind: LinkKind::Event,
+                account_email: None,
+                thread_id: None,
+                message_id: None,
+                event_uid: Some(uid),
+                other_task_uid: None,
+            },
+        )
+        .await?;
+        self.task_get(task.id).await
     }
 
     /// Like `task_create_from_thread`, but does nothing when the thread

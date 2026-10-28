@@ -2,7 +2,7 @@
 //! runtime; the database is never touched on the UI thread. Every command
 //! reloads one `Snapshot` (plain `Send` data) that is applied to the models.
 use crate::{
-    ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, TaskCardRow, TaskColumnRow,
+    ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, PickerDayRow, TaskCardRow, TaskColumnRow,
     LinkedTask, TaskChipEntry, TaskChips, TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TaskReplyUi, TaskSettingsUi, TasksUi,
 };
 use chrono::{Local, TimeZone};
@@ -174,6 +174,7 @@ struct CardSnap {
 struct ColumnSnap {
     id: i64,
     name: String,
+    icon: String,
     colour: String,
     count: String,
     over_wip: bool,
@@ -591,6 +592,7 @@ async fn load(
             .map(|c| ColumnSnap {
                 id: c.id,
                 name: c.name.clone(),
+                icon: c.icon.clone(),
                 colour: if c.colour.is_empty() { DEFAULT_COLOUR.into() } else { c.colour.clone() },
                 count: column_count(c),
                 over_wip: c.over_wip,
@@ -687,6 +689,7 @@ async fn load(
             .map(|(name, cards)| ColumnSnap {
                 id: -1,
                 name,
+                icon: String::new(),
                 colour: DEFAULT_COLOUR.into(),
                 count: cards.len().to_string(),
                 over_wip: false,
@@ -837,6 +840,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
         .map(|c| TaskColumnRow {
             id: c.id as i32,
             name: c.name.into(),
+            icon: c.icon.into(),
             colour: colour(&c.colour),
             count: c.count.into(),
             over_wip: c.over_wip,
@@ -967,6 +971,12 @@ pub(crate) fn register(
         if action == "board-key" {
             if let Some(app) = command.weak.upgrade() {
                 board_key(&app, &command, a.as_str());
+            }
+            return;
+        }
+        if action == "picker" {
+            if let Some(app) = command.weak.upgrade() {
+                show_date_picker(&app, b.as_str());
             }
             return;
         }
@@ -1613,6 +1623,68 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
     });
 }
 
+/// The 6 x 7 grid (weeks start on Monday) for a month, as
+/// `(day number, ISO date, in the month, today, selected)`.
+fn picker_grid(
+    first: chrono::NaiveDate,
+    today: chrono::NaiveDate,
+    selected: Option<chrono::NaiveDate>,
+) -> Vec<(String, String, bool, bool, bool)> {
+    use chrono::Datelike;
+    let start = first - chrono::Duration::days(first.weekday().num_days_from_monday() as i64);
+    (0..42)
+        .map(|i| {
+            let d = start + chrono::Duration::days(i);
+            (
+                d.day().to_string(),
+                d.format("%Y-%m-%d").to_string(),
+                d.month() == first.month(),
+                d == today,
+                Some(d) == selected,
+            )
+        })
+        .collect()
+}
+
+/// Fill the drawer's date picker. `spec` is "" (the month of the task's due
+/// date, else this month), "prev:YYYY-MM" or "next:YYYY-MM" (the month
+/// shown now, moved by one) or "close".
+fn show_date_picker(app: &AppWindow, spec: &str) {
+    use chrono::Datelike;
+    let ui = app.global::<TasksUi>();
+    if spec == "close" {
+        ui.set_picker_open(false);
+        return;
+    }
+    let today = Local::now().date_naive();
+    let selected = chrono::NaiveDate::parse_from_str(ui.get_detail().due.as_str(), "%Y-%m-%d").ok();
+    let month = |ym: &str| chrono::NaiveDate::parse_from_str(&format!("{ym}-01"), "%Y-%m-%d").ok();
+    let shown = match spec.split_once(':') {
+        Some(("prev", ym)) => month(ym).and_then(|m| m.checked_sub_months(chrono::Months::new(1))),
+        Some(("next", ym)) => month(ym).and_then(|m| m.checked_add_months(chrono::Months::new(1))),
+        _ => None,
+    }
+    .or(selected)
+    .unwrap_or(today)
+    .with_day(1)
+    .unwrap_or(today);
+    ui.set_picker_month(shown.format("%Y-%m").to_string().into());
+    ui.set_picker_title(shown.format("%B %Y").to_string().into());
+    ui.set_picker_days(ModelRc::new(VecModel::from(
+        picker_grid(shown, today, selected)
+            .into_iter()
+            .map(|(label, date, in_month, is_today, is_selected)| PickerDayRow {
+                label: label.into(),
+                date: date.into(),
+                in_month,
+                today: is_today,
+                selected: is_selected,
+            })
+            .collect::<Vec<_>>(),
+    )));
+    ui.set_picker_open(true);
+}
+
 /// Parse an ISO date into the end of that local day (the same instant
 /// "Today" uses), so a task due today is not overdue until tomorrow.
 fn parse_due(text: &str) -> Result<Option<i64>, String> {
@@ -1740,6 +1812,41 @@ async fn mutate(
             // `b` is "<depends|blocks>:<title words>"; the first other open
             // task whose title matches becomes the link target.
             let task_id = id.ok_or("bad task")?;
+            if let Some(("mail", query)) = b.split_once(':') {
+                if query.trim().is_empty() {
+                    return Ok(None);
+                }
+                core.task_link_mail_by_subject(task_id, query.to_owned())
+                    .await
+                    .map_err(|_| "No mail with that subject")?;
+                return Ok(None);
+            }
+            if let Some(("event", query)) = b.split_once(':') {
+                // A calendar event: the one whose title contains the words,
+                // nearest to now.
+                if query.trim().is_empty() {
+                    return Ok(None);
+                }
+                let uid = core
+                    .task_find_event(query.to_owned())
+                    .await
+                    .map_err(err)?
+                    .ok_or("No calendar event matches")?;
+                core.task_link_add(
+                    task_id,
+                    rustmail_core::tasks::NewLink {
+                        kind: rustmail_core::tasks::LinkKind::Event,
+                        account_email: None,
+                        thread_id: None,
+                        message_id: None,
+                        event_uid: Some(uid),
+                        other_task_uid: None,
+                    },
+                )
+                .await
+                .map_err(err)?;
+                return Ok(None);
+            }
             let (kind, query) = match b.split_once(':') {
                 Some(("blocks", q)) => (rustmail_core::tasks::LinkKind::TaskBlocks, q),
                 Some((_, q)) => (rustmail_core::tasks::LinkKind::TaskDepends, q),
@@ -1840,6 +1947,15 @@ async fn mutate(
                 .await
                 .map_err(err)?;
         }
+        "column-icon" => {
+            let patch = ColumnPatch {
+                icon: Some(b.trim_start_matches("icon:").to_owned()),
+                ..Default::default()
+            };
+            core.task_column_update(id.ok_or("bad column")?, patch)
+                .await
+                .map_err(err)?;
+        }
         "column-move" => {
             let id = id.ok_or("bad column")?;
             let project = selected_project.ok_or("select a project first")?;
@@ -1915,14 +2031,19 @@ async fn mutate(
                 "week" => Some(7),
                 _ => None,
             };
-            let due = days.map(|d| {
-                let day = Local::now().date_naive() + chrono::Duration::days(d);
-                parse_due(&day.format("%Y-%m-%d").to_string())
-            });
+            // A quick choice, a date from the picker, or "none" to clear.
+            let due = match days {
+                Some(d) => {
+                    let day = Local::now().date_naive() + chrono::Duration::days(d);
+                    parse_due(&day.format("%Y-%m-%d").to_string())?
+                }
+                None if b == "none" => None,
+                None => parse_due(b)?,
+            };
             core.task_update(
                 id.ok_or("bad task")?,
                 TaskPatch {
-                    due_at: Some(due.transpose()?.flatten()),
+                    due_at: Some(due),
                     ..Default::default()
                 },
             )
@@ -2215,6 +2336,31 @@ mod tests {
         let own = run(&core, &sel, "link-task", &publish.to_string(), "blocks:publish").await;
         assert!(own.is_err());
 
+        // A calendar event is found by its title and shown by it.
+        assert!(run(&core, &sel, "link-task", &publish.to_string(), "event:offsite").await.is_err());
+        let at = chrono::Utc::now().timestamp_millis() + 86_400_000;
+        core.create_event(rustmail_core::models::CreateEventArgs {
+            account_id: 0,
+            calendar_id: None,
+            summary: "Team Offsite".into(),
+            description: None,
+            location: None,
+            join_url: None,
+            starts_at: at,
+            ends_at: at + 3_600_000,
+            all_day: false,
+            attendees: Vec::new(),
+        })
+        .await
+        .unwrap();
+        run(&core, &sel, "link-task", &publish.to_string(), "event:offsite").await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let links = &snap.detail.as_ref().unwrap().links;
+        assert_eq!(links.len(), 2);
+        assert_eq!(links[1].1, "event");
+        assert_eq!(links[1].2, "Team Offsite");
+        run(&core, &sel, "link-remove", &links[1].0.to_string(), "").await.unwrap();
+
         run(&core, &sel, "link-remove", &links[0].0.to_string(), "").await.unwrap();
         let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         assert!(snap.detail.unwrap().links.is_empty());
@@ -2299,6 +2445,18 @@ mod tests {
         snap.columns.iter().find(|c| c.name == name).unwrap()
     }
 
+    #[test]
+    fn the_date_picker_grid_starts_on_monday_and_marks_today_and_the_selection() {
+        let d = |y, m, day| chrono::NaiveDate::from_ymd_opt(y, m, day).unwrap();
+        // 1 Nov 2026 is a Sunday: six cells of October come first.
+        let grid = picker_grid(d(2026, 11, 1), d(2026, 11, 3), Some(d(2026, 11, 20)));
+        assert_eq!(grid.len(), 42);
+        assert_eq!(grid[0].1, "2026-10-26");
+        assert!(!grid[0].2 && grid[6].1 == "2026-11-01" && grid[6].2);
+        assert_eq!(grid.iter().filter(|c| c.3).map(|c| c.1.as_str()).collect::<Vec<_>>(), ["2026-11-03"]);
+        assert_eq!(grid.iter().filter(|c| c.4).map(|c| c.1.as_str()).collect::<Vec<_>>(), ["2026-11-20"]);
+    }
+
     #[tokio::test]
     async fn column_commands_validate_and_apply() {
         let (_tmp, core, sel) = board().await;
@@ -2311,9 +2469,11 @@ mod tests {
         run(&core, &sel, "column-rename", &id, "QA").await.unwrap();
         run(&core, &sel, "column-wip", &id, "3").await.unwrap();
         run(&core, &sel, "column-colour", &id, "colour:#ef4444").await.unwrap();
+        run(&core, &sel, "column-icon", &id, "icon:star").await.unwrap();
         let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
         let qa = first_column(&snap, "QA");
         assert_eq!((qa.wip, qa.colour.as_str()), (3, "#ef4444"));
+        assert_eq!(qa.icon, "star");
 
         assert!(run(&core, &sel, "column-wip", &id, "1000").await.is_err());
         assert!(run(&core, &sel, "column-wip", &id, "many").await.is_err());

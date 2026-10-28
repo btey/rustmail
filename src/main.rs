@@ -2842,6 +2842,35 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         }
     });
 
+    let app_weak = app.as_weak();
+    let runtime_for_event_task = Rc::clone(&runtime);
+    let inbox_for_event_task = Rc::clone(&state);
+    let editing_event_for_task = Rc::clone(&calendar_editing_event_id);
+    app.on_calendar_create_task(move || {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        let Some(event_id) = editing_event_for_task.get() else {
+            return;
+        };
+        let Some(core) = inbox_for_event_task.borrow().core.clone() else {
+            app.set_sync_status(UiMessage::plain("Calendar storage is unavailable."));
+            return;
+        };
+        match runtime_for_event_task.block_on(core.file_core().task_create_from_event(event_id)) {
+            Ok(_) => {
+                app.set_calendar_event_editing(false);
+                editing_event_for_task.set(None);
+                app.set_calendar_editor_open(false);
+                app.set_sync_status(UiMessage::plain("Task created from the event."));
+            }
+            Err(error) => app.set_sync_status(UiMessage::detail(
+                "Could not create the task: {}",
+                error,
+            )),
+        }
+    });
+
     // Blitz wakes Slint only when a decoded image/font resource is ready. A
     // coalesced one-shot gives its message queue time to settle and prevents a
     // renderer feedback loop; unlike the old repeated timer it has no idle
