@@ -3181,6 +3181,15 @@ mod tests {
         run(&core, &sel, "card-menu", &first, &format!("after:{review}:{first}")).await.unwrap();
         let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert_eq!(titles(&snap), moved);
+        // The strip above the first card sends a plain move: the last card
+        // goes to the top of its own column.
+        let bottom = first_column(&snap, "Review").cards[2].id.to_string();
+        run(&core, &sel, "card-menu", &bottom, &format!("move:{review}")).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
+        assert_eq!(
+            titles(&snap),
+            vec![moved[2].clone(), moved[0].clone(), moved[1].clone()]
+        );
 
         run(&core, &sel, "detail-due", &tid, "tomorrow").await.unwrap();
         let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();

@@ -966,6 +966,26 @@ component TaskColumnView inherits Rectangle {
             VerticalLayout {
                 spacing: 8px;
                 alignment: start;
+                // A dropped card lands above the first one.
+                if root.column.id >= 0 && root.column.cards.length > 0 : Rectangle {
+                    height: 10px;
+                    top-drop := DropArea {
+                        can-drop(event) => { DragAction.move }
+                        dropped(event) => {
+                            TasksUi.command("card-menu", TasksUi.text-of(event.data), "move:" + root.column.id);
+                            return event.proposed-action;
+                        }
+                    }
+                    Rectangle {
+                        visible: top-drop.has-drag;
+                        y: 3px;
+                        x: 6px;
+                        width: parent.width - 12px;
+                        height: 3px;
+                        border-radius: 1.5px;
+                        background: AppTheme.accent;
+                    }
+                }
                 for card in root.column.cards : TaskCard {
                     card: card;
                     cursor: TasksUi.board-focused && TasksUi.cursor == card.id;
