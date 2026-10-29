@@ -32,7 +32,7 @@ use rustmail::{
     MailAttachments, MailLabelRow, MailListEntry, MailProfileRow, MailboxRow, MotionSettings,
     SendUndoUi, SidebarRow, SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipEntry,
     TaskChipRow, TaskChips, TaskColumnRow, TaskComposeUi, TaskDetailRow, TaskFromMail, TaskNavRow,
-    TaskReplyUi, TasksUi, ThreadMessageRow, TimelineBarRow, TimelineDayRow,
+    TaskReplyUi, TasksUi, ThreadMessageRow, TimelineBarRow, TimelineDayRow, TimelineEdgeRow,
 };
 use slint::platform::{
     Platform, WindowAdapter,
@@ -697,6 +697,7 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
             kind: "mail_received".into(),
             text: "Quarterly invoice from the finance department".into(),
             found: true,
+            note: "done".into(),
         }]));
         tasks.set_activity(model(
             [
@@ -1087,6 +1088,16 @@ fn states() -> Vec<State> {
                     30,
                     false,
                 ),
+            ]));
+            tasks.set_timeline_edges(model(vec![
+                TimelineEdgeRow {
+                    from_bar: 0,
+                    to_bar: 2,
+                },
+                TimelineEdgeRow {
+                    from_bar: 1,
+                    to_bar: 2,
+                },
             ]));
             app.set_active_view("tasks".into());
         }),

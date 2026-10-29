@@ -46,6 +46,9 @@ pub(crate) struct TimelineSnap {
     pub undated: i64,
     /// "October 2026", the month the chart opens on.
     pub title: String,
+    /// Finish-to-start arrows as (prerequisite bar, dependent bar) indexes into
+    /// `bars`; a dependency with an undated end draws nothing.
+    pub edges: Vec<(i32, i32)>,
 }
 
 fn local_date(ms: i64) -> Option<NaiveDate> {
@@ -56,10 +59,15 @@ fn monday_of(date: NaiveDate) -> NaiveDate {
     date - Duration::days(i64::from(date.weekday().num_days_from_monday()))
 }
 
-/// Lay out `tasks` on a day grid around `today`. The grid starts on the Monday
+/// Lay out `tasks` on a day grid around `today`; `dependencies` are
+/// (prerequisite id, dependent id) pairs. The grid starts on the Monday
 /// a week before the earliest date (or today) and ends four weeks after the
 /// latest.
-pub(crate) fn build(tasks: &[Task], today: NaiveDate) -> TimelineSnap {
+pub(crate) fn build(
+    tasks: &[Task],
+    today: NaiveDate,
+    dependencies: &[(i64, i64)],
+) -> TimelineSnap {
     let dates = |t: &Task| {
         (
             t.start_at.and_then(local_date),
@@ -127,10 +135,21 @@ pub(crate) fn build(tasks: &[Task], today: NaiveDate) -> TimelineSnap {
         })
         .collect();
 
+    let bars: Vec<BarSnap> = bars;
+    let at: std::collections::HashMap<i64, i32> = bars
+        .iter()
+        .enumerate()
+        .map(|(i, b)| (b.id, i as i32))
+        .collect();
+    let edges = dependencies
+        .iter()
+        .filter_map(|(pre, dep)| Some((*at.get(pre)?, *at.get(dep)?)))
+        .collect();
     let today_offset = (today - first).num_days();
     TimelineSnap {
         days,
         bars,
+        edges,
         today_index: if (0..span).contains(&today_offset) { today_offset as i32 } else { -1 },
         undated: tasks
             .iter()
@@ -177,7 +196,7 @@ mod tests {
             task(1, Some(at(2026, 10, 21)), Some(at(2026, 10, 30))),
             task(2, None, Some(at(2026, 11, 3))),
         ];
-        let t = build(&tasks, today);
+        let t = build(&tasks, today, &[]);
         // 21 Oct - 7 days = 14 Oct (Wed) -> Monday 12 Oct.
         assert_eq!(t.days[0].label, "12");
         assert_eq!(t.days[0].week, "W42");
@@ -205,7 +224,7 @@ mod tests {
             task(2, None, Some(at(2026, 10, 1))),
             done,
         ];
-        let t = build(&tasks, today);
+        let t = build(&tasks, today, &[]);
         assert_eq!(t.undated, 1);
         assert_eq!(t.bars.len(), 2);
         assert!(t.bars.iter().find(|b| b.id == 2).unwrap().overdue);
@@ -213,13 +232,26 @@ mod tests {
     }
 
     #[test]
+    fn dependencies_become_arrows_between_bars_that_exist() {
+        let today = day(2026, 10, 28);
+        let tasks = [
+            task(1, Some(at(2026, 10, 21)), Some(at(2026, 10, 23))),
+            task(2, Some(at(2026, 10, 26)), Some(at(2026, 10, 30))),
+            task(3, None, None),
+        ];
+        // 1 -> 2 is drawn; 2 -> 3 has no bar at the end, so it is left out.
+        let t = build(&tasks, today, &[(1, 2), (2, 3)]);
+        assert_eq!(t.edges, vec![(0, 1)]);
+    }
+
+    #[test]
     fn the_chart_is_capped_and_far_bars_are_clamped_to_its_edge() {
         let today = day(2026, 10, 28);
-        let t = build(&[task(1, Some(at(2026, 10, 28)), Some(at(2030, 1, 1)))], today);
+        let t = build(&[task(1, Some(at(2026, 10, 28)), Some(at(2030, 1, 1)))], today, &[]);
         assert_eq!(t.days.len() as i64, MAX_DAYS);
         assert_eq!(t.bars[0].last_day, (MAX_DAYS - 1) as i32);
         // With nothing dated, today still shows with the minimum width.
-        let empty = build(&[], today);
+        let empty = build(&[], today, &[]);
         assert_eq!(empty.days.len() as i64, MIN_DAYS);
         assert!(empty.today_index >= 0);
     }

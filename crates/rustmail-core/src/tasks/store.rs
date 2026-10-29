@@ -384,6 +384,57 @@ fn column_kind(tx: &Connection, id: i64) -> Result<(i64, String, ColumnKind)> {
     ))
 }
 
+/// Finish-to-start dependencies as (prerequisite id, dependent id). "A blocks
+/// B" and "B depends on A" are the same edge; `project` limits it to tasks of
+/// one project.
+fn dependency_edges(conn: &Connection, project: Option<i64>) -> Result<Vec<(i64, i64)>> {
+    let mut stmt = conn.prepare(
+        "SELECT l.kind, a.id, b.id
+         FROM task_links l
+         JOIN tasks a ON a.id = l.task_id AND a.deleted_at IS NULL
+         JOIN tasks b ON b.uid = l.other_task_uid AND b.deleted_at IS NULL
+         WHERE l.deleted_at IS NULL AND l.kind IN ('task_blocks', 'task_depends')
+           AND (?1 IS NULL OR (a.project_id = ?1 AND b.project_id = ?1))
+         ORDER BY l.id",
+    )?;
+    let rows = stmt.query_map([project], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, i64>(1)?,
+            r.get::<_, i64>(2)?,
+        ))
+    })?;
+    let mut edges = Vec::new();
+    for row in rows {
+        let (kind, a, b) = row?;
+        edges.push(if kind == "task_blocks" {
+            (a, b)
+        } else {
+            (b, a)
+        });
+    }
+    Ok(edges)
+}
+
+/// Whether `to` can be reached from `from` by following dependencies from a
+/// prerequisite to its dependents.
+fn reaches(edges: &[(i64, i64)], from: i64, to: i64) -> bool {
+    let mut seen = vec![from];
+    let mut next = vec![from];
+    while let Some(at) = next.pop() {
+        if at == to {
+            return true;
+        }
+        for &(pre, dep) in edges {
+            if pre == at && !seen.contains(&dep) {
+                seen.push(dep);
+                next.push(dep);
+            }
+        }
+    }
+    false
+}
+
 fn move_task_inner(tx: &Connection, id: i64, column_id: i64, place: Place) -> Result<MoveOutcome> {
     let task = fetch_task(tx, id)?;
     let (project, name, kind) = column_kind(tx, column_id)?;
@@ -1846,6 +1897,22 @@ impl TaskStore for SqliteTaskStore<'_> {
         if let Some(l) = existing {
             return Ok(l);
         }
+        if link.kind.is_task() {
+            let other_id: i64 = tx.query_row(
+                "SELECT id FROM tasks WHERE uid = ?1 AND deleted_at IS NULL",
+                [other.as_deref().unwrap_or_default()],
+                |r| r.get(0),
+            )?;
+            let (pre, dep) = if link.kind == LinkKind::TaskBlocks {
+                (task_id, other_id)
+            } else {
+                (other_id, task_id)
+            };
+            // The new edge pre -> dep closes a loop when dep already leads to pre.
+            if reaches(&dependency_edges(&tx, None)?, dep, pre) {
+                return Err(invalid("that would make the tasks wait for each other"));
+            }
+        }
         tx.execute(
             "INSERT INTO task_links (uid, task_id, kind, account_email, thread_id, message_id,
                 event_uid, other_task_uid, created_at, updated_at)
@@ -1884,6 +1951,10 @@ impl TaskStore for SqliteTaskStore<'_> {
         activity(&tx, task_id, "unlinked", "Removed a link")?;
         tx.commit()?;
         Ok(())
+    }
+
+    fn list_dependencies(&mut self, project_id: i64) -> Result<Vec<(i64, i64)>> {
+        dependency_edges(self.conn, Some(project_id))
     }
 
     fn list_links(&mut self, task_id: i64) -> Result<Vec<ResolvedLink>> {

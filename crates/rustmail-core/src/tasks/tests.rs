@@ -369,6 +369,59 @@ fn task_links_validate_and_resolve() {
 }
 
 #[test]
+fn dependencies_are_listed_as_prerequisite_first_and_loops_are_refused() {
+    let (mut c, p) = setup();
+    let a = task(&mut c, p, "a");
+    let b = task(&mut c, p, "b");
+    let d = task(&mut c, p, "d");
+    let other = {
+        let mut s = SqliteTaskStore::new(&mut c);
+        s.create_project("Other", "#336699").unwrap()
+    };
+    let x = task(&mut c, other.id, "x");
+    let mut s = SqliteTaskStore::new(&mut c);
+    let link = |kind: LinkKind, uid: &str| NewLink {
+        kind,
+        account_email: None,
+        thread_id: None,
+        message_id: None,
+        event_uid: None,
+        other_task_uid: Some(uid.into()),
+    };
+    // "a blocks b" and "d depends on b" are both written prerequisite first.
+    s.add_link(a.id, link(LinkKind::TaskBlocks, &b.uid))
+        .unwrap();
+    s.add_link(d.id, link(LinkKind::TaskDepends, &b.uid))
+        .unwrap();
+    // A link to a task of another project is not an edge of this project.
+    s.add_link(a.id, link(LinkKind::TaskBlocks, &x.uid))
+        .unwrap();
+    let mut edges = s.list_dependencies(p).unwrap();
+    edges.sort_unstable();
+    assert_eq!(edges, vec![(a.id, b.id), (b.id, d.id)]);
+
+    // d waits for b, which waits for a: a may not wait for d, in either wording.
+    assert!(
+        s.add_link(a.id, link(LinkKind::TaskDepends, &d.uid))
+            .is_err()
+    );
+    assert!(
+        s.add_link(d.id, link(LinkKind::TaskBlocks, &a.uid))
+            .is_err()
+    );
+    assert!(
+        s.add_link(b.id, link(LinkKind::TaskBlocks, &a.uid))
+            .is_err()
+    );
+    // The same link again is not a loop, and a different order is fine.
+    s.add_link(a.id, link(LinkKind::TaskBlocks, &b.uid))
+        .unwrap();
+    s.add_link(a.id, link(LinkKind::TaskBlocks, &d.uid))
+        .unwrap();
+    assert_eq!(s.list_dependencies(p).unwrap().len(), 3);
+}
+
+#[test]
 fn text_search_covers_title_description_linked_subject_and_escapes_wildcards() {
     let (mut c, p) = setup();
     let a = task(&mut c, p, "Pay invoice");

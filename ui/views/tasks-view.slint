@@ -71,6 +71,12 @@ export struct TimelineBarRow {
     overdue: bool,
 }
 
+export struct TimelineEdgeRow {
+    // Indexes into the bars: the prerequisite and the task that waits for it.
+    from-bar: int,
+    to-bar: int,
+}
+
 export struct TaskColumnRow {
     // -1 for the synthetic list shown by focus, context and search views.
     id: int,
@@ -133,6 +139,8 @@ export struct LinkRow {
     kind: string,
     text: string,
     found: bool,
+    // "done" / "open" for a linked task, the start day for an event.
+    note: string,
 }
 
 export struct ActivityRow {
@@ -192,6 +200,7 @@ export global TasksUi {
     in-out property <bool> timeline-mode: false;
     in-out property <[TimelineDayRow]> timeline-days;
     in-out property <[TimelineBarRow]> timeline-bars;
+    in-out property <[TimelineEdgeRow]> timeline-edges;
     in-out property <int> timeline-today: -1;
     in-out property <int> timeline-undated: 0;
     in-out property <string> timeline-title;
@@ -268,6 +277,8 @@ component TasksNavItem inherits SidebarItem {
 component TasksTimeline inherits Rectangle {
     // "day" | "week" | "month"
     in-out property <string> zoom: "week";
+    // Finish-to-start arrows between bars.
+    in-out property <bool> show-dependencies: true;
     private property <length> day-width: root.zoom == "day" ? 44px : root.zoom == "week" ? 22px : 9px;
     private property <length> row-height: 32px;
     private property <length> toolbar-height: 40px;
@@ -322,6 +333,13 @@ component TasksTimeline inherits Rectangle {
             text: choice.text;
             primary: root.zoom == choice.id;
             clicked => { root.zoom = choice.id; }
+        }
+        Button {
+            height: 28px;
+            width: max(60px, self.content-width + 20px);
+            text: @tr("Dependencies");
+            primary: root.show-dependencies;
+            clicked => { root.show-dependencies = !root.show-dependencies; }
         }
         Button {
             height: 28px;
@@ -484,6 +502,24 @@ component TasksTimeline inherits Rectangle {
                     mouse-cursor: pointer;
                     clicked => { TasksUi.command("open", "task:" + bar.id, ""); }
                 }
+            }
+            for edge in TasksUi.timeline-edges : Path {
+                visible: root.show-dependencies;
+                private property <length> x1: (TasksUi.timeline-bars[edge.from-bar].last-day + 1) * root.day-width;
+                private property <length> y1: edge.from-bar * root.row-height + root.row-height / 2;
+                private property <length> x2: TasksUi.timeline-bars[edge.to-bar].first-day * root.day-width;
+                private property <length> y2: edge.to-bar * root.row-height + root.row-height / 2;
+                private property <length> mid: self.x1 + 8px;
+                x: 0px;
+                y: 0px;
+                width: root.chart-width;
+                height: root.rows-height;
+                viewbox-width: self.width / 1px;
+                viewbox-height: self.height / 1px;
+                commands: "M \{self.x1 / 1px} \{self.y1 / 1px} L \{self.mid / 1px} \{self.y1 / 1px} L \{self.mid / 1px} \{self.y2 / 1px} L \{self.x2 / 1px} \{self.y2 / 1px} M \{self.x2 / 1px - 5} \{self.y2 / 1px - 4} L \{self.x2 / 1px} \{self.y2 / 1px} L \{self.x2 / 1px - 5} \{self.y2 / 1px + 4}";
+                stroke: AppTheme.secondary;
+                stroke-width: 1.5px;
+                fill: transparent;
             }
         }
         if TasksUi.timeline-bars.length == 0 : Text {
@@ -1362,6 +1398,12 @@ component TaskDrawer inherits Rectangle {
                         color: AppTheme.muted;
                         font-size: TypeScale.micro;
                     }
+                    if link.note == "done" || link.note == "open" : Text {
+                        text: link.note == "done" ? @tr("Done") : @tr("Open");
+                        color: link.note == "done" ? AppTheme.accent : AppTheme.secondary;
+                        font-size: TypeScale.micro;
+                        font-weight: 700;
+                    }
                     Text {
                         text: link.found ? link.text : @tr("Not found");
                         color: link.found ? AppTheme.body : AppTheme.destructive;
@@ -1377,6 +1419,11 @@ component TaskDrawer inherits Rectangle {
                                 }
                             }
                         }
+                    }
+                    if link.note != "" && link.note != "done" && link.note != "open" : Text {
+                        text: link.note;
+                        color: AppTheme.muted;
+                        font-size: TypeScale.micro;
                     }
                 }
                 TasksIconButton {

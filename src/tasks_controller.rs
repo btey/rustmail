@@ -250,7 +250,9 @@ struct DetailSnap {
     checklist: Vec<(i64, String, bool)>,
     /// `(link id, kind token, text, target found, open target)`; the open
     /// target is "task:<id>" for a linked task and empty otherwise.
-    links: Vec<(i64, String, String, bool, String)>,
+    /// (link id, kind, text, found, open target, note). The note is "done" or
+    /// "open" for a linked task, the start date for an event, else empty.
+    links: Vec<(i64, String, String, bool, String, String)>,
     activity: Vec<(String, String)>,
 }
 
@@ -515,6 +517,24 @@ async fn load_detail(
             event_titles.insert(uid.clone(), title);
         }
     }
+    // A linked task shows whether it is done; an event shows its start day.
+    let mut notes: HashMap<i64, String> = HashMap::new();
+    for l in &links {
+        use rustmail_core::tasks::LinkTarget;
+        let note = match &l.target {
+            LinkTarget::Task { task_id, .. } => core.task_get(*task_id).await.ok().map(|t| {
+                if t.completed_at.is_some() { "done" } else { "open" }.to_owned()
+            }),
+            LinkTarget::Event => match &l.link.event_uid {
+                Some(uid) => core.task_event_start(uid.clone()).await.ok().flatten().map(iso_date),
+                None => None,
+            },
+            _ => None,
+        };
+        if let Some(note) = note {
+            notes.insert(l.link.id, note);
+        }
+    }
     let links = links
         .into_iter()
         .map(|l| {
@@ -535,7 +555,8 @@ async fn load_detail(
                     (String::new(), false, String::new())
                 }
             };
-            (l.link.id, l.link.kind.as_str().to_owned(), text, found, open)
+            let note = notes.remove(&l.link.id).unwrap_or_default();
+            (l.link.id, l.link.kind.as_str().to_owned(), text, found, open, note)
         })
         .collect();
     let detail = DetailSnap {
@@ -766,7 +787,12 @@ async fn load(
             })
             .collect();
     } else if timeline_mode {
-        snap.timeline = Some(crate::tasks_timeline::build(&tasks, Local::now().date_naive()));
+        let dependencies = core.task_dependencies(project_id.unwrap_or_default()).await?;
+        snap.timeline = Some(crate::tasks_timeline::build(
+            &tasks,
+            Local::now().date_naive(),
+            &dependencies,
+        ));
     } else if !tasks.is_empty() || kind != "project" {
         // Focus, context and search views are one flat list, optionally
         // split into sections.
@@ -986,6 +1012,13 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                     })
                     .collect::<Vec<_>>(),
             )));
+            ui.set_timeline_edges(ModelRc::new(VecModel::from(
+                timeline
+                    .edges
+                    .iter()
+                    .map(|&(from_bar, to_bar)| crate::TimelineEdgeRow { from_bar, to_bar })
+                    .collect::<Vec<_>>(),
+            )));
             ui.set_timeline_bars(ModelRc::new(VecModel::from(
                 timeline
                     .bars
@@ -1007,6 +1040,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
         None => {
             ui.set_timeline_days(ModelRc::default());
             ui.set_timeline_bars(ModelRc::default());
+            ui.set_timeline_edges(ModelRc::default());
         }
     }
     ui.set_sort(snap.sort.into());
@@ -1149,7 +1183,8 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
             ui.set_links(ModelRc::new(VecModel::from(
                 d.links
                     .into_iter()
-                    .map(|(id, kind, text, found, open)| LinkRow {
+                    .map(|(id, kind, text, found, open, note)| LinkRow {
+                        note: note.into(),
                         id: id as i32,
                         thread_id: open
                             .strip_prefix("mail:")
@@ -2892,6 +2927,8 @@ mod tests {
         assert_eq!(links.len(), 1);
         assert_eq!(links[0].1, "task_depends");
         assert_eq!(links[0].4, format!("task:{draft}"));
+        // The linked task is still open.
+        assert_eq!(links[0].5, "open");
 
         // Only the task itself matches, so there is nothing to link.
         let own = run(&core, &sel, "link-task", &publish.to_string(), "blocks:publish").await;
@@ -2921,6 +2958,8 @@ mod tests {
         assert_eq!(links[1].1, "event");
         assert_eq!(links[1].2, "Team Offsite");
         assert!(links[1].4.starts_with("event:"));
+        // An event shows the day it starts.
+        assert_eq!(links[1].5, iso_date(at));
         run(&core, &sel, "link-remove", &links[1].0.to_string(), "").await.unwrap();
 
         run(&core, &sel, "link-remove", &links[0].0.to_string(), "").await.unwrap();

@@ -483,6 +483,8 @@ pub trait TaskStore {
     fn add_link(&mut self, task_id: i64, link: NewLink) -> Result<TaskLink>;
     fn remove_link(&mut self, id: i64) -> Result<()>;
     fn list_links(&mut self, task_id: i64) -> Result<Vec<ResolvedLink>>;
+    /// Dependencies inside a project as (prerequisite id, dependent id).
+    fn list_dependencies(&mut self, project_id: i64) -> Result<Vec<(i64, i64)>>;
 
     // Maintenance.
     /// Hard-delete tombstones older than `older_than_ms`; returns rows purged.

@@ -600,6 +600,7 @@ impl Core {
         task_labels() -> Vec<TaskLabel>, |s| s.list_labels();
         task_checklist(task_id: i64) -> Vec<ChecklistItem>, |s| s.list_checklist(task_id);
         task_links(task_id: i64) -> Vec<ResolvedLink>, |s| s.list_links(task_id);
+        task_dependencies(project_id: i64) -> Vec<(i64, i64)>, |s| s.list_dependencies(project_id);
     }
 
     writes! {
