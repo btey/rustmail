@@ -32,7 +32,7 @@ use rustmail::{
     MailAttachments, MailLabelRow, MailListEntry, MailProfileRow, MailboxRow, MotionSettings,
     SendUndoUi, SidebarRow, SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipEntry,
     TaskChipRow, TaskChips, TaskColumnRow, TaskComposeUi, TaskDetailRow, TaskFromMail, TaskNavRow,
-    TaskReplyUi, TasksUi, ThreadMessageRow,
+    TaskReplyUi, TasksUi, ThreadMessageRow, TimelineBarRow, TimelineDayRow,
 };
 use slint::platform::{
     Platform, WindowAdapter,
@@ -1017,6 +1017,77 @@ fn states() -> Vec<State> {
         }),
         state("tasks board", |app| {
             tasks_fixture(app, false);
+            app.set_active_view("tasks".into());
+        }),
+        state("tasks list", |app| {
+            tasks_fixture(app, false);
+            let tasks = app.global::<TasksUi>();
+            tasks.set_selection("focus:today".into());
+            tasks.set_title("".into());
+            tasks.set_list_mode(true);
+            app.set_active_view("tasks".into());
+        }),
+        state("tasks empty board", |app| {
+            tasks_fixture(app, false);
+            let tasks = app.global::<TasksUi>();
+            tasks.set_task_count(0);
+            tasks.set_columns(model(Vec::new()));
+            app.set_active_view("tasks".into());
+        }),
+        state("tasks timeline", |app| {
+            tasks_fixture(app, false);
+            let tasks = app.global::<TasksUi>();
+            tasks.set_timeline_mode(true);
+            tasks.set_timeline_title("October 2026".into());
+            tasks.set_timeline_today(9);
+            tasks.set_timeline_undated(3);
+            tasks.set_timeline_days(model(
+                (0..42)
+                    .map(|i| TimelineDayRow {
+                        label: format!("{}", i % 28 + 1).into(),
+                        weekend: i % 7 >= 5,
+                        today: i == 9,
+                        week: if i % 7 == 0 {
+                            format!("W{}", 40 + i / 7).into()
+                        } else {
+                            Default::default()
+                        },
+                    })
+                    .collect(),
+            ));
+            let bar =
+                |id: i32, title: &str, first: i32, last: i32, milestone: bool| TimelineBarRow {
+                    id,
+                    title: title.into(),
+                    start_text: if milestone {
+                        "".into()
+                    } else {
+                        "2026-10-21".into()
+                    },
+                    due_text: "2026-10-30".into(),
+                    first_day: first,
+                    last_day: last,
+                    milestone,
+                    done: id % 3 == 0,
+                    overdue: id % 2 == 0,
+                };
+            tasks.set_timeline_bars(model(vec![
+                bar(
+                    1,
+                    "Reply to the auditors about the revised quarterly figures",
+                    3,
+                    20,
+                    false,
+                ),
+                bar(2, "Book travel", 12, 12, true),
+                bar(
+                    3,
+                    "Waiting for reply from the finance department",
+                    8,
+                    30,
+                    false,
+                ),
+            ]));
             app.set_active_view("tasks".into());
         }),
         state("tasks page", |app| {

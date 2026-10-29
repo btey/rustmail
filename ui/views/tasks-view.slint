@@ -355,9 +355,9 @@ component TasksTimeline inherits Rectangle {
             width: parent.width;
             height: root.header-height;
             background: AppTheme.sidebar-bg;
-            Text { x: 8px; width: parent.width - 180px; height: parent.height; text: @tr("TASK"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
-            Text { x: parent.width - 170px; width: 80px; height: parent.height; text: @tr("START"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
-            Text { x: parent.width - 86px; width: 80px; height: parent.height; text: @tr("DUE"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+            Text { x: 8px; width: parent.width - 196px; height: parent.height; text: @tr("TASK"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+            Text { x: parent.width - 186px; width: 88px; height: parent.height; text: @tr("START"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+            Text { x: parent.width - 94px; width: 88px; height: parent.height; text: @tr("DUE"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
         }
         left-rows := ScrollView {
             y: root.header-height;
@@ -373,9 +373,9 @@ component TasksTimeline inherits Rectangle {
                 y: i * root.row-height;
                 width: left-rows.visible-width;
                 height: root.row-height;
-                Text { x: 8px; width: parent.width - 180px; height: parent.height; text: bar.title; color: bar.done ? AppTheme.muted : AppTheme.heading; font-size: TypeScale.secondary; vertical-alignment: center; overflow: elide; }
-                Text { x: parent.width - 170px; width: 80px; height: parent.height; text: bar.start-text; color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
-                Text { x: parent.width - 86px; width: 80px; height: parent.height; text: bar.due-text; color: bar.overdue ? AppTheme.destructive : AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+                Text { x: 8px; width: parent.width - 196px; height: parent.height; text: bar.title; color: bar.done ? AppTheme.muted : AppTheme.heading; font-size: TypeScale.secondary; vertical-alignment: center; overflow: elide; }
+                Text { x: parent.width - 186px; width: 88px; height: parent.height; text: bar.start-text; color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+                Text { x: parent.width - 94px; width: 88px; height: parent.height; text: bar.due-text; color: bar.overdue ? AppTheme.destructive : AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
                 TouchArea {
                     accessible-role: button;
                     accessible-label: bar.title;
@@ -401,23 +401,31 @@ component TasksTimeline inherits Rectangle {
             vertical-scrollbar-policy: always-off;
             horizontal-scrollbar-policy: always-off;
             content-x <=> chart.content-x;
+            // The ISO week sits over the seven days it covers, not in one cell.
+            for day[i] in TasksUi.timeline-days : Rectangle {
+                x: i * root.day-width + 2px;
+                y: 2px;
+                width: root.day-width * 7 - 4px;
+                height: 18px;
+                if day.week != "" : Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: day.week;
+                    color: AppTheme.secondary;
+                    font-size: TypeScale.micro;
+                    font-weight: 700;
+                    overflow: elide;
+                }
+            }
             for day[i] in TasksUi.timeline-days : Rectangle {
                 x: i * root.day-width;
                 width: root.day-width;
                 height: root.header-height;
                 background: day.weekend ? AppTheme.sidebar-bg : transparent;
-                if day.week != "" : Text {
-                    x: 2px;
-                    y: 3px;
-                    text: day.week;
-                    color: AppTheme.secondary;
-                    font-size: TypeScale.micro;
-                    font-weight: 700;
-                }
                 if root.day-width >= 20px : Text {
-                    y: 22px;
+                    y: 20px;
                     width: parent.width;
-                    height: 20px;
+                    height: 24px;
                     text: day.label;
                     color: day.today ? AppTheme.accent : AppTheme.body;
                     font-size: TypeScale.caption;
