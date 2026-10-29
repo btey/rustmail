@@ -35,6 +35,8 @@ export struct TaskCardRow {
     // with its text, empty when the task has none.
     link-kind: string,
     link-text: string,
+    /// Other linked mails and events beyond the one shown.
+    link-more: int,
 }
 
 export struct PickerDayRow {
@@ -697,7 +699,8 @@ component TaskCard inherits Rectangle {
         if root.card.link-kind != "" && !TasksUi.compact-cards : Text {
             text: (root.card.link-kind == "mail_received" ? @tr("Mail")
                 : root.card.link-kind == "mail_sent" ? @tr("Sent")
-                : @tr("Event")) + ": " + root.card.link-text;
+                : @tr("Event")) + ": " + root.card.link-text
+                + (root.card.link-more > 0 ? "  +" + root.card.link-more : "");
             color: AppTheme.secondary;
             font-size: TypeScale.micro;
             overflow: elide;

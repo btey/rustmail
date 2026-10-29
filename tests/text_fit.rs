@@ -623,6 +623,7 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
         replied: id % 3 == 0,
         link_kind: "mail_received".into(),
         link_text: "Quarterly invoice from the finance department".into(),
+        link_more: 2,
     };
     let column = |id: i32, name: &str, cards: Vec<TaskCardRow>| TaskColumnRow {
         id,

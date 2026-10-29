@@ -276,6 +276,8 @@ struct CardSnap {
     quick_capture: bool,
     /// The first linked mail or event, for the card's link row.
     link: Option<(String, String)>,
+    /// Further linked mails and events beyond the first.
+    link_more: i32,
 }
 
 struct ColumnSnap {
@@ -398,6 +400,7 @@ fn card(
         replied: false,
         quick_capture: task.quick_capture,
         link: None,
+        link_more: 0,
     }
 }
 
@@ -872,7 +875,15 @@ async fn load(
             continue;
         }
         looked_up += 1;
-        let found = core.task_links(k.id).await?.into_iter().find_map(|l| {
+        let all = core.task_links(k.id).await?;
+        let shown = |l: &rustmail_core::tasks::ResolvedLink| {
+            matches!(
+                l.target,
+                rustmail_core::tasks::LinkTarget::Mail { .. } | rustmail_core::tasks::LinkTarget::Event
+            )
+        };
+        k.link_more = all.iter().filter(|l| shown(l)).count().saturating_sub(1) as i32;
+        let found = all.into_iter().find_map(|l| {
             use rustmail_core::tasks::LinkTarget;
             let text = match &l.target {
                 LinkTarget::Mail { subject, .. } => subject.clone(),
@@ -1086,6 +1097,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         quick_capture: k.quick_capture,
                         link_kind: k.link.as_ref().map(|l| l.0.clone()).unwrap_or_default().into(),
                         link_text: k.link.map(|l| l.1).unwrap_or_default().into(),
+                        link_more: k.link_more,
                     })
                     .collect::<Vec<_>>(),
             )),
@@ -2793,7 +2805,26 @@ mod tests {
         let card = snap.columns[0].cards.iter().find(|c| c.title == "No links here").unwrap();
         assert_eq!(card.link, Some(("event".to_owned(), "Offsite planning".to_owned())));
         assert_eq!(snap.detail.as_ref().unwrap().links[0].2, "Offsite planning");
+        assert_eq!(card.link_more, 0);
         assert!(cards.iter().find(|c| c.title == "No links here").unwrap().link.is_none());
+
+        // A second link shows as a count next to the first.
+        core.task_link_add(
+            id_of("No links here"),
+            rustmail_core::tasks::NewLink {
+                kind: rustmail_core::tasks::LinkKind::Event,
+                account_email: None,
+                thread_id: None,
+                message_id: None,
+                event_uid: Some("second-event".into()),
+                other_task_uid: None,
+            },
+        )
+        .await
+        .unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
+        let card = snap.columns[0].cards.iter().find(|c| c.title == "No links here").unwrap();
+        assert_eq!(card.link_more, 1);
     }
 
     #[tokio::test]
