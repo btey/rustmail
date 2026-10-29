@@ -43,7 +43,7 @@ import { MailView } from "views/mail-view.slint";
 export { MessageColors } from "message-colors.slint";
 export { FilesUi, FileRow, OperationRow } from "views/files-view.slint";
 import { FilesView, FilesUi } from "views/files-view.slint";
-export { TaskComposeUi, TaskSettingsUi } from "components/task-compose.slint";
+export { ComposeScheduleUi, TaskComposeUi, TaskSettingsUi } from "components/task-compose.slint";
 export { TaskReplyUi } from "components/task-reply.slint";
 export { SendUndoUi } from "components/send-undo.slint";
 export { TasksUi, TaskCardRow, TaskColumnRow, TaskNavRow, TaskDetailRow, ChecklistRow, LinkRow, ActivityRow } from "views/tasks-view.slint";
@@ -188,6 +188,9 @@ export global I18n {
         if (key == "Message-opening preference saved.") { return @tr("Message-opening preference saved."); }
         if (key == "Undo send window saved.") { return @tr("Undo send window saved."); }
         if (key == "Task settings saved.") { return @tr("Task settings saved."); }
+        if (key == "Select conversations first.") { return @tr("Select conversations first."); }
+        if (key == "Could not create the tasks: {}") { return @tr("Could not create the tasks: {}", argument); }
+        if (key == "Tasks created: {}. Already had a task: {}") { return @tr("Tasks created: {}. Already had a task: {}", argument, second-argument); }
         if (key == "Could not save message-opening preference: {}") { return @tr("Could not save message-opening preference: {}", argument); }
         if (key == "Could not save the undo send window: {}") { return @tr("Could not save the undo send window: {}", argument); }
         if (key == "Could not save the task settings: {}") { return @tr("Could not save the task settings: {}", argument); }
@@ -215,6 +218,7 @@ export global I18n {
         if (key == "Sidebar icon style updated for this session.") { return @tr("Sidebar icon style updated for this session."); }
         if (key == "Sidebar icon preference saved.") { return @tr("Sidebar icon preference saved."); }
         if (key == "Could not save sidebar icon preference: {}") { return @tr("Could not save sidebar icon preference: {}", argument); }
+        if (key == "Message scheduled for {}.") { return @tr("Message scheduled for {}.", argument); }
         if (key == "Scroll direction saved.") { return @tr("Scroll direction saved."); }
         if (key == "Scroll direction changed for this session.") { return @tr("Scroll direction changed for this session."); }
         if (key == "Could not save the scroll direction: {}") { return @tr("Could not save the scroll direction: {}", argument); }
@@ -595,6 +599,8 @@ export component AppWindow inherits Window {
     callback message_action_for_email(int, string);
     // A thread id, or -1 for the selected conversation.
     callback open_task_from_mail(int);
+    // One task for each conversation ticked in the list, with the Tasks settings' defaults.
+    callback create_tasks_from_selection();
     callback bulk_message_action(string);
     callback toggle_mail_group(string);
     callback empty_trash(int);
@@ -1476,6 +1482,7 @@ export component AppWindow inherits Window {
             }
             bulk_message_action(action) => {
                 if action == "delete_permanently" { root.confirm-trash-deletion("bulk", -1); }
+                else if action == "create_task" { root.create_tasks_from_selection(); }
                 else { root.bulk_message_action(action); }
             }
             toggle_mail_group(key) => { root.toggle_mail_group(key); }

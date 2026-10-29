@@ -1848,6 +1848,12 @@ pub struct Settings {
     /// Whether "Archive email once the task exists" starts ticked.
     #[serde(default)]
     pub task_archive_on_create: bool,
+    /// Display menu: leave the completed tasks off the board.
+    #[serde(default)]
+    pub task_hide_completed: bool,
+    /// Display menu: cards show only the title and the due date.
+    #[serde(default)]
+    pub task_compact_cards: bool,
     /// Name of the project "New task from email" starts with; empty = the first project.
     #[serde(default)]
     pub task_default_project: String,
@@ -2194,6 +2200,8 @@ impl Default for Settings {
             undo_send_seconds: 10,
             task_follow_up_default: 0,
             task_archive_on_create: false,
+            task_hide_completed: false,
+            task_compact_cards: false,
             task_default_project: String::new(),
             task_default_context: String::new(),
             task_default_status: String::new(),

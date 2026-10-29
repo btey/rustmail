@@ -237,6 +237,27 @@ impl Core {
         Ok(link)
     }
 
+    /// Collapse every column of a project that holds no task (completed ones
+    /// count). Returns how many were collapsed.
+    pub async fn task_collapse_empty(&self, project_id: i64) -> Result<usize> {
+        let columns = self.task_columns(project_id).await?;
+        let tasks = self
+            .task_list(TaskFilter {
+                project_id: Some(project_id),
+                include_done: true,
+                ..Default::default()
+            })
+            .await?;
+        let mut collapsed = 0;
+        for column in columns {
+            if !column.collapsed && !tasks.iter().any(|t| t.column_id == column.id) {
+                self.task_column_collapse(column.id, true).await?;
+                collapsed += 1;
+            }
+        }
+        Ok(collapsed)
+    }
+
     /// The iCalendar UID of the calendar event whose title contains `text`
     /// (case-insensitive); the one starting nearest to now wins. `None` when
     /// nothing matches.
@@ -389,6 +410,7 @@ impl Core {
                 assignee_name: None,
                 label_ids: Vec::new(),
                 from_mail: false,
+                quick_capture: false,
             })
             .await?;
         self.task_link_add(

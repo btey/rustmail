@@ -267,6 +267,7 @@ impl SqliteTaskStore<'_> {
                     assignee_name: task.assignee_name.clone(),
                     label_ids,
                     from_mail: false,
+                    quick_capture: false,
                 })?;
                 for item in &task.checklist {
                     let added = self.add_checklist_item(created.id, &item.text)?;

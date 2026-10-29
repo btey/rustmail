@@ -6475,7 +6475,13 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             return;
         }
         if send {
-            match runtime_for_compose.block_on(core.send_new_message(ComposeMessage {
+            // "Send later": the menu choice, read once.
+            let schedule = app.global::<ComposeScheduleUi>();
+            let send_at = schedule_send_time(schedule.get_when().as_str(), Local::now())
+                .map(|at| at.timestamp_millis());
+            schedule.set_when("".into());
+            let scheduled_for = send_at;
+            match runtime_for_compose.block_on(core.send_new_message_at(ComposeMessage {
                 draft_id: intent.draft_id,
                 account_id: i64::from(account_id),
                 sender_email: Some(sender_email.as_str()),
@@ -6488,7 +6494,42 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 attachments: &attachments,
                 mode: intent.mode.as_str(),
                 in_reply_to_message_id: intent.in_reply_to_message_id,
-            })) {
+            }, send_at)) {
+                Ok(queued) if scheduled_for.is_some() => {
+                    // A message held for hours cannot freeze the composer:
+                    // the queue owns it now, so the composer clears at once.
+                    if let Some(task) = intent.task {
+                        core.file_core().task_link_after_send(
+                            &queued,
+                            task.task_id,
+                            task.after,
+                            task.follow_up_days,
+                            None,
+                        );
+                    }
+                    clear_compose(
+                        &app,
+                        &files_for_save,
+                        &session_for_save,
+                        &document_for_save,
+                        &editor_for_save,
+                        &contacts_for_save,
+                    );
+                    *intent_for_save.borrow_mut() = ComposeIntent::default();
+                    let when = Local
+                        .timestamp_millis_opt(queued.dispatch_at)
+                        .single()
+                        .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+                        .unwrap_or_default();
+                    app.set_sync_status(UiMessage::detail("Message scheduled for {}.", when));
+                    let _ = refresh_from_source(
+                        &app,
+                        &state_for_compose,
+                        &runtime_for_compose,
+                        true,
+                        &[],
+                    );
+                }
                 Ok(queued) => {
                     // Keep the exact saved draft attached to this composer so
                     // a failed submission can be edited and retried in place.
@@ -7804,8 +7845,58 @@ mod calendar_tests {
     }
 }
 
+/// When the composer's "Send later" choice sends: an hour or four hours from
+/// `now`, or 08:00 local time tomorrow or next Monday (a Monday asks for the
+/// Monday after). `None` for an empty or unknown choice, which sends now.
+fn schedule_send_time(
+    choice: &str,
+    now: chrono::DateTime<Local>,
+) -> Option<chrono::DateTime<Local>> {
+    use chrono::Datelike;
+    let morning = |date: NaiveDate| {
+        Local
+            .from_local_datetime(&date.and_hms_opt(8, 0, 0)?)
+            .earliest()
+    };
+    let today = now.date_naive();
+    match choice {
+        "1h" => Some(now + ChronoDuration::hours(1)),
+        "4h" => Some(now + ChronoDuration::hours(4)),
+        "tomorrow" => morning(today + ChronoDuration::days(1)),
+        "monday" => {
+            let days = 7 - i64::from(today.weekday().num_days_from_monday());
+            morning(today + ChronoDuration::days(days))
+        }
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn send_later_choices_work_out_their_times() {
+        let at = |y, m, d, h| {
+            Local
+                .with_ymd_and_hms(y, m, d, h, 30, 0)
+                .earliest()
+                .unwrap()
+        };
+        // 28 Oct 2026 is a Wednesday.
+        let now = at(2026, 10, 28, 15);
+        assert_eq!(schedule_send_time("1h", now), Some(at(2026, 10, 28, 16)));
+        assert_eq!(schedule_send_time("4h", now), Some(at(2026, 10, 28, 19)));
+        let morning = |m, d| Local.with_ymd_and_hms(2026, m, d, 8, 0, 0).earliest();
+        assert_eq!(schedule_send_time("tomorrow", now), morning(10, 29));
+        assert_eq!(schedule_send_time("monday", now), morning(11, 2));
+        // On a Monday, "Monday morning" means the next one.
+        assert_eq!(
+            schedule_send_time("monday", at(2026, 11, 2, 9)),
+            morning(11, 9)
+        );
+        assert_eq!(schedule_send_time("", now), None);
+        assert_eq!(schedule_send_time("someday", now), None);
+    }
+
     use super::*;
 
     #[test]

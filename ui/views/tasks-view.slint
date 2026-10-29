@@ -11,6 +11,8 @@ import { DetailEmptyState } from "../components/detail-empty-state.slint";
 export struct TaskCardRow {
     id: int,
     title: string,
+    // The title with a line through every letter (U+0336), for a done task; empty otherwise.
+    struck-title: string,
     due: string,
     due-warn: bool,
     high-priority: bool,
@@ -27,6 +29,8 @@ export struct TaskCardRow {
     no-reply-days: int,
     // The newest thing that happened is a reply to the linked mail.
     replied: bool,
+    // Typed straight into the board and still in the Inbox.
+    quick-capture: bool,
     // The first linked mail or event: "mail_received" | "mail_sent" | "event"
     // with its text, empty when the task has none.
     link-kind: string,
@@ -77,6 +81,8 @@ export struct TaskDetailRow {
     title: string,
     description: string,
     due: string,
+    // First day of work (YYYY-MM-DD), empty when unset.
+    start: string,
     high-priority: bool,
     done: bool,
     project: string,
@@ -153,6 +159,11 @@ export global TasksUi {
         : id;
     }
     in-out property <[TaskChipRow]> filter-chips;
+    // Today's date for the right end of the chip row, e.g. "Thu, Oct 29".
+    in-out property <string> today-label;
+    // Display menu: completed tasks on the board, and compact cards.
+    in-out property <bool> show-completed: true;
+    in-out property <bool> compact-cards: false;
     in-out property <[ActionMenuEntry]> filter-menu;
     in-out property <[ActionMenuEntry]> context-menu;
     in-out property <[ActionMenuEntry]> label-menu;
@@ -259,6 +270,8 @@ component TasksSidebar inherits Rectangle {
                 for row in TasksUi.focus-rows : TasksNavItem {
                     label: TasksText.focus-label(row.key);
                     count: row.count;
+                    // The Inbox count stands out when something is waiting.
+                    muted-color: row.key == "focus:inbox" && row.count != "" && row.count != "0" ? AppTheme.accent : AppTheme.muted;
                     left-padding: 12px;
                     icon: @image-url("../icons/lucide/outline/tasks.svg");
                     icon-color: TasksUi.selection == row.key ? AppTheme.accent : row.colour;
@@ -343,13 +356,24 @@ component TaskCard inherits Rectangle {
         + (root.card.link-count > 0 ? @tr("{} linked", root.card.link-count) + ". " : "");
     accessible-action-default => { root.open(); }
 
-    DropArea {
+    card-drop := DropArea {
         enabled: root.drop-enabled;
         can-drop(event) => { DragAction.move }
         dropped(event) => {
             root.dropped-on(TasksUi.text-of(event.data));
             return event.proposed-action;
         }
+    }
+
+    // A dropped card lands right below this one.
+    Rectangle {
+        visible: card-drop.has-drag;
+        x: 6px;
+        y: parent.height - 2px;
+        width: parent.width - 12px;
+        height: 3px;
+        border-radius: 1.5px;
+        background: AppTheme.accent;
     }
 
     DragArea {
@@ -383,7 +407,7 @@ component TaskCard inherits Rectangle {
             }
             Text {
                 horizontal-stretch: 1;
-                text: root.card.title;
+                text: root.card.done && root.card.struck-title != "" ? root.card.struck-title : root.card.title;
                 color: AppTheme.heading;
                 font-size: TypeScale.body;
                 font-weight: 600;
@@ -407,13 +431,13 @@ component TaskCard inherits Rectangle {
                 clicked => { root.delete-task(); }
             }
         }
-        if root.card.status != "" : Text {
+        if root.card.status != "" && !TasksUi.compact-cards : Text {
             text: root.card.status;
             color: AppTheme.secondary;
             font-size: TypeScale.micro;
             font-weight: 600;
         }
-        if root.card.link-kind != "" : Text {
+        if root.card.link-kind != "" && !TasksUi.compact-cards : Text {
             text: (root.card.link-kind == "mail_received" ? @tr("Mail")
                 : root.card.link-kind == "mail_sent" ? @tr("Sent")
                 : @tr("Event")) + ": " + root.card.link-text;
@@ -421,18 +445,24 @@ component TaskCard inherits Rectangle {
             font-size: TypeScale.micro;
             overflow: elide;
         }
-        if root.card.labels != "" : Text {
+        if root.card.labels != "" && !TasksUi.compact-cards : Text {
             text: root.card.labels;
             color: AppTheme.accent;
             font-size: TypeScale.micro;
             overflow: elide;
         }
-        if root.card.no-reply-days >= 0 : Text {
+        if root.card.no-reply-days >= 0 && !TasksUi.compact-cards : Text {
             text: @tr("No reply · {}d", root.card.no-reply-days);
             color: AppTheme.destructive;
             font-size: TypeScale.micro;
         }
-        if root.card.replied : Text {
+        if root.card.quick-capture && !TasksUi.compact-cards : Text {
+            text: @tr("Quick capture");
+            color: AppTheme.secondary;
+            font-size: TypeScale.micro;
+            font-weight: 600;
+        }
+        if root.card.replied && !TasksUi.compact-cards : Text {
             text: @tr("Reply received");
             color: AppTheme.accent;
             font-size: TypeScale.micro;
@@ -446,18 +476,18 @@ component TaskCard inherits Rectangle {
                 color: root.card.due-warn ? AppTheme.destructive : AppTheme.secondary;
                 font-size: TypeScale.micro;
             }
-            if root.card.checklist-total > 0 : Text {
+            if root.card.checklist-total > 0 && !TasksUi.compact-cards : Text {
                 text: @tr("{}/{} done", root.card.checklist-done, root.card.checklist-total);
                 color: AppTheme.secondary;
                 font-size: TypeScale.micro;
             }
-            if root.card.link-count > 0 : Text {
+            if root.card.link-count > 0 && !TasksUi.compact-cards : Text {
                 text: @tr("{} linked", root.card.link-count);
                 color: AppTheme.secondary;
                 font-size: TypeScale.micro;
             }
         }
-        if root.card.from-mail || root.card.high-priority || root.card.context != "" || root.card.assignee != "" : HorizontalLayout {
+        if (root.card.from-mail || root.card.high-priority || root.card.context != "" || root.card.assignee != "") && !TasksUi.compact-cards : HorizontalLayout {
             spacing: 10px;
             if root.card.from-mail : Text {
                 text: @tr("From email");
@@ -653,7 +683,7 @@ component TaskColumnView inherits Rectangle {
                 TasksUi.adding-column = -2;
             }
         }
-        DropArea {
+        column-drop := DropArea {
             vertical-stretch: 1;
             enabled: root.column.id >= 0;
             can-drop(event) => { DragAction.move }
@@ -680,6 +710,18 @@ component TaskColumnView inherits Rectangle {
                 }
             }
         }
+            // Where a dragged card would land.
+            Rectangle {
+                visible: column-drop.has-drag;
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: parent.height;
+                border-width: 2px;
+                border-color: AppTheme.accent;
+                border-radius: LayoutMetrics.corner-radius;
+                background: AppTheme.accent.with-alpha(0.08);
+            }
         }
     }
 }
@@ -699,6 +741,7 @@ component TaskDrawer inherits Rectangle {
     in-out property <string> title-draft;
     in-out property <string> description-draft;
     in-out property <string> due-draft;
+    in-out property <string> start-draft;
     in-out property <string> label-draft;
     in-out property <string> assignee-draft;
     in-out property <string> link-draft;
@@ -707,6 +750,7 @@ component TaskDrawer inherits Rectangle {
         root.title-draft = TasksUi.detail.title;
         root.description-draft = TasksUi.detail.description;
         root.due-draft = TasksUi.detail.due;
+        root.start-draft = TasksUi.detail.start;
         root.label-draft = "";
         root.assignee-draft = "";
     }
@@ -963,6 +1007,14 @@ component TaskDrawer inherits Rectangle {
                     tooltip-text: @tr("Next month");
                     clicked => { TasksUi.command("picker", "", "next:" + TasksUi.picker-month); }
                 }
+            }
+            DetailSection { text: @tr("START DATE"); }
+            LineEdit {
+                height: 34px;
+                text <=> root.start-draft;
+                placeholder-text: @tr("YYYY-MM-DD");
+                input-label: @tr("Start date");
+                accepted(text) => { TasksUi.command("detail-start", "" + TasksUi.detail.id, root.start-draft); }
             }
             DetailSection { text: @tr("DESCRIPTION"); }
             TextEdit {
@@ -1240,7 +1292,6 @@ export component TasksView inherits Rectangle {
             HorizontalLayout {
                 height: 30px;
                 spacing: 8px;
-                alignment: start;
                 for chip in TasksUi.filter-chips : Rectangle {
                     width: chip-text.preferred-width + 40px;
                     height: 28px;
@@ -1271,6 +1322,26 @@ export component TasksView inherits Rectangle {
                     width: max(72px, self.content-width + 28px);
                     clicked => { TasksUi.command("view", TasksUi.list-mode ? "board" : "list", ""); }
                 }
+                if TasksUi.can-switch-view : ActionMenu {
+                    width: 28px;
+                    height: 28px;
+                    icon: @image-url("../icons/lucide/outline/gear.svg");
+                    entries: [
+                        { id: "completed", title: (TasksUi.show-completed ? "✓ " : "") + @tr("Show completed tasks") },
+                        { id: "compact", title: (TasksUi.compact-cards ? "✓ " : "") + @tr("Compact cards") },
+                        { id: "collapse-empty", title: @tr("Collapse empty columns") },
+                    ];
+                    menu-width: 240px;
+                    align-right: false;
+                    tooltip-text: @tr("Display");
+                    activated(id) => {
+                        if id == "collapse-empty" {
+                            TasksUi.command("collapse-empty", "", "");
+                        } else {
+                            TasksUi.command("display", id, "");
+                        }
+                    }
+                }
                 if TasksUi.group-menu.length > 0 : ActionMenu {
                     width: 28px;
                     height: 28px;
@@ -1290,6 +1361,14 @@ export component TasksView inherits Rectangle {
                     align-right: false;
                     tooltip-text: @tr("Add filter");
                     activated(id) => { TasksUi.command("filter-add", id, ""); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Text {
+                    text: TasksUi.today-label + " · " + @tr("GTD workflow");
+                    color: AppTheme.secondary;
+                    font-size: TypeScale.caption;
+                    vertical-alignment: center;
+                    overflow: elide;
                 }
             }
             if TasksUi.status != "" : Text {

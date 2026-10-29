@@ -248,7 +248,7 @@ const TASK_SELECT: &str = "SELECT t.id, t.uid, t.project_id, t.column_id, t.titl
         (SELECT COUNT(*) FROM task_checklist_items c
            WHERE c.task_id = t.id AND c.deleted_at IS NULL AND c.done = 1),
         (SELECT COUNT(*) FROM task_links l WHERE l.task_id = t.id AND l.deleted_at IS NULL),
-        t.move_back_on_reply, t.follow_up_at
+        t.move_back_on_reply, t.follow_up_at, t.quick_capture
      FROM tasks t";
 
 fn task_from_row(r: &Row) -> rusqlite::Result<Task> {
@@ -281,6 +281,7 @@ fn task_from_row(r: &Row) -> rusqlite::Result<Task> {
         link_count: r.get(19)?,
         move_back_on_reply: r.get::<_, i64>(20)? != 0,
         follow_up_at: r.get(21)?,
+        quick_capture: r.get::<_, i64>(22)? != 0,
     })
 }
 
@@ -393,9 +394,17 @@ fn move_task_inner(tx: &Connection, id: i64, column_id: i64, place: Place) -> Re
     let done = kind == ColumnKind::Done;
     tx.execute(
         "UPDATE tasks SET column_id = ?2, position = ?3,
-                completed_at = CASE WHEN ?4 THEN COALESCE(completed_at, ?5) ELSE NULL END
+                completed_at = CASE WHEN ?4 THEN COALESCE(completed_at, ?5) ELSE NULL END,
+                quick_capture = CASE WHEN ?6 THEN quick_capture ELSE 0 END
          WHERE id = ?1",
-        params![id, column_id, position, done, now_ms()],
+        params![
+            id,
+            column_id,
+            position,
+            done,
+            now_ms(),
+            kind == ColumnKind::Inbox
+        ],
     )?;
     stamp(tx, "task", "tasks", id, "update")?;
     if column_id != task.column_id {
@@ -1230,8 +1239,8 @@ impl TaskStore for SqliteTaskStore<'_> {
         tx.execute(
             "INSERT INTO tasks (uid, project_id, column_id, title, description, due_at, start_at,
                 priority, context_id, assignee_email, assignee_name, position, completed_at,
-                source, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15)",
+                source, created_at, updated_at, quick_capture)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15, ?16)",
             params![
                 new_uid(),
                 new.project_id,
@@ -1247,7 +1256,9 @@ impl TaskStore for SqliteTaskStore<'_> {
                 position,
                 (kind == ColumnKind::Done).then_some(now),
                 if new.from_mail { "mail" } else { "manual" },
-                now
+                now,
+                // Only a task that starts in the Inbox can be an unprocessed capture.
+                new.quick_capture && kind == ColumnKind::Inbox
             ],
         )?;
         let id = tx.last_insert_rowid();
@@ -1469,6 +1480,19 @@ impl TaskStore for SqliteTaskStore<'_> {
         if let Some(l) = f.label_id {
             clauses.push("EXISTS (SELECT 1 FROM task_label_links k WHERE k.task_id = t.id AND k.label_id = ?)".into());
             args.push(l.into());
+        }
+        if let Some(linked) = f.linked_to {
+            // The kinds are fixed words from `LinkedTo::kinds`, never user text.
+            let kinds = linked
+                .kinds()
+                .iter()
+                .map(|k| format!("'{k}'"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            clauses.push(format!(
+                "EXISTS (SELECT 1 FROM task_links lk WHERE lk.task_id = t.id
+                   AND lk.deleted_at IS NULL AND lk.kind IN ({kinds}))"
+            ));
         }
         if let Some(text) = f.text.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
             clauses.push(

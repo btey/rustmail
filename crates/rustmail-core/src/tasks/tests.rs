@@ -702,6 +702,38 @@ fn a_reply_is_noted_once_and_moves_a_waiting_task_back_when_asked() {
     );
 }
 
+#[test]
+fn a_quick_capture_stays_marked_until_it_leaves_the_inbox() {
+    let (mut c, p) = setup();
+    let next = col(&mut c, p, ColumnKind::Next);
+    let inbox = col(&mut c, p, ColumnKind::Inbox);
+    let mut s = SqliteTaskStore::new(&mut c);
+    let make = |s: &mut SqliteTaskStore, title: &str, column: i64, quick: bool| {
+        s.create_task(NewTask {
+            project_id: p,
+            column_id: Some(column),
+            title: title.into(),
+            quick_capture: quick,
+            ..Default::default()
+        })
+        .unwrap()
+    };
+    let captured = make(&mut s, "Call the bank", inbox.id, true);
+    assert!(captured.quick_capture);
+    assert!(!make(&mut s, "Planned", inbox.id, false).quick_capture);
+    // Only the Inbox can hold an unprocessed capture.
+    assert!(!make(&mut s, "Straight to Next", next.id, true).quick_capture);
+
+    // Moving it inside the Inbox keeps the mark; leaving the Inbox clears it.
+    s.move_task(captured.id, inbox.id, None).unwrap();
+    assert!(s.get_task(captured.id).unwrap().quick_capture);
+    s.move_task(captured.id, next.id, None).unwrap();
+    assert!(!s.get_task(captured.id).unwrap().quick_capture);
+    // Back in the Inbox it is an ordinary task now.
+    s.move_task(captured.id, inbox.id, None).unwrap();
+    assert!(!s.get_task(captured.id).unwrap().quick_capture);
+}
+
 fn plain_task(s: &mut SqliteTaskStore, p: i64, title: &str) -> Task {
     s.create_task(NewTask {
         project_id: p,
@@ -1244,6 +1276,37 @@ async fn a_mail_is_linked_to_a_task_by_part_of_its_subject() {
             .await
             .is_err()
     );
+}
+
+#[tokio::test]
+async fn empty_columns_can_be_collapsed_in_one_go() {
+    let tmp = tempfile::tempdir().unwrap();
+    let core = crate::Core::start(crate::Paths::for_tests(tmp.path()))
+        .await
+        .unwrap();
+    core.tasks_open().await.unwrap();
+    let project = core.task_projects().await.unwrap()[0].id;
+    let columns = core.task_columns(project).await.unwrap();
+    let busy = columns[0].id;
+    core.task_create(NewTask {
+        project_id: project,
+        column_id: Some(busy),
+        title: "Only task".into(),
+        ..Default::default()
+    })
+    .await
+    .unwrap();
+    let already = columns.iter().filter(|c| c.collapsed).count();
+    let collapsed = core.task_collapse_empty(project).await.unwrap();
+    assert_eq!(collapsed, columns.len() - 1 - already);
+    let after = core.task_columns(project).await.unwrap();
+    assert!(!after.iter().find(|c| c.id == busy).unwrap().collapsed);
+    assert_eq!(
+        after.iter().filter(|c| c.collapsed).count(),
+        columns.len() - 1
+    );
+    // Nothing left to collapse the second time.
+    assert_eq!(core.task_collapse_empty(project).await.unwrap(), 0);
 }
 
 #[test]

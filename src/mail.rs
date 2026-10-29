@@ -804,6 +804,20 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    pub async fn set_task_display(
+        &self,
+        hide_completed: bool,
+        compact_cards: bool,
+    ) -> Result<(), String> {
+        let mut settings = self.load_settings().await?;
+        settings.task_hide_completed = hide_completed;
+        settings.task_compact_cards = compact_cards;
+        self.core
+            .set_settings(settings)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn set_task_defaults(
         &self,
         project: String,
@@ -1524,16 +1538,16 @@ impl CoreMailSource {
         self.save_draft(compose_args(message, false)?).await
     }
 
-    pub async fn send_new_message(
+    /// Save the draft and queue it. `send_at` (Unix ms) holds the message
+    /// until then; `None` holds it for the undo-send window.
+    pub async fn send_new_message_at(
         &self,
         message: ComposeMessage<'_>,
+        send_at: Option<i64>,
     ) -> Result<QueueSendResult, String> {
         let draft_id = self.save_draft(compose_args(message, true)?).await?;
         let queued = self
-            .queue_send(QueueSendArgs {
-                draft_id,
-                send_at: None,
-            })
+            .queue_send(QueueSendArgs { draft_id, send_at })
             .await?;
         // The queue holds the message for the undo-send window (a setting; 0
         // sends at once) and fires it when it comes due.

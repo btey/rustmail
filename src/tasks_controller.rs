@@ -10,7 +10,7 @@ use chrono::{Local, TimeZone};
 use rustmail_core::Core;
 use rustmail_core::models::{ActionKind, PerformActionArgs};
 use rustmail_core::tasks::{
-    ColumnKind, ColumnPatch, NewTask, Task, TaskColumn, TaskDraft, TaskFilter, TaskFocus, TaskLabel,
+    ColumnKind, ColumnPatch, LinkedTo, NewTask, Task, TaskColumn, TaskDraft, TaskFilter, TaskFocus, TaskLabel,
     TaskPatch,
 };
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
@@ -156,6 +156,49 @@ impl Sort {
     }
 }
 
+/// The text with a line through every letter: Slint's `Text` cannot strike
+/// through, so a done task's title carries U+0336 after each character that
+/// is not a space.
+fn strike_through(text: &str) -> String {
+    text.chars()
+        .flat_map(|c| {
+            let line = (!c.is_whitespace()).then_some('\u{336}');
+            std::iter::once(c).chain(line)
+        })
+        .collect()
+}
+
+/// The name of a "Linked to" choice, as shown in the chip and the menu.
+fn linked_label(what: LinkedTo) -> &'static str {
+    match what {
+        LinkedTo::Mail => "Mail",
+        LinkedTo::Event => "Event",
+        LinkedTo::Task => "Task",
+    }
+}
+
+/// The filter chips beyond label and context.
+#[derive(Clone, Default)]
+struct Extra {
+    /// The assignee key (see `assignee_of`).
+    assignee: Option<String>,
+    linked: Option<LinkedTo>,
+    /// Display menu: leave the completed tasks off the board.
+    hide_done: bool,
+}
+
+/// Who a task is assigned to: a key (the email in lower case, else the
+/// name) and the text to show. `None` for an unassigned task.
+fn assignee_of(task: &Task) -> Option<(String, String)> {
+    let email = task.assignee_email.as_deref().map(str::trim).filter(|e| !e.is_empty());
+    let name = task.assignee_name.as_deref().map(str::trim).filter(|n| !n.is_empty());
+    match (email, name) {
+        (Some(email), name) => Some((email.to_lowercase(), name.unwrap_or(email).to_owned())),
+        (None, Some(name)) => Some((name.to_lowercase(), name.to_owned())),
+        (None, None) => None,
+    }
+}
+
 /// Cards beyond this many linked tasks show no link row.
 const MAX_CARD_LINK_LOOKUPS: usize = 150;
 
@@ -170,6 +213,10 @@ struct Session {
     /// Filter chips: label and context narrow the current list.
     label: Option<i64>,
     context: Option<i64>,
+    /// Filter chip: the assignee (email, else name) the list is narrowed to.
+    assignee: Option<String>,
+    /// Filter chip: only tasks with a mail, event or task link.
+    linked: Option<LinkedTo>,
     /// Project shown as one flat list instead of columns.
     list: bool,
     /// Sidebar search over project and context names.
@@ -183,6 +230,8 @@ struct DetailSnap {
     title: String,
     description: String,
     due: String,
+    /// First day of work, `YYYY-MM-DD`; empty when unset.
+    start: String,
     high: bool,
     move_back: bool,
     done: bool,
@@ -220,6 +269,7 @@ struct CardSnap {
     /// Whole days since the sent mail while no reply has come; -1 = none.
     no_reply_days: i64,
     replied: bool,
+    quick_capture: bool,
     /// The first linked mail or event, for the card's link row.
     link: Option<(String, String)>,
 }
@@ -339,6 +389,7 @@ fn card(
         status: String::new(),
         no_reply_days: -1,
         replied: false,
+        quick_capture: task.quick_capture,
         link: None,
     }
 }
@@ -482,6 +533,7 @@ async fn load_detail(
         title: task.title.clone(),
         description: task.description.clone(),
         due: task.due_at.map(iso_date).unwrap_or_default(),
+        start: task.start_at.map(iso_date).unwrap_or_default(),
         high: task.priority >= 3,
         move_back: task.move_back_on_reply,
         done: task.completed_at.is_some(),
@@ -522,7 +574,7 @@ async fn load(
     selection: &str,
     query: &str,
     detail_id: Option<i64>,
-    chips: (Option<i64>, Option<i64>, bool, Group, Sort),
+    chips: (Option<i64>, Option<i64>, bool, Group, Sort, Extra),
 ) -> rustmail_core::error::Result<Snapshot> {
     core.tasks_open().await?;
     let today_end = today_end_ms();
@@ -551,8 +603,11 @@ async fn load(
         text: Some(query.to_owned()).filter(|q| !q.trim().is_empty()),
         ..Default::default()
     };
-    let (label_chip, context_chip, list_mode, group, sort) = chips;
+    let (label_chip, context_chip, list_mode, group, sort, extra) = chips;
+    let assignee_chip = extra.assignee;
     filter.label_id = label_chip.filter(|l| label_map.contains_key(l));
+    filter.linked_to = extra.linked;
+    let hide_done = extra.hide_done;
     if kind != "context" {
         filter.context_id = context_chip.filter(|c| context_map.contains_key(c));
     }
@@ -586,6 +641,15 @@ async fn load(
     }
     if let Some(n) = filter.context_id.and_then(|c| context_map.get(&c)) {
         snap.chips.push(("context".into(), format!("Context: @{n}")));
+    }
+    match filter.linked_to {
+        Some(what) => snap
+            .chips
+            .push(("linked".into(), format!("Linked to: {}", linked_label(what)))),
+        None => snap.filter_menu.extend(
+            [LinkedTo::Mail, LinkedTo::Event, LinkedTo::Task]
+                .map(|w| (format!("linked:{}", w.token()), format!("Linked to: {}", linked_label(w)))),
+        ),
     }
     let mut labels_sorted: Vec<&TaskLabel> = label_map.values().collect();
     labels_sorted.sort_by(|a, b| a.name.cmp(&b.name));
@@ -639,8 +703,32 @@ async fn load(
     let board = kind == "project" && filter.text.is_none() && !list_mode;
     snap.list_mode = kind == "project" && list_mode;
     snap.can_switch_view = kind == "project";
-    filter.include_done = board;
+    filter.include_done = board && !hide_done;
     let mut tasks = core.task_list(filter).await?;
+    // Assignee chip: the people on the tasks listed here, one entry each.
+    let mut assignees: Vec<(String, String)> = Vec::new();
+    for task in &tasks {
+        if let Some((key, name)) = assignee_of(task)
+            && !assignees.iter().any(|(k, _)| *k == key)
+        {
+            assignees.push((key, name));
+        }
+    }
+    assignees.sort_by_key(|(_, name)| name.to_lowercase());
+    match assignee_chip
+        .as_deref()
+        .and_then(|key| assignees.iter().find(|(k, _)| k == key))
+    {
+        Some((key, name)) => {
+            snap.chips.push(("assignee".into(), format!("Assignee: {name}")));
+            tasks.retain(|t| assignee_of(t).is_some_and(|(k, _)| k == *key));
+        }
+        None => snap.filter_menu.extend(
+            assignees
+                .iter()
+                .map(|(key, name)| (format!("assignee:{key}"), format!("Assignee: {name}"))),
+        ),
+    }
     snap.task_count = tasks.iter().filter(|t| t.completed_at.is_none()).count() as i64;
     if board {
         let columns = core.task_columns(project_id.unwrap_or_default()).await?;
@@ -854,6 +942,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
     ui.set_focus_rows(nav_rows(snap.focus));
     ui.set_projects(nav_rows(snap.projects));
     ui.set_contexts(nav_rows(snap.contexts));
+    ui.set_today_label(Local::now().format("%a, %b %-d").to_string().into());
     ui.set_list_mode(snap.list_mode);
     ui.set_sort(snap.sort.into());
     ui.set_can_switch_view(snap.can_switch_view);
@@ -924,6 +1013,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                     .into_iter()
                     .map(|k| TaskCardRow {
                         id: k.id as i32,
+                        struck_title: if k.done { strike_through(&k.title) } else { String::new() }.into(),
                         title: k.title.into(),
                         due: k.due.into(),
                         due_warn: k.due_warn,
@@ -939,6 +1029,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         status: k.status.into(),
                         no_reply_days: k.no_reply_days as i32,
                         replied: k.replied,
+                        quick_capture: k.quick_capture,
                         link_kind: k.link.as_ref().map(|l| l.0.clone()).unwrap_or_default().into(),
                         link_text: k.link.map(|l| l.1).unwrap_or_default().into(),
                     })
@@ -954,6 +1045,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                 title: d.title.into(),
                 description: d.description.into(),
                 due: d.due.into(),
+                start: d.start.into(),
                 high_priority: d.high,
                 move_back: d.move_back,
                 done: d.done,
@@ -1051,6 +1143,26 @@ pub(crate) fn register(
             }
             return;
         }
+        if action == "display" {
+            if let Some(app) = command.weak.upgrade() {
+                let ui = app.global::<TasksUi>();
+                match a.as_str() {
+                    "completed" => ui.set_show_completed(!ui.get_show_completed()),
+                    "compact" => ui.set_compact_cards(!ui.get_compact_cards()),
+                    _ => return,
+                }
+                if let Some(core) = command.state.borrow().core.clone() {
+                    let (hide, compact) = (!ui.get_show_completed(), ui.get_compact_cards());
+                    command.handle.spawn(async move {
+                        if let Err(error) = core.set_task_display(hide, compact).await {
+                            tracing::warn!("saving the Display menu choice failed: {error}");
+                        }
+                    });
+                }
+            }
+            dispatch(&command, "refresh".into(), Vec::new());
+            return;
+        }
         if action == "picker" {
             if let Some(app) = command.weak.upgrade() {
                 show_date_picker(&app, b.as_str());
@@ -1091,8 +1203,11 @@ pub(crate) fn register(
             return;
         }
         app.set_active_view("tasks".into());
-        app.global::<TasksUi>()
-            .invoke_command("open".into(), format!("task:{task_id}").into(), "".into());
+        app.global::<TasksUi>().invoke_command(
+            "open-on-board".into(),
+            format!("task:{task_id}").into(),
+            "".into(),
+        );
     });
     let reply_weak = app.as_weak();
     app.global::<TaskReplyUi>().on_open(move || {
@@ -1112,13 +1227,18 @@ pub(crate) fn register(
         }
         app.set_active_view("tasks".into());
         app.set_settings_open(false);
-        app.global::<TasksUi>()
-            .invoke_command("open".into(), format!("task:{task_id}").into(), "".into());
+        app.global::<TasksUi>().invoke_command(
+            "open-on-board".into(),
+            format!("task:{task_id}").into(),
+            "".into(),
+        );
     });
     let undo_ctx = Rc::clone(&ctx);
     app.global::<LinkedTask>().on_undo(move || undo_create(&undo_ctx));
     let open = Rc::clone(&ctx);
     app.on_open_task_from_mail(move |id| open_from_mail(&open, id));
+    let bulk = Rc::clone(&ctx);
+    app.on_create_tasks_from_selection(move || create_from_selection(&bulk));
     let pick_app = app.as_weak();
     app.global::<TaskFromMail>().on_pick(move |kind, id| {
         let Some(app) = pick_app.upgrade() else {
@@ -1335,6 +1455,9 @@ pub(crate) fn apply_task_defaults(app: &AppWindow, settings: &rustmail_core::mod
             .unwrap_or(0) as i32,
     );
     ui.set_columns_index(i32::from(settings.task_project_columns == "simple"));
+    let tasks = app.global::<TasksUi>();
+    tasks.set_show_completed(!settings.task_hide_completed);
+    tasks.set_compact_cards(settings.task_compact_cards);
     set_choice_indexes(&ui);
 }
 
@@ -1617,6 +1740,103 @@ fn undo_create(ctx: &Rc<Ctx>) {
 }
 
 /// Create the task from the dialog's fields, then optionally archive the mail.
+/// The column kind a status word of the Tasks settings and the dialog stands for.
+fn column_kind(status: &str) -> ColumnKind {
+    match status {
+        "next" => ColumnKind::Next,
+        "waiting" => ColumnKind::Waiting,
+        "scheduled" => ColumnKind::Scheduled,
+        _ => ColumnKind::Inbox,
+    }
+}
+
+/// "Create tasks" in the multi-select toolbar: one task for each ticked
+/// conversation, with the defaults of the Tasks settings (list, project,
+/// context, archive). A conversation that already has a task is skipped.
+fn create_from_selection(ctx: &Rc<Ctx>) {
+    let Some(app) = ctx.weak.upgrade() else {
+        return;
+    };
+    let (threads, core) = {
+        let state = ctx.state.borrow();
+        let mut threads: Vec<i64> = state
+            .messages
+            .iter()
+            .filter(|m| state.checked_ids.contains(&m.id))
+            .map(|m| m.thread_id.unwrap_or(i64::from(m.id)))
+            .collect();
+        threads.dedup();
+        (threads, state.core.as_ref().map(|c| c.file_core()))
+    };
+    let Some(core) = core else {
+        return;
+    };
+    if threads.is_empty() {
+        app.set_sync_status(crate::UiMessage::plain("Select conversations first."));
+        return;
+    }
+    let defaults = app.global::<TaskSettingsUi>();
+    let wanted_project = defaults.get_project().to_string();
+    let wanted_context = defaults.get_context().to_string();
+    let status = DEFAULT_STATUSES[usize::try_from(defaults.get_status_index().clamp(0, 3)).unwrap_or(0)];
+    let archive = defaults.get_archive();
+    let weak = ctx.weak.clone();
+    ctx.handle.spawn(async move {
+        let result = async {
+            core.tasks_open().await?;
+            let project_id = core
+                .task_projects()
+                .await?
+                .iter()
+                .find(|p| !wanted_project.is_empty() && p.name == wanted_project)
+                .map(|p| p.id);
+            let context_id = core
+                .task_contexts()
+                .await?
+                .iter()
+                .find(|c| !wanted_context.is_empty() && c.name == wanted_context)
+                .map(|c| c.id);
+            let (mut created, mut made) = (0_usize, Vec::new());
+            for thread_id in &threads {
+                let draft = TaskDraft {
+                    title: None,
+                    project_id,
+                    status: column_kind(status),
+                    due_at: None,
+                    context_id,
+                    label_ids: Vec::new(),
+                };
+                if core.task_create_from_thread_once(*thread_id, draft).await?.is_some() {
+                    created += 1;
+                    made.push(*thread_id);
+                }
+            }
+            if archive && !made.is_empty() {
+                core.perform_action(PerformActionArgs {
+                    kind: ActionKind::Archive,
+                    thread_ids: made,
+                    params: None,
+                })
+                .await?;
+            }
+            Ok::<_, rustmail_core::error::CoreError>((created, threads.len() - created))
+        }
+        .await;
+        let _ = weak.upgrade_in_event_loop(move |app| {
+            app.set_sync_status(match result {
+                Ok((created, skipped)) => crate::UiMessage::arguments(
+                    "Tasks created: {}. Already had a task: {}",
+                    created.to_string(),
+                    skipped.to_string(),
+                ),
+                Err(error) => {
+                    crate::UiMessage::detail("Could not create the tasks: {}", error)
+                }
+            });
+        });
+    });
+}
+
 fn create_from_mail(ctx: &Rc<Ctx>) {
     let Some(app) = ctx.weak.upgrade() else {
         return;
@@ -1636,12 +1856,7 @@ fn create_from_mail(ctx: &Rc<Ctx>) {
         }
     };
     let thread_id = i64::from(dialog.get_thread_id());
-    let status = match dialog.get_status().as_str() {
-        "next" => ColumnKind::Next,
-        "waiting" => ColumnKind::Waiting,
-        "scheduled" => ColumnKind::Scheduled,
-        _ => ColumnKind::Inbox,
-    };
+    let status = column_kind(dialog.get_status().as_str());
     let draft = TaskDraft {
         title: Some(dialog.get_title().to_string()),
         project_id: dialog.get_project_id().parse().ok(),
@@ -1699,12 +1914,31 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
                 s.query.clear();
                 s.label = None;
                 s.context = None;
+                s.assignee = None;
+                s.linked = None;
             }
             "filter-add" => match arg(0).split_once(':') {
                 Some(("label", id)) => s.label = id.parse().ok(),
                 Some(("context", id)) => s.context = id.parse().ok(),
+                Some(("assignee", key)) => s.assignee = Some(key.to_owned()),
+                Some(("linked", what)) => s.linked = LinkedTo::parse(what),
                 _ => {}
             },
+            // "Open on board": the task's own project, with nothing hiding it.
+            "open-on-board" => {
+                let target = arg(0);
+                let task_id = target.strip_prefix("task:").unwrap_or(&target).parse::<i64>().ok();
+                s.detail_id = task_id;
+                if let Some(task) = task_id.and_then(|id| ctx.handle.block_on(core.task_get(id)).ok()) {
+                    s.selection = format!("project:{}", task.project_id);
+                }
+                s.query.clear();
+                s.label = None;
+                s.context = None;
+                s.assignee = None;
+                s.linked = None;
+                s.list = false;
+            }
             "view" => s.list = arg(0) == "list",
             "nav-filter" => s.nav = arg(0),
             "group" => match arg(0).strip_prefix("sort:") {
@@ -1714,6 +1948,8 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             "filter-remove" => match arg(0).as_str() {
                 "label" => s.label = None,
                 "context" => s.context = None,
+                "assignee" => s.assignee = None,
+                "linked" => s.linked = None,
                 _ => {}
             },
             "search" => s.query = arg(0),
@@ -1726,13 +1962,28 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             _ => {}
         }
     }
+    let hide_done_now = ctx
+        .weak
+        .upgrade()
+        .is_some_and(|app| !app.global::<TasksUi>().get_show_completed());
     let (selection, query, detail_id, chips, nav) = {
         let s = ctx.session.borrow();
         (
             s.selection.clone(),
             s.query.clone(),
             s.detail_id,
-            (s.label, s.context, s.list, s.group, s.sort),
+            (
+                s.label,
+                s.context,
+                s.list,
+                s.group,
+                s.sort,
+                Extra {
+                    assignee: s.assignee.clone(),
+                    linked: s.linked,
+                    hide_done: hide_done_now,
+                },
+            ),
             s.nav.clone(),
         )
     };
@@ -1857,6 +2108,23 @@ fn parse_due(text: &str) -> Result<Option<i64>, String> {
         .ok_or_else(|| "Due date does not exist in this time zone".to_owned())
 }
 
+/// Parse an ISO date into the start of that local day, the first moment of
+/// work on a task (`parse_due` gives the end of a day).
+fn parse_start(text: &str) -> Result<Option<i64>, String> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Ok(None);
+    }
+    let date = chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d")
+        .map_err(|_| "Start date must look like 2026-12-31".to_owned())?;
+    let begin = date.and_hms_opt(0, 0, 0).unwrap();
+    Local
+        .from_local_datetime(&begin)
+        .earliest()
+        .map(|t| Some(t.timestamp_millis()))
+        .ok_or_else(|| "Start date does not exist in this time zone".to_owned())
+}
+
 /// Run the mutation behind a command. `Some(selection)` asks the view to
 /// switch to a newly created list.
 async fn mutate(
@@ -1892,6 +2160,7 @@ async fn mutate(
                 column_id: column.filter(|_| selected_project.is_some()),
                 title: title.to_owned(),
                 context_id,
+                quick_capture: true,
                 ..Default::default()
             })
             .await
@@ -2062,6 +2331,11 @@ async fn mutate(
             ids.push(label.id);
             core.task_set_labels(task_id, ids).await.map_err(err)?;
         }
+        "collapse-empty" => {
+            if let Some(project) = selected_project {
+                core.task_collapse_empty(project).await.map_err(err)?;
+            }
+        }
         "collapse" => {
             core.task_column_collapse(id.ok_or("bad column")?, b == "1")
                 .await
@@ -2205,6 +2479,25 @@ async fn mutate(
             .await
             .map_err(err)?;
         }
+        "detail-start" => {
+            let task_id = id.ok_or("bad task")?;
+            let start = parse_start(b)?;
+            if let Some(start) = start {
+                let task = core.task_get(task_id).await.map_err(err)?;
+                if task.due_at.is_some_and(|due| start > due) {
+                    return Err("The start date must not be after the due date".into());
+                }
+            }
+            core.task_update(
+                task_id,
+                TaskPatch {
+                    start_at: Some(start),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map_err(err)?;
+        }
         "save-detail" => {
             let due = parse_due(args.get(3).map_or("", String::as_str))?;
             core.task_update(
@@ -2282,31 +2575,31 @@ mod tests {
     #[tokio::test]
     async fn list_mode_flattens_a_project_and_names_each_status() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert!(snap.can_switch_view && !snap.list_mode);
         let inbox = snap.columns[0].clone_id_name();
         run(&core, &sel, "add-task", &inbox.0.to_string(), "One").await.unwrap();
 
-        let snap = load(&core, &sel, "", None, (None, None, true, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, true, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert!(snap.list_mode);
         assert_eq!(snap.columns.len(), 1);
         assert_eq!(snap.columns[0].id, -1);
         assert_eq!(snap.columns[0].cards[0].status, inbox.1);
 
         // Focus lists have no board to switch to.
-        let snap = load(&core, "focus:inbox", "", None, (None, None, true, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, "focus:inbox", "", None, (None, None, true, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert!(!snap.can_switch_view && !snap.list_mode);
     }
 
     #[tokio::test]
     async fn the_flat_list_sorts_by_due_date_priority_and_title() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         for title in ["banana", "Cherry", "apple"] {
             run(&core, &sel, "add-task", &inbox, title).await.unwrap();
         }
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
         run(&core, &sel, "detail-due", &id_of("Cherry").to_string(), "2026-12-01").await.unwrap();
         run(&core, &sel, "detail-due", &id_of("banana").to_string(), "2026-11-01").await.unwrap();
@@ -2316,7 +2609,7 @@ mod tests {
             let core = &core;
             let sel = &sel;
             async move {
-                load(core, sel, "", None, (None, None, true, Group::None, sort))
+                load(core, sel, "", None, (None, None, true, Group::None, sort, Extra::default()))
                     .await
                     .unwrap()
                     .columns[0]
@@ -2342,7 +2635,7 @@ mod tests {
             let core = &core;
             let sel = &sel;
             async move {
-                load(core, sel, "", None, (None, None, true, Group::None, sort))
+                load(core, sel, "", None, (None, None, true, Group::None, sort, Extra::default()))
                     .await
                     .unwrap()
                     .columns[0]
@@ -2358,7 +2651,7 @@ mod tests {
         assert_eq!(reversed(Sort::TitleReversed).await, ["Cherry", "banana", "apple"]);
 
         // The menu offers the sorts and ticks the active one.
-        let by_title = load(&core, &sel, "", None, (None, None, true, Group::None, Sort::Title))
+        let by_title = load(&core, &sel, "", None, (None, None, true, Group::None, Sort::Title, Extra::default()))
             .await
             .unwrap();
         assert!(
@@ -2372,11 +2665,11 @@ mod tests {
     #[tokio::test]
     async fn a_card_shows_its_first_linked_event() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         run(&core, &sel, "add-task", &inbox, "Plan the offsite").await.unwrap();
         run(&core, &sel, "add-task", &inbox, "No links here").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
         core.task_link_add(
             id_of("Plan the offsite"),
@@ -2391,7 +2684,7 @@ mod tests {
         )
         .await
         .unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let cards = &snap.columns[0].cards;
         let linked = cards.iter().find(|c| c.title == "Plan the offsite").unwrap();
         assert_eq!(linked.link, Some(("event".to_owned(), "offsite-2026".to_owned())));
@@ -2438,7 +2731,7 @@ mod tests {
         )
         .await
         .unwrap();
-        let snap = load(&core, &sel, "", Some(id_of("No links here")), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(id_of("No links here")), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let card = snap.columns[0].cards.iter().find(|c| c.title == "No links here").unwrap();
         assert_eq!(card.link, Some(("event".to_owned(), "Offsite planning".to_owned())));
         assert_eq!(snap.detail.as_ref().unwrap().links[0].2, "Offsite planning");
@@ -2448,12 +2741,12 @@ mod tests {
     #[tokio::test]
     async fn grouping_splits_the_list_into_sections() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         for title in ["Soon", "Whenever", "Tagged"] {
             run(&core, &sel, "add-task", &inbox, title).await.unwrap();
         }
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
         run(&core, &sel, "detail-due", &id_of("Soon").to_string(), "today").await.unwrap();
         run(&core, &sel, "detail-label-new", &id_of("Tagged").to_string(), "urgent")
@@ -2466,46 +2759,46 @@ mod tests {
                 .map(|c| (c.name.clone(), c.cards.len()))
                 .collect::<Vec<_>>()
         };
-        let by_due = load(&core, &sel, "", None, (None, None, true, Group::Due, Sort::Manual)).await.unwrap();
+        let by_due = load(&core, &sel, "", None, (None, None, true, Group::Due, Sort::Manual, Extra::default())).await.unwrap();
         assert_eq!(
             names(&by_due),
             [("Today".to_owned(), 1), ("No due date".to_owned(), 2)]
         );
-        let by_label = load(&core, &sel, "", None, (None, None, true, Group::Label, Sort::Manual))
+        let by_label = load(&core, &sel, "", None, (None, None, true, Group::Label, Sort::Manual, Extra::default()))
             .await
             .unwrap();
         assert_eq!(
             names(&by_label),
             [("No label".to_owned(), 2), ("urgent".to_owned(), 1)]
         );
-        let by_status = load(&core, &sel, "", None, (None, None, true, Group::Status, Sort::Manual))
+        let by_status = load(&core, &sel, "", None, (None, None, true, Group::Status, Sort::Manual, Extra::default()))
             .await
             .unwrap();
         assert_eq!(by_status.columns.len(), 1);
         assert!(by_status.group_menu.iter().any(|(id, t)| id == "status" && t.starts_with("✓")));
         // A group that does not fit the view falls back to no grouping.
-        let focus = load(&core, "focus:inbox", "", None, (None, None, false, Group::Status, Sort::Manual))
+        let focus = load(&core, "focus:inbox", "", None, (None, None, false, Group::Status, Sort::Manual, Extra::default()))
             .await
             .unwrap();
         assert!(focus.group_menu.iter().all(|(id, _)| id != "status"));
         // The board has no Group menu.
-        let board = load(&core, &sel, "", None, (None, None, false, Group::Due, Sort::Manual)).await.unwrap();
+        let board = load(&core, &sel, "", None, (None, None, false, Group::Due, Sort::Manual, Extra::default())).await.unwrap();
         assert!(board.group_menu.is_empty());
     }
 
     #[tokio::test]
     async fn task_links_are_added_by_title_and_removed() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         run(&core, &sel, "add-task", &inbox, "Draft").await.unwrap();
         run(&core, &sel, "add-task", &inbox, "Publish").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let id_of = |t: &str| snap.columns[0].cards.iter().find(|c| c.title == t).unwrap().id;
         let (draft, publish) = (id_of("Draft"), id_of("Publish"));
 
         run(&core, &sel, "link-task", &publish.to_string(), "depends:draft").await.unwrap();
-        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let links = &snap.detail.as_ref().unwrap().links;
         assert_eq!(links.len(), 1);
         assert_eq!(links[0].1, "task_depends");
@@ -2533,7 +2826,7 @@ mod tests {
         .await
         .unwrap();
         run(&core, &sel, "link-task", &publish.to_string(), "event:offsite").await.unwrap();
-        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let links = &snap.detail.as_ref().unwrap().links;
         assert_eq!(links.len(), 2);
         assert_eq!(links[1].1, "event");
@@ -2542,14 +2835,45 @@ mod tests {
         run(&core, &sel, "link-remove", &links[1].0.to_string(), "").await.unwrap();
 
         run(&core, &sel, "link-remove", &links[0].0.to_string(), "").await.unwrap();
-        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(publish), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert!(snap.detail.unwrap().links.is_empty());
+    }
+
+    #[test]
+    fn a_done_title_gets_a_line_through_each_letter_but_not_the_spaces() {
+        assert_eq!(strike_through("Hi you"), "H\u{336}i\u{336} y\u{336}o\u{336}u\u{336}");
+        assert_eq!(strike_through(""), "");
     }
 
     #[test]
     fn colours_parse_and_fall_back() {
         assert_eq!(colour("#2563eb"), slint::Color::from_rgb_u8(0x25, 0x63, 0xeb));
         assert_eq!(colour("bogus"), colour(DEFAULT_COLOUR));
+    }
+
+    #[tokio::test]
+    async fn a_start_date_is_set_cleared_and_kept_before_the_due_date() {
+        let (_tmp, core, sel) = board().await;
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
+        let inbox = snap.columns[0].clone_id_name().0.to_string();
+        run(&core, &sel, "add-task", &inbox, "Plan").await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
+        let id = snap.columns[0].cards[0].id;
+        let tid = id.to_string();
+        let start = |snap: &Snapshot| snap.detail.as_ref().unwrap().start.clone();
+        let view = || load(&core, &sel, "", Some(id), (None, None, false, Group::None, Sort::Manual, Extra::default()));
+
+        run(&core, &sel, "detail-start", &tid, "2026-12-01").await.unwrap();
+        assert_eq!(start(&view().await.unwrap()), "2026-12-01");
+        // A start after the due date is refused and changes nothing.
+        run(&core, &sel, "detail-due", &tid, "2026-12-10").await.unwrap();
+        assert!(run(&core, &sel, "detail-start", &tid, "2026-12-11").await.is_err());
+        assert_eq!(start(&view().await.unwrap()), "2026-12-01");
+        // The due day itself is fine; an empty value clears; text is refused.
+        run(&core, &sel, "detail-start", &tid, "2026-12-10").await.unwrap();
+        assert!(run(&core, &sel, "detail-start", &tid, "soon").await.is_err());
+        run(&core, &sel, "detail-start", &tid, "").await.unwrap();
+        assert_eq!(start(&view().await.unwrap()), "");
     }
 
     #[test]
@@ -2638,10 +2962,68 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn tasks_are_created_checked_off_completed_reopened_and_deleted() {
+        let (_tmp, core, sel) = board().await;
+        let view = |detail: Option<i64>| {
+            let (core, sel) = (&core, &sel);
+            async move {
+                load(core, sel, "", detail, (None, None, false, Group::None, Sort::Manual, Extra::default()))
+                    .await
+                    .unwrap()
+            }
+        };
+        let card = |snap: &Snapshot, title: &str| {
+            snap.columns.iter().find_map(|c| {
+                c.cards
+                    .iter()
+                    .find(|k| k.title == title)
+                    .map(|k| (c.name.clone(), k.id, k.done, k.checklist))
+            })
+        };
+        let snap = view(None).await;
+        let inbox = snap.columns[0].clone_id_name();
+
+        // A blank title creates nothing; a real one lands in the chosen column.
+        run(&core, &sel, "add-task", &inbox.0.to_string(), "   ").await.unwrap();
+        assert!(snap.columns.iter().all(|c| c.cards.is_empty()));
+        run(&core, &sel, "add-task", &inbox.0.to_string(), "Write report").await.unwrap();
+        let (column, id, done, _) = card(&view(None).await, "Write report").unwrap();
+        assert_eq!((column.as_str(), done), (inbox.1.as_str(), false));
+
+        // Checklist: blank text is ignored, items count and toggle.
+        run(&core, &sel, "check-add", &id.to_string(), "  ").await.unwrap();
+        run(&core, &sel, "check-add", &id.to_string(), "Outline").await.unwrap();
+        run(&core, &sel, "check-add", &id.to_string(), "Draft").await.unwrap();
+        let snap = view(Some(id)).await;
+        assert_eq!(card(&snap, "Write report").unwrap().3, (0, 2));
+        let items = snap.detail.as_ref().unwrap().checklist.clone();
+        assert_eq!(items.len(), 2);
+        run(&core, &sel, "check-toggle", &items[0].0.to_string(), "1").await.unwrap();
+        assert_eq!(card(&view(None).await, "Write report").unwrap().3, (1, 2));
+        run(&core, &sel, "check-toggle", &items[0].0.to_string(), "0").await.unwrap();
+        run(&core, &sel, "check-delete", &items[1].0.to_string(), "").await.unwrap();
+        assert_eq!(card(&view(None).await, "Write report").unwrap().3, (0, 1));
+
+        // Completing moves the card to Done; reopening takes it out again.
+        run(&core, &sel, "complete", &id.to_string(), "").await.unwrap();
+        let (column, _, done, _) = card(&view(None).await, "Write report").unwrap();
+        assert_eq!((column.as_str(), done), ("Done", true));
+        run(&core, &sel, "reopen", &id.to_string(), "").await.unwrap();
+        let (column, _, done, _) = card(&view(None).await, "Write report").unwrap();
+        assert!(!done && column != "Done");
+
+        run(&core, &sel, "delete", &id.to_string(), "").await.unwrap();
+        assert!(card(&view(None).await, "Write report").is_none());
+        // Commands aimed at a task that is gone fail instead of panicking.
+        assert!(run(&core, &sel, "complete", &id.to_string(), "").await.is_err());
+        assert!(run(&core, &sel, "complete", "nonsense", "").await.is_err());
+    }
+
+    #[tokio::test]
     async fn column_commands_validate_and_apply() {
         let (_tmp, core, sel) = board().await;
         run(&core, &sel, "add-column", "Review", "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let review = first_column(&snap, "Review");
         assert!(!review.fixed);
         let id = review.id.to_string();
@@ -2650,7 +3032,7 @@ mod tests {
         run(&core, &sel, "column-wip", &id, "3").await.unwrap();
         run(&core, &sel, "column-colour", &id, "colour:#ef4444").await.unwrap();
         run(&core, &sel, "column-icon", &id, "icon:star").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let qa = first_column(&snap, "QA");
         assert_eq!((qa.wip, qa.colour.as_str()), (3, "#ef4444"));
         assert_eq!(qa.icon, "star");
@@ -2661,7 +3043,7 @@ mod tests {
 
         let before: Vec<_> = snap.columns.iter().map(|c| c.id).collect();
         run(&core, &sel, "column-move", &id, "left").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let after: Vec<_> = snap.columns.iter().map(|c| c.id).collect();
         let at = |v: &[i64]| v.iter().position(|c| c.to_string() == id).unwrap();
         assert_eq!(at(&after) + 1, at(&before));
@@ -2670,7 +3052,7 @@ mod tests {
         let refused = run(&core, &sel, "column-delete", &built_in, "").await;
         assert_eq!(refused, Err("Built-in columns cannot be deleted".into()));
         run(&core, &sel, "column-delete", &id, "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert!(snap.columns.iter().all(|c| c.name != "QA"));
     }
 
@@ -2678,23 +3060,23 @@ mod tests {
     async fn card_move_due_and_assignee_commands() {
         let (_tmp, core, sel) = board().await;
         run(&core, &sel, "add-column", "Review", "").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         let review = first_column(&snap, "Review").id.to_string();
         run(&core, &sel, "add-task", &inbox, "Write report").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let task = snap.columns[0].cards[0].id;
         let tid = task.to_string();
 
         // What a drop sends: the card menu's move command.
         run(&core, &sel, "card-menu", &tid, &format!("move:{review}")).await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert_eq!(first_column(&snap, "Review").cards[0].id, task);
 
         // A card dropped on another card lands right below it, in any column.
         run(&core, &sel, "add-task", &review, "Second").await.unwrap();
         run(&core, &sel, "add-task", &review, "Third").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let titles = |snap: &Snapshot| -> Vec<String> {
             first_column(snap, "Review").cards.iter().map(|c| c.title.to_string()).collect()
         };
@@ -2703,55 +3085,141 @@ mod tests {
         let first = first_column(&snap, "Review").cards[0].id.to_string();
         let last = first_column(&snap, "Review").cards[2].id;
         run(&core, &sel, "card-menu", &first, &format!("after:{review}:{last}")).await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let moved = titles(&snap);
         assert_eq!(moved, vec![order[1].clone(), order[2].clone(), order[0].clone()]);
         // Dropping a card on itself changes nothing.
         run(&core, &sel, "card-menu", &first, &format!("after:{review}:{first}")).await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert_eq!(titles(&snap), moved);
 
         run(&core, &sel, "detail-due", &tid, "tomorrow").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().due, iso_date(today_end_ms() + 1000));
         run(&core, &sel, "detail-due", &tid, "none").await.unwrap();
 
         run(&core, &sel, "detail-assignee", &tid, "Ana Diaz <ana@example.org>")
             .await
             .unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "Ana Diaz <ana@example.org>");
         run(&core, &sel, "detail-assignee", &tid, "bob@example.org").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "bob@example.org");
         assert!(run(&core, &sel, "detail-assignee", &tid, "nobody known").await.is_err());
         run(&core, &sel, "detail-assignee", &tid, "").await.unwrap();
-        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "");
+    }
+
+    #[tokio::test]
+    async fn the_linked_to_chip_keeps_tasks_with_that_kind_of_link() {
+        let (_tmp, core, sel) = board().await;
+        let none = || Extra::default();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, none())).await.unwrap();
+        let inbox = snap.columns[0].clone_id_name().0.to_string();
+        for title in ["Plain", "With event", "With task"] {
+            run(&core, &sel, "add-task", &inbox, title).await.unwrap();
+        }
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, none())).await.unwrap();
+        let id_of = |title: &str| {
+            snap.columns.iter().flat_map(|c| &c.cards).find(|k| k.title == title).unwrap().id
+        };
+        core.task_link_add(
+            id_of("With event"),
+            rustmail_core::tasks::NewLink {
+                kind: rustmail_core::tasks::LinkKind::Event,
+                account_email: None,
+                thread_id: None,
+                message_id: None,
+                event_uid: Some("uid-1".into()),
+                other_task_uid: None,
+            },
+        )
+        .await
+        .unwrap();
+        run(&core, &sel, "link-task", &id_of("With task").to_string(), "depends:plain").await.unwrap();
+
+        // Every kind is offered while no chip is set.
+        let all = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, none())).await.unwrap();
+        let offered: Vec<_> = all.filter_menu.iter().filter(|(id, _)| id.starts_with("linked:")).map(|(id, _)| id.as_str()).collect();
+        assert_eq!(offered, ["linked:mail", "linked:event", "linked:task"]);
+
+        let titles = |snap: &Snapshot| {
+            let mut t: Vec<_> = snap.columns.iter().flat_map(|c| &c.cards).map(|k| k.title.clone()).collect();
+            t.sort();
+            t
+        };
+        let by = |what| Extra { linked: Some(what), ..Default::default() };
+        let events = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, by(LinkedTo::Event))).await.unwrap();
+        assert_eq!(titles(&events), ["With event"]);
+        assert_eq!(events.chips, [("linked".to_owned(), "Linked to: Event".to_owned())]);
+        assert!(events.filter_menu.iter().all(|(id, _)| !id.starts_with("linked:")));
+        let tasks = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, by(LinkedTo::Task))).await.unwrap();
+        assert_eq!(titles(&tasks), ["With task"]);
+        let mail = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, by(LinkedTo::Mail))).await.unwrap();
+        assert!(titles(&mail).is_empty());
+        assert_eq!(tasks.task_count, 1);
+    }
+
+    #[tokio::test]
+    async fn the_assignee_chip_narrows_the_list_to_one_person() {
+        let (_tmp, core, sel) = board().await;
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
+        let inbox = snap.columns[0].clone_id_name().0.to_string();
+        for title in ["Ask Ana", "Ask Ben", "Nobody's"] {
+            run(&core, &sel, "add-task", &inbox, title).await.unwrap();
+        }
+        let id_of = |snap: &Snapshot, title: &str| {
+            snap.columns.iter().flat_map(|c| &c.cards).find(|k| k.title == title).unwrap().id
+        };
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
+        run(&core, &sel, "detail-assignee", &id_of(&snap, "Ask Ana").to_string(), "Ana <ana@x.dev>").await.unwrap();
+        run(&core, &sel, "detail-assignee", &id_of(&snap, "Ask Ben").to_string(), "ben@x.dev").await.unwrap();
+
+        // Everyone assigned is offered, once each, sorted by name.
+        let all = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
+        let offered: Vec<_> = all.filter_menu.iter().filter(|(id, _)| id.starts_with("assignee:")).collect();
+        assert_eq!(offered.len(), 2);
+        assert_eq!(offered[0].0, "assignee:ana@x.dev");
+        assert!(offered[0].1.ends_with("Ana"));
+
+        let chosen = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra { assignee: Some("ben@x.dev".into()), ..Default::default() })).await.unwrap();
+        assert_eq!(chosen.chips.len(), 1);
+        assert!(chosen.chips[0].1.starts_with("Assignee:"));
+        let titles: Vec<_> = chosen.columns.iter().flat_map(|c| &c.cards).map(|k| k.title.clone()).collect();
+        assert_eq!(titles, ["Ask Ben"]);
+        assert_eq!(chosen.task_count, 1);
+        // With the chip set the menu no longer offers assignees.
+        assert!(chosen.filter_menu.iter().all(|(id, _)| !id.starts_with("assignee:")));
+        // A person who is not on the list leaves it unfiltered.
+        let stale = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra { assignee: Some("gone@x.dev".into()), ..Default::default() })).await.unwrap();
+        assert!(stale.chips.is_empty());
+        assert_eq!(stale.task_count, 3);
     }
 
     #[tokio::test]
     async fn label_and_context_chips_filter_the_board() {
         let (_tmp, core, sel) = board().await;
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let inbox = snap.columns[0].id.to_string();
         run(&core, &sel, "add-task", &inbox, "Tagged").await.unwrap();
         run(&core, &sel, "add-task", &inbox, "Plain").await.unwrap();
-        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let tagged = snap.columns[0].cards.iter().find(|c| c.title == "Tagged").unwrap().id;
         run(&core, &sel, "detail-label-new", &tagged.to_string(), "urgent")
             .await
             .unwrap();
         let label = core.task_labels().await.unwrap()[0].id;
 
-        let snap = load(&core, &sel, "", None, (Some(label), None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (Some(label), None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let titles: Vec<_> = snap.columns.iter().flat_map(|c| &c.cards).map(|c| c.title.as_str()).collect();
         assert_eq!(titles, ["Tagged"]);
         assert_eq!(snap.chips, [("label".to_owned(), "Label: urgent".to_owned())]);
         // The label is active, so it is no longer offered in the menu.
         assert!(snap.filter_menu.iter().all(|(id, _)| !id.starts_with("label:")));
         // An unknown label id is ignored instead of emptying the board.
-        let snap = load(&core, &sel, "", None, (Some(9999), None, false, Group::None, Sort::Manual)).await.unwrap();
+        let snap = load(&core, &sel, "", None, (Some(9999), None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert!(snap.chips.is_empty());
     }
 }

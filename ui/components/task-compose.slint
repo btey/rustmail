@@ -27,6 +27,13 @@ export global TaskSettingsUi {
 
 // State of the composer's "email from a task" options. The values are
 // indexes; the app owns them and the labels live in composer-actions.slint.
+// "Send later" in the composer: the menu choice the next send is scheduled
+// for ("1h" | "4h" | "tomorrow" | "monday"), empty to send now. The app reads
+// and clears it when the send is submitted.
+export global ComposeScheduleUi {
+    in-out property <string> when: "";
+}
+
 export global TaskComposeUi {
     // True while the open composer will link its mail to a task.
     in-out property <bool> active: false;

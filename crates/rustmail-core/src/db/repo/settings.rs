@@ -69,6 +69,8 @@ mod tests {
         s.task_project_columns = "simple".into();
         s.notifications_enabled = false;
         s.monochrome_sidebar_icons = true;
+        s.task_hide_completed = true;
+        s.task_compact_cards = true;
         s.reverse_scroll = true;
         s.show_avatars = false;
         s.group_mail_by_date = false;
@@ -123,6 +125,7 @@ mod tests {
         assert_eq!(back.task_project_columns, "simple");
         assert!(!back.notifications_enabled);
         assert!(back.monochrome_sidebar_icons);
+        assert!(back.task_hide_completed && back.task_compact_cards);
         assert!(back.reverse_scroll);
         assert!(!back.show_avatars);
         assert!(!back.group_mail_by_date);
@@ -159,6 +162,7 @@ mod tests {
         assert!(s.mark_read_on_open);
         assert_eq!(s.task_follow_up_default, 0);
         assert!(!s.task_archive_on_create);
+        assert!(!s.task_hide_completed && !s.task_compact_cards);
         assert!(s.task_default_project.is_empty());
         assert!(s.task_default_context.is_empty());
         assert!(s.task_default_status.is_empty());

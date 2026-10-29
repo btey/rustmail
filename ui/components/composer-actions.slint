@@ -5,7 +5,8 @@ import { IconButton } from "controls.slint";
 import { TypeScale } from "../typography.slint";
 import { UserActions } from "user-actions.slint";
 import { LayoutMetrics } from "../design-system.slint";
-import { TaskComposeUi } from "task-compose.slint";
+import { ComposeScheduleUi, TaskComposeUi } from "task-compose.slint";
+import { ActionMenu } from "action-menu.slint";
 
 export component ComposerToolbar inherits Rectangle {
     in property <bool> compact: false;
@@ -277,9 +278,33 @@ export component ComposerFooter inherits Rectangle {
                 clicked => { root.submit(true); }
             }
 
+            later-menu := ActionMenu {
+                x: send-button.x + send-button.width + 4px;
+                y: root.compact ? 5px : 11px;
+                width: root.compact ? 44px : 32px;
+                height: root.compact ? 44px : 32px;
+                compact: root.compact;
+                icon: @image-url("../icons/lucide/outline/chevron-down.svg");
+                entries: [
+                    { id: "1h", title: @tr("Send in 1 hour") },
+                    { id: "4h", title: @tr("Send in 4 hours") },
+                    { id: "tomorrow", title: @tr("Send tomorrow morning") },
+                    { id: "monday", title: @tr("Send Monday morning") },
+                ];
+                menu-width: 220px;
+                align-right: false;
+                interactive: root.can-send && !root.sending;
+                tooltip-text: @tr("Send later");
+                activated(id) => {
+                    ComposeScheduleUi.when = id;
+                    root.submit(true);
+                    ComposeScheduleUi.when = "";
+                }
+            }
+
             attach-button := IconButton {
                 visible: root.attachment-picker-supported;
-                x: send-button.x + send-button.width + (root.compact ? 4px : 8px);
+                x: later-menu.x + later-menu.width + (root.compact ? 4px : 8px);
                 y: root.compact ? 5px : 11px;
                 width: root.compact ? 44px : 32px;
                 height: root.compact ? 44px : 32px;

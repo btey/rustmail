@@ -499,6 +499,7 @@ export component MailListPane inherits Rectangle {
                                     MenuItem { title: @tr("Mark as unread"); activated => { root.bulk_message_action("mark_unread"); } }
                                     MenuItem { title: @tr("Star message"); activated => { root.bulk_message_action("star"); } }
                                     MenuItem { title: @tr("Remove star"); activated => { root.bulk_message_action("unstar"); } }
+                                    MenuItem { title: @tr("Create tasks"); activated => { root.bulk_message_action("create_task"); } }
                                 }
                             }
                         }

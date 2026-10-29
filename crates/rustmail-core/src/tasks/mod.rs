@@ -229,6 +229,9 @@ pub struct Task {
     pub move_back_on_reply: bool,
     /// Follow up by this time (UTC ms) when no reply has come to a sent mail.
     pub follow_up_at: Option<i64>,
+    /// Typed straight into the board and not yet moved out of the Inbox.
+    #[serde(default)]
+    pub quick_capture: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -294,6 +297,8 @@ pub struct NewTask {
     pub assignee_name: Option<String>,
     pub label_ids: Vec<i64>,
     pub from_mail: bool,
+    /// Mark it as a quick capture (see `Task::quick_capture`).
+    pub quick_capture: bool,
 }
 
 /// Partial update; an outer `None` leaves the field alone, an inner `None`
@@ -339,11 +344,49 @@ pub struct TaskFilter {
     pub focus: Option<TaskFocus>,
     pub context_id: Option<i64>,
     pub label_id: Option<i64>,
+    /// Only tasks with a link of this kind.
+    pub linked_to: Option<LinkedTo>,
     /// Matches title, description and the subjects of linked mail.
     pub text: Option<String>,
     pub include_done: bool,
     /// End of "today" in UTC ms, computed by the UI from the user's zone.
     pub today_end_ms: i64,
+}
+
+/// What a task must be linked to for the "Linked to" filter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkedTo {
+    /// A mail received or sent.
+    Mail,
+    Event,
+    /// Another task (blocks or depends on).
+    Task,
+}
+
+impl LinkedTo {
+    pub fn token(self) -> &'static str {
+        match self {
+            LinkedTo::Mail => "mail",
+            LinkedTo::Event => "event",
+            LinkedTo::Task => "task",
+        }
+    }
+
+    pub fn parse(token: &str) -> Option<Self> {
+        [LinkedTo::Mail, LinkedTo::Event, LinkedTo::Task]
+            .into_iter()
+            .find(|l| l.token() == token)
+    }
+
+    /// The link kinds that count, as stored.
+    pub fn kinds(self) -> &'static [&'static str] {
+        match self {
+            LinkedTo::Mail => &["mail_received", "mail_sent"],
+            LinkedTo::Event => &["event"],
+            LinkedTo::Task => &["task_blocks", "task_depends"],
+        }
+    }
 }
 
 /// How the UI groups a task list. Grouping itself is done by the board view.

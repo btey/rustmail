@@ -595,6 +595,16 @@ fn reset(app: &AppWindow) {
 fn tasks_fixture(app: &AppWindow, drawer: bool) {
     let card = |id: i32, title: &str| TaskCardRow {
         id,
+        // One card in four is done, with its title struck through as the app does.
+        struck_title: if id % 4 == 3 {
+            title
+                .chars()
+                .flat_map(|c| std::iter::once(c).chain((!c.is_whitespace()).then_some('\u{336}')))
+                .collect::<String>()
+                .into()
+        } else {
+            Default::default()
+        },
         title: title.into(),
         due: "2026-12-31".into(),
         due_warn: id % 2 == 0,
@@ -603,7 +613,8 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
         checklist_total: 4,
         checklist_done: 1,
         link_count: 2,
-        done: false,
+        done: id % 4 == 3,
+        quick_capture: id % 5 == 0,
         from_mail: true,
         context: "computer".into(),
         assignee: "AD".into(),
@@ -668,6 +679,7 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
             title: "Reply to the auditors about the revised quarterly figures".into(),
             description: "Attach the signed statement.".into(),
             due: "2026-12-31".into(),
+            start: "2026-12-01".into(),
             high_priority: true,
             move_back: true,
             done: false,

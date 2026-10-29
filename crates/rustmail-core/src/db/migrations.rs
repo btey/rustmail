@@ -22,6 +22,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/017_tasks.sql"),
     include_str!("migrations/018_task_reply_tracking.sql"),
     include_str!("migrations/019_task_follow_up.sql"),
+    include_str!("migrations/020_task_quick_capture.sql"),
 ];
 pub const LATEST_VERSION: i64 = MIGRATIONS.len() as i64;
 
