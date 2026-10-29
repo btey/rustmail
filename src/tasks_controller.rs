@@ -185,6 +185,8 @@ struct Extra {
     linked: Option<LinkedTo>,
     /// Display menu: leave the completed tasks off the board.
     hide_done: bool,
+    /// Show the project as a timeline instead of a board or list.
+    timeline: bool,
 }
 
 /// Who a task is assigned to: a key (the email in lower case, else the
@@ -219,6 +221,8 @@ struct Session {
     linked: Option<LinkedTo>,
     /// Project shown as one flat list instead of columns.
     list: bool,
+    /// Project shown as a timeline (Gantt).
+    timeline: bool,
     /// Sidebar search over project and context names.
     nav: String,
     group: Group,
@@ -311,6 +315,9 @@ struct Snapshot {
     /// Active filter chips `(key, text)` and the "Add filter" entries.
     chips: Vec<(String, String)>,
     list_mode: bool,
+    /// The project is shown as a timeline; `timeline` has the chart.
+    timeline_mode: bool,
+    timeline: Option<crate::tasks_timeline::TimelineSnap>,
     can_switch_view: bool,
     /// `(menu id, title)` for the Group menu; empty when the view is a board.
     group_menu: Vec<(String, String)>,
@@ -608,6 +615,7 @@ async fn load(
     filter.label_id = label_chip.filter(|l| label_map.contains_key(l));
     filter.linked_to = extra.linked;
     let hide_done = extra.hide_done;
+    let want_timeline = extra.timeline;
     if kind != "context" {
         filter.context_id = context_chip.filter(|c| context_map.contains_key(c));
     }
@@ -700,10 +708,12 @@ async fn load(
         })
         .collect();
 
-    let board = kind == "project" && filter.text.is_none() && !list_mode;
-    snap.list_mode = kind == "project" && list_mode;
+    let timeline_mode = kind == "project" && want_timeline;
+    let board = kind == "project" && filter.text.is_none() && !list_mode && !timeline_mode;
+    snap.list_mode = kind == "project" && list_mode && !timeline_mode;
+    snap.timeline_mode = timeline_mode;
     snap.can_switch_view = kind == "project";
-    filter.include_done = board && !hide_done;
+    filter.include_done = (board || timeline_mode) && !hide_done;
     let mut tasks = core.task_list(filter).await?;
     // Assignee chip: the people on the tasks listed here, one entry each.
     let mut assignees: Vec<(String, String)> = Vec::new();
@@ -752,6 +762,8 @@ async fn load(
                     .collect(),
             })
             .collect();
+    } else if timeline_mode {
+        snap.timeline = Some(crate::tasks_timeline::build(&tasks, Local::now().date_naive()));
     } else if !tasks.is_empty() || kind != "project" {
         // Focus, context and search views are one flat list, optionally
         // split into sections.
@@ -943,7 +955,49 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
     ui.set_projects(nav_rows(snap.projects));
     ui.set_contexts(nav_rows(snap.contexts));
     ui.set_today_label(Local::now().format("%a, %b %-d").to_string().into());
+    ui.set_week_label(Local::now().format("W%V").to_string().into());
     ui.set_list_mode(snap.list_mode);
+    ui.set_timeline_mode(snap.timeline_mode);
+    match snap.timeline {
+        Some(timeline) => {
+            ui.set_timeline_title(timeline.title.into());
+            ui.set_timeline_today(timeline.today_index);
+            ui.set_timeline_undated(timeline.undated as i32);
+            ui.set_timeline_days(ModelRc::new(VecModel::from(
+                timeline
+                    .days
+                    .into_iter()
+                    .map(|d| crate::TimelineDayRow {
+                        label: d.label.into(),
+                        weekend: d.weekend,
+                        today: d.today,
+                        week: d.week.into(),
+                    })
+                    .collect::<Vec<_>>(),
+            )));
+            ui.set_timeline_bars(ModelRc::new(VecModel::from(
+                timeline
+                    .bars
+                    .into_iter()
+                    .map(|b| crate::TimelineBarRow {
+                        id: b.id as i32,
+                        title: b.title.into(),
+                        start_text: b.start_text.into(),
+                        due_text: b.due_text.into(),
+                        first_day: b.first_day,
+                        last_day: b.last_day,
+                        milestone: b.milestone,
+                        done: b.done,
+                        overdue: b.overdue,
+                    })
+                    .collect::<Vec<_>>(),
+            )));
+        }
+        None => {
+            ui.set_timeline_days(ModelRc::default());
+            ui.set_timeline_bars(ModelRc::default());
+        }
+    }
     ui.set_sort(snap.sort.into());
     ui.set_can_switch_view(snap.can_switch_view);
     // The snapshot carries English names; the menu shows the translated ones,
@@ -1939,7 +1993,10 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
                 s.linked = None;
                 s.list = false;
             }
-            "view" => s.list = arg(0) == "list",
+            "view" => {
+                s.list = arg(0) == "list";
+                s.timeline = arg(0) == "timeline";
+            }
             "nav-filter" => s.nav = arg(0),
             "group" => match arg(0).strip_prefix("sort:") {
                 Some(token) => s.sort = s.sort.chosen(token),
@@ -1982,6 +2039,7 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
                     assignee: s.assignee.clone(),
                     linked: s.linked,
                     hide_done: hide_done_now,
+                    timeline: s.timeline,
                 },
             ),
             s.nav.clone(),

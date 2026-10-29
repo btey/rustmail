@@ -46,6 +46,29 @@ export struct PickerDayRow {
     selected: bool,
 }
 
+export struct TimelineDayRow {
+    // Day of the month.
+    label: string,
+    weekend: bool,
+    today: bool,
+    // "W36" on a Monday, empty otherwise.
+    week: string,
+}
+
+export struct TimelineBarRow {
+    id: int,
+    title: string,
+    start-text: string,
+    due-text: string,
+    // Day indexes, inclusive.
+    first-day: int,
+    last-day: int,
+    // Only one date is set: drawn as a diamond.
+    milestone: bool,
+    done: bool,
+    overdue: bool,
+}
+
 export struct TaskColumnRow {
     // -1 for the synthetic list shown by focus, context and search views.
     id: int,
@@ -161,6 +184,15 @@ export global TasksUi {
     in-out property <[TaskChipRow]> filter-chips;
     // Today's date for the right end of the chip row, e.g. "Thu, Oct 29".
     in-out property <string> today-label;
+    /// ISO week of today, "W44".
+    in-out property <string> week-label;
+    // The Timeline (Gantt) view of a project.
+    in-out property <bool> timeline-mode: false;
+    in-out property <[TimelineDayRow]> timeline-days;
+    in-out property <[TimelineBarRow]> timeline-bars;
+    in-out property <int> timeline-today: -1;
+    in-out property <int> timeline-undated: 0;
+    in-out property <string> timeline-title;
     // Display menu: completed tasks on the board, and compact cards.
     in-out property <bool> show-completed: true;
     in-out property <bool> compact-cards: false;
@@ -229,6 +261,231 @@ component TasksNavItem inherits SidebarItem {
     muted-color: AppTheme.muted;
     icon-color: root.selected ? AppTheme.accent : AppTheme.secondary;
     row-height: 32px;
+}
+
+component TasksTimeline inherits Rectangle {
+    // "day" | "week" | "month"
+    in-out property <string> zoom: "week";
+    private property <length> day-width: root.zoom == "day" ? 44px : root.zoom == "week" ? 22px : 9px;
+    private property <length> row-height: 32px;
+    private property <length> toolbar-height: 40px;
+    private property <length> header-height: 44px;
+    // The task grid on the left is dropped when the window is narrow.
+    private property <length> left-width: root.width < 720px ? 0px : 320px;
+    private property <length> chart-width: TasksUi.timeline-days.length * root.day-width;
+    private property <length> rows-height: TasksUi.timeline-bars.length * root.row-height;
+    private property <int> today-index: TasksUi.timeline-today;
+
+    function scroll-to-today() {
+        chart.content-x = min(0px, max(chart.visible-width - root.chart-width,
+            root.day-width * 3 - root.today-index * root.day-width));
+    }
+    function scroll-by(days: int) {
+        chart.content-x = min(0px, max(chart.visible-width - root.chart-width,
+            chart.content-x - days * root.day-width));
+    }
+    changed day-width => { root.scroll-to-today(); }
+    changed today-index => { root.scroll-to-today(); }
+
+    // Toolbar: month and year, tasks without dates, zoom, Today and paging.
+    HorizontalLayout {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: root.toolbar-height;
+        spacing: 6px;
+        padding-bottom: 6px;
+        Text {
+            text: TasksUi.timeline-title;
+            color: AppTheme.heading;
+            font-size: TypeScale.body;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+        Text {
+            text: TasksUi.timeline-undated > 0 ? @tr("{} without dates", TasksUi.timeline-undated) : "";
+            color: AppTheme.secondary;
+            font-size: TypeScale.caption;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        Rectangle { horizontal-stretch: 1; }
+        for choice in [
+            { id: "day", text: @tr("Day") },
+            { id: "week", text: @tr("Week") },
+            { id: "month", text: @tr("Month") },
+        ] : Button {
+            height: 28px;
+            width: max(60px, self.content-width + 20px);
+            text: choice.text;
+            primary: root.zoom == choice.id;
+            clicked => { root.zoom = choice.id; }
+        }
+        Button {
+            height: 28px;
+            width: max(60px, self.content-width + 20px);
+            text: @tr("Today");
+            clicked => { root.scroll-to-today(); }
+        }
+        ToolbarIconButton {
+            width: 28px;
+            height: 28px;
+            icon: @image-url("../icons/lucide/outline/chevron-left.svg");
+            tooltip-text: @tr("Previous week");
+            clicked => { root.scroll-by(-7); }
+        }
+        ToolbarIconButton {
+            width: 28px;
+            height: 28px;
+            icon: @image-url("../icons/lucide/outline/chevron-right.svg");
+            tooltip-text: @tr("Next week");
+            clicked => { root.scroll-by(7); }
+        }
+    }
+
+    // Left grid: TASK, START, DUE.
+    if root.left-width > 0px : Rectangle {
+        x: 0px;
+        y: root.toolbar-height;
+        width: root.left-width;
+        height: parent.height - root.toolbar-height;
+        Rectangle {
+            width: parent.width;
+            height: root.header-height;
+            background: AppTheme.sidebar-bg;
+            Text { x: 8px; width: parent.width - 180px; height: parent.height; text: @tr("TASK"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+            Text { x: parent.width - 170px; width: 80px; height: parent.height; text: @tr("START"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+            Text { x: parent.width - 86px; width: 80px; height: parent.height; text: @tr("DUE"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+        }
+        left-rows := ScrollView {
+            y: root.header-height;
+            width: parent.width;
+            height: parent.height - root.header-height;
+            content-width: self.visible-width;
+            content-height: root.rows-height;
+            vertical-scrollbar-policy: always-off;
+            horizontal-scrollbar-policy: always-off;
+            content-y <=> chart.content-y;
+            for bar[i] in TasksUi.timeline-bars : Rectangle {
+                x: 0px;
+                y: i * root.row-height;
+                width: left-rows.visible-width;
+                height: root.row-height;
+                Text { x: 8px; width: parent.width - 180px; height: parent.height; text: bar.title; color: bar.done ? AppTheme.muted : AppTheme.heading; font-size: TypeScale.secondary; vertical-alignment: center; overflow: elide; }
+                Text { x: parent.width - 170px; width: 80px; height: parent.height; text: bar.start-text; color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+                Text { x: parent.width - 86px; width: 80px; height: parent.height; text: bar.due-text; color: bar.overdue ? AppTheme.destructive : AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+                TouchArea {
+                    accessible-role: button;
+                    accessible-label: bar.title;
+                    mouse-cursor: pointer;
+                    clicked => { TasksUi.command("open", "task:" + bar.id, ""); }
+                }
+            }
+        }
+    }
+
+    // Chart: header on top (week and day), then the bars.
+    Rectangle {
+        x: root.left-width;
+        y: root.toolbar-height;
+        width: parent.width - root.left-width;
+        height: parent.height - root.toolbar-height;
+        clip: true;
+        header := ScrollView {
+            width: parent.width;
+            height: root.header-height;
+            content-width: root.chart-width;
+            content-height: root.header-height;
+            vertical-scrollbar-policy: always-off;
+            horizontal-scrollbar-policy: always-off;
+            content-x <=> chart.content-x;
+            for day[i] in TasksUi.timeline-days : Rectangle {
+                x: i * root.day-width;
+                width: root.day-width;
+                height: root.header-height;
+                background: day.weekend ? AppTheme.sidebar-bg : transparent;
+                if day.week != "" : Text {
+                    x: 2px;
+                    y: 3px;
+                    text: day.week;
+                    color: AppTheme.secondary;
+                    font-size: TypeScale.micro;
+                    font-weight: 700;
+                }
+                if root.day-width >= 20px : Text {
+                    y: 22px;
+                    width: parent.width;
+                    height: 20px;
+                    text: day.label;
+                    color: day.today ? AppTheme.accent : AppTheme.body;
+                    font-size: TypeScale.caption;
+                    font-weight: day.today ? 800 : 400;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        chart := ScrollView {
+            y: root.header-height;
+            width: parent.width;
+            height: parent.height - root.header-height;
+            content-width: root.chart-width;
+            content-height: max(root.rows-height, self.visible-height);
+            for day[i] in TasksUi.timeline-days : Rectangle {
+                x: i * root.day-width;
+                width: root.day-width;
+                height: max(root.rows-height, chart.visible-height);
+                background: day.weekend ? AppTheme.sidebar-bg : transparent;
+                if day.week != "" : Rectangle { width: 1px; background: AppTheme.border; }
+            }
+            if TasksUi.timeline-today >= 0 : Rectangle {
+                x: TasksUi.timeline-today * root.day-width + root.day-width / 2 - 1px;
+                width: 2px;
+                height: max(root.rows-height, chart.visible-height);
+                background: AppTheme.destructive;
+            }
+            for bar[i] in TasksUi.timeline-bars : Rectangle {
+                x: bar.first-day * root.day-width;
+                y: i * root.row-height;
+                width: (bar.last-day - bar.first-day + 1) * root.day-width;
+                height: root.row-height;
+                if !bar.milestone : Rectangle {
+                    x: 1px;
+                    y: 7px;
+                    width: parent.width - 2px;
+                    height: parent.height - 14px;
+                    border-radius: 4px;
+                    background: bar.done ? AppTheme.muted : bar.overdue ? AppTheme.destructive : AppTheme.accent;
+                    opacity: bar.done ? 0.6 : 1;
+                }
+                if bar.milestone : Path {
+                    x: (parent.width - 16px) / 2;
+                    y: 8px;
+                    width: 16px;
+                    height: 16px;
+                    viewbox-width: 16;
+                    viewbox-height: 16;
+                    commands: "M 8 0 L 16 8 L 8 16 L 0 8 Z";
+                    fill: bar.done ? AppTheme.muted : bar.overdue ? AppTheme.destructive : AppTheme.accent;
+                }
+                TouchArea {
+                    accessible-role: button;
+                    accessible-label: bar.title;
+                    mouse-cursor: pointer;
+                    clicked => { TasksUi.command("open", "task:" + bar.id, ""); }
+                }
+            }
+        }
+        if TasksUi.timeline-bars.length == 0 : Text {
+            y: root.header-height + 20px;
+            width: parent.width;
+            text: @tr("No task has a start or due date yet.");
+            color: AppTheme.secondary;
+            font-size: TypeScale.body;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
 }
 
 component TasksSidebar inherits Rectangle {
@@ -1273,7 +1530,7 @@ export component TasksView inherits Rectangle {
                         overflow: elide;
                     }
                     Text {
-                        text: @tr("{} tasks", TasksUi.task-count);
+                        text: @tr("{} tasks", TasksUi.task-count) + " · " + TasksUi.week-label;
                         color: AppTheme.secondary;
                         font-size: TypeScale.micro;
                     }
@@ -1318,9 +1575,24 @@ export component TasksView inherits Rectangle {
                 }
                 if TasksUi.can-switch-view : Button {
                     height: 28px;
-                    text: TasksUi.list-mode ? @tr("Board") : @tr("List");
-                    width: max(72px, self.content-width + 28px);
-                    clicked => { TasksUi.command("view", TasksUi.list-mode ? "board" : "list", ""); }
+                    text: @tr("Board");
+                    width: max(64px, self.content-width + 24px);
+                    primary: !TasksUi.list-mode && !TasksUi.timeline-mode;
+                    clicked => { TasksUi.command("view", "board", ""); }
+                }
+                if TasksUi.can-switch-view : Button {
+                    height: 28px;
+                    text: @tr("List");
+                    width: max(64px, self.content-width + 24px);
+                    primary: TasksUi.list-mode;
+                    clicked => { TasksUi.command("view", "list", ""); }
+                }
+                if TasksUi.can-switch-view : Button {
+                    height: 28px;
+                    text: @tr("Timeline");
+                    width: max(72px, self.content-width + 24px);
+                    primary: TasksUi.timeline-mode;
+                    clicked => { TasksUi.command("view", "timeline", ""); }
                 }
                 if TasksUi.can-switch-view : ActionMenu {
                     width: 28px;
@@ -1377,7 +1649,10 @@ export component TasksView inherits Rectangle {
                 font-size: TypeScale.caption;
                 wrap: word-wrap;
             }
-            if TasksUi.columns.length == 0 && !TasksUi.loading : DetailEmptyState {
+            if TasksUi.timeline-mode : TasksTimeline {
+                vertical-stretch: 1;
+            }
+            if TasksUi.columns.length == 0 && !TasksUi.loading && !TasksUi.timeline-mode : DetailEmptyState {
                 vertical-stretch: 1;
                 title: @tr("No tasks");
             }
@@ -1411,7 +1686,7 @@ export component TasksView inherits Rectangle {
                     }
                 }
             }
-            board-focus := FocusScope {
+            if !TasksUi.timeline-mode : board-focus := FocusScope {
               vertical-stretch: 1;
               accessible-role: list;
               accessible-label: @tr("Task board");

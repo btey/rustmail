@@ -21,6 +21,7 @@ pub mod favicon;
 mod files_controller;
 mod desktop_notify;
 mod tasks_controller;
+mod tasks_timeline;
 mod latest_load;
 mod mail;
 #[cfg(test)]
