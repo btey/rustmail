@@ -7,6 +7,8 @@ import { LineEdit, TextEdit, ToolbarIconButton } from "../components/controls.sl
 import { SidebarItem } from "../components/sidebar-controls.slint";
 import { CollapsibleWorkspaceSidebar, WorkspaceMiniHeading } from "../components/workspace-layout.slint";
 import { DetailEmptyState } from "../components/detail-empty-state.slint";
+import { TaskComposeUi } from "../components/task-compose.slint";
+import { TabsUi } from "../components/workspace-navigation.slint";
 
 export struct TaskCardRow {
     id: int,
@@ -1772,6 +1774,8 @@ component TaskDrawer inherits Rectangle {
     in-out property <bool> link-adding;
     in-out property <bool> desc-editing: false;
     in-out property <string> picker-for: "due";
+    // Room the docked composer takes from the right of the task page.
+    private property <length> dock-reserve: TasksUi.detail-expanded && TaskComposeUi.active && TaskComposeUi.docked ? 500px : 0px;
     in-out property <string> link-kind: "depends";
     function reset-drafts() {
         root.title-draft = TasksUi.detail.title;
@@ -1813,7 +1817,7 @@ component TaskDrawer inherits Rectangle {
           VerticalLayout {
             spacing: 10px;
             alignment: start;
-            width: min(640px, root.width - 45px - (TasksUi.detail-expanded ? 372px : 0px));
+            width: min(640px, root.width - 45px - root.dock-reserve);
             HorizontalLayout {
                 spacing: 8px;
                 Text {
@@ -1823,6 +1827,26 @@ component TaskDrawer inherits Rectangle {
                     font-size: TypeScale.caption;
                     vertical-alignment: center;
                     overflow: elide;
+                }
+                if TasksUi.detail-expanded : Rectangle {
+                    width: timeline-link.preferred-width + 16px;
+                    timeline-link := Text {
+                        x: 8px;
+                        text: @tr("Show on timeline");
+                        color: AppTheme.accent;
+                        font-size: TypeScale.caption;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                    TouchArea {
+                        accessible-role: button;
+                        accessible-label: @tr("Show on timeline");
+                        mouse-cursor: pointer;
+                        clicked => {
+                            TasksUi.detail-expanded = false;
+                            TasksUi.command("view", "timeline", "");
+                        }
+                    }
                 }
                 ActionMenu {
                     width: 32px;
@@ -1846,7 +1870,14 @@ component TaskDrawer inherits Rectangle {
                     height: 32px;
                     icon: @image-url("../icons/lucide/outline/screen-full.svg");
                     tooltip-text: TasksUi.detail-expanded ? @tr("Back to the side panel") : @tr("Open as a page");
-                    clicked => { TasksUi.detail-expanded = !TasksUi.detail-expanded; }
+                    clicked => {
+                        if !TasksUi.detail-expanded && TabsUi.enabled {
+                            // The page opens in a tab of its own.
+                            TabsUi.open-task(TasksUi.detail.id, TasksUi.detail.title);
+                        } else {
+                            TasksUi.detail-expanded = !TasksUi.detail-expanded;
+                        }
+                    }
                 }
                 TasksIconButton {
                     width: 32px;
@@ -2633,8 +2664,8 @@ component TaskDrawer inherits Rectangle {
                     activated(id) => { root.link-kind = id; }
                 }
             }
-            if !TasksUi.detail-expanded : DetailSection { text: @tr("ACTIVITY"); visible: TasksUi.activity.length > 0; height: self.visible ? self.preferred-height : 0px; }
-            if !TasksUi.detail-expanded : VerticalLayout {
+            DetailSection { text: TasksUi.detail-expanded ? @tr("LINK TRAIL") : @tr("ACTIVITY"); visible: TasksUi.activity.length > 0; height: self.visible ? self.preferred-height : 0px; }
+            VerticalLayout {
                 spacing: 0px;
                 PendingTrail { }
                 for entry[index] in TasksUi.activity : HorizontalLayout {
@@ -2668,36 +2699,6 @@ component TaskDrawer inherits Rectangle {
                 clicked => { TasksUi.command("delete", "" + TasksUi.detail.id, ""); }
             }
           }
-          if TasksUi.detail-expanded : VerticalLayout {
-            width: 340px;
-            spacing: 0px;
-            alignment: start;
-            DetailSection { text: @tr("LINK TRAIL"); height: self.preferred-height + 10px; }
-            PendingTrail { }
-            for entry[index] in TasksUi.activity : HorizontalLayout {
-                spacing: 10px;
-                TrailMarker {
-                    kind: entry.kind;
-                    first: index == 0 && !TasksUi.trail-pending;
-                    last: index == TasksUi.activity.length - 1;
-                }
-                VerticalLayout {
-                    padding-bottom: 14px;
-                    spacing: 1px;
-                    Text {
-                        text: entry.text;
-                        color: AppTheme.body;
-                        font-size: TypeScale.caption;
-                        wrap: word-wrap;
-                    }
-                    Text {
-                        text: entry.at;
-                        color: AppTheme.muted;
-                        font-size: TypeScale.micro;
-                    }
-                }
-            }
-          }
         }
     }
 
@@ -2712,7 +2713,7 @@ component TaskDrawer inherits Rectangle {
         VerticalLayout {
             x: 16px;
             y: 0px;
-            width: min(640px, parent.width - 32px - (TasksUi.detail-expanded ? 372px : 0px));
+            width: min(640px, parent.width - 32px - root.dock-reserve);
             height: parent.height;
             padding-top: 10px;
             padding-bottom: 10px;

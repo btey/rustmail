@@ -59,6 +59,15 @@ export global TaskComposeUi {
     in-out property <bool> sent-event: false;
     // Height of the card: one 22px line for each thing that happened.
     out property <length> card-height: 96px + 22px * ((sent-moved > 0 ? 1 : 0) + (sent-follow-up-days > 0 ? 1 : 0) + (sent-event ? 1 : 0));
+    // True while the composer sits in the right column of the task page; the
+    // pop-out button clears it and the composer returns to its own window.
+    in-out property <bool> docked: false;
+    // Also book the follow-up on the (local) calendar once the mail is sent.
+    in-out property <bool> follow-up-event: false;
     callback cycle-after();
     callback cycle-follow-up();
+    // The dropdowns of the options row: 0 Waiting for / Stay in place / Done,
+    // and 0 four days / 1 two days / 2 one week / 3 never.
+    callback choose-after(int);
+    callback choose-follow-up(int);
 }

@@ -4,9 +4,9 @@ import { Button } from "button.slint";
 import { IconButton } from "controls.slint";
 import { TypeScale } from "../typography.slint";
 import { UserActions } from "user-actions.slint";
-import { LayoutMetrics } from "../design-system.slint";
+import { AppTheme, LayoutMetrics } from "../design-system.slint";
 import { ComposeScheduleUi, TaskComposeUi } from "task-compose.slint";
-import { ActionMenu } from "action-menu.slint";
+import { ActionMenu, ActionMenuEntry } from "action-menu.slint";
 
 export component ComposerToolbar inherits Rectangle {
     in property <bool> compact: false;
@@ -174,6 +174,41 @@ export component ComposerAttachments inherits Rectangle {
             }
 }
 
+// A value with a chevron that opens its choices, for the task options row.
+component TaskOptionMenu inherits Rectangle {
+    in property <string> value;
+    in property <[ActionMenuEntry]> entries;
+    in property <string> tooltip;
+    callback picked(string);
+    height: 30px;
+    y: 3px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: AppTheme.border;
+    background: AppTheme.surface;
+    Text {
+        x: 10px;
+        width: parent.width - 44px;
+        height: parent.height;
+        text: root.value;
+        color: AppTheme.heading;
+        font-size: TypeScale.caption;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    ActionMenu {
+        x: parent.width - self.width - 2px;
+        y: (parent.height - self.height) / 2;
+        width: 30px;
+        height: 28px;
+        icon: @image-url("../icons/lucide/outline/chevron-down.svg");
+        entries: root.entries;
+        menu-width: 190px;
+        tooltip-text: root.tooltip;
+        activated(id) => { root.picked(id); }
+    }
+}
+
 export component ComposerNotice inherits Rectangle {
     in property <string> notice: "";
     in property <bool> notice-is-error: false;
@@ -181,47 +216,102 @@ export component ComposerNotice inherits Rectangle {
     in property <color> accent-color;
 
             visible: root.notice != "" || TaskComposeUi.active;
-            height: TaskComposeUi.active ? 40px : root.notice == "" ? 0px : 24px;
+            height: TaskComposeUi.active
+                ? 24px + 36px * (TaskComposeUi.follow-up == 3 ? 2 : 3) + (root.notice == "" ? 0px : 26px)
+                : root.notice == "" ? 0px : 24px;
             background: root.notice-is-error ? #d73a4920 : root.accent-background;
 
-            if TaskComposeUi.active: HorizontalLayout {
+            if TaskComposeUi.active: VerticalLayout {
                 padding-left: 14px;
                 padding-right: 14px;
-                spacing: 8px;
-                alignment: start;
+                padding-top: 4px;
+                spacing: 0px;
                 Text {
-                    text: @tr("After sending");
+                    height: 24px;
+                    text: @tr("This email and every reply in its thread will be linked to the task.");
                     color: root.accent-color;
+                    font-size: TypeScale.caption;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                HorizontalLayout {
+                    height: 36px;
+                    spacing: 8px;
+                    Text {
+                        horizontal-stretch: 1;
+                        text: @tr("After sending, move task to");
+                        color: root.accent-color;
+                        font-size: TypeScale.caption;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    TaskOptionMenu {
+                        width: 170px;
+                        value: TaskComposeUi.after == 0 ? @tr("Waiting for") : TaskComposeUi.after == 1 ? @tr("Stay in place") : @tr("Done");
+                        entries: [
+                            { id: "0", title: @tr("Waiting for") },
+                            { id: "1", title: @tr("Stay in place") },
+                            { id: "2", title: @tr("Done") },
+                        ];
+                        tooltip: @tr("After sending, move task to");
+                        picked(id) => { TaskComposeUi.choose-after(id == "1" ? 1 : id == "2" ? 2 : 0); }
+                    }
+                }
+                HorizontalLayout {
+                    height: 36px;
+                    spacing: 8px;
+                    Text {
+                        horizontal-stretch: 1;
+                        text: TaskComposeUi.follow-up == 3 || TaskComposeUi.follow-up-date == "" ? @tr("If there's no reply, add a follow-up in") : @tr("If there's no reply, add a follow-up in") + " · " + TaskComposeUi.follow-up-date;
+                        color: root.accent-color;
+                        font-size: TypeScale.caption;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    TaskOptionMenu {
+                        width: 170px;
+                        value: TaskComposeUi.follow-up == 0 ? @tr("4 days") : TaskComposeUi.follow-up == 1 ? @tr("2 days") : TaskComposeUi.follow-up == 2 ? @tr("1 week") : @tr("Never");
+                        entries: [
+                            { id: "0", title: @tr("4 days") },
+                            { id: "1", title: @tr("2 days") },
+                            { id: "2", title: @tr("1 week") },
+                            { id: "3", title: @tr("Never") },
+                        ];
+                        tooltip: @tr("If there's no reply, add a follow-up in");
+                        picked(id) => { TaskComposeUi.choose-follow-up(id == "1" ? 1 : id == "2" ? 2 : id == "3" ? 3 : 0); }
+                    }
+                }
+                if TaskComposeUi.follow-up != 3 : HorizontalLayout {
+                    height: 36px;
+                    spacing: 8px;
+                    Text {
+                        horizontal-stretch: 1;
+                        text: @tr("Add the follow-up to the Calendar");
+                        color: root.accent-color;
+                        font-size: TypeScale.caption;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    Button {
+                        y: 4px;
+                        height: 28px;
+                        text: TaskComposeUi.follow-up-event ? @tr("Yes") : @tr("No");
+                        selected: TaskComposeUi.follow-up-event;
+                        width: 170px;
+                        clicked => { TaskComposeUi.follow-up-event = !TaskComposeUi.follow-up-event; }
+                    }
+                }
+                if root.notice != "" : Text {
+                    height: 26px;
+                    text: root.notice;
+                    color: root.notice-is-error ? #d73a49 : root.accent-color;
                     font-size: TypeScale.caption;
                     font-weight: 600;
                     vertical-alignment: center;
-                }
-                Button {
-                    y: (parent.height - self.height) / 2;
-                    height: 28px;
-                    text: TaskComposeUi.after == 0 ? @tr("Waiting for") : TaskComposeUi.after == 1 ? @tr("Stay in place") : @tr("Done");
-                    width: max(90px, self.content-width + 24px);
-                    clicked => { TaskComposeUi.cycle-after(); }
-                }
-                Text {
-                    text: @tr("If no reply in");
-                    color: root.accent-color;
-                    font-size: TypeScale.caption;
-                    font-weight: 600;
-                    vertical-alignment: center;
-                }
-                Button {
-                    y: (parent.height - self.height) / 2;
-                    height: 28px;
-                    text: TaskComposeUi.follow-up == 0 ? @tr("4 days") : TaskComposeUi.follow-up == 1 ? @tr("2 days") : TaskComposeUi.follow-up == 2 ? @tr("1 week") : @tr("Never");
-                    width: max(80px, self.content-width + 24px);
-                    clicked => { TaskComposeUi.cycle-follow-up(); }
-                }
-                Text {
-                    text: TaskComposeUi.follow-up-date;
-                    color: root.accent-color;
-                    font-size: TypeScale.caption;
-                    vertical-alignment: center;
+                    overflow: elide;
                 }
             }
 
@@ -270,7 +360,7 @@ export component ComposerFooter inherits Rectangle {
                 y: 10px;
                 width: max(root.compact ? 96px : 106px, self.content-width);
                 height: 34px;
-                text: root.sending ? @tr("Sending…") : @tr("Send");
+                text: root.sending ? @tr("Sending…") : TaskComposeUi.active ? @tr("Send and link") : @tr("Send");
                 icon: @image-url("../icons/lucide/filled/paper-airplane.svg");
                 has-icon: true;
                 primary: true;

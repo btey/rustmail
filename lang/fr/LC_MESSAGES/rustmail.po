@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-05 20:56+0000\n"
+"POT-Creation-Date: 2026-11-05 22:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -184,8 +184,8 @@ msgstr ""
 msgid "New address-book entry"
 msgstr ""
 
-#: ui/app.slint:134 ui/app.slint:945 ui/components/composer-fields.slint:66
-#: ui/dialogs/compose-dialog.slint:37
+#: ui/app.slint:134 ui/app.slint:945 ui/components/composer-fields.slint:80
+#: ui/dialogs/compose-dialog.slint:39
 msgid "No connected account"
 msgstr ""
 
@@ -1524,7 +1524,7 @@ msgstr ""
 msgid "Loading message…"
 msgstr ""
 
-#: ui/app.slint:562 ui/components/workspace-navigation.slint:579
+#: ui/app.slint:562 ui/components/workspace-navigation.slint:581
 #: ui/dialogs/settings-dialog.slint:2347 ui/tray.slint:13
 #: ui/views/onboarding-view.slint:129
 msgid "Rustmail"
@@ -1534,101 +1534,101 @@ msgstr ""
 msgid "Global Labels (local only)"
 msgstr ""
 
-#: ui/app.slint:2073
+#: ui/app.slint:2075
 msgid "Empty Trash?"
 msgstr ""
 
-#: ui/app.slint:2073 ui/views/files-view.slint:539
+#: ui/app.slint:2075 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr ""
 
-#: ui/app.slint:2077
+#: ui/app.slint:2079
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 
-#: ui/app.slint:2078
+#: ui/app.slint:2080
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr ""
 
-#: ui/app.slint:2080
+#: ui/app.slint:2082
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr ""
 
-#: ui/app.slint:2081
+#: ui/app.slint:2083
 msgid "Permanently delete this conversation from Trash?"
 msgstr ""
 
-#: ui/app.slint:2082 ui/components/calendar.slint:951
+#: ui/app.slint:2084 ui/components/calendar.slint:951
 msgid "This action cannot be undone."
 msgstr ""
 
-#: ui/app.slint:2083
+#: ui/app.slint:2085
 msgid "Empty Trash"
 msgstr ""
 
-#: ui/app.slint:2083 ui/views/files-view.slint:621
+#: ui/app.slint:2085 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr ""
 
-#: ui/app.slint:2257
+#: ui/app.slint:2259
 msgid "Mailbox startup failed"
 msgstr ""
 
-#: ui/app.slint:2263
+#: ui/app.slint:2265
 msgid "Rustmail could not open local storage"
 msgstr ""
 
-#: ui/app.slint:2276
+#: ui/app.slint:2278
 msgid "Diagnostic ID: {}"
 msgstr ""
 
-#: ui/app.slint:2279
+#: ui/app.slint:2281
 msgid "Diagnostic ID {}"
 msgstr ""
 
-#: ui/app.slint:2284
+#: ui/app.slint:2286
 msgid "Retry"
 msgstr ""
 
-#: ui/app.slint:2292 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2294 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr ""
 
-#: ui/app.slint:2358 ui/app.slint:2443 ui/app.slint:2501
+#: ui/app.slint:2360 ui/app.slint:2445 ui/app.slint:2503
 msgid "Dismiss"
 msgstr ""
 
-#: ui/app.slint:2378 ui/app.slint:2383
+#: ui/app.slint:2380 ui/app.slint:2385
 msgid "Sent and linked"
 msgstr "Envoyé et lié"
 
-#: ui/app.slint:2401
+#: ui/app.slint:2403
 msgid "Task moved to Waiting for"
 msgstr "Tâche déplacée vers En attente"
 
-#: ui/app.slint:2401
+#: ui/app.slint:2403
 msgid "Task marked as done"
 msgstr "Tâche marquée comme terminée"
 
-#: ui/app.slint:2410
+#: ui/app.slint:2412
 msgid "Follow-up in {} days"
 msgstr "Relance dans {} jours"
 
-#: ui/app.slint:2419
+#: ui/app.slint:2421
 msgid "Follow-up added to the calendar"
 msgstr "Relance ajoutée au calendrier"
 
-#: ui/app.slint:2429
+#: ui/app.slint:2431
 msgid "Back to board"
 msgstr "Retour au tableau"
 
-#: ui/app.slint:2488 ui/components/linked-task-banner.slint:116
+#: ui/app.slint:2490 ui/components/linked-task-banner.slint:116
 #: ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr "Ouvrir la tâche"
 
-#: ui/app.slint:2533 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2536 ui/components/workspace-navigation.slint:126
 #: ui/dialogs/settings-dialog.slint:2127
 msgid "Tasks"
 msgstr "Tâches"
@@ -1787,7 +1787,7 @@ msgstr ""
 #: ui/dialogs/folder-dialog.slint:128 ui/dialogs/settings-dialog.slint:2023
 #: ui/dialogs/settings-dialog.slint:2736 ui/dialogs/settings-dialog.slint:2971
 #: ui/views/contacts-view.slint:582 ui/views/files-view.slint:620
-#: ui/views/tasks-view.slint:2097
+#: ui/views/tasks-view.slint:2128
 msgid "Cancel"
 msgstr ""
 
@@ -1871,7 +1871,7 @@ msgstr ""
 
 #: ui/components/account-mail-preferences.slint:209
 #: ui/components/filter-rules.slint:218 ui/views/contacts-view.slint:586
-#: ui/views/tasks-view.slint:2102
+#: ui/views/tasks-view.slint:2133
 msgid "Delete"
 msgstr ""
 
@@ -2050,7 +2050,7 @@ msgstr ""
 
 #: ui/components/account-mail-preferences.slint:296
 #: ui/dialogs/settings-dialog.slint:2682 ui/views/files-view.slint:455
-#: ui/views/files-view.slint:656 ui/views/tasks-view.slint:1855
+#: ui/views/files-view.slint:656 ui/views/tasks-view.slint:1886
 #: ui/window-chrome.slint:204
 msgid "Close"
 msgstr "Fermer"
@@ -2285,8 +2285,8 @@ msgid "Filters only affect this agenda."
 msgstr ""
 
 #: ui/components/calendar-agenda.slint:212 ui/components/calendar.slint:591
-#: ui/dialogs/task-from-mail-dialog.slint:182 ui/views/tasks-view.slint:271
-#: ui/views/tasks-view.slint:420 ui/views/tasks-view.slint:810
+#: ui/dialogs/task-from-mail-dialog.slint:182 ui/views/tasks-view.slint:273
+#: ui/views/tasks-view.slint:422 ui/views/tasks-view.slint:812
 msgid "Today"
 msgstr "Aujourd’hui"
 
@@ -2459,7 +2459,7 @@ msgstr ""
 msgid "Next period"
 msgstr ""
 
-#: ui/components/calendar.slint:588 ui/views/tasks-view.slint:546
+#: ui/components/calendar.slint:588 ui/views/tasks-view.slint:548
 msgid "Week"
 msgstr "Semaine"
 
@@ -2559,172 +2559,201 @@ msgstr ""
 msgid "Remove attachment"
 msgstr ""
 
-#: ui/components/composer-actions.slint:193
-msgid "After sending"
+#: ui/components/composer-actions.slint:231
+msgid "This email and every reply in its thread will be linked to the task."
 msgstr ""
+"Ce courriel et chaque réponse de sa conversation seront liés à la tâche."
 
-#: ui/components/composer-actions.slint:202 ui/views/tasks-view.slint:422
+#: ui/components/composer-actions.slint:242
+msgid "After sending, move task to"
+msgstr "Après l’envoi, déplacer la tâche vers"
+
+#: ui/components/composer-actions.slint:251 ui/views/tasks-view.slint:424
 msgid "Waiting for"
 msgstr "En attente de"
 
-#: ui/components/composer-actions.slint:202
+#: ui/components/composer-actions.slint:251
 msgid "Stay in place"
-msgstr ""
+msgstr "Ne pas déplacer"
 
-#: ui/components/composer-actions.slint:202 ui/views/tasks-view.slint:1164
-#: ui/views/tasks-view.slint:2459 ui/views/tasks-view.slint:2503
-#: ui/views/tasks-view.slint:2548
+#: ui/components/composer-actions.slint:251 ui/views/tasks-view.slint:1166
+#: ui/views/tasks-view.slint:2490 ui/views/tasks-view.slint:2534
+#: ui/views/tasks-view.slint:2579
 msgid "Done"
 msgstr "Terminé"
 
-#: ui/components/composer-actions.slint:207
-msgid "If no reply in"
-msgstr ""
+#: ui/components/composer-actions.slint:266
+msgid "If there's no reply, add a follow-up in"
+msgstr "Sans réponse, ajouter un suivi dans"
 
-#: ui/components/composer-actions.slint:216
+#: ui/components/composer-actions.slint:275
 msgid "4 days"
-msgstr ""
+msgstr "4 jours"
 
-#: ui/components/composer-actions.slint:216
+#: ui/components/composer-actions.slint:275
 msgid "2 days"
-msgstr ""
+msgstr "2 jours"
 
-#: ui/components/composer-actions.slint:216
+#: ui/components/composer-actions.slint:275
 msgid "1 week"
-msgstr ""
+msgstr "1 semaine"
 
-#: ui/components/composer-actions.slint:216
+#: ui/components/composer-actions.slint:275
 msgid "Never"
-msgstr ""
+msgstr "Jamais"
 
-#: ui/components/composer-actions.slint:273
+#: ui/components/composer-actions.slint:291
+msgid "Add the follow-up to the Calendar"
+msgstr "Ajouter le suivi à l’agenda"
+
+#: ui/components/composer-actions.slint:301
+msgid "Yes"
+msgstr "Oui"
+
+#: ui/components/composer-actions.slint:301
+msgid "No"
+msgstr "Non"
+
+#: ui/components/composer-actions.slint:363
 msgid "Sending…"
 msgstr ""
 
-#: ui/components/composer-actions.slint:273
+#: ui/components/composer-actions.slint:363
+msgid "Send and link"
+msgstr "Envoyer et lier"
+
+#: ui/components/composer-actions.slint:363
 msgid "Send"
 msgstr ""
 
-#: ui/components/composer-actions.slint:289
+#: ui/components/composer-actions.slint:379
 msgid "Send in 1 hour"
 msgstr ""
 
-#: ui/components/composer-actions.slint:290
+#: ui/components/composer-actions.slint:380
 msgid "Send in 4 hours"
 msgstr ""
 
-#: ui/components/composer-actions.slint:291
+#: ui/components/composer-actions.slint:381
 msgid "Send tomorrow morning"
 msgstr ""
 
-#: ui/components/composer-actions.slint:292
+#: ui/components/composer-actions.slint:382
 msgid "Send Monday morning"
 msgstr ""
 
-#: ui/components/composer-actions.slint:297
+#: ui/components/composer-actions.slint:387
 msgid "Send later"
 msgstr ""
 
-#: ui/components/composer-actions.slint:314
+#: ui/components/composer-actions.slint:404
 msgid "Attach files"
 msgstr ""
 
-#: ui/components/composer-actions.slint:335
+#: ui/components/composer-actions.slint:425
 msgid "Save draft"
 msgstr ""
 
-#: ui/components/composer-actions.slint:348
+#: ui/components/composer-actions.slint:438
 msgid "Discard"
 msgstr ""
 
-#: ui/components/composer-actions.slint:396
+#: ui/components/composer-actions.slint:486
 msgid "Edit link"
 msgstr ""
 
-#: ui/components/composer-actions.slint:396
+#: ui/components/composer-actions.slint:486
 msgid "Add link"
 msgstr ""
 
-#: ui/components/composer-actions.slint:407
+#: ui/components/composer-actions.slint:497
 msgid "The selected text will open this address."
 msgstr ""
 
-#: ui/components/composer-actions.slint:428 ui/views/contacts-view.slint:710
+#: ui/components/composer-actions.slint:518 ui/views/contacts-view.slint:710
 msgid "https://example.com"
 msgstr ""
 
-#: ui/components/composer-actions.slint:464 ui/views/tasks-view.slint:2600
+#: ui/components/composer-actions.slint:554 ui/views/tasks-view.slint:2631
 msgid "Remove link"
 msgstr "Retirer le lien"
 
-#: ui/components/composer-actions.slint:482
+#: ui/components/composer-actions.slint:572
 msgid "Apply"
 msgstr ""
 
-#: ui/components/composer-actions.slint:520
+#: ui/components/composer-actions.slint:610
 msgid "Discard this draft?"
 msgstr ""
 
-#: ui/components/composer-actions.slint:531
+#: ui/components/composer-actions.slint:621
 msgid "The message and its attachments will be removed from this composer."
 msgstr ""
 
-#: ui/components/composer-actions.slint:542
+#: ui/components/composer-actions.slint:632
 msgid "Keep"
 msgstr ""
 
-#: ui/components/composer-fields.slint:39 ui/views/mail-reading-pane.slint:374
+#: ui/components/composer-fields.slint:40 ui/views/mail-reading-pane.slint:374
 #: ui/views/mail-reading-pane.slint:723
 msgid "Reply"
 msgstr ""
 
-#: ui/components/composer-fields.slint:40 ui/views/mail-reading-pane.slint:375
+#: ui/components/composer-fields.slint:41 ui/views/mail-reading-pane.slint:375
 #: ui/views/mail-reading-pane.slint:732
 msgid "Reply all"
 msgstr ""
 
-#: ui/components/composer-fields.slint:41 ui/views/mail-reading-pane.slint:376
+#: ui/components/composer-fields.slint:42 ui/views/mail-reading-pane.slint:376
 #: ui/views/mail-reading-pane.slint:741
 msgid "Forward"
 msgstr ""
 
-#: ui/components/composer-fields.slint:42
+#: ui/components/composer-fields.slint:43
 msgid "Edit draft"
 msgstr ""
 
-#: ui/components/composer-fields.slint:43
+#: ui/components/composer-fields.slint:44
+msgid "New email from task"
+msgstr "Nouveau courriel depuis la tâche"
+
+#: ui/components/composer-fields.slint:45
 msgid "New message"
 msgstr ""
 
-#: ui/components/composer-fields.slint:334 ui/components/filter-rules.slint:71
+#: ui/components/composer-fields.slint:60
+msgid "Open in its own window"
+msgstr "Ouvrir dans sa propre fenêtre"
+
+#: ui/components/composer-fields.slint:348 ui/components/filter-rules.slint:71
 msgid "To"
 msgstr ""
 
-#: ui/components/composer-fields.slint:335
+#: ui/components/composer-fields.slint:349
 msgid "name@example.com · separate with commas"
 msgstr ""
 
-#: ui/components/composer-fields.slint:369 ui/components/filter-rules.slint:71
+#: ui/components/composer-fields.slint:383 ui/components/filter-rules.slint:71
 msgid "Cc"
 msgstr ""
 
-#: ui/components/composer-fields.slint:379
+#: ui/components/composer-fields.slint:393
 msgid "Bcc"
 msgstr ""
 
-#: ui/components/composer-fields.slint:394
+#: ui/components/composer-fields.slint:408
 msgid "Carbon copy"
 msgstr ""
 
-#: ui/components/composer-fields.slint:408
+#: ui/components/composer-fields.slint:422
 msgid "Blind carbon copy"
 msgstr ""
 
-#: ui/components/composer-fields.slint:466 ui/components/filter-rules.slint:71
+#: ui/components/composer-fields.slint:480 ui/components/filter-rules.slint:71
 msgid "Subject"
 msgstr ""
 
-#: ui/components/composer-fields.slint:478
+#: ui/components/composer-fields.slint:492
 msgid "What is this email about?"
 msgstr ""
 
@@ -3024,7 +3053,7 @@ msgid "Folder name, for example Receipts"
 msgstr ""
 
 #: ui/components/filter-rules.slint:156 ui/views/mail-reading-pane.slint:1984
-#: ui/views/tasks-view.slint:2067
+#: ui/views/tasks-view.slint:2098
 msgid "Label name"
 msgstr "Nom du libellé"
 
@@ -3112,7 +3141,7 @@ msgstr ""
 msgid "Stop: skip the filters below when this one matches"
 msgstr ""
 
-#: ui/components/filter-rules.slint:325 ui/views/tasks-view.slint:2952
+#: ui/components/filter-rules.slint:325 ui/views/tasks-view.slint:2953
 msgid "Add filter"
 msgstr "Ajouter un filtre"
 
@@ -3453,7 +3482,7 @@ msgid "All Inboxes"
 msgstr ""
 
 #: ui/components/sidebar.slint:239 ui/dialogs/settings-dialog.slint:549
-#: ui/views/tasks-view.slint:419
+#: ui/views/tasks-view.slint:421
 msgid "Inbox"
 msgstr "Boîte de réception"
 
@@ -3470,7 +3499,7 @@ msgid "Other"
 msgstr ""
 
 #: ui/components/sidebar.slint:384 ui/components/sidebar.slint:539
-#: ui/views/tasks-view.slint:1926
+#: ui/views/tasks-view.slint:1957
 msgid "Labels"
 msgstr "Libellés"
 
@@ -3511,7 +3540,7 @@ msgstr "Afficher aujourd'hui"
 msgid "Tasks due: {}"
 msgstr "Tâches à faire : {}"
 
-#: ui/components/task-reply.slint:20 ui/views/tasks-view.slint:1334
+#: ui/components/task-reply.slint:20 ui/views/tasks-view.slint:1336
 msgid "Reply received"
 msgstr "Réponse reçue"
 
@@ -3674,7 +3703,7 @@ msgid "Revert"
 msgstr ""
 
 #: ui/components/theme-editor.slint:773 ui/dialogs/folder-dialog.slint:135
-#: ui/views/mail-reading-pane.slint:2028 ui/views/tasks-view.slint:2445
+#: ui/views/mail-reading-pane.slint:2028 ui/views/tasks-view.slint:2476
 msgid "Save"
 msgstr ""
 
@@ -3735,7 +3764,7 @@ msgid "thunderbird -file %f"
 msgstr ""
 
 #: ui/components/workspace-navigation.slint:104
-#: ui/dialogs/settings-dialog.slint:2252 ui/views/tasks-view.slint:2539
+#: ui/dialogs/settings-dialog.slint:2252 ui/views/tasks-view.slint:2570
 msgid "Mail"
 msgstr "Courrier"
 
@@ -3757,15 +3786,15 @@ msgstr ""
 msgid "Primary navigation"
 msgstr ""
 
-#: ui/components/workspace-navigation.slint:428
+#: ui/components/workspace-navigation.slint:430
 msgid "New tab"
 msgstr ""
 
-#: ui/components/workspace-navigation.slint:557
+#: ui/components/workspace-navigation.slint:559
 msgid "Close tab"
 msgstr ""
 
-#: ui/components/workspace-navigation.slint:601
+#: ui/components/workspace-navigation.slint:603
 msgid "Tabs"
 msgstr ""
 
@@ -3865,7 +3894,7 @@ msgstr ""
 msgid "ATTENDEES"
 msgstr ""
 
-#: ui/dialogs/calendar-details-dialog.slint:188 ui/views/tasks-view.slint:2416
+#: ui/dialogs/calendar-details-dialog.slint:188 ui/views/tasks-view.slint:2447
 msgid "DESCRIPTION"
 msgstr "DESCRIPTION"
 
@@ -5392,8 +5421,8 @@ msgstr ""
 msgid "Keep profile"
 msgstr ""
 
-#: ui/dialogs/task-from-mail-dialog.slint:114 ui/views/tasks-view.slint:1585
-#: ui/views/tasks-view.slint:1879
+#: ui/dialogs/task-from-mail-dialog.slint:114 ui/views/tasks-view.slint:1587
+#: ui/views/tasks-view.slint:1910
 msgid "Task title"
 msgstr "Titre de la tâche"
 
@@ -5421,15 +5450,15 @@ msgstr ""
 msgid "Due date"
 msgstr "Échéance"
 
-#: ui/dialogs/task-from-mail-dialog.slint:183 ui/views/tasks-view.slint:281
+#: ui/dialogs/task-from-mail-dialog.slint:183 ui/views/tasks-view.slint:283
 msgid "Tomorrow"
 msgstr "Demain"
 
-#: ui/dialogs/task-from-mail-dialog.slint:184 ui/views/tasks-view.slint:2213
+#: ui/dialogs/task-from-mail-dialog.slint:184 ui/views/tasks-view.slint:2244
 msgid "In a week"
 msgstr "Dans une semaine"
 
-#: ui/dialogs/task-from-mail-dialog.slint:185 ui/views/tasks-view.slint:2214
+#: ui/dialogs/task-from-mail-dialog.slint:185 ui/views/tasks-view.slint:2245
 msgid "No date"
 msgstr "Aucune date"
 
@@ -5437,7 +5466,7 @@ msgstr "Aucune date"
 msgid "Quick date"
 msgstr "Date rapide"
 
-#: ui/dialogs/task-from-mail-dialog.slint:193 ui/views/tasks-view.slint:2160
+#: ui/dialogs/task-from-mail-dialog.slint:193 ui/views/tasks-view.slint:2191
 msgid "Project"
 msgstr "Projet"
 
@@ -5445,11 +5474,11 @@ msgstr "Projet"
 msgid "Choose a project"
 msgstr ""
 
-#: ui/dialogs/task-from-mail-dialog.slint:200 ui/views/tasks-view.slint:2161
+#: ui/dialogs/task-from-mail-dialog.slint:200 ui/views/tasks-view.slint:2192
 msgid "Context"
 msgstr ""
 
-#: ui/dialogs/task-from-mail-dialog.slint:201 ui/views/tasks-view.slint:275
+#: ui/dialogs/task-from-mail-dialog.slint:201 ui/views/tasks-view.slint:277
 msgid "No context"
 msgstr "Aucun contexte"
 
@@ -5457,7 +5486,7 @@ msgstr "Aucun contexte"
 msgid "Set context"
 msgstr "Définir le contexte"
 
-#: ui/dialogs/task-from-mail-dialog.slint:208 ui/views/tasks-view.slint:2147
+#: ui/dialogs/task-from-mail-dialog.slint:208 ui/views/tasks-view.slint:2178
 msgid "No labels"
 msgstr "Aucune étiquette"
 
@@ -6301,7 +6330,7 @@ msgid "Show original colors"
 msgstr ""
 
 #: ui/views/mail-reading-pane.slint:378 ui/views/mail-reading-pane.slint:397
-#: ui/views/tasks-view.slint:1897
+#: ui/views/tasks-view.slint:1928
 msgid "Manage labels"
 msgstr "Gérer les libellés"
 
@@ -6333,7 +6362,7 @@ msgstr ""
 msgid "Archive message"
 msgstr ""
 
-#: ui/views/mail-reading-pane.slint:866 ui/views/tasks-view.slint:1936
+#: ui/views/mail-reading-pane.slint:866 ui/views/tasks-view.slint:1967
 msgid "Search labels"
 msgstr "Rechercher des libellés"
 
@@ -6346,15 +6375,15 @@ msgid "Smart category"
 msgstr ""
 
 #: ui/views/mail-reading-pane.slint:963 ui/views/mail-reading-pane.slint:1977
-#: ui/views/tasks-view.slint:2055
+#: ui/views/tasks-view.slint:2086
 msgid "Edit label"
 msgstr "Modifier le libellé"
 
-#: ui/views/mail-reading-pane.slint:980 ui/views/tasks-view.slint:2020
+#: ui/views/mail-reading-pane.slint:980 ui/views/tasks-view.slint:2051
 msgid "No matching labels"
 msgstr "Aucun libellé correspondant"
 
-#: ui/views/mail-reading-pane.slint:992 ui/views/tasks-view.slint:2030
+#: ui/views/mail-reading-pane.slint:992 ui/views/tasks-view.slint:2061
 msgid "Create label…"
 msgstr "Créer un libellé…"
 
@@ -6550,678 +6579,682 @@ msgstr ""
 msgid "Connect using IMAP and SMTP. POP3 is not supported."
 msgstr ""
 
-#: ui/views/tasks-view.slint:254
+#: ui/views/tasks-view.slint:256
 msgid "No grouping"
 msgstr "Aucun regroupement"
 
-#: ui/views/tasks-view.slint:255
+#: ui/views/tasks-view.slint:257
 msgid "Group by status"
 msgstr "Grouper par statut"
 
-#: ui/views/tasks-view.slint:256
+#: ui/views/tasks-view.slint:258
 msgid "Group by project"
 msgstr "Grouper par projet"
 
-#: ui/views/tasks-view.slint:257
+#: ui/views/tasks-view.slint:259
 msgid "Group by context"
 msgstr "Grouper par contexte"
 
-#: ui/views/tasks-view.slint:258
+#: ui/views/tasks-view.slint:260
 msgid "Group by label"
 msgstr "Grouper par étiquette"
 
-#: ui/views/tasks-view.slint:259
+#: ui/views/tasks-view.slint:261
 msgid "Group by due date"
 msgstr "Grouper par échéance"
 
-#: ui/views/tasks-view.slint:260
+#: ui/views/tasks-view.slint:262
 msgid "Manual order"
 msgstr "Ordre manuel"
 
-#: ui/views/tasks-view.slint:261
+#: ui/views/tasks-view.slint:263
 msgid "Sort by due date"
 msgstr "Trier par échéance"
 
-#: ui/views/tasks-view.slint:262
+#: ui/views/tasks-view.slint:264
 msgid "Sort by priority"
 msgstr "Trier par priorité"
 
-#: ui/views/tasks-view.slint:263
+#: ui/views/tasks-view.slint:265
 msgid "Sort by title"
 msgstr "Trier par titre"
 
-#: ui/views/tasks-view.slint:270 ui/views/tasks-view.slint:980
+#: ui/views/tasks-view.slint:272 ui/views/tasks-view.slint:982
 msgid "Overdue"
 msgstr "En retard"
 
-#: ui/views/tasks-view.slint:272
+#: ui/views/tasks-view.slint:274
 msgid "Next 7 days"
 msgstr "7 prochains jours"
 
-#: ui/views/tasks-view.slint:273
+#: ui/views/tasks-view.slint:275
 msgid "Later"
 msgstr "Plus tard"
 
-#: ui/views/tasks-view.slint:274
+#: ui/views/tasks-view.slint:276
 msgid "No due date"
 msgstr "Sans échéance"
 
-#: ui/views/tasks-view.slint:276
+#: ui/views/tasks-view.slint:278
 msgid "No label"
 msgstr "Sans étiquette"
 
-#: ui/views/tasks-view.slint:288 ui/views/tasks-view.slint:2353
+#: ui/views/tasks-view.slint:290 ui/views/tasks-view.slint:2384
 msgid "Me"
 msgstr "Moi"
 
-#: ui/views/tasks-view.slint:288
+#: ui/views/tasks-view.slint:290
 msgid "Find or add people…"
 msgstr "Trouver ou ajouter des personnes…"
 
-#: ui/views/tasks-view.slint:288 ui/views/tasks-view.slint:2162
+#: ui/views/tasks-view.slint:290 ui/views/tasks-view.slint:2193
 msgid "Unassigned"
 msgstr "Non assignée"
 
-#: ui/views/tasks-view.slint:292 ui/views/tasks-view.slint:1167
+#: ui/views/tasks-view.slint:294 ui/views/tasks-view.slint:1169
 msgid "High priority"
 msgstr "Priorité haute"
 
-#: ui/views/tasks-view.slint:292 ui/views/tasks-view.slint:1244
+#: ui/views/tasks-view.slint:294 ui/views/tasks-view.slint:1246
 msgid "Delete task"
 msgstr "Supprimer la tâche"
 
-#: ui/views/tasks-view.slint:297
+#: ui/views/tasks-view.slint:299
 msgid "Label: {}"
 msgstr "Étiquette : {}"
 
-#: ui/views/tasks-view.slint:298
+#: ui/views/tasks-view.slint:300
 msgid "Context: {}"
 msgstr "Contexte : {}"
 
-#: ui/views/tasks-view.slint:299
+#: ui/views/tasks-view.slint:301
 msgid "Assignee: Me"
 msgstr "Responsable : moi"
 
-#: ui/views/tasks-view.slint:299
+#: ui/views/tasks-view.slint:301
 msgid "Assignee: {}"
 msgstr "Responsable : {}"
 
-#: ui/views/tasks-view.slint:300
+#: ui/views/tasks-view.slint:302
 msgid "Linked to: Mail"
 msgstr "Lié à : e-mail"
 
-#: ui/views/tasks-view.slint:301
+#: ui/views/tasks-view.slint:303
 msgid "Linked to: Event"
 msgstr "Lié à : événement"
 
-#: ui/views/tasks-view.slint:302
+#: ui/views/tasks-view.slint:304
 msgid "Linked to: Task"
 msgstr "Lié à : tâche"
 
-#: ui/views/tasks-view.slint:307
+#: ui/views/tasks-view.slint:309
 msgid "Task created"
 msgstr "Tâche créée"
 
-#: ui/views/tasks-view.slint:308
+#: ui/views/tasks-view.slint:310
 msgid "Email sent"
 msgstr "E-mail envoyé"
 
-#: ui/views/tasks-view.slint:309
+#: ui/views/tasks-view.slint:311
 msgid "Reopened"
 msgstr "Rouverte"
 
-#: ui/views/tasks-view.slint:310
+#: ui/views/tasks-view.slint:312
 msgid "Changed labels"
 msgstr "Étiquettes modifiées"
 
-#: ui/views/tasks-view.slint:311
+#: ui/views/tasks-view.slint:313
 msgid "Linked an item"
 msgstr "Élément lié"
 
-#: ui/views/tasks-view.slint:312
+#: ui/views/tasks-view.slint:314
 msgid "Removed a link"
 msgstr "Lien supprimé"
 
-#: ui/views/tasks-view.slint:313
+#: ui/views/tasks-view.slint:315
 msgid "Moved to another project"
 msgstr "Déplacée vers un autre projet"
 
-#: ui/views/tasks-view.slint:314
+#: ui/views/tasks-view.slint:316
 msgid "Moved to Waiting for: email sent"
 msgstr "Déplacée vers En attente de : e-mail envoyé"
 
-#: ui/views/tasks-view.slint:315
+#: ui/views/tasks-view.slint:317
 msgid "Moved back to Next actions: a reply arrived"
 msgstr "Retour à Prochaines actions : une réponse est arrivée"
 
-#: ui/views/tasks-view.slint:421
+#: ui/views/tasks-view.slint:423
 msgid "Upcoming"
 msgstr "À venir"
 
-#: ui/views/tasks-view.slint:423 ui/views/tasks-view.slint:1369
+#: ui/views/tasks-view.slint:425 ui/views/tasks-view.slint:1371
 msgid "From email"
 msgstr "Depuis un e-mail"
 
-#: ui/views/tasks-view.slint:424
+#: ui/views/tasks-view.slint:426
 msgid "Someday / Maybe"
 msgstr "Un jour / Peut-être"
 
-#: ui/views/tasks-view.slint:537
+#: ui/views/tasks-view.slint:539
 msgid "{} without dates"
 msgstr "{} sans dates"
 
-#: ui/views/tasks-view.slint:545
+#: ui/views/tasks-view.slint:547
 msgid "Day"
 msgstr "Jour"
 
-#: ui/views/tasks-view.slint:558
+#: ui/views/tasks-view.slint:560
 msgid "Calendar events"
 msgstr "Événements"
 
-#: ui/views/tasks-view.slint:565
+#: ui/views/tasks-view.slint:567
 msgid "Dependencies"
 msgstr "Dépendances"
 
-#: ui/views/tasks-view.slint:586
+#: ui/views/tasks-view.slint:588
 msgid "Previous week"
 msgstr "Semaine précédente"
 
-#: ui/views/tasks-view.slint:593
+#: ui/views/tasks-view.slint:595
 msgid "Next week"
 msgstr "Semaine suivante"
 
-#: ui/views/tasks-view.slint:610
+#: ui/views/tasks-view.slint:612
 msgid "TASK"
 msgstr "TÂCHE"
 
-#: ui/views/tasks-view.slint:611
+#: ui/views/tasks-view.slint:613
 msgid "START"
 msgstr "DÉBUT"
 
-#: ui/views/tasks-view.slint:612
+#: ui/views/tasks-view.slint:614
 msgid "DUE"
 msgstr "ÉCHÉANCE"
 
-#: ui/views/tasks-view.slint:613
+#: ui/views/tasks-view.slint:615
 msgid "LINKS"
 msgstr "LIENS"
 
-#: ui/views/tasks-view.slint:643
+#: ui/views/tasks-view.slint:645
 msgid "CALENDAR EVENTS (+{} more)"
 msgstr "ÉVÉNEMENTS DU CALENDRIER (+{} de plus)"
 
-#: ui/views/tasks-view.slint:643
+#: ui/views/tasks-view.slint:645
 msgid "CALENDAR EVENTS"
 msgstr "ÉVÉNEMENTS DU CALENDRIER"
 
-#: ui/views/tasks-view.slint:854
+#: ui/views/tasks-view.slint:856
 msgid "{} days late"
 msgstr "{} jours de retard"
 
-#: ui/views/tasks-view.slint:863 ui/views/tasks-view.slint:1168
+#: ui/views/tasks-view.slint:865 ui/views/tasks-view.slint:1170
 msgid "No reply · {}d"
 msgstr "Sans réponse · {} j"
 
-#: ui/views/tasks-view.slint:946
+#: ui/views/tasks-view.slint:948
 msgid "No task has a start or due date yet."
 msgstr "Aucune tâche n’a encore de date de début ou d’échéance."
 
-#: ui/views/tasks-view.slint:970
+#: ui/views/tasks-view.slint:972
 msgid "Done portion"
 msgstr "Partie terminée"
 
-#: ui/views/tasks-view.slint:975
+#: ui/views/tasks-view.slint:977
 msgid "Milestone"
 msgstr "Jalon"
 
-#: ui/views/tasks-view.slint:985 ui/views/tasks-view.slint:2543
+#: ui/views/tasks-view.slint:987 ui/views/tasks-view.slint:2574
 msgid "Depends on"
 msgstr "Dépend de"
 
-#: ui/views/tasks-view.slint:1004
+#: ui/views/tasks-view.slint:1006
 msgid "New task"
 msgstr "Nouvelle tâche"
 
-#: ui/views/tasks-view.slint:1015 ui/views/tasks-view.slint:1016
+#: ui/views/tasks-view.slint:1017 ui/views/tasks-view.slint:1018
 msgid "Find list, project or context"
 msgstr "Chercher une liste, un projet ou un contexte"
 
-#: ui/views/tasks-view.slint:1026
+#: ui/views/tasks-view.slint:1028
 msgid "FOCUS"
 msgstr "FOCUS"
 
-#: ui/views/tasks-view.slint:1038
+#: ui/views/tasks-view.slint:1040
 msgid "PROJECTS"
 msgstr "PROJETS"
 
-#: ui/views/tasks-view.slint:1049 ui/views/tasks-view.slint:1050
-#: ui/views/tasks-view.slint:2993
+#: ui/views/tasks-view.slint:1051 ui/views/tasks-view.slint:1052
+#: ui/views/tasks-view.slint:2994
 msgid "Project name"
 msgstr "Nom du projet"
 
-#: ui/views/tasks-view.slint:1054
+#: ui/views/tasks-view.slint:1056
 msgid "New project"
 msgstr "Nouveau projet"
 
-#: ui/views/tasks-view.slint:1059
+#: ui/views/tasks-view.slint:1061
 msgid "CONTEXTS"
 msgstr "CONTEXTES"
 
-#: ui/views/tasks-view.slint:1069 ui/views/tasks-view.slint:1070
+#: ui/views/tasks-view.slint:1071 ui/views/tasks-view.slint:1072
 msgid "Context name"
 msgstr "Nom du contexte"
 
-#: ui/views/tasks-view.slint:1074
+#: ui/views/tasks-view.slint:1076
 msgid "New context"
 msgstr "Nouveau contexte"
 
-#: ui/views/tasks-view.slint:1166
+#: ui/views/tasks-view.slint:1168
 msgid "Due {}"
 msgstr "Échéance {}"
 
-#: ui/views/tasks-view.slint:1169 ui/views/tasks-view.slint:1356
+#: ui/views/tasks-view.slint:1171 ui/views/tasks-view.slint:1358
 msgid "{}/{} done"
 msgstr "{}/{} faits"
 
-#: ui/views/tasks-view.slint:1170 ui/views/tasks-view.slint:1361
+#: ui/views/tasks-view.slint:1172 ui/views/tasks-view.slint:1363
 msgid "{} linked"
 msgstr "{} liés"
 
-#: ui/views/tasks-view.slint:1218
+#: ui/views/tasks-view.slint:1220
 msgid "Reopen task"
 msgstr "Rouvrir la tâche"
 
-#: ui/views/tasks-view.slint:1218
+#: ui/views/tasks-view.slint:1220
 msgid "Complete task"
 msgstr "Terminer la tâche"
 
-#: ui/views/tasks-view.slint:1237 ui/views/tasks-view.slint:1833
+#: ui/views/tasks-view.slint:1239 ui/views/tasks-view.slint:1857
 msgid "Move to column"
 msgstr "Déplacer vers la colonne"
 
-#: ui/views/tasks-view.slint:1273 ui/views/tasks-view.slint:2540
+#: ui/views/tasks-view.slint:1275 ui/views/tasks-view.slint:2571
 msgid "Sent"
 msgstr "Envoyé"
 
-#: ui/views/tasks-view.slint:1274 ui/views/tasks-view.slint:2541
+#: ui/views/tasks-view.slint:1276 ui/views/tasks-view.slint:2572
 msgid "Event"
 msgstr "Événement"
 
-#: ui/views/tasks-view.slint:1324 ui/views/tasks-view.slint:2585
+#: ui/views/tasks-view.slint:1326 ui/views/tasks-view.slint:2616
 msgid "Follow up {}"
 msgstr "Relance {}"
 
-#: ui/views/tasks-view.slint:1330
+#: ui/views/tasks-view.slint:1332
 msgid "Quick capture"
 msgstr "Saisie rapide"
 
-#: ui/views/tasks-view.slint:1375
+#: ui/views/tasks-view.slint:1377
 msgid "High"
 msgstr "Haute"
 
-#: ui/views/tasks-view.slint:1441
+#: ui/views/tasks-view.slint:1443
 msgid "Rename column"
 msgstr "Renommer la colonne"
 
-#: ui/views/tasks-view.slint:1442
+#: ui/views/tasks-view.slint:1444
 msgid "Set task limit"
 msgstr "Définir la limite de tâches"
 
-#: ui/views/tasks-view.slint:1443
+#: ui/views/tasks-view.slint:1445
 msgid "Move left"
 msgstr "Vers la gauche"
 
-#: ui/views/tasks-view.slint:1444
+#: ui/views/tasks-view.slint:1446
 msgid "Move right"
 msgstr "Vers la droite"
 
-#: ui/views/tasks-view.slint:1445 ui/views/tasks-view.slint:2963
+#: ui/views/tasks-view.slint:1447 ui/views/tasks-view.slint:2964
 msgid "Colour: Grey"
 msgstr "Couleur : gris"
 
-#: ui/views/tasks-view.slint:1446 ui/views/tasks-view.slint:2964
+#: ui/views/tasks-view.slint:1448 ui/views/tasks-view.slint:2965
 msgid "Colour: Blue"
 msgstr "Couleur : bleu"
 
-#: ui/views/tasks-view.slint:1447 ui/views/tasks-view.slint:2965
+#: ui/views/tasks-view.slint:1449 ui/views/tasks-view.slint:2966
 msgid "Colour: Green"
 msgstr "Couleur : vert"
 
-#: ui/views/tasks-view.slint:1448 ui/views/tasks-view.slint:2966
+#: ui/views/tasks-view.slint:1450 ui/views/tasks-view.slint:2967
 msgid "Colour: Orange"
 msgstr "Couleur : orange"
 
-#: ui/views/tasks-view.slint:1449 ui/views/tasks-view.slint:2967
+#: ui/views/tasks-view.slint:1451 ui/views/tasks-view.slint:2968
 msgid "Colour: Red"
 msgstr "Couleur : rouge"
 
-#: ui/views/tasks-view.slint:1450 ui/views/tasks-view.slint:2968
+#: ui/views/tasks-view.slint:1452 ui/views/tasks-view.slint:2969
 msgid "Custom colour…"
 msgstr "Couleur personnalisée…"
 
-#: ui/views/tasks-view.slint:1451
+#: ui/views/tasks-view.slint:1453
 msgid "Icon: Inbox"
 msgstr "Icône : boîte de réception"
 
-#: ui/views/tasks-view.slint:1452
+#: ui/views/tasks-view.slint:1454
 msgid "Icon: Star"
 msgstr "Icône : étoile"
 
-#: ui/views/tasks-view.slint:1453
+#: ui/views/tasks-view.slint:1455
 msgid "Icon: Clock"
 msgstr "Icône : horloge"
 
-#: ui/views/tasks-view.slint:1454
+#: ui/views/tasks-view.slint:1456
 msgid "Icon: Calendar"
 msgstr "Icône : calendrier"
 
-#: ui/views/tasks-view.slint:1455
+#: ui/views/tasks-view.slint:1457
 msgid "Icon: Check"
 msgstr "Icône : coche"
 
-#: ui/views/tasks-view.slint:1456
+#: ui/views/tasks-view.slint:1458
 msgid "Icon: Archive"
 msgstr "Icône : archive"
 
-#: ui/views/tasks-view.slint:1457
+#: ui/views/tasks-view.slint:1459
 msgid "Icon: Mail"
 msgstr "Icône : courrier"
 
-#: ui/views/tasks-view.slint:1458
+#: ui/views/tasks-view.slint:1460
 msgid "Icon: Alert"
 msgstr "Icône : alerte"
 
-#: ui/views/tasks-view.slint:1459
+#: ui/views/tasks-view.slint:1461
 msgid "Icon: People"
 msgstr "Icône : personnes"
 
-#: ui/views/tasks-view.slint:1460
+#: ui/views/tasks-view.slint:1462
 msgid "Icon: Tasks"
 msgstr "Icône : tâches"
 
-#: ui/views/tasks-view.slint:1461
+#: ui/views/tasks-view.slint:1463
 msgid "Delete column"
 msgstr "Supprimer la colonne"
 
-#: ui/views/tasks-view.slint:1542 ui/views/tasks-view.slint:1651
+#: ui/views/tasks-view.slint:1544 ui/views/tasks-view.slint:1653
 msgid "Add task"
 msgstr "Ajouter une tâche"
 
-#: ui/views/tasks-view.slint:1551
+#: ui/views/tasks-view.slint:1553
 msgid "Column options"
 msgstr "Options de la colonne"
 
-#: ui/views/tasks-view.slint:1565
+#: ui/views/tasks-view.slint:1567
 msgid "Collapse column"
 msgstr "Réduire la colonne"
 
-#: ui/views/tasks-view.slint:1571 ui/views/tasks-view.slint:1572
-#: ui/views/tasks-view.slint:2998 ui/views/tasks-view.slint:3111
+#: ui/views/tasks-view.slint:1573 ui/views/tasks-view.slint:1574
+#: ui/views/tasks-view.slint:2999 ui/views/tasks-view.slint:3112
 msgid "Column name"
 msgstr "Nom de la colonne"
 
-#: ui/views/tasks-view.slint:1571 ui/views/tasks-view.slint:1572
-#: ui/views/tasks-view.slint:3003
+#: ui/views/tasks-view.slint:1573 ui/views/tasks-view.slint:1574
+#: ui/views/tasks-view.slint:3004
 msgid "Colour as #rrggbb"
 msgstr "Couleur au format #rrggbb"
 
-#: ui/views/tasks-view.slint:1571 ui/views/tasks-view.slint:1572
+#: ui/views/tasks-view.slint:1573 ui/views/tasks-view.slint:1574
 msgid "Task limit (empty = none)"
 msgstr "Limite de tâches (vide = aucune)"
 
-#: ui/views/tasks-view.slint:1736 ui/views/tasks-view.slint:2724
+#: ui/views/tasks-view.slint:1738 ui/views/tasks-view.slint:2725
 msgid "Follow up"
 msgstr "Relancer"
 
-#: ui/views/tasks-view.slint:1737
+#: ui/views/tasks-view.slint:1739
 msgid "If there is no reply by {}"
 msgstr "Sans réponse avant le {}"
 
-#: ui/views/tasks-view.slint:1746
+#: ui/views/tasks-view.slint:1748
 msgid "Reply expected"
 msgstr "Réponse attendue"
 
-#: ui/views/tasks-view.slint:1747
+#: ui/views/tasks-view.slint:1749
 msgid "The task moves back when it arrives"
 msgstr "La tâche revient dès son arrivée"
 
-#: ui/views/tasks-view.slint:1747 ui/views/tasks-view.slint:2571
+#: ui/views/tasks-view.slint:1749 ui/views/tasks-view.slint:2602
 msgid "Awaiting reply · {}d"
 msgstr "En attente · {} j"
 
-#: ui/views/tasks-view.slint:1848
+#: ui/views/tasks-view.slint:1835 ui/views/tasks-view.slint:1843
+msgid "Show on timeline"
+msgstr "Afficher sur la frise"
+
+#: ui/views/tasks-view.slint:1872
 msgid "Back to the side panel"
 msgstr "Revenir au panneau latéral"
 
-#: ui/views/tasks-view.slint:1848
+#: ui/views/tasks-view.slint:1872
 msgid "Open as a page"
 msgstr "Ouvrir en tant que page"
 
-#: ui/views/tasks-view.slint:2157
+#: ui/views/tasks-view.slint:2188
 msgid "Status"
 msgstr "Statut"
 
-#: ui/views/tasks-view.slint:2158 ui/views/tasks-view.slint:3051
+#: ui/views/tasks-view.slint:2189 ui/views/tasks-view.slint:3052
 msgid "Due"
 msgstr "Échéance"
 
-#: ui/views/tasks-view.slint:2159
+#: ui/views/tasks-view.slint:2190
 msgid "Start"
 msgstr "Début"
 
-#: ui/views/tasks-view.slint:2162 ui/views/tasks-view.slint:2343
+#: ui/views/tasks-view.slint:2193 ui/views/tasks-view.slint:2374
 msgid "Assignee"
 msgstr "Assigné à"
 
-#: ui/views/tasks-view.slint:2215
+#: ui/views/tasks-view.slint:2246
 msgid "Pick a date"
 msgstr "Choisir une date"
 
-#: ui/views/tasks-view.slint:2329
+#: ui/views/tasks-view.slint:2360
 msgid "ASSIGNEE"
 msgstr "ASSIGNÉ À"
 
-#: ui/views/tasks-view.slint:2342
+#: ui/views/tasks-view.slint:2373
 msgid "Name or email, empty to clear"
 msgstr "Nom ou e-mail, vide pour effacer"
 
-#: ui/views/tasks-view.slint:2381 ui/views/tasks-view.slint:2382
+#: ui/views/tasks-view.slint:2412 ui/views/tasks-view.slint:2413
 msgid "Add another person"
 msgstr "Ajouter une autre personne"
 
-#: ui/views/tasks-view.slint:2427 ui/views/tasks-view.slint:2434
+#: ui/views/tasks-view.slint:2458 ui/views/tasks-view.slint:2465
 msgid "Add a description"
 msgstr "Ajouter une description"
 
-#: ui/views/tasks-view.slint:2456
+#: ui/views/tasks-view.slint:2487
 msgid "CHECKLIST"
 msgstr "LISTE DE CONTRÔLE"
 
-#: ui/views/tasks-view.slint:2460 ui/views/tasks-view.slint:2492
+#: ui/views/tasks-view.slint:2491 ui/views/tasks-view.slint:2523
 msgid "Add checklist item"
 msgstr "Ajouter un élément"
 
-#: ui/views/tasks-view.slint:2472
+#: ui/views/tasks-view.slint:2503
 msgid "Uncheck item"
 msgstr "Décocher l’élément"
 
-#: ui/views/tasks-view.slint:2472
+#: ui/views/tasks-view.slint:2503
 msgid "Check item"
 msgstr "Cocher l’élément"
 
-#: ui/views/tasks-view.slint:2487
+#: ui/views/tasks-view.slint:2518
 msgid "Remove item"
 msgstr "Retirer l’élément"
 
-#: ui/views/tasks-view.slint:2500
+#: ui/views/tasks-view.slint:2531
 msgid "LINKED ITEMS"
 msgstr "ÉLÉMENTS LIÉS"
 
-#: ui/views/tasks-view.slint:2504
+#: ui/views/tasks-view.slint:2535
 msgid "Add a link"
 msgstr "Ajouter un lien"
 
-#: ui/views/tasks-view.slint:2542 ui/views/tasks-view.slint:2627
+#: ui/views/tasks-view.slint:2573 ui/views/tasks-view.slint:2658
 msgid "Blocks"
 msgstr "Bloque"
 
-#: ui/views/tasks-view.slint:2548
+#: ui/views/tasks-view.slint:2579
 msgid "Open"
 msgstr "Ouvrir"
 
-#: ui/views/tasks-view.slint:2554
+#: ui/views/tasks-view.slint:2585
 msgid "Not found"
 msgstr "Introuvable"
 
-#: ui/views/tasks-view.slint:2611
+#: ui/views/tasks-view.slint:2642
 msgid "Blocks task (title)"
 msgstr "Bloque la tâche (titre)"
 
-#: ui/views/tasks-view.slint:2612
+#: ui/views/tasks-view.slint:2643
 msgid "Calendar event (title)"
 msgstr "Événement du calendrier (titre)"
 
-#: ui/views/tasks-view.slint:2613
+#: ui/views/tasks-view.slint:2644
 msgid "Mail (subject)"
 msgstr "E-mail (objet)"
 
-#: ui/views/tasks-view.slint:2614
+#: ui/views/tasks-view.slint:2645
 msgid "Depends on task (title)"
 msgstr "Dépend de la tâche (titre)"
 
-#: ui/views/tasks-view.slint:2615
+#: ui/views/tasks-view.slint:2646
 msgid "Link a task, event or mail"
 msgstr "Lier une tâche, un événement ou un e-mail"
 
-#: ui/views/tasks-view.slint:2628
+#: ui/views/tasks-view.slint:2659
 msgid "Calendar event"
 msgstr "Événement du calendrier"
 
-#: ui/views/tasks-view.slint:2632
+#: ui/views/tasks-view.slint:2663
 msgid "Link type"
 msgstr "Type de lien"
 
-#: ui/views/tasks-view.slint:2636
-msgid "ACTIVITY"
-msgstr "ACTIVITÉ"
-
-#: ui/views/tasks-view.slint:2675
+#: ui/views/tasks-view.slint:2667
 msgid "LINK TRAIL"
 msgstr "HISTORIQUE DES LIENS"
 
-#: ui/views/tasks-view.slint:2724
+#: ui/views/tasks-view.slint:2667
+msgid "ACTIVITY"
+msgstr "ACTIVITÉ"
+
+#: ui/views/tasks-view.slint:2725
 msgid "Reply from task"
 msgstr "Répondre depuis la tâche"
 
-#: ui/views/tasks-view.slint:2724
+#: ui/views/tasks-view.slint:2725
 msgid "Email"
 msgstr "E-mail"
 
-#: ui/views/tasks-view.slint:2736
+#: ui/views/tasks-view.slint:2737
 msgid "Schedule"
 msgstr "Planifier"
 
-#: ui/views/tasks-view.slint:2742
+#: ui/views/tasks-view.slint:2743
 msgid "Move back when a reply arrives"
 msgstr "Revenir quand une réponse arrive"
 
-#: ui/views/tasks-view.slint:2750
+#: ui/views/tasks-view.slint:2751
 msgid "Reopen"
 msgstr "Rouvrir"
 
-#: ui/views/tasks-view.slint:2750
+#: ui/views/tasks-view.slint:2751
 msgid "Complete"
 msgstr "Terminer"
 
-#: ui/views/tasks-view.slint:2817
+#: ui/views/tasks-view.slint:2818
 msgid "Lists"
 msgstr "Listes"
 
-#: ui/views/tasks-view.slint:2834
+#: ui/views/tasks-view.slint:2835
 msgid "{} tasks"
 msgstr "{} tâches"
 
-#: ui/views/tasks-view.slint:2844 ui/views/tasks-view.slint:2845
+#: ui/views/tasks-view.slint:2845 ui/views/tasks-view.slint:2846
 msgid "Search tasks and linked mail"
 msgstr "Chercher des tâches et des e-mails liés"
 
-#: ui/views/tasks-view.slint:2873
+#: ui/views/tasks-view.slint:2874
 msgid "Remove filter"
 msgstr "Retirer le filtre"
 
-#: ui/views/tasks-view.slint:2879
+#: ui/views/tasks-view.slint:2880
 msgid "Board"
 msgstr "Tableau"
 
-#: ui/views/tasks-view.slint:2886
+#: ui/views/tasks-view.slint:2887
 msgid "List"
 msgstr "Liste"
 
-#: ui/views/tasks-view.slint:2893
+#: ui/views/tasks-view.slint:2894
 msgid "Timeline"
 msgstr "Chronologie"
 
-#: ui/views/tasks-view.slint:2903
+#: ui/views/tasks-view.slint:2904
 msgid "Show completed tasks"
 msgstr "Afficher les tâches terminées"
 
-#: ui/views/tasks-view.slint:2904
+#: ui/views/tasks-view.slint:2905
 msgid "Compact cards"
 msgstr "Cartes compactes"
 
-#: ui/views/tasks-view.slint:2905
+#: ui/views/tasks-view.slint:2906
 msgid "Collapse empty columns"
 msgstr "Réduire les colonnes vides"
 
-#: ui/views/tasks-view.slint:2909
+#: ui/views/tasks-view.slint:2910
 msgid "Display"
 msgstr "Affichage"
 
-#: ui/views/tasks-view.slint:2932 ui/views/tasks-view.slint:2942
+#: ui/views/tasks-view.slint:2933 ui/views/tasks-view.slint:2943
 msgid "Group"
 msgstr "Groupe"
 
-#: ui/views/tasks-view.slint:2960
+#: ui/views/tasks-view.slint:2961
 msgid "Rename project"
 msgstr "Renommer le projet"
 
-#: ui/views/tasks-view.slint:2961 ui/views/tasks-view.slint:3115
+#: ui/views/tasks-view.slint:2962 ui/views/tasks-view.slint:3116
 msgid "Add column"
 msgstr "Ajouter une colonne"
 
-#: ui/views/tasks-view.slint:2962
+#: ui/views/tasks-view.slint:2963
 msgid "Delete project"
 msgstr "Supprimer le projet"
 
-#: ui/views/tasks-view.slint:2972
+#: ui/views/tasks-view.slint:2973
 msgid "Project options"
 msgstr "Options du projet"
 
-#: ui/views/tasks-view.slint:2983
+#: ui/views/tasks-view.slint:2984
 msgid "GTD workflow"
 msgstr "Méthode GTD"
 
-#: ui/views/tasks-view.slint:3014
+#: ui/views/tasks-view.slint:3015
 msgid "Delete this project and its tasks?"
 msgstr "Supprimer ce projet et ses tâches ?"
 
-#: ui/views/tasks-view.slint:3042
+#: ui/views/tasks-view.slint:3043
 msgid "No tasks"
 msgstr "Aucune tâche"
 
-#: ui/views/tasks-view.slint:3050
+#: ui/views/tasks-view.slint:3051
 msgid "Title"
 msgstr "Titre"
 
-#: ui/views/tasks-view.slint:3052
+#: ui/views/tasks-view.slint:3053
 msgid "Priority"
 msgstr "Priorité"
 
-#: ui/views/tasks-view.slint:3068
+#: ui/views/tasks-view.slint:3069
 msgid "Sort by {}"
 msgstr "Trier par {}"
 
-#: ui/views/tasks-view.slint:3077
+#: ui/views/tasks-view.slint:3078
 msgid "Task board"
 msgstr "Tableau des tâches"
 

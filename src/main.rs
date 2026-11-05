@@ -5727,7 +5727,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
     for follow_up in [false, true] {
         let app_weak = app.as_weak();
         let intent_for_options = Rc::clone(&compose_intent);
-        let apply = move || {
+        let apply = move |choice: i32| {
             let Some(app) = app_weak.upgrade() else {
                 return;
             };
@@ -5737,20 +5737,23 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 return;
             };
             let (after, follow) = if follow_up {
-                (options.get_after(), (options.get_follow_up() + 1) % 4)
+                (options.get_after(), choice.clamp(0, 3))
             } else {
-                ((options.get_after() + 1) % 3, options.get_follow_up())
+                (choice.clamp(0, 2), options.get_follow_up())
             };
             options.set_after(after);
             options.set_follow_up(follow);
             options.set_follow_up_date(TaskSend::follow_up_date_label(follow).into());
-            intent.task = Some(TaskSend::from_choices(task.task_id, after, follow));
+            intent.task = Some(TaskSend {
+                follow_up_event: task.follow_up_event,
+                ..TaskSend::from_choices(task.task_id, after, follow)
+            });
         };
         let options = app.global::<TaskComposeUi>();
         if follow_up {
-            options.on_cycle_follow_up(apply);
+            options.on_choose_follow_up(apply);
         } else {
-            options.on_cycle_after(apply);
+            options.on_choose_after(apply);
         }
     }
 
@@ -5774,7 +5777,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             ..ComposeIntent::default()
         };
         app.set_compose_mode("new".into());
-        app.set_compose_subject(title);
+        app.set_compose_subject(title.clone());
         app.global::<AccountMailPreferences>()
             .invoke_composer_reset();
         app.global::<AccountMailPreferences>()
@@ -5785,6 +5788,8 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         options.set_follow_up(follow_up);
         options.set_follow_up_date(TaskSend::follow_up_date_label(follow_up).into());
         options.set_active(true);
+        options.set_follow_up_event(false);
+        TaskSend::dock(&app, i64::from(task_id), title.as_str());
         app.set_compose_notice_is_error(false);
         app.set_compose_open(true);
         let document = document_for_task.borrow();
@@ -6028,6 +6033,9 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             options.set_follow_up(follow_up);
             options.set_follow_up_date(TaskSend::follow_up_date_label(follow_up).into());
             options.set_active(true);
+            options.set_follow_up_event(false);
+            let title = app.global::<TasksUi>().get_detail().title;
+            TaskSend::dock(&app, task_id, title.as_str());
         }
         app.set_compose_mode(action);
         app.global::<AccountMailPreferences>()
@@ -6523,7 +6531,11 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                             task.task_id,
                             task.after,
                             task.follow_up_days,
-                            None,
+                            TaskSend {
+                                follow_up_event: app.global::<TaskComposeUi>().get_follow_up_event(),
+                                ..task
+                            }
+                            .follow_up_event_target(),
                         );
                     }
                     clear_compose(
@@ -6559,7 +6571,11 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                             task.task_id,
                             task.after,
                             task.follow_up_days,
-                            None,
+                            TaskSend {
+                                follow_up_event: app.global::<TaskComposeUi>().get_follow_up_event(),
+                                ..task
+                            }
+                            .follow_up_event_target(),
                         );
                     }
                     send_action_for_save.set(Some(queued.action_id));

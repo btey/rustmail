@@ -18,9 +18,36 @@ pub(super) struct TaskSend {
     pub task_id: i64,
     pub after: rustmail_core::tasks::AfterSend,
     pub follow_up_days: Option<u32>,
+    /// Also book the follow-up on the (local) calendar after delivery.
+    pub follow_up_event: bool,
 }
 
 impl TaskSend {
+    /// The calendar to book the follow-up on once the mail is delivered:
+    /// the local calendar when the composer's option asks for one.
+    pub fn follow_up_event_target(self) -> Option<(i64, Option<i64>)> {
+        (self.follow_up_event && self.follow_up_days.is_some()).then_some((0, None))
+    }
+
+    /// Show the composer of a task mail in the right column of the task's own
+    /// page (a tab), or in its window when the tab strip is off.
+    pub fn dock(app: &AppWindow, task_id: i64, title: &str) {
+        let tabs = app.global::<TabsUi>();
+        let tasks = app.global::<TasksUi>();
+        let options = app.global::<TaskComposeUi>();
+        if !tabs.get_enabled() {
+            options.set_docked(false);
+            return;
+        }
+        let on_page = tasks.get_detail_expanded()
+            && tasks.get_detail_open()
+            && i64::from(tasks.get_detail().id) == task_id;
+        if !on_page {
+            tabs.invoke_open_task(task_id as i32, title.into());
+        }
+        options.set_docked(true);
+    }
+
     /// The follow-up date for a picker position as `YYYY-MM-DD` in local
     /// time, counted from today; empty for "Never".
     pub fn follow_up_date_label(follow_up: i32) -> String {
@@ -50,6 +77,7 @@ impl TaskSend {
                 3 => None,
                 _ => Some(4),
             },
+            follow_up_event: false,
         }
     }
 }
@@ -594,7 +622,10 @@ pub(super) fn clear_compose(
     editor: &Rc<RefCell<LazyComposeEditor>>,
     contacts: &Rc<RefCell<Vec<rustmail_core::models::Address>>>,
 ) {
-    app.global::<TaskComposeUi>().set_active(false);
+    let options = app.global::<TaskComposeUi>();
+    options.set_active(false);
+    options.set_docked(false);
+    options.set_follow_up_event(false);
     files.borrow_mut().clear();
     // A picker still open for this composer must not attach to the next one.
     session.set(session.get().wrapping_add(1));

@@ -5,6 +5,7 @@ import { IconButton } from "controls.slint";
 import { ModeButton, RecipientRow } from "composer-controls.slint";
 import { ComposerContactMenu } from "composer-contact-menu.slint";
 import { TypeScale } from "../typography.slint";
+import { TaskComposeUi } from "task-compose.slint";
 import { WindowControlsClearance } from "../window-chrome.slint";
 
 export component ComposerHeader inherits Rectangle {
@@ -34,17 +35,30 @@ export component ComposerHeader inherits Rectangle {
 
             Text {
                 x: max(18px, header-clearance.leading);
-                width: parent.width - self.x - 102px - header-clearance.trailing;
+                width: parent.width - self.x - (TaskComposeUi.docked ? 142px : 102px) - header-clearance.trailing;
                 height: parent.height;
                 text: root.mode == "reply" ? @tr("Reply")
                     : root.mode == "reply_all" ? @tr("Reply all")
                     : root.mode == "forward" ? @tr("Forward")
                     : root.mode == "draft" ? @tr("Edit draft")
+                    : TaskComposeUi.active ? @tr("New email from task")
                     : @tr("New message");
                 color: root.title-color;
                 font-size: TypeScale.heading-small;
                 font-weight: 700;
                 vertical-alignment: center;
+            }
+
+            if TaskComposeUi.docked && TaskComposeUi.active : IconButton {
+                x: parent.width - 82px - header-clearance.trailing;
+                y: 10px;
+                width: 32px;
+                height: 32px;
+                icon: @image-url("../icons/lucide/outline/screen-full.svg");
+                icon-color: root.secondary-color;
+                hover-background: root.control-hover-color;
+                tooltip-text: @tr("Open in its own window");
+                clicked => { TaskComposeUi.docked = false; }
             }
 
             IconButton {

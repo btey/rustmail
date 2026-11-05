@@ -1957,6 +1957,8 @@ export component AppWindow inherits Window {
             in property <int> back-request: root.compose-back-request;
             changed back-request => { if (self.back-request > 0) { self.back-requested(); } }
             compact: root.compact-layout;
+            docked: !root.compact-layout && TaskComposeUi.active && TaskComposeUi.docked
+                && root.active_view == "tasks" && TasksUi.detail-expanded;
             attachment-picker-supported: root.document_apis_supported;
             x: 0px;
             y: 0px;
@@ -2530,7 +2532,8 @@ export component AppWindow inherits Window {
         z: 40000;
         // The active tab follows the open conversation or mailbox.
         live-title: root.active_view == "tasks"
-            ? (TasksUi.title != "" ? @tr("Tasks") + " · " + TasksUi.title : @tr("Tasks"))
+            ? (TasksUi.detail-expanded && TasksUi.detail-open && TasksUi.detail.title != "" ? TasksUi.detail.title
+              : TasksUi.title != "" ? @tr("Tasks") + " · " + TasksUi.title : @tr("Tasks"))
             : root.active_view != "mail" ? ""
             : root.has_selected && root.selected_subject != "" ? root.selected_subject
             : root.selected_scope_title;

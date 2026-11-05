@@ -34,6 +34,10 @@ pub(crate) enum Location {
         mode: String,
     },
     Tasks,
+    /// One task opened as a page (the expanded drawer).
+    Task {
+        task_id: i64,
+    },
     Contacts,
     Files,
 }
@@ -63,7 +67,7 @@ impl Location {
         match self {
             Self::Mail { .. } => "mail",
             Self::Calendar { .. } => "calendar",
-            Self::Tasks => "tasks",
+            Self::Tasks | Self::Task { .. } => "tasks",
             Self::Contacts => "contacts",
             Self::Files => "files",
         }
@@ -396,6 +400,8 @@ pub(crate) fn register(app: &AppWindow, context: TabContext) {
     let owner = Rc::clone(&tabs);
     global.on_open_conversation(move |id, activate| owner.open_conversation(id, activate));
     let owner = Rc::clone(&tabs);
+    global.on_open_task(move |id, title| owner.open_task(i64::from(id), title.to_string()));
+    let owner = Rc::clone(&tabs);
     global.on_command(move |command| {
         if let Some(command) = Command::parse(&command) {
             owner.command(command);
@@ -488,6 +494,29 @@ impl Tabs {
         }
     }
 
+    /// Open a task as a page in a new tab and show it.
+    fn open_task(&self, task_id: i64, title: String) {
+        let Some(app) = self.app() else {
+            return;
+        };
+        self.capture();
+        let opened = self
+            .strip
+            .borrow_mut()
+            .open(Location::Task { task_id }, title, None);
+        match opened {
+            Some(index) => {
+                self.strip.borrow_mut().active = index;
+                self.restore(index);
+                self.changed();
+            }
+            None => app.set_sync_status(UiMessage::detail(
+                "At most {} tabs can be open. Close a tab to open another.",
+                MAX_TABS,
+            )),
+        }
+    }
+
     fn close(&self, id: i32) {
         let closed = self.strip.borrow_mut().close(id);
         match closed {
@@ -548,7 +577,21 @@ impl Tabs {
                 )
             }
             "contacts" => (Location::Contacts, String::new(), None),
-            "tasks" => (Location::Tasks, String::new(), None),
+            "tasks" => {
+                let tasks = app.global::<TasksUi>();
+                if tasks.get_detail_expanded() && tasks.get_detail_open() {
+                    let detail = tasks.get_detail();
+                    (
+                        Location::Task {
+                            task_id: i64::from(detail.id),
+                        },
+                        detail.title.to_string(),
+                        None,
+                    )
+                } else {
+                    (Location::Tasks, String::new(), None)
+                }
+            }
             "files" => (Location::Files, String::new(), None),
             _ => {
                 let state = self.context.state.borrow();
@@ -637,7 +680,16 @@ impl Tabs {
                     app.set_active_view("calendar".into());
                 }
             }
+            Location::Task { task_id } => {
+                app.set_active_view("tasks".into());
+                let tasks = app.global::<TasksUi>();
+                tasks.invoke_command("open-on-board".into(), format!("task:{task_id}").into(), "".into());
+                tasks.set_detail_expanded(true);
+            }
             Location::Tasks | Location::Contacts | Location::Files => {
+                if matches!(location, Location::Tasks) {
+                    app.global::<TasksUi>().set_detail_expanded(false);
+                }
                 app.set_active_view(location.workspace().into());
             }
         }

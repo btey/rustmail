@@ -377,6 +377,8 @@ export global TabsUi {
     // Open a conversation from the current list in a new tab; the flag
     // activates the tab, otherwise it opens in the background.
     callback open-conversation(int, bool);
+    // Open a task as a page in a new tab (task id, title).
+    callback open-task(int, string);
     // Keyboard commands: "new", "close", "next", "previous", "last", or a
     // zero-based index.
     callback command(string);

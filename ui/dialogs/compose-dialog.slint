@@ -7,6 +7,8 @@ import { WindowChrome } from "../window-chrome.slint";
 // discard confirmation.
 export component ComposeDialog inherits Rectangle {
     in property <bool> compact: false;
+    // The composer of a task mail sits in the right column of the task page.
+    in property <bool> docked: false;
     in property <bool> attachment-picker-supported: true;
     in property <color> accent;
     in property <color> accent-soft;
@@ -84,21 +86,21 @@ export component ComposeDialog inherits Rectangle {
     }
 
     visible: root.compose_open;
-    background: root.compact ? root.surface : #00000066;
+    background: root.compact ? root.surface : root.docked ? transparent : #00000066;
     z: 9000;
 
     // Keep the workspace visible for context, but make the composer modal so
     // clicks and keyboard focus cannot leak into the message list behind it.
-    if !root.compact : TouchArea { }
+    if !root.compact && !root.docked : TouchArea { }
 
     // The desktop panel stays below integrated window controls.
     private property <length> controls-inset: WindowChrome.controls-visible ? WindowChrome.band-height : 0px;
 
     composer := EmailComposer {
-        x: root.compact ? 0px : (parent.width - self.width) / 2;
-        y: root.compact ? 0px : root.controls-inset + (parent.height - root.controls-inset - self.height) / 2;
-        width: root.compact ? parent.width : min(820px, parent.width - 64px);
-        height: root.compact ? parent.height : min(700px, parent.height - root.controls-inset - 64px);
+        x: root.compact ? 0px : root.docked ? parent.width - self.width - 16px : (parent.width - self.width) / 2;
+        y: root.compact ? 0px : root.docked ? root.controls-inset + 8px : root.controls-inset + (parent.height - root.controls-inset - self.height) / 2;
+        width: root.compact ? parent.width : root.docked ? min(460px, parent.width - 96px) : min(820px, parent.width - 64px);
+        height: root.compact ? parent.height : root.docked ? parent.height - root.controls-inset - 16px : min(700px, parent.height - root.controls-inset - 64px);
         compact: root.compact;
         attachment-picker-supported: root.attachment-picker-supported;
         open: root.compose_open;
