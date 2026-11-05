@@ -1866,6 +1866,10 @@ pub struct Settings {
     /// Columns a new project starts with: "full" or "simple" (empty = full).
     #[serde(default)]
     pub task_project_columns: String,
+    /// Key that opens "New task from email" with Ctrl+Shift: "" = K, "t", or
+    /// "off".
+    #[serde(default)]
+    pub task_shortcut: String,
     #[serde(default)]
     pub load_remote_images: bool,
     /// Mark unread conversations as read when the user opens them.
@@ -2206,6 +2210,7 @@ impl Default for Settings {
             task_default_context: String::new(),
             task_default_status: String::new(),
             task_project_columns: String::new(),
+            task_shortcut: String::new(),
             load_remote_images: false,
             mark_read_on_open: true,
             ai_base_url: default_ai_base_url(),

@@ -551,6 +551,11 @@ export component SettingsDialog inherits Rectangle {
         @tr("Waiting for"),
         @tr("Scheduled"),
     ];
+    private property <[string]> task-shortcut-options: [
+        @tr("Ctrl+Shift+K"),
+        @tr("Ctrl+Shift+T"),
+        @tr("Off"),
+    ];
     private property <[string]> task-columns-options: [
         @tr("All columns"),
         @tr("Simple (no Scheduled or Someday)"),
@@ -1184,6 +1189,17 @@ export component SettingsDialog inherits Rectangle {
                                         title-color: root.body-text;
                                         description-color: root.faint-text;
                                         selected(index, value) => { TaskSettingsUi.save-context(index); }
+                                    }
+                                    Rectangle { height: 1px; background: root.border-subtle; }
+                                    SettingsSelectRow {
+                                        compact: root.compact;
+                                        title: @tr("Shortcut for a new task from email");
+                                        description: @tr("Opens “New task from email” for the open conversation in Mail.");
+                                        choices: root.task-shortcut-options;
+                                        selected-index: TaskSettingsUi.shortcut-index;
+                                        title-color: root.body-text;
+                                        description-color: root.faint-text;
+                                        selected(index, value) => { TaskSettingsUi.save-shortcut(index); }
                                     }
                                     Rectangle { height: 1px; background: root.border-subtle; }
                                     SettingsSelectRow {
@@ -2238,6 +2254,7 @@ export component SettingsDialog inherits Rectangle {
                                 ShortcutRow { title: @tr("Search mail"); shortcut: @tr("/"); title-color: root.body-text; shortcut-color: root.accent; key-background: root.accent-soft; key-border: root.border-subtle; }
                                 ShortcutRow { title: @tr("Archive selected message"); shortcut: @tr("E"); title-color: root.body-text; shortcut-color: root.accent; key-background: root.accent-soft; key-border: root.border-subtle; }
                                 ShortcutRow { title: @tr("Mark as spam"); shortcut: @tr("!"); title-color: root.body-text; shortcut-color: root.accent; key-background: root.accent-soft; key-border: root.border-subtle; }
+                                ShortcutRow { title: @tr("New task from email"); shortcut: TaskSettingsUi.shortcut-index == 0 ? @tr("Ctrl+Shift+K") : TaskSettingsUi.shortcut-index == 1 ? @tr("Ctrl+Shift+T") : @tr("Off"); title-color: root.body-text; shortcut-color: root.accent; key-background: root.accent-soft; key-border: root.border-subtle; }
                                 ShortcutRow { title: @tr("Move to trash"); shortcut: @tr("#"); title-color: root.body-text; shortcut-color: root.accent; key-background: root.accent-soft; key-border: root.border-subtle; }
                             } }
                         }

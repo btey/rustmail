@@ -1805,7 +1805,43 @@ pub(crate) fn register(
                 .map(|e| e.title.to_string())
                 .unwrap_or_default()
         };
-        if kind == "project" {
+        if kind == "calendar" {
+            dialog.set_calendar_name(name_of(dialog.get_calendar_menu()).into());
+            dialog.set_calendar_id(id);
+        } else if kind == "due" {
+            let today = Local::now().date_naive();
+            let day = |days: i64| (today + chrono::Duration::days(days)).format("%Y-%m-%d").to_string();
+            match id.as_str() {
+                "today" => dialog.set_due(day(0).into()),
+                "tomorrow" => dialog.set_due(day(1).into()),
+                "week" => dialog.set_due(day(7).into()),
+                "block-today" => {
+                    let due = dialog.get_due();
+                    dialog.set_block_date(if due.is_empty() { day(0) } else { due.to_string() }.into());
+                }
+                _ => dialog.set_due("".into()),
+            }
+        } else if kind == "label" {
+            // Toggle: the menu shows a check on the chosen labels.
+            let rows: Vec<crate::ActionMenuEntry> = (0..dialog.get_label_menu().row_count())
+                .filter_map(|i| dialog.get_label_menu().row_data(i))
+                .map(|mut e| {
+                    if e.id == id {
+                        e.title = match e.title.strip_prefix("✓ ") {
+                            Some(rest) => rest.into(),
+                            None => format!("✓ {}", e.title).into(),
+                        };
+                    }
+                    e
+                })
+                .collect();
+            let names: Vec<String> = rows
+                .iter()
+                .filter_map(|e| e.title.strip_prefix("✓ ").map(str::to_owned))
+                .collect();
+            dialog.set_label_names(names.join(", ").into());
+            dialog.set_label_menu(ModelRc::new(VecModel::from(rows)));
+        } else if kind == "project" {
             dialog.set_project_name(name_of(dialog.get_project_menu()).into());
             dialog.set_project_id(id);
         } else {
@@ -2025,10 +2061,38 @@ pub(crate) fn apply_task_defaults(app: &AppWindow, settings: &rustmail_core::mod
             .unwrap_or(0) as i32,
     );
     ui.set_columns_index(i32::from(settings.task_project_columns == "simple"));
+    set_shortcut_index(
+        app,
+        match settings.task_shortcut.as_str() {
+            "t" => 1,
+            "off" => 2,
+            _ => 0,
+        },
+    );
     let tasks = app.global::<TasksUi>();
     tasks.set_show_completed(!settings.task_hide_completed);
     tasks.set_compact_cards(settings.task_compact_cards);
     set_choice_indexes(&ui);
+}
+
+/// The key of "New task from email" (Ctrl+Shift+K, Ctrl+Shift+T or off).
+pub(crate) fn set_shortcut_index(app: &AppWindow, index: i32) {
+    let ui = app.global::<TaskSettingsUi>();
+    let key = match index {
+        1 => "t",
+        2 => "",
+        _ => "k",
+    };
+    ui.set_shortcut_index(index.clamp(0, 2));
+    ui.set_shortcut_key(key.into());
+    ui.set_shortcut_key_upper(key.to_uppercase().into());
+    ui.set_shortcut_key_control(
+        key.bytes()
+            .next()
+            .map(|b| char::from(b - b'a' + 1).to_string())
+            .unwrap_or_default()
+            .into(),
+    );
 }
 
 /// Point the two select rows at the stored names; a name that no longer
@@ -2196,12 +2260,16 @@ fn open_from_mail(ctx: &Rc<Ctx>, row_id: i32) {
             core.tasks_open().await?;
             let projects = core.task_projects().await?;
             let contexts = core.task_contexts().await?;
-            Ok::<_, rustmail_core::error::CoreError>((projects, contexts))
+            let labels = core.task_labels().await?;
+            // A calendar that can take a new event; failing to list them only
+            // leaves the local calendar.
+            let calendars = core.list_calendars(None).await.unwrap_or_default();
+            Ok::<_, rustmail_core::error::CoreError>((projects, contexts, labels, calendars))
         }
         .await;
         let _ = weak.upgrade_in_event_loop(move |app| {
             let dialog = app.global::<TaskFromMail>();
-            let (projects, contexts) = match loaded {
+            let (projects, contexts, labels, calendars) = match loaded {
                 Ok(found) => found,
                 Err(error) => {
                     app.global::<TasksUi>().set_status(error.to_string().into());
@@ -2256,7 +2324,29 @@ fn open_from_mail(ctx: &Rc<Ctx>, row_id: i32) {
                     .unwrap_or("inbox")
                     .into(),
             );
+            let mut calendar_entries = vec![entry("local".into(), "Local calendar".into())];
+            calendar_entries.extend(calendars.iter().filter(|c| c.enabled && !c.read_only).map(|c| {
+                entry(
+                    format!("{}:{}", c.account_id, c.id),
+                    c.display_name.clone().unwrap_or_else(|| c.url.clone()),
+                )
+            }));
+            dialog.set_calendar_id("local".into());
+            dialog.set_calendar_name("Local calendar".into());
+            dialog.set_calendar_menu(ModelRc::new(VecModel::from(calendar_entries)));
+            dialog.set_label_names("".into());
+            dialog.set_label_menu(ModelRc::new(VecModel::from(
+                labels
+                    .iter()
+                    .map(|l| entry(l.id.to_string(), l.name.clone()))
+                    .collect::<Vec<_>>(),
+            )));
             dialog.set_due("".into());
+            dialog.set_link_mail(true);
+            dialog.set_block(false);
+            dialog.set_block_date("".into());
+            dialog.set_block_start("15:00".into());
+            dialog.set_block_end("16:00".into());
             dialog.set_archive(app.global::<TaskSettingsUi>().get_archive());
             dialog.set_error("".into());
             dialog.set_busy(false);
@@ -2283,11 +2373,16 @@ fn undo_create(ctx: &Rc<Ctx>) {
     if task_id < 0 {
         return;
     }
+    let event_id = i64::from(linked.get_undo_event_id());
     linked.set_undo_task_id(-1);
+    linked.set_undo_event_id(-1);
     let weak = ctx.weak.clone();
     ctx.handle.spawn(async move {
         let result = async {
             core.task_delete(task_id).await?;
+            if event_id >= 0 {
+                core.delete_event(event_id, false).await?;
+            }
             if archived {
                 core.perform_action(PerformActionArgs {
                     kind: ActionKind::Unarchive,
@@ -2425,6 +2520,27 @@ fn create_from_mail(ctx: &Rc<Ctx>) {
             return;
         }
     };
+    let block = if dialog.get_block() {
+        match parse_block(
+            dialog.get_block_date().as_str(),
+            dialog.get_block_start().as_str(),
+            dialog.get_block_end().as_str(),
+        ) {
+            Ok(range) => Some(range),
+            Err(message) => {
+                dialog.set_error(message.into());
+                return;
+            }
+        }
+    } else {
+        None
+    };
+    let link_mail = dialog.get_link_mail();
+    let (calendar_account, calendar_id) = dialog
+        .get_calendar_id()
+        .split_once(':')
+        .and_then(|(a, c)| Some((a.parse::<i64>().ok()?, Some(c.parse::<i64>().ok()?))))
+        .unwrap_or((0, None));
     let thread_id = i64::from(dialog.get_thread_id());
     let status = column_kind(dialog.get_status().as_str());
     let draft = TaskDraft {
@@ -2433,7 +2549,11 @@ fn create_from_mail(ctx: &Rc<Ctx>) {
         status,
         due_at: due,
         context_id: dialog.get_context_id().parse().ok(),
-        label_ids: Vec::new(),
+        label_ids: (0..dialog.get_label_menu().row_count())
+            .filter_map(|i| dialog.get_label_menu().row_data(i))
+            .filter(|e| e.title.starts_with("✓ "))
+            .filter_map(|e| e.id.parse().ok())
+            .collect(),
     };
     let archive = dialog.get_archive();
     dialog.set_error("".into());
@@ -2441,7 +2561,49 @@ fn create_from_mail(ctx: &Rc<Ctx>) {
     let weak = ctx.weak.clone();
     ctx.handle.spawn(async move {
         let result = async {
-            let task = core.task_create_from_thread(thread_id, draft).await?;
+            let task = if link_mail {
+                core.task_create_from_thread(thread_id, draft).await?
+            } else {
+                let project_id = match draft.project_id {
+                    Some(id) => id,
+                    None => core
+                        .task_projects()
+                        .await?
+                        .first()
+                        .map(|p| p.id)
+                        .ok_or_else(|| rustmail_core::error::CoreError::Other("no project".into()))?,
+                };
+                let columns = core.task_columns(project_id).await?;
+                let column_id = columns.iter().find(|c| c.kind == draft.status).map(|c| c.id);
+                core.task_create(NewTask {
+                    project_id,
+                    column_id,
+                    title: draft.title.clone().unwrap_or_default(),
+                    due_at: draft.due_at,
+                    context_id: draft.context_id,
+                    label_ids: draft.label_ids.clone(),
+                    ..Default::default()
+                })
+                .await?
+            };
+            // The task exists whatever happens to the event: a failure is
+            // reported afterwards, not as a reason to press Create again.
+            let mut warning = None;
+            let event_id = match block {
+                Some((start, end)) => match core
+                    .task_block_time(task.id, calendar_account, calendar_id, start, end)
+                    .await
+                {
+                    Ok(id) => Some(id),
+                    Err(error) => {
+                        warning = Some(format!(
+                            "The task was created, but the calendar event was not: {error}"
+                        ));
+                        None
+                    }
+                },
+                None => None,
+            };
             if archive {
                 core.perform_action(PerformActionArgs {
                     kind: ActionKind::Archive,
@@ -2450,20 +2612,24 @@ fn create_from_mail(ctx: &Rc<Ctx>) {
                 })
                 .await?;
             }
-            Ok::<_, rustmail_core::error::CoreError>(task.id)
+            Ok::<_, rustmail_core::error::CoreError>((task.id, event_id, warning))
         }
         .await;
         let _ = weak.upgrade_in_event_loop(move |app| {
             let dialog = app.global::<TaskFromMail>();
             dialog.set_busy(false);
             match result {
-                Ok(task_id) => {
+                Ok((task_id, event_id, warning)) => {
+                    if let Some(message) = warning {
+                        app.global::<TasksUi>().set_status(message.into());
+                    }
                     dialog.set_open(false);
                     // Offer Undo on the banner of this conversation.
                     let linked = app.global::<LinkedTask>();
                     linked.set_undo_task_id(task_id as i32);
                     linked.set_undo_thread_id(thread_id as i32);
                     linked.set_undo_archived(archive);
+                    linked.set_undo_event_id(event_id.map_or(-1, |id| id as i32));
                 }
                 Err(error) => dialog.set_error(error.to_string().into()),
             }
@@ -2696,6 +2862,27 @@ fn parse_due(text: &str) -> Result<Option<i64>, String> {
         .latest()
         .map(|t| Some(t.timestamp_millis()))
         .ok_or_else(|| "Due date does not exist in this time zone".to_owned())
+}
+
+/// The start and end (ms) of "Block time in Calendar" from the dialog's date
+/// (`YYYY-MM-DD`) and times (`HH:MM`), in local time.
+fn parse_block(date: &str, start: &str, end: &str) -> Result<(i64, i64), String> {
+    let day = chrono::NaiveDate::parse_from_str(date.trim(), "%Y-%m-%d")
+        .map_err(|_| "Event date must look like 2026-12-31".to_owned())?;
+    let at = |text: &str| -> Result<i64, String> {
+        let time = chrono::NaiveTime::parse_from_str(text.trim(), "%H:%M")
+            .map_err(|_| "Event times must look like 15:00".to_owned())?;
+        Local
+            .from_local_datetime(&day.and_time(time))
+            .earliest()
+            .map(|t| t.timestamp_millis())
+            .ok_or_else(|| "That time does not exist in this time zone".to_owned())
+    };
+    let (start, end) = (at(start)?, at(end)?);
+    if end <= start {
+        return Err("The event must end after it starts".to_owned());
+    }
+    Ok((start, end))
 }
 
 /// Parse an ISO date into the start of that local day, the first moment of

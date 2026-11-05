@@ -18,6 +18,8 @@ export global LinkedTask {
     in-out property <int> undo-task-id: -1;
     in-out property <int> undo-thread-id: -1;
     in-out property <bool> undo-archived: false;
+    // Calendar event the dialog booked for the task; -1 when none.
+    in-out property <int> undo-event-id: -1;
     callback open();
     callback undo();
 }

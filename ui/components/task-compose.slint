@@ -17,6 +17,13 @@ export global TaskSettingsUi {
     in-out property <int> status-index: 0;
     // Columns a new project starts with: 0 all six, 1 simple (four).
     in-out property <int> columns-index: 0;
+    // Ctrl+Shift+<key> opens "New task from email"; empty = off. 0 K, 1 T, 2 off.
+    in-out property <int> shortcut-index: 0;
+    in-out property <string> shortcut-key: "k";
+    in-out property <string> shortcut-key-upper: "K";
+    // Some platforms send Ctrl+letter as the control character (K = U+000B).
+    in-out property <string> shortcut-key-control;
+    callback save-shortcut(int);
     callback save-columns(int);
     callback save-follow-up(int);
     callback save-archive(bool);

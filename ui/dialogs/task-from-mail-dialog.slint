@@ -21,6 +21,20 @@ export global TaskFromMail {
     in-out property <string> context-id: "none";
     in-out property <string> context-name;
     in-out property <[ActionMenuEntry]> context-menu;
+    // Labels to put on the task; entries toggle on pick and show a check.
+    in-out property <[ActionMenuEntry]> label-menu;
+    in-out property <string> label-names;
+    // False once the link chip is removed: the task is made without a link.
+    in-out property <bool> link-mail: true;
+    // "Block time in Calendar": date as YYYY-MM-DD and times as HH:MM.
+    in-out property <bool> block: false;
+    in-out property <string> block-date;
+    in-out property <string> block-start: "15:00";
+    in-out property <string> block-end: "16:00";
+    // Where the event goes: "local" or "<account id>:<calendar id>".
+    in-out property <string> calendar-id: "local";
+    in-out property <string> calendar-name;
+    in-out property <[ActionMenuEntry]> calendar-menu;
     in-out property <bool> archive: false;
     in-out property <string> error;
     in-out property <bool> busy: false;
@@ -101,17 +115,31 @@ export component TaskFromMailDialog inherits Rectangle {
                 input-label: @tr("Task title");
                 accepted(text) => { TaskFromMail.create(); }
             }
-            Text {
-                text: TaskFromMail.mail-label;
-                color: AppTheme.body;
-                font-size: TypeScale.secondary;
-                overflow: elide;
-            }
-            Text {
-                text: @tr("Linked to the whole thread. Later replies show on the task.");
-                color: AppTheme.muted;
-                font-size: TypeScale.micro;
-                wrap: word-wrap;
+            HorizontalLayout {
+                spacing: 8px;
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 2px;
+                    Text {
+                        text: TaskFromMail.link-mail ? TaskFromMail.mail-label : @tr("Not linked to the email");
+                        color: TaskFromMail.link-mail ? AppTheme.body : AppTheme.muted;
+                        font-size: TypeScale.secondary;
+                        overflow: elide;
+                    }
+                    if TaskFromMail.link-mail : Text {
+                        text: @tr("Linked to the whole thread. Later replies show on the task.");
+                        color: AppTheme.muted;
+                        font-size: TypeScale.micro;
+                        wrap: word-wrap;
+                    }
+                }
+                Button {
+                    y: 0px;
+                    height: 30px;
+                    text: TaskFromMail.link-mail ? @tr("Remove link") : @tr("Link email");
+                    width: max(100px, self.content-width + 28px);
+                    clicked => { TaskFromMail.link-mail = !TaskFromMail.link-mail; }
+                }
             }
             PickerRow {
                 label: @tr("Add to");
@@ -146,6 +174,20 @@ export component TaskFromMailDialog inherits Rectangle {
                     input-label: @tr("Due date");
                     accepted(text) => { TaskFromMail.create(); }
                 }
+                ActionMenu {
+                    width: 32px;
+                    height: 32px;
+                    icon: @image-url("../icons/lucide/outline/calendar.svg");
+                    entries: [
+                        { id: "today", title: @tr("Today") },
+                        { id: "tomorrow", title: @tr("Tomorrow") },
+                        { id: "week", title: @tr("In a week") },
+                        { id: "none", title: @tr("No date") },
+                    ];
+                    menu-width: 200px;
+                    tooltip-text: @tr("Quick date");
+                    activated(id) => { TaskFromMail.pick("due", id); }
+                }
             }
             PickerRow {
                 label: @tr("Project");
@@ -160,6 +202,54 @@ export component TaskFromMailDialog inherits Rectangle {
                 entries: TaskFromMail.context-menu;
                 tooltip: @tr("Set context");
                 picked(id) => { TaskFromMail.pick("context", id); }
+            }
+            PickerRow {
+                label: @tr("Labels");
+                value: TaskFromMail.label-names == "" ? @tr("No labels") : TaskFromMail.label-names;
+                entries: TaskFromMail.label-menu;
+                tooltip: @tr("Choose labels");
+                picked(id) => { TaskFromMail.pick("label", id); }
+            }
+            Button {
+                text: @tr("Block time in Calendar");
+                selected: TaskFromMail.block;
+                label-overflow: elide;
+                clicked => {
+                    TaskFromMail.block = !TaskFromMail.block;
+                    if TaskFromMail.block && TaskFromMail.block-date == "" { TaskFromMail.pick("due", "block-today"); }
+                }
+            }
+            if TaskFromMail.block : HorizontalLayout {
+                height: 34px;
+                spacing: 8px;
+                LineEdit {
+                    horizontal-stretch: 2;
+                    text <=> TaskFromMail.block-date;
+                    placeholder-text: @tr("YYYY-MM-DD");
+                    input-label: @tr("Event date");
+                    accepted(text) => { TaskFromMail.create(); }
+                }
+                LineEdit {
+                    horizontal-stretch: 1;
+                    text <=> TaskFromMail.block-start;
+                    placeholder-text: @tr("HH:MM");
+                    input-label: @tr("Event start");
+                    accepted(text) => { TaskFromMail.create(); }
+                }
+                LineEdit {
+                    horizontal-stretch: 1;
+                    text <=> TaskFromMail.block-end;
+                    placeholder-text: @tr("HH:MM");
+                    input-label: @tr("Event end");
+                    accepted(text) => { TaskFromMail.create(); }
+                }
+            }
+            if TaskFromMail.block : PickerRow {
+                label: @tr("Calendar");
+                value: TaskFromMail.calendar-name;
+                entries: TaskFromMail.calendar-menu;
+                tooltip: @tr("Choose a calendar");
+                picked(id) => { TaskFromMail.pick("calendar", id); }
             }
             Button {
                 text: @tr("Archive email once the task exists");
@@ -176,7 +266,14 @@ export component TaskFromMailDialog inherits Rectangle {
             HorizontalLayout {
                 height: 34px;
                 spacing: 8px;
-                Rectangle { horizontal-stretch: 1; }
+                Text {
+                    horizontal-stretch: 1;
+                    text: @tr("Enter to create · Esc to cancel");
+                    color: AppTheme.muted;
+                    font-size: TypeScale.micro;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
                 Button {
                     text: @tr("Cancel");
                     width: max(90px, self.content-width + 28px);

@@ -834,39 +834,86 @@ export component MailListPane inherits Rectangle {
                                             vertical-alignment: center;
                                         }
                                     }
-                                    HorizontalBox {
+                                    HorizontalLayout {
                                         x: root.dense ? subject-label.x + subject-label.width + 12px : 0px;
                                         y: root.dense ? 0px : root.sender-line + root.subject-line + 10px;
                                         width: root.dense ? max(0px, message-content.dense-account-x - self.x - 12px) : max(0px, parent.width - 98px);
                                         height: root.dense ? 44px : root.detail-line;
+                                        spacing: 0px;
                                         padding: 0px;
-                                        spacing: 4px;
-                                        cross-axis-alignment: center;
 
-                                        for label[index] in mail-data.labels : MailListLabelChip {
-                                            visible: index < (root.dense ? 1 : 2);
-                                            name: label.name;
-                                            name-has-emoji: label.name_has_emoji;
-                                            label-color: label.color;
-                                            text-color: root.heading;
-                                            compact: root.dense;
+                                        // The task's status as a pill before the labels and the
+                                        // preview; rows without a task get a zero-width slot.
+                                        HorizontalLayout {
+                                            spacing: 0px;
+                                            padding: 0px;
+                                            for chip in TaskChips.rows : Rectangle {
+                                                property <bool> mine: chip.id == mail-data.id;
+                                                width: self.mine ? min(110px, pill-text.preferred-width + 30px) : 0px;
+                                                clip: true;
+                                                Rectangle {
+                                                    visible: parent.mine;
+                                                    x: 0px;
+                                                    y: (parent.height - self.height) / 2;
+                                                    width: parent.width - 4px;
+                                                    height: root.dense ? 24px : parent.height;
+                                                    border-radius: 4px;
+                                                    background: chip.waiting-on-reply ? #d9770622 : #f59e0b22;
+                                                    accessible-role: none;
+                                                    Image {
+                                                        x: 5px;
+                                                        y: (parent.height - self.height) / 2;
+                                                        width: 10px;
+                                                        height: 10px;
+                                                        source: @image-url("../icons/lucide/outline/tasks.svg");
+                                                        colorize: chip.waiting-on-reply ? #d97706 : #f59e0b;
+                                                        image-fit: contain;
+                                                        accessible-role: none;
+                                                    }
+                                                    pill-text := Text {
+                                                        x: 18px;
+                                                        width: parent.width - 22px;
+                                                        height: parent.height;
+                                                        text: chip.status;
+                                                        color: chip.waiting-on-reply ? #d97706 : #f59e0b;
+                                                        font-size: TypeScale.caption;
+                                                        font-weight: 700;
+                                                        overflow: elide;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                            }
                                         }
-                                        if mail-data.labels.length > (root.dense ? 1 : 2) : Text {
-                                            min-width: 22px;
-                                            preferred-width: 22px;
-                                            max-width: 22px;
-                                            text: "+" + (mail-data.labels.length - (root.dense ? 1 : 2));
-                                            color: root.secondary-text;
-                                            font-size: TypeScale.caption;
-                                            vertical-alignment: center;
-                                        }
-                                        Text {
-                                            horizontal-stretch: 1;
-                                            text: mail-data.preview;
-                                            color: root.faint-text;
-                                            font-size: TypeScale.secondary;
-                                            overflow: elide;
-                                            vertical-alignment: center;
+                                        HorizontalBox {
+                                            padding: 0px;
+                                            spacing: 4px;
+                                            cross-axis-alignment: center;
+
+                                            for label[index] in mail-data.labels : MailListLabelChip {
+                                                visible: index < (root.dense ? 1 : 2);
+                                                name: label.name;
+                                                name-has-emoji: label.name_has_emoji;
+                                                label-color: label.color;
+                                                text-color: root.heading;
+                                                compact: root.dense;
+                                            }
+                                            if mail-data.labels.length > (root.dense ? 1 : 2) : Text {
+                                                min-width: 22px;
+                                                preferred-width: 22px;
+                                                max-width: 22px;
+                                                text: "+" + (mail-data.labels.length - (root.dense ? 1 : 2));
+                                                color: root.secondary-text;
+                                                font-size: TypeScale.caption;
+                                                vertical-alignment: center;
+                                            }
+                                            Text {
+                                                horizontal-stretch: 1;
+                                                text: mail-data.preview;
+                                                color: root.faint-text;
+                                                font-size: TypeScale.secondary;
+                                                overflow: elide;
+                                                vertical-alignment: center;
+                                            }
                                         }
                                     }
                                 }

@@ -192,6 +192,27 @@ pub(super) fn register_settings_preference_callbacks(
     }
 
     let app_weak = app.as_weak();
+    let state_for_shortcut = Rc::clone(state);
+    let runtime_for_shortcut = Rc::clone(runtime);
+    app.global::<TaskSettingsUi>().on_save_shortcut(move |index| {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        crate::tasks_controller::set_shortcut_index(&app, index);
+        let Some(core) = state_for_shortcut.borrow().core.clone() else {
+            return;
+        };
+        let stored = ["", "t", "off"][usize::try_from(index.clamp(0, 2)).unwrap_or(0)];
+        match runtime_for_shortcut.block_on(core.set_task_shortcut(stored.to_owned())) {
+            Ok(()) => app.set_sync_status(UiMessage::plain("Task settings saved.")),
+            Err(error) => app.set_sync_status(UiMessage::detail(
+                "Could not save the task settings: {}",
+                error,
+            )),
+        }
+    });
+
+    let app_weak = app.as_weak();
     let state_for_undo = Rc::clone(state);
     let runtime_for_undo = Rc::clone(runtime);
     app.global::<SendUndoUi>().on_save_seconds(move |seconds| {

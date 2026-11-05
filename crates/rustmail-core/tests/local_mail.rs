@@ -815,8 +815,28 @@ async fn a_task_made_from_local_mail_archives_the_mail_and_undo_restores_both() 
         rustmail_core::tasks::LinkTarget::Mail { .. }
     ));
 
-    // Undo: the task goes and the mail returns to the inbox.
+    // "Block time in Calendar": a local event linked to the task; a reversed
+    // range is refused.
+    let start = rustmail_core::models::now_ms() + 3_600_000;
+    assert!(
+        core.task_block_time(task.id, 0, None, start, start)
+            .await
+            .is_err()
+    );
+    let event_id = core
+        .task_block_time(task.id, 0, None, start, start + 3_600_000)
+        .await
+        .unwrap();
+    let links = core.task_links(task.id).await.unwrap();
+    assert!(
+        links
+            .iter()
+            .any(|l| matches!(l.target, rustmail_core::tasks::LinkTarget::Event))
+    );
+
+    // Undo: the task and its event go and the mail returns to the inbox.
     core.task_delete(task.id).await.unwrap();
+    core.delete_event(event_id, false).await.unwrap();
     core.perform_action(PerformActionArgs {
         kind: ActionKind::Unarchive,
         thread_ids: vec![target.thread_id],

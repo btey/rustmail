@@ -67,6 +67,7 @@ mod tests {
         s.task_default_context = "phone".into();
         s.task_default_status = "waiting".into();
         s.task_project_columns = "simple".into();
+        s.task_shortcut = "t".into();
         s.notifications_enabled = false;
         s.monochrome_sidebar_icons = true;
         s.task_hide_completed = true;
@@ -123,6 +124,7 @@ mod tests {
         assert_eq!(back.task_default_context, "phone");
         assert_eq!(back.task_default_status, "waiting");
         assert_eq!(back.task_project_columns, "simple");
+        assert_eq!(back.task_shortcut, "t");
         assert!(!back.notifications_enabled);
         assert!(back.monochrome_sidebar_icons);
         assert!(back.task_hide_completed && back.task_compact_cards);

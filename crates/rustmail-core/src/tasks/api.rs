@@ -356,16 +356,69 @@ impl Core {
         let starts_at = task
             .follow_up_at
             .ok_or_else(|| CoreError::Other("this task has no follow-up time".into()))?;
+        self.task_book_event(
+            task_id,
+            account_id,
+            calendar_id,
+            format!("Follow up: {}", task.title),
+            starts_at,
+            starts_at + 30 * 60 * 1000,
+        )
+        .await?;
+        self.task_get(task_id).await
+    }
+
+    /// "Block time in Calendar" of the mail-to-task dialog: an event titled
+    /// like the task between `starts_at` and `ends_at` (ms), linked to it.
+    /// `account_id` 0 keeps the event local. Returns the calendar event id so
+    /// the caller can remove it again (undo).
+    pub async fn task_block_time(
+        &self,
+        task_id: i64,
+        account_id: i64,
+        calendar_id: Option<i64>,
+        starts_at: i64,
+        ends_at: i64,
+    ) -> Result<i64> {
+        if ends_at <= starts_at {
+            return Err(CoreError::Other(
+                "the event must end after it starts".into(),
+            ));
+        }
+        let task = self
+            .db
+            .read(move |conn| SqliteTaskStore::new(conn).get_task(task_id))
+            .await?;
+        self.task_book_event(
+            task_id,
+            account_id,
+            calendar_id,
+            task.title,
+            starts_at,
+            ends_at,
+        )
+        .await
+    }
+
+    async fn task_book_event(
+        &self,
+        task_id: i64,
+        account_id: i64,
+        calendar_id: Option<i64>,
+        summary: String,
+        starts_at: i64,
+        ends_at: i64,
+    ) -> Result<i64> {
         let event = self
             .create_event(crate::models::CreateEventArgs {
                 account_id,
                 calendar_id,
-                summary: format!("Follow up: {}", task.title),
+                summary,
                 description: None,
                 location: None,
                 join_url: None,
                 starts_at,
-                ends_at: starts_at + 30 * 60 * 1000,
+                ends_at,
                 all_day: false,
                 attendees: Vec::new(),
             })
@@ -393,7 +446,7 @@ impl Core {
             },
         )
         .await?;
-        self.task_get(task_id).await
+        Ok(event_id)
     }
 
     /// Create a task from a calendar event ("Create task from event"): titled

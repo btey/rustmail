@@ -818,6 +818,18 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    pub async fn set_task_shortcut(&self, shortcut: String) -> Result<(), String> {
+        let mut settings = self.load_settings().await?;
+        settings.task_shortcut = match shortcut.as_str() {
+            "t" | "off" => shortcut,
+            _ => String::new(),
+        };
+        self.core
+            .set_settings(settings)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn set_task_defaults(
         &self,
         project: String,

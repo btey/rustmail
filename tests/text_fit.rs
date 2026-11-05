@@ -1037,6 +1037,24 @@ fn states() -> Vec<State> {
                 dialog.set_open(true);
             })
         },
+        State {
+            dismiss: Some("Cancel"),
+            ..state("task from mail dialog with event", |app| {
+                let dialog = app.global::<TaskFromMail>();
+                dialog.set_mail_label(
+                    "Alex Johnson-Whitfield · Re: Quarterly planning review and budget notes"
+                        .into(),
+                );
+                dialog.set_title("Re: Quarterly planning notes".into());
+                dialog.set_project_name("Annual compliance review project".into());
+                dialog.set_label_names("Security, Release, Compliance, Infrastructure".into());
+                dialog.set_block(true);
+                dialog.set_block_date("2026-12-31".into());
+                dialog.set_calendar_name("Shared team calendar of the whole company".into());
+                dialog.set_link_mail(false);
+                dialog.set_open(true);
+            })
+        },
         state("task sent card", |app| {
             let compose = app.global::<TaskComposeUi>();
             compose.set_sent_moved(1);
