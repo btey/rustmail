@@ -26,13 +26,14 @@ use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::window::WindowInner;
 use rustmail::{
-    AccountRow, ActivityRow, AppTheme, AppWindow, CalendarAgendaRow, CalendarDay, CalendarEventRow,
-    CalendarSourceRow, CalendarWeekDay, ContactAccountRow, ContactRow, ContactSidebarRow,
-    ContactSidebarRowKind, EmailRow, LinkRow, LinkedTask, LocalizedMessage, MailAttachment,
-    MailAttachments, MailLabelRow, MailListEntry, MailProfileRow, MailboxRow, MotionSettings,
-    SendUndoUi, SidebarRow, SidebarRowKind, StorageUsageRow, TaskCardRow, TaskChipEntry,
-    TaskChipRow, TaskChips, TaskColumnRow, TaskComposeUi, TaskDetailRow, TaskFromMail, TaskNavRow,
-    TaskReplyUi, TasksUi, ThreadMessageRow, TimelineBarRow, TimelineDayRow, TimelineEdgeRow,
+    AccountRow, ActionMenuEntry, ActivityRow, AppTheme, AppWindow, CalendarAgendaRow, CalendarDay,
+    CalendarEventRow, CalendarSourceRow, CalendarWeekDay, ContactAccountRow, ContactRow,
+    ContactSidebarRow, ContactSidebarRowKind, EmailRow, LinkRow, LinkedTask, LocalizedMessage,
+    MailAttachment, MailAttachments, MailLabelRow, MailListEntry, MailProfileRow, MailboxRow,
+    MotionSettings, SendUndoUi, SidebarRow, SidebarRowKind, StorageUsageRow, TaskCardRow,
+    TaskChipEntry, TaskChipRow, TaskChips, TaskColumnRow, TaskComposeUi, TaskDetailRow,
+    TaskFromMail, TaskNavRow, TaskReplyUi, TasksUi, ThreadMessageRow, TimelineBarRow,
+    TimelineDayRow, TimelineEdgeRow, TimelineEventRow,
 };
 use slint::platform::{
     Platform, WindowAdapter,
@@ -372,7 +373,7 @@ fn apply_fixture(app: &AppWindow) {
     app.set_mail_labels(model(labels));
     app.set_selected_mail_label_count(1);
     app.set_sync_message(message("Local data ready."));
-    app.set_app_version("0.1.0-alpha.8".into());
+    app.set_app_version("0.1.0-alpha.9".into());
     app.set_storage_loaded(true);
     app.set_storage_total("18.42 GB".into());
     app.set_storage_usage(model(
@@ -607,9 +608,25 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
         },
         title: title.into(),
         due: "2026-12-31".into(),
+        more_assignees: model(vec!["BO".into(), "CY".into(), "DE".into()]),
+        due_kind: if id % 3 == 0 {
+            "tomorrow".into()
+        } else {
+            "".into()
+        },
+        follow_up: if id % 2 == 1 {
+            "2026-12-04".into()
+        } else {
+            "".into()
+        },
         due_warn: id % 2 == 0,
         high_priority: id % 2 == 0,
         labels: "quarterly, finance".into(),
+        label_list: model(vec![
+            "quarterly".into(),
+            "finance".into(),
+            "audit committee".into(),
+        ]),
         checklist_total: 4,
         checklist_done: 1,
         link_count: 2,
@@ -675,6 +692,33 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
         column(3, "Waiting for reply from the finance department", vec![]),
     ]));
     if drawer {
+        tasks.set_detail_labels(model(vec![
+            "quarterly".into(),
+            "finance and audit committee".into(),
+        ]));
+        tasks.set_co_assignees(model(vec![ActionMenuEntry {
+            id: "bo@example.org".into(),
+            title: "Bo Fernandez-Lopez de la Vega <bo.fernandez@example.org>".into(),
+            icon: Default::default(),
+            disabled: false,
+            destructive: false,
+        }]));
+        tasks.set_assignee_suggestions(model(vec![
+            ActionMenuEntry {
+                id: "person:ana".into(),
+                title: "Ana Maria de los Angeles Fernandez <ana.fernandez@example.org>".into(),
+                icon: Default::default(),
+                disabled: false,
+                destructive: false,
+            },
+            ActionMenuEntry {
+                id: "person:bo".into(),
+                title: "bo@example.org".into(),
+                icon: Default::default(),
+                disabled: false,
+                destructive: false,
+            },
+        ]));
         tasks.set_detail(TaskDetailRow {
             id: 1,
             title: "Reply to the auditors about the revised quarterly figures".into(),
@@ -689,12 +733,17 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
             context: "computer".into(),
             assignee: "Ana María Díaz <ana.diaz@example.org>".into(),
             labels: "quarterly, finance".into(),
+            waiting_days: 2,
+            follow_up: "2026-12-04".into(),
+            column_icon: "hourglass".into(),
+            reply_thread: 3,
+            reply_subject: "Quarterly invoice".into(),
         });
         tasks.set_links(model(vec![LinkRow {
             id: 1,
             open: String::new().into(),
             thread_id: -1,
-            kind: "mail_received".into(),
+            kind: "mail_sent".into(),
             text: "Quarterly invoice from the finance department".into(),
             found: true,
             note: "done".into(),
@@ -713,6 +762,7 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
             ]
             .into_iter()
             .map(|(text, at)| ActivityRow {
+                kind: "sent".into(),
                 text: text.into(),
                 at: at.into(),
             })
@@ -1060,6 +1110,7 @@ fn states() -> Vec<State> {
                 |id: i32, title: &str, first: i32, last: i32, milestone: bool| TimelineBarRow {
                     id,
                     title: title.into(),
+                    struck_title: if id % 3 == 0 { title.into() } else { "".into() },
                     start_text: if milestone {
                         "".into()
                     } else {
@@ -1071,6 +1122,15 @@ fn states() -> Vec<State> {
                     milestone,
                     done: id % 3 == 0,
                     overdue: id % 2 == 0,
+                    late_days: if id % 2 == 0 { 12 } else { 0 },
+                    no_reply_days: if id == 3 || id == 5 { 4 } else { -1 },
+                    coloured: id % 2 == 1,
+                    group_colour: slint::Color::from_rgb_u8(0x8b, 0x5c, 0xf6),
+                    progress: id * 25 % 100,
+                    has_mail: id % 2 == 0,
+                    has_sent: id % 3 == 0,
+                    has_event: id % 2 == 1,
+                    group: id == 1,
                 };
             tasks.set_timeline_bars(model(vec![
                 bar(
@@ -1088,6 +1148,21 @@ fn states() -> Vec<State> {
                     30,
                     false,
                 ),
+            ]));
+            tasks.set_timeline_events_hidden(2);
+            tasks.set_timeline_events(model(vec![
+                TimelineEventRow {
+                    label: "09:30 Quarterly design review with the whole department".into(),
+                    first_day: 9,
+                    last_day: 10,
+                    lane: 0,
+                },
+                TimelineEventRow {
+                    label: "Launch".into(),
+                    first_day: 9,
+                    last_day: 9,
+                    lane: 1,
+                },
             ]));
             tasks.set_timeline_edges(model(vec![
                 TimelineEdgeRow {

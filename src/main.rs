@@ -591,6 +591,10 @@ struct InboxState {
     /// Conversation to select once the next replacing page arrives, for a
     /// tab restored without cached rows.
     pending_selection: Option<i32>,
+    /// A reply to start once `pending_selection` has loaded (Reply from task).
+    pending_reply: bool,
+    /// The task the next reply is written for, so its sent mail is linked.
+    pending_reply_task: Option<i64>,
     checked_ids: HashSet<i32>,
     rendered_id: Option<i32>,
     preview_closed: bool,
@@ -1099,6 +1103,8 @@ impl InboxState {
             next_cursor: None,
             selected_id: None,
             pending_selection: None,
+            pending_reply: false,
+            pending_reply_task: None,
             checked_ids: HashSet::new(),
             rendered_id: None,
             preview_closed: false,
@@ -5803,6 +5809,8 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         let Some(app) = app_weak.upgrade() else {
             return;
         };
+        // Set by "Reply from task": the sent reply is linked to that task.
+        let reply_task = state_for_message_compose.borrow_mut().pending_reply_task.take();
         let (core, row, conversation_message_id) = {
             let state = state_for_message_compose.borrow();
             let row = state
@@ -6011,6 +6019,16 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             );
         }
         *intent_for_message_compose.borrow_mut() = prepared.intent;
+        if let Some(task_id) = reply_task {
+            let follow_up = app.global::<TaskSettingsUi>().get_follow_up();
+            intent_for_message_compose.borrow_mut().task =
+                Some(TaskSend::from_choices(task_id, 0, follow_up));
+            let options = app.global::<TaskComposeUi>();
+            options.set_after(0);
+            options.set_follow_up(follow_up);
+            options.set_follow_up_date(TaskSend::follow_up_date_label(follow_up).into());
+            options.set_active(true);
+        }
         app.set_compose_mode(action);
         app.global::<AccountMailPreferences>()
             .invoke_composer_reset();

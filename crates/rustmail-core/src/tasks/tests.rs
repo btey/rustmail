@@ -206,6 +206,30 @@ fn columns_reorder_collapse_and_delete_moves_tasks() {
 }
 
 #[test]
+fn a_task_moves_to_another_projects_inbox() {
+    let (mut c, p) = setup();
+    let t = task(&mut c, p, "x");
+    let done = col(&mut c, p, ColumnKind::Done);
+    let mut s = SqliteTaskStore::new(&mut c);
+    s.move_task(t.id, done.id, None).unwrap();
+    assert!(s.get_task(t.id).unwrap().completed_at.is_some());
+    let other = s.create_project("Other", "#000000").unwrap();
+    s.move_task_to_project(t.id, other.id).unwrap();
+    let moved = s.get_task(t.id).unwrap();
+    assert_eq!(moved.project_id, other.id);
+    assert!(moved.completed_at.is_none());
+    let inbox = s
+        .list_columns(other.id)
+        .unwrap()
+        .into_iter()
+        .find(|c| c.kind == ColumnKind::Inbox)
+        .unwrap();
+    assert_eq!(moved.column_id, inbox.id);
+    assert!(s.move_task_to_project(t.id, other.id).is_err());
+    assert!(s.move_task_to_project(t.id, 9999).is_err());
+}
+
+#[test]
 fn contexts_labels_checklist_and_counts() {
     let (mut c, p) = setup();
     let t = task(&mut c, p, "t");
@@ -308,9 +332,10 @@ fn links_survive_mail_moves_and_missing_mail_is_reported() {
     );
     let found = s.list_links(t.id).unwrap();
     assert!(
-        matches!(&found[0].target, LinkTarget::Mail { thread_id: 1, subject, .. } if subject == "Quarterly invoice")
+        matches!(&found[0].target, LinkTarget::Mail { thread_id: 1, subject, from, date: 1, .. } if subject == "Quarterly invoice" && from == "a@x.dev")
     );
     assert!(matches!(found[1].target, LinkTarget::MailNotFound));
+    assert!(matches!(&found[0].target, LinkTarget::Mail { to, .. } if to.is_empty()));
 
     // The thread id changes (mail moved/re-threaded): resolve by Message-ID.
     s.conn
@@ -1600,4 +1625,58 @@ fn a_simple_project_starts_with_four_columns_and_tasks_still_land_somewhere() {
         })
         .unwrap();
     assert_eq!(task.project_id, simple.id);
+}
+
+#[test]
+fn the_first_recipient_is_named_with_a_count_of_the_others() {
+    use super::store::first_recipient;
+    assert_eq!(first_recipient("[]"), "");
+    assert_eq!(first_recipient("not json"), "");
+    assert_eq!(
+        first_recipient(r#"[{"name":null,"email":"a@x.dev"}]"#),
+        "a@x.dev"
+    );
+    assert_eq!(
+        first_recipient(
+            r#"[{"name":" Ana ","email":"a@x.dev"},{"name":null,"email":"b@x.dev"},{"name":null,"email":"c@x.dev"}]"#
+        ),
+        "Ana +2"
+    );
+}
+
+#[test]
+fn more_people_can_be_added_to_a_task_and_removed() {
+    let (mut c, p) = setup();
+    let t = task(&mut c, p, "review the contract");
+    let mut s = SqliteTaskStore::new(&mut c);
+    s.update_task(
+        t.id,
+        TaskPatch {
+            assignee: Some(Some(("first@x.dev".into(), "First".into()))),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    s.add_co_assignee(t.id, " ana@x.dev ", Some(" Ana "))
+        .unwrap();
+    s.add_co_assignee(t.id, "ANA@x.dev", None).unwrap();
+    s.add_co_assignee(t.id, "first@x.dev", None).unwrap();
+    s.add_co_assignee(t.id, "bo@x.dev", None).unwrap();
+    assert!(s.add_co_assignee(t.id, "not an address", None).is_err());
+    assert!(s.add_co_assignee(9999, "z@x.dev", None).is_err());
+    let all = s.list_co_assignees().unwrap();
+    assert_eq!(
+        all.iter()
+            .map(|(_, e, n)| (e.as_str(), n.as_deref()))
+            .collect::<Vec<_>>(),
+        [("ana@x.dev", Some("Ana")), ("bo@x.dev", None)]
+    );
+    s.remove_co_assignee(t.id, "ana@x.dev").unwrap();
+    assert_eq!(s.list_co_assignees().unwrap().len(), 1);
+    let log = s.list_activity(t.id).unwrap();
+    assert!(log.iter().any(|a| a.text == "Added assignee: Ana"));
+    assert!(log.iter().any(|a| a.text == "Removed assignee: ana@x.dev"));
+    // Deleting the task hides its people.
+    s.delete_task(t.id).unwrap();
+    assert!(s.list_co_assignees().unwrap().is_empty());
 }

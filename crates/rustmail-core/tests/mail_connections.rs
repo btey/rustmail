@@ -1144,6 +1144,27 @@ async fn a_task_mail_books_its_follow_up_on_the_calendar() {
         events[0].summary.as_deref(),
         Some("Follow up: Ask about the invoice")
     );
+    // The task's event link resolves to that calendar row, for the Tasks view.
+    let uid = core
+        .task_links(task.id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find_map(|l| l.link.event_uid)
+        .expect("the event is linked");
+    let (row, start, local) = core
+        .task_event_ref(uid)
+        .await
+        .unwrap()
+        .expect("event found");
+    assert_eq!((row, start), (events[0].id, events[0].starts_at));
+    assert_eq!(local, events[0].is_local);
+    assert!(
+        core.task_event_ref("missing".into())
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

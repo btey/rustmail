@@ -256,6 +256,14 @@ pub enum LinkTarget {
         account_id: i64,
         thread_id: i64,
         subject: String,
+        /// Sender's name, or address when there is no name.
+        from: String,
+        /// Date of the message (Unix ms).
+        date: i64,
+        /// First recipient (name, else address), with " +N" for more; empty
+        /// when the message has none recorded.
+        #[serde(default)]
+        to: String,
     },
     /// The mail is gone (deleted, or never synced here); the link is kept.
     MailNotFound,
@@ -451,6 +459,9 @@ pub trait TaskStore {
     fn delete_task(&mut self, id: i64) -> Result<()>;
     /// Move to `column_id`, after task `after` (`None` = top of the column).
     fn move_task(&mut self, id: i64, column_id: i64, after: Option<i64>) -> Result<MoveOutcome>;
+    /// Move a task to another project: it lands at the top of that project's
+    /// Inbox column (or its first column when there is none) and is reopened.
+    fn move_task_to_project(&mut self, id: i64, project_id: i64) -> Result<MoveOutcome>;
     fn complete_task(&mut self, id: i64) -> Result<Task>;
     fn reopen_task(&mut self, id: i64) -> Result<Task>;
     fn set_task_labels(&mut self, id: i64, label_ids: &[i64]) -> Result<()>;
@@ -485,6 +496,14 @@ pub trait TaskStore {
     fn list_links(&mut self, task_id: i64) -> Result<Vec<ResolvedLink>>;
     /// Dependencies inside a project as (prerequisite id, dependent id).
     fn list_dependencies(&mut self, project_id: i64) -> Result<Vec<(i64, i64)>>;
+
+    // More people on a task besides its first assignee.
+    /// Add a person (address, optional name); the first assignee and people
+    /// already added are refused quietly.
+    fn add_co_assignee(&mut self, task_id: i64, email: &str, name: Option<&str>) -> Result<()>;
+    fn remove_co_assignee(&mut self, task_id: i64, email: &str) -> Result<()>;
+    /// Everyone added to any task, as (task id, address, name), oldest first.
+    fn list_co_assignees(&mut self) -> Result<Vec<(i64, String, Option<String>)>>;
 
     // Maintenance.
     /// Hard-delete tombstones older than `older_than_ms`; returns rows purged.

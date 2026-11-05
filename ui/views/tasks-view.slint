@@ -14,9 +14,17 @@ export struct TaskCardRow {
     // The title with a line through every letter (U+0336), for a done task; empty otherwise.
     struck-title: string,
     due: string,
+    // "today" or "tomorrow" when the due date is that day, else empty.
+    due-kind: string,
+    // Initials of the other people on the task, after the first avatar.
+    more-assignees: [string],
+    // Date a sent mail should be followed up, empty when none or done.
+    follow-up: string,
     due-warn: bool,
     high-priority: bool,
     labels: string,
+    // The same labels one by one, for the chips on the card.
+    label-list: [string],
     checklist-total: int,
     checklist-done: int,
     link-count: int,
@@ -60,6 +68,8 @@ export struct TimelineDayRow {
 export struct TimelineBarRow {
     id: int,
     title: string,
+    // The title with a strike-through, set for done tasks.
+    struck-title: string,
     start-text: string,
     due-text: string,
     // Day indexes, inclusive.
@@ -69,6 +79,31 @@ export struct TimelineBarRow {
     milestone: bool,
     done: bool,
     overdue: bool,
+    // Days past the due date for an overdue task, else 0.
+    late-days: int,
+    // Days since a sent mail got no reply, -1 when the task is not waiting.
+    no-reply-days: int,
+    // The board column's colour, used when the tasks are grouped by column.
+    coloured: bool,
+    group-colour: color,
+    // Checklist progress, 0 to 100.
+    progress: int,
+    // Linked mail received, mail sent and events, for the LINKS column.
+    has-mail: bool,
+    has-sent: bool,
+    has-event: bool,
+    // A group row (one board column) with a summary bar.
+    group: bool,
+}
+
+export struct TimelineEventRow {
+    // "09:30 Title"
+    label: string,
+    // Day indexes, inclusive.
+    first-day: int,
+    last-day: int,
+    // Row in the events lane.
+    lane: int,
 }
 
 export struct TimelineEdgeRow {
@@ -121,12 +156,41 @@ export struct TaskDetailRow {
     context: string,
     assignee: string,
     labels: string,
+    // Days since the sent mail with no reply, -1 when not waiting.
+    waiting-days: int,
+    // Date to follow up a sent mail (YYYY-MM-DD), empty when unset.
+    follow-up: string,
+    // Icon token of the task's column, for the Status row.
+    column-icon: string,
+    // Conversation the primary button replies to, -1 when it does not.
+    reply-thread: int,
+    reply-subject: string,
 }
 
 export struct ChecklistRow {
     id: int,
     text: string,
+    // `text` with a line through it, shown while the item is done.
+    struck: string,
     done: bool,
+}
+
+export struct TaskLabelRow {
+    id: int,
+    name: string,
+    colour: color,
+    hex: string,
+    applied: bool,
+    // False while the search box filters this label out.
+    shown: bool,
+}
+
+// Where a label chip goes in the drawer: its wrapped position, and the
+// height of all the chips together (the same in every entry).
+export struct ChipPos {
+    x: length,
+    y: length,
+    h: length,
 }
 
 export struct LinkRow {
@@ -144,12 +208,17 @@ export struct LinkRow {
 }
 
 export struct ActivityRow {
+    kind: string,
     text: string,
     at: string,
 }
 
 export global TasksUi {
     in-out property <TaskDetailRow> detail;
+    // Steps still to come in the link trail: a reply, a follow-up.
+    out property <bool> trail-pending: detail.waiting-days >= 0 || (detail.follow-up != "" && !detail.done);
+    // The open task's labels, one chip each.
+    in-out property <[string]> detail-labels;
     in-out property <bool> detail-open: false;
     // The drawer's date picker: month shown ("YYYY-MM"), its title, 6 x 7 days.
     in-out property <bool> picker-open: false;
@@ -159,6 +228,7 @@ export global TasksUi {
     // The open task fills the page: form on the left, link trail on the right.
     in-out property <bool> detail-expanded: false;
     in-out property <[ChecklistRow]> checklist;
+    in-out property <int> checklist-done: 0;
     in-out property <[LinkRow]> links;
     in-out property <[ActivityRow]> activity;
     callback save-detail(string, string, string, string);
@@ -170,6 +240,8 @@ export global TasksUi {
     in-out property <[TaskNavRow]> contexts;
     // Card menu: one "move:<column id>" entry per column of the open project.
     in-out property <[ActionMenuEntry]> card-menu;
+    // Every project, for the drawer's Project row (ids are project keys).
+    in-out property <[ActionMenuEntry]> project-menu;
     // Drawer pickers: "ctx:<id>" / "ctx:none" and "lbl:<id>" entries.
     in-out property <bool> list-mode: false;
     // Order of a flat list: "manual", "due", "due-reversed", "priority", ...
@@ -191,6 +263,58 @@ export global TasksUi {
         : id == "sort:title" ? @tr("Sort by title")
         : id;
     }
+    // The name of a section of a grouped list: the due-date and "none" sections
+    // are fixed English names from the controller; other names are the user's.
+    pure callback section-title(string) -> string;
+    section-title(name) => {
+        return name == "Overdue" ? @tr("Overdue")
+        : name == "Today" ? @tr("Today")
+        : name == "Next 7 days" ? @tr("Next 7 days")
+        : name == "Later" ? @tr("Later")
+        : name == "No due date" ? @tr("No due date")
+        : name == "No context" ? @tr("No context")
+        : name == "No label" ? @tr("No label")
+        : name;
+    }
+    in-out property <[ActionMenuEntry]> assignee-menu;
+    pure callback due-kind-title(string) -> string;
+    due-kind-title(kind) => { return kind == "today" ? @tr("Today") : @tr("Tomorrow"); }
+    // Address-book matches for what is typed in the drawer's Assignee box.
+    in-out property <[ActionMenuEntry]> assignee-suggestions;
+    // The other people on the open task: id = address, title = shown name.
+    in-out property <[ActionMenuEntry]> co-assignees;
+    // The name of the fixed Assignee picker entries ("me" and "none").
+    pure callback assignee-title(string) -> string;
+    assignee-title(id) => { return id == "me" ? @tr("Me") : id == "find" ? @tr("Find or add people…") : @tr("Unassigned"); }
+    // The drawer header's menu: the card menu's moves, then these entries.
+    in-out property <[ActionMenuEntry]> detail-menu;
+    pure callback detail-title(string) -> string;
+    detail-title(id) => { return id == "priority" ? @tr("High priority") : @tr("Delete task"); }
+    // The text of a filter chip or "Add filter" entry: kind is label, context,
+    // linked or assignee; name is what follows the English "Kind: ".
+    pure callback chip-title(string, string) -> string;
+    chip-title(kind, name) => {
+        return kind == "label" ? @tr("Label: {}", name)
+        : kind == "context" ? @tr("Context: {}", name)
+        : kind == "assignee" ? (name == "Me" ? @tr("Assignee: Me") : @tr("Assignee: {}", name))
+        : name == "Mail" ? @tr("Linked to: Mail")
+        : name == "Event" ? @tr("Linked to: Event")
+        : @tr("Linked to: Task");
+    }
+    // The activity log shows the engine's fixed English entries in the UI language.
+    pure callback activity-title(string) -> string;
+    activity-title(text) => {
+        return text == "Task created" ? @tr("Task created")
+        : text == "Email sent" ? @tr("Email sent")
+        : text == "Reopened" ? @tr("Reopened")
+        : text == "Changed labels" ? @tr("Changed labels")
+        : text == "Linked an item" ? @tr("Linked an item")
+        : text == "Removed a link" ? @tr("Removed a link")
+        : text == "Moved to another project" ? @tr("Moved to another project")
+        : text == "Moved to Waiting for: email sent" ? @tr("Moved to Waiting for: email sent")
+        : text == "Moved back to Next actions: a reply arrived" ? @tr("Moved back to Next actions: a reply arrived")
+        : text;
+    }
     in-out property <[TaskChipRow]> filter-chips;
     // Today's date for the right end of the chip row, e.g. "Thu, Oct 29".
     in-out property <string> today-label;
@@ -201,7 +325,14 @@ export global TasksUi {
     in-out property <[TimelineDayRow]> timeline-days;
     in-out property <[TimelineBarRow]> timeline-bars;
     in-out property <[TimelineEdgeRow]> timeline-edges;
+    in-out property <[TimelineEventRow]> timeline-events;
+    // Events that found no free row in the lane.
+    in-out property <int> timeline-events-hidden: 0;
     in-out property <int> timeline-today: -1;
+    // First day of the chart window (a day number) and whether it was moved from
+    // its home position; scrolling to an edge asks the controller to move it.
+    in-out property <int> timeline-origin: 0;
+    in-out property <bool> timeline-shifted: false;
     in-out property <int> timeline-undated: 0;
     in-out property <string> timeline-title;
     // Display menu: completed tasks on the board, and compact cards.
@@ -209,7 +340,11 @@ export global TasksUi {
     in-out property <bool> compact-cards: false;
     in-out property <[ActionMenuEntry]> filter-menu;
     in-out property <[ActionMenuEntry]> context-menu;
-    in-out property <[ActionMenuEntry]> label-menu;
+    in-out property <[TaskLabelRow]> label-rows;
+    in-out property <string> label-query;
+    // How many label rows the search leaves in the list.
+    in-out property <int> label-shown: 0;
+    pure callback chip-flow([TaskLabelRow], length, length) -> [ChipPos];
     // "focus:<name>", "project:<id>" or "context:<id>".
     in-out property <string> selection: "focus:inbox";
     // Project or context name; empty for the focus lists (named in Slint).
@@ -235,6 +370,29 @@ export global TasksUi {
 }
 
 global TasksText {
+    // Twenty colours for a column or a project, bright row then deeper row.
+    out property <[{hex: string, c: color}]> palette: [
+        { hex: "#ef4444", c: #ef4444 },
+        { hex: "#f97316", c: #f97316 },
+        { hex: "#f59e0b", c: #f59e0b },
+        { hex: "#eab308", c: #eab308 },
+        { hex: "#84cc16", c: #84cc16 },
+        { hex: "#22c55e", c: #22c55e },
+        { hex: "#14b8a6", c: #14b8a6 },
+        { hex: "#06b6d4", c: #06b6d4 },
+        { hex: "#3b82f6", c: #3b82f6 },
+        { hex: "#8b5cf6", c: #8b5cf6 },
+        { hex: "#b91c1c", c: #b91c1c },
+        { hex: "#c2410c", c: #c2410c },
+        { hex: "#b45309", c: #b45309 },
+        { hex: "#a16207", c: #a16207 },
+        { hex: "#4d7c0f", c: #4d7c0f },
+        { hex: "#15803d", c: #15803d },
+        { hex: "#0f766e", c: #0f766e },
+        { hex: "#0e7490", c: #0e7490 },
+        { hex: "#1d4ed8", c: #1d4ed8 },
+        { hex: "#6d28d9", c: #6d28d9 }
+    ];
     // Tokens come from the column menu and the default columns.
     pure public function column-icon(token: string) -> image {
         return token == "inbox" ? @image-url("../icons/lucide/outline/mail-open.svg")
@@ -247,6 +405,15 @@ global TasksText {
         : token == "alert" ? @image-url("../icons/lucide/outline/alert.svg")
         : token == "people" ? @image-url("../icons/lucide/outline/people.svg")
         : @image-url("../icons/lucide/outline/tasks.svg");
+    }
+    // One icon per Focus row, as in the design.
+    pure public function focus-icon(key: string) -> image {
+        return key == "focus:inbox" ? column-icon("inbox")
+        : key == "focus:today" ? column-icon("bolt")
+        : key == "focus:upcoming" ? column-icon("calendar")
+        : key == "focus:waiting" ? column-icon("hourglass")
+        : key == "focus:email" ? column-icon("mail")
+        : column-icon("moon");
     }
     pure public function focus-label(key: string) -> string {
         return key == "focus:inbox" ? @tr("Inbox")
@@ -279,15 +446,23 @@ component TasksTimeline inherits Rectangle {
     in-out property <string> zoom: "week";
     // Finish-to-start arrows between bars.
     in-out property <bool> show-dependencies: true;
+    // Read-only calendar events lane above the tasks.
+    in-out property <bool> show-events: true;
+    private property <length> lane-height: root.show-events ? 80px : 0px;
     private property <length> day-width: root.zoom == "day" ? 44px : root.zoom == "week" ? 22px : 9px;
     private property <length> row-height: 32px;
     private property <length> toolbar-height: 40px;
     private property <length> header-height: 44px;
+    private property <length> legend-height: 28px;
     // The task grid on the left is dropped when the window is narrow.
-    private property <length> left-width: root.width < 720px ? 0px : 320px;
+    private property <length> left-width: root.width < 720px ? 0px : 416px;
     private property <length> chart-width: TasksUi.timeline-days.length * root.day-width;
-    private property <length> rows-height: TasksUi.timeline-bars.length * root.row-height;
+    private property <length> rows-height: root.lane-height + TasksUi.timeline-bars.length * root.row-height;
     private property <int> today-index: TasksUi.timeline-today;
+    private property <int> origin: TasksUi.timeline-origin;
+    private property <int> seen-origin: -1;
+    private property <bool> want-today: false;
+    private property <bool> shifting: false;
 
     function scroll-to-today() {
         chart.content-x = min(0px, max(chart.visible-width - root.chart-width,
@@ -297,8 +472,37 @@ component TasksTimeline inherits Rectangle {
         chart.content-x = min(0px, max(chart.visible-width - root.chart-width,
             chart.content-x - days * root.day-width));
     }
+    // Near an edge of the window, ask for the next 26 weeks. The window has a
+    // fixed size, so scrolling far costs no more memory.
+    function edge-check() {
+        if root.shifting || root.chart-width < chart.visible-width + 84 * root.day-width {
+            return;
+        }
+        if chart.content-x > -21 * root.day-width {
+            root.shifting = true;
+            TasksUi.command("timeline-shift", "-26", "");
+        } else if chart.content-x < chart.visible-width - root.chart-width + 21 * root.day-width {
+            root.shifting = true;
+            TasksUi.command("timeline-shift", "26", "");
+        }
+    }
+    init => { root.scroll-to-today(); root.seen-origin = root.origin; }
     changed day-width => { root.scroll-to-today(); }
-    changed today-index => { root.scroll-to-today(); }
+    changed today-index => {
+        if !root.shifting && !root.want-today && !TasksUi.timeline-shifted { root.scroll-to-today(); }
+    }
+    // The window moved: keep the same date under the same pixel.
+    changed origin => {
+        if root.seen-origin < 0 || root.want-today {
+            root.scroll-to-today();
+        } else {
+            chart.content-x = min(0px, max(chart.visible-width - root.chart-width,
+                chart.content-x - (root.origin - root.seen-origin) * root.day-width));
+        }
+        root.want-today = false;
+        root.shifting = false;
+        root.seen-origin = root.origin;
+    }
 
     // Toolbar: month and year, tasks without dates, zoom, Today and paging.
     HorizontalLayout {
@@ -314,6 +518,20 @@ component TasksTimeline inherits Rectangle {
             font-size: TypeScale.body;
             font-weight: 700;
             vertical-alignment: center;
+        }
+        Rectangle {
+            width: weekbadge.preferred-width + 12px;
+            height: 20px;
+            y: 2px;
+            border-radius: 10px;
+            background: AppTheme.sidebar-bg;
+            weekbadge := Text {
+                x: 6px;
+                text: TasksUi.week-label;
+                color: AppTheme.secondary;
+                font-size: TypeScale.caption;
+                vertical-alignment: center;
+            }
         }
         Text {
             text: TasksUi.timeline-undated > 0 ? @tr("{} without dates", TasksUi.timeline-undated) : "";
@@ -337,6 +555,13 @@ component TasksTimeline inherits Rectangle {
         Button {
             height: 28px;
             width: max(60px, self.content-width + 20px);
+            text: @tr("Calendar events");
+            primary: root.show-events;
+            clicked => { root.show-events = !root.show-events; }
+        }
+        Button {
+            height: 28px;
+            width: max(60px, self.content-width + 20px);
             text: @tr("Dependencies");
             primary: root.show-dependencies;
             clicked => { root.show-dependencies = !root.show-dependencies; }
@@ -345,7 +570,14 @@ component TasksTimeline inherits Rectangle {
             height: 28px;
             width: max(60px, self.content-width + 20px);
             text: @tr("Today");
-            clicked => { root.scroll-to-today(); }
+            clicked => {
+                if TasksUi.timeline-shifted {
+                    root.want-today = true;
+                    TasksUi.command("timeline-shift", "reset", "");
+                } else {
+                    root.scroll-to-today();
+                }
+            }
         }
         ToolbarIconButton {
             width: 28px;
@@ -368,14 +600,24 @@ component TasksTimeline inherits Rectangle {
         x: 0px;
         y: root.toolbar-height;
         width: root.left-width;
-        height: parent.height - root.toolbar-height;
+        height: parent.height - root.toolbar-height - root.legend-height;
         Rectangle {
+            x: 0px;
+            y: 0px;
             width: parent.width;
             height: root.header-height;
             background: AppTheme.sidebar-bg;
-            Text { x: 8px; width: parent.width - 196px; height: parent.height; text: @tr("TASK"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
-            Text { x: parent.width - 186px; width: 88px; height: parent.height; text: @tr("START"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
-            Text { x: parent.width - 94px; width: 88px; height: parent.height; text: @tr("DUE"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+            Text { x: 8px; width: parent.width - 270px; height: parent.height; text: @tr("TASK"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+            Text { x: parent.width - 262px; width: 88px; height: parent.height; text: @tr("START"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+            Text { x: parent.width - 174px; width: 88px; height: parent.height; text: @tr("DUE"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+            Text { x: parent.width - 82px; width: 76px; height: parent.height; text: @tr("LINKS"); color: AppTheme.secondary; font-size: TypeScale.caption; font-weight: 700; vertical-alignment: center; }
+        }
+        Rectangle {
+            x: 0px;
+            y: root.header-height - 1px;
+            width: parent.width;
+            height: 1px;
+            background: AppTheme.border;
         }
         left-rows := ScrollView {
             y: root.header-height;
@@ -386,22 +628,74 @@ component TasksTimeline inherits Rectangle {
             vertical-scrollbar-policy: always-off;
             horizontal-scrollbar-policy: always-off;
             content-y <=> chart.content-y;
+            if root.show-events : Rectangle {
+                x: 0px;
+                y: root.lane-height - 1px;
+                width: left-rows.visible-width;
+                height: 1px;
+                background: AppTheme.border;
+            }
+            if root.show-events : Text {
+                x: 8px;
+                y: 0px;
+                width: parent.width - 16px;
+                height: root.lane-height;
+                text: TasksUi.timeline-events-hidden > 0 ? @tr("CALENDAR EVENTS (+{} more)", TasksUi.timeline-events-hidden) : @tr("CALENDAR EVENTS");
+                color: AppTheme.secondary;
+                font-size: TypeScale.caption;
+                font-weight: 700;
+                vertical-alignment: center;
+                overflow: elide;
+            }
             for bar[i] in TasksUi.timeline-bars : Rectangle {
                 x: 0px;
-                y: i * root.row-height;
+                y: root.lane-height + i * root.row-height;
                 width: left-rows.visible-width;
                 height: root.row-height;
-                Text { x: 8px; width: parent.width - 196px; height: parent.height; text: bar.title; color: bar.done ? AppTheme.muted : AppTheme.heading; font-size: TypeScale.secondary; vertical-alignment: center; overflow: elide; }
-                Text { x: parent.width - 186px; width: 88px; height: parent.height; text: bar.start-text; color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
-                Text { x: parent.width - 94px; width: 88px; height: parent.height; text: bar.due-text; color: bar.overdue ? AppTheme.destructive : AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+                if !bar.group : Rectangle {
+                    x: 8px;
+                    y: (parent.height - 10px) / 2;
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 5px;
+                    border-width: 1.5px;
+                    border-color: bar.done ? AppTheme.muted : bar.overdue ? AppTheme.destructive : bar.coloured ? bar.group-colour : AppTheme.accent;
+                    background: bar.done ? AppTheme.muted : transparent;
+                }
+                Text { x: bar.group ? 8px : 24px; width: parent.width - (bar.group ? 278px : 294px); height: parent.height; text: bar.done && !bar.group && bar.struck-title != "" ? bar.struck-title : bar.title; color: bar.done && !bar.group ? AppTheme.muted : AppTheme.heading; font-size: TypeScale.secondary; font-weight: bar.group ? 700 : 400; vertical-alignment: center; overflow: elide; }
+                Text { x: parent.width - 262px; width: 88px; height: parent.height; text: bar.start-text; color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+                Text { x: parent.width - 174px; width: 88px; height: parent.height; text: bar.due-text; color: bar.overdue ? AppTheme.destructive : AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+                for glyph[k] in [
+                    { shown: bar.has-mail, icon: @image-url("../icons/lucide/outline/mail.svg") },
+                    { shown: bar.has-sent, icon: @image-url("../icons/lucide/outline/paper-airplane.svg") },
+                    { shown: bar.has-event, icon: @image-url("../icons/lucide/outline/calendar.svg") },
+                ] : Image {
+                    x: parent.width - 82px + k * 20px;
+                    y: (parent.height - self.height) / 2;
+                    width: 14px;
+                    height: 14px;
+                    source: glyph.icon;
+                    colorize: AppTheme.accent;
+                    visible: glyph.shown;
+                }
                 TouchArea {
                     accessible-role: button;
                     accessible-label: bar.title;
                     mouse-cursor: pointer;
+                    enabled: !bar.group;
                     clicked => { TasksUi.command("open", "task:" + bar.id, ""); }
                 }
             }
         }
+    }
+
+    // Divider between the task grid and the chart.
+    if root.left-width > 0px : Rectangle {
+        x: root.left-width - 1px;
+        y: root.toolbar-height;
+        width: 1px;
+        height: parent.height - root.toolbar-height - root.legend-height;
+        background: AppTheme.border;
     }
 
     // Chart: header on top (week and day), then the bars.
@@ -409,9 +703,11 @@ component TasksTimeline inherits Rectangle {
         x: root.left-width;
         y: root.toolbar-height;
         width: parent.width - root.left-width;
-        height: parent.height - root.toolbar-height;
+        height: parent.height - root.toolbar-height - root.legend-height;
         clip: true;
         header := ScrollView {
+            x: 0px;
+            y: 0px;
             width: parent.width;
             height: root.header-height;
             content-width: root.chart-width;
@@ -437,9 +733,18 @@ component TasksTimeline inherits Rectangle {
             }
             for day[i] in TasksUi.timeline-days : Rectangle {
                 x: i * root.day-width;
+                y: 0px;
                 width: root.day-width;
                 height: root.header-height;
                 background: day.weekend ? AppTheme.sidebar-bg : transparent;
+                if day.today && root.day-width >= 20px : Rectangle {
+                    x: (parent.width - 24px) / 2;
+                    y: 20px;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 12px;
+                    background: AppTheme.accent-soft;
+                }
                 if root.day-width >= 20px : Text {
                     y: 20px;
                     width: parent.width;
@@ -453,7 +758,15 @@ component TasksTimeline inherits Rectangle {
                 }
             }
         }
+        Rectangle {
+            x: 0px;
+            y: root.header-height - 1px;
+            width: parent.width;
+            height: 1px;
+            background: AppTheme.border;
+        }
         chart := ScrollView {
+            changed content-x => { root.edge-check(); }
             y: root.header-height;
             width: parent.width;
             height: parent.height - root.header-height;
@@ -461,30 +774,105 @@ component TasksTimeline inherits Rectangle {
             content-height: max(root.rows-height, self.visible-height);
             for day[i] in TasksUi.timeline-days : Rectangle {
                 x: i * root.day-width;
+                y: 0px;
                 width: root.day-width;
                 height: max(root.rows-height, chart.visible-height);
                 background: day.weekend ? AppTheme.sidebar-bg : transparent;
-                if day.week != "" : Rectangle { width: 1px; background: AppTheme.border; }
+                if day.week != "" : Rectangle { x: 0px; y: 0px; width: 1px; background: AppTheme.border; }
             }
             if TasksUi.timeline-today >= 0 : Rectangle {
                 x: TasksUi.timeline-today * root.day-width + root.day-width / 2 - 1px;
+                y: 0px;
                 width: 2px;
                 height: max(root.rows-height, chart.visible-height);
-                background: AppTheme.destructive;
+                background: AppTheme.accent;
+                Rectangle {
+                    x: -3px;
+                    y: 0px;
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 4px;
+                    background: AppTheme.accent;
+                }
+                Rectangle {
+                    x: 8px;
+                    y: 0px;
+                    width: today-text.preferred-width + 10px;
+                    height: 24px;
+                    border-radius: 3px;
+                    background: AppTheme.accent;
+                    today-text := Text {
+                        x: 5px;
+                        y: 0px;
+                        width: self.preferred-width;
+                        height: parent.height;
+                        wrap: no-wrap;
+                        text: @tr("Today");
+                        color: #ffffff;
+                        font-size: TypeScale.caption;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
             }
             for bar[i] in TasksUi.timeline-bars : Rectangle {
                 x: bar.first-day * root.day-width;
-                y: i * root.row-height;
+                y: root.lane-height + i * root.row-height;
                 width: (bar.last-day - bar.first-day + 1) * root.day-width;
                 height: root.row-height;
-                if !bar.milestone : Rectangle {
+                if bar.group : Rectangle {
+                    x: 1px;
+                    y: (parent.height - 6px) / 2;
+                    width: parent.width - 2px;
+                    height: 6px;
+                    border-radius: 3px;
+                    background: (bar.coloured ? bar.group-colour : AppTheme.accent).with-alpha(0.3);
+                    Rectangle {
+                        width: parent.width * bar.progress / 100;
+                        border-radius: 3px;
+                        background: bar.coloured ? bar.group-colour : AppTheme.accent;
+                    }
+                }
+                if !bar.milestone && !bar.group : Rectangle {
                     x: 1px;
                     y: 7px;
                     width: parent.width - 2px;
                     height: parent.height - 14px;
                     border-radius: 4px;
-                    background: bar.done ? AppTheme.muted : bar.overdue ? AppTheme.destructive : AppTheme.accent;
+                    background: (bar.done ? AppTheme.muted : bar.overdue ? AppTheme.destructive : bar.coloured ? bar.group-colour : AppTheme.accent).with-alpha(bar.progress > 0 && !bar.done ? 0.35 : 1);
                     opacity: bar.done ? 0.6 : 1;
+                    if bar.progress > 0 && !bar.done : Rectangle {
+                        width: parent.width * bar.progress / 100;
+                        border-radius: 4px;
+                        background: bar.overdue ? AppTheme.destructive : bar.coloured ? bar.group-colour : AppTheme.accent;
+                    }
+                }
+                if !bar.group && bar.overdue && bar.late-days > 0 : Text {
+                    x: bar.milestone ? (parent.width + 16px) / 2 + 6px : parent.width + 6px;
+                    width: 160px;
+                    height: parent.height;
+                    text: @tr("{} days late", bar.late-days);
+                    color: AppTheme.destructive;
+                    font-size: TypeScale.caption;
+                    vertical-alignment: center;
+                }
+                if !bar.group && !bar.done && !bar.overdue && bar.no-reply-days >= 0 : Text {
+                    x: bar.milestone ? (parent.width + 16px) / 2 + 6px : parent.width + 6px;
+                    width: 160px;
+                    height: parent.height;
+                    text: @tr("No reply · {}d", bar.no-reply-days);
+                    color: AppTheme.destructive;
+                    font-size: TypeScale.caption;
+                    vertical-alignment: center;
+                }
+                if !bar.milestone && !bar.group && !bar.overdue && bar.no-reply-days < 0 && bar.progress > 0 && !bar.done : Text {
+                    x: parent.width + 6px;
+                    width: 40px;
+                    height: parent.height;
+                    text: bar.progress + "%";
+                    color: AppTheme.secondary;
+                    font-size: TypeScale.caption;
+                    vertical-alignment: center;
                 }
                 if bar.milestone : Path {
                     x: (parent.width - 16px) / 2;
@@ -494,21 +882,51 @@ component TasksTimeline inherits Rectangle {
                     viewbox-width: 16;
                     viewbox-height: 16;
                     commands: "M 8 0 L 16 8 L 8 16 L 0 8 Z";
-                    fill: bar.done ? AppTheme.muted : bar.overdue ? AppTheme.destructive : AppTheme.accent;
+                    fill: bar.done ? AppTheme.muted : bar.overdue ? AppTheme.destructive : bar.coloured ? bar.group-colour : AppTheme.accent;
                 }
                 TouchArea {
                     accessible-role: button;
                     accessible-label: bar.title;
+                    enabled: !bar.group;
                     mouse-cursor: pointer;
                     clicked => { TasksUi.command("open", "task:" + bar.id, ""); }
+                }
+            }
+            if root.show-events : Rectangle {
+                y: root.lane-height - 1px;
+                width: root.chart-width;
+                height: 1px;
+                background: AppTheme.border;
+            }
+            for event in TasksUi.timeline-events : Rectangle {
+                visible: root.show-events;
+                x: event.first-day * root.day-width + 1px;
+                y: 8px + event.lane * 24px;
+                width: (event.last-day - event.first-day + 1) * root.day-width - 2px;
+                height: 22px;
+                border-radius: 5px;
+                border-width: 1px;
+                border-color: AppTheme.accent;
+                background: AppTheme.accent.with-alpha(0.15);
+                clip: true;
+                Text {
+                    x: 6px;
+                    width: parent.width - 8px;
+                    height: parent.height;
+                    text: event.label;
+                    color: AppTheme.heading;
+                    font-size: TypeScale.micro;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                    overflow: elide;
                 }
             }
             for edge in TasksUi.timeline-edges : Path {
                 visible: root.show-dependencies;
                 private property <length> x1: (TasksUi.timeline-bars[edge.from-bar].last-day + 1) * root.day-width;
-                private property <length> y1: edge.from-bar * root.row-height + root.row-height / 2;
+                private property <length> y1: root.lane-height + edge.from-bar * root.row-height + root.row-height / 2;
                 private property <length> x2: TasksUi.timeline-bars[edge.to-bar].first-day * root.day-width;
-                private property <length> y2: edge.to-bar * root.row-height + root.row-height / 2;
+                private property <length> y2: root.lane-height + edge.to-bar * root.row-height + root.row-height / 2;
                 private property <length> mid: self.x1 + 8px;
                 x: 0px;
                 y: 0px;
@@ -530,6 +948,42 @@ component TasksTimeline inherits Rectangle {
             font-size: TypeScale.body;
             horizontal-alignment: center;
             wrap: word-wrap;
+        }
+    }
+
+    // Legend row under the chart.
+    Rectangle {
+        y: root.height - root.legend-height;
+        width: parent.width;
+        height: root.legend-height;
+        background: AppTheme.sidebar-bg;
+        Rectangle { width: parent.width; height: 1px; background: AppTheme.border; }
+        HorizontalLayout {
+            x: 12px;
+            width: parent.width - 24px;
+            spacing: 18px;
+            alignment: start;
+            HorizontalLayout {
+                spacing: 6px;
+                Rectangle { width: 26px; height: 10px; y: (parent.height - 10px) / 2; border-radius: 3px; background: AppTheme.accent.with-alpha(0.35);
+                    Rectangle { width: parent.width / 2; border-radius: 3px; background: AppTheme.accent; } }
+                Text { text: @tr("Done portion"); color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                Path { width: 12px; height: 12px; y: (parent.height - 12px) / 2; viewbox-width: 16; viewbox-height: 16; commands: "M 8 0 L 16 8 L 8 16 L 0 8 Z"; fill: AppTheme.accent; }
+                Text { text: @tr("Milestone"); color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                Rectangle { width: 26px; height: 10px; y: (parent.height - 10px) / 2; border-radius: 3px; background: AppTheme.destructive; }
+                Text { text: @tr("Overdue"); color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                Rectangle { width: 22px; height: 1px; y: parent.height / 2; background: AppTheme.secondary; }
+                Text { text: @tr("Depends on"); color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+            }
         }
     }
 }
@@ -576,7 +1030,7 @@ component TasksSidebar inherits Rectangle {
                     // The Inbox count stands out when something is waiting.
                     muted-color: row.key == "focus:inbox" && row.count != "" && row.count != "0" ? AppTheme.accent : AppTheme.muted;
                     left-padding: 12px;
-                    icon: @image-url("../icons/lucide/outline/tasks.svg");
+                    icon: TasksText.focus-icon(row.key);
                     icon-color: TasksUi.selection == row.key ? AppTheme.accent : row.colour;
                     selected: TasksUi.selection == row.key;
                     clicked(scope) => { root.navigate(row.key); }
@@ -586,7 +1040,7 @@ component TasksSidebar inherits Rectangle {
                     label: row.label;
                     count: row.count;
                     left-padding: 12px;
-                    icon: @image-url("../icons/lucide/filled/tag.svg");
+                    icon: @image-url("../icons/lucide/filled/project-dot.svg");
                     icon-color: row.colour;
                     selected: TasksUi.selection == row.key;
                     clicked(scope) => { root.navigate(row.key); }
@@ -627,6 +1081,63 @@ component TasksSidebar inherits Rectangle {
     }
 }
 
+// A small rounded status tag with a dot, as on the design's cards.
+// A small palette to click, beside the box that takes any #rrggbb.
+component TasksSwatches inherits Rectangle {
+    callback picked(string);
+    callback picked-colour(color);
+    in property <string> selected-hex;
+    height: 54px;
+    for sw[i] in TasksText.palette : Rectangle {
+        x: mod(i, 10) * 24px;
+        y: floor(i / 10) * 26px + 2px;
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background: sw.c;
+        border-width: root.selected-hex == sw.hex ? 3px : 0px;
+        border-color: AppTheme.heading;
+        TouchArea {
+            accessible-role: button;
+            accessible-label: sw.hex;
+            mouse-cursor: pointer;
+            clicked => {
+                root.picked(sw.hex);
+                root.picked-colour(sw.c);
+            }
+        }
+    }
+}
+
+component TaskPill inherits HorizontalLayout {
+    in property <string> text;
+    in property <color> tone;
+    alignment: start;
+    Rectangle {
+        height: 20px;
+        width: pill-text.x + pill-text.preferred-width + 8px;
+        border-radius: 10px;
+        background: root.tone.with-alpha(0.14);
+        Rectangle {
+            x: 7px;
+            y: (parent.height - 6px) / 2;
+            width: 6px;
+            height: 6px;
+            border-radius: 3px;
+            background: root.tone;
+        }
+        pill-text := Text {
+            x: 17px;
+            height: parent.height;
+            text: root.text;
+            color: root.tone;
+            font-size: TypeScale.micro;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+}
+
 component TaskCard inherits Rectangle {
     in property <TaskCardRow> card;
     // The keyboard cursor is on this card.
@@ -652,7 +1163,7 @@ component TaskCard inherits Rectangle {
     accessible-description:
         (root.card.done ? @tr("Done") + ". " : "")
         + (root.card.status != "" ? root.card.status + ". " : "")
-        + (root.card.due != "" ? @tr("Due {}", root.card.due) + ". " : "")
+        + (root.card.due != "" ? @tr("Due {}", root.card.due-kind != "" ? TasksUi.due-kind-title(root.card.due-kind) : root.card.due) + ". " : "")
         + (root.card.high-priority ? @tr("High priority") + ". " : "")
         + (root.card.no-reply-days >= 0 ? @tr("No reply · {}d", root.card.no-reply-days) + ". " : "")
         + (root.card.checklist-total > 0 ? @tr("{}/{} done", root.card.checklist-done, root.card.checklist-total) + ". " : "")
@@ -740,45 +1251,106 @@ component TaskCard inherits Rectangle {
             font-size: TypeScale.micro;
             font-weight: 600;
         }
-        if root.card.link-kind != "" && !TasksUi.compact-cards : Text {
-            text: (root.card.link-kind == "mail_received" ? @tr("Mail")
-                : root.card.link-kind == "mail_sent" ? @tr("Sent")
-                : @tr("Event")) + ": " + root.card.link-text
-                + (root.card.link-more > 0 ? "  +" + root.card.link-more : "");
-            color: AppTheme.secondary;
-            font-size: TypeScale.micro;
-            overflow: elide;
+        if root.card.link-kind != "" && !TasksUi.compact-cards : Rectangle {
+            height: 26px;
+            border-radius: 6px;
+            background: AppTheme.sidebar-bg;
+            Image {
+                x: 8px;
+                y: (parent.height - 12px) / 2;
+                width: 12px;
+                height: 12px;
+                source: root.card.link-kind == "mail_received" ? @image-url("../icons/lucide/outline/mail.svg")
+                    : root.card.link-kind == "mail_sent" ? @image-url("../icons/lucide/outline/paper-airplane.svg")
+                    : @image-url("../icons/lucide/outline/calendar.svg");
+                colorize: AppTheme.accent;
+            }
+            Text {
+                x: 26px;
+                width: parent.width - 34px;
+                height: parent.height;
+                text: (root.card.link-kind == "mail_received" ? @tr("Mail")
+                    : root.card.link-kind == "mail_sent" ? @tr("Sent")
+                    : @tr("Event")) + ": " + root.card.link-text
+                    + (root.card.link-more > 0 ? "  +" + root.card.link-more : "");
+                color: AppTheme.secondary;
+                font-size: TypeScale.micro;
+                vertical-alignment: center;
+                overflow: elide;
+            }
         }
-        if root.card.labels != "" && !TasksUi.compact-cards : Text {
-            text: root.card.labels;
-            color: AppTheme.accent;
-            font-size: TypeScale.micro;
-            overflow: elide;
+        if root.card.label-list.length > 0 && !TasksUi.compact-cards : HorizontalLayout {
+            spacing: 4px;
+            alignment: start;
+            for name[i] in root.card.label-list : Rectangle {
+                visible: i < 2;
+                height: 20px;
+                width: i < 2 ? min(chip-text.preferred-width + 14px, 110px) : 0px;
+                border-radius: 4px;
+                background: AppTheme.accent-soft;
+                chip-text := Text {
+                    x: 7px;
+                    width: parent.width - 14px;
+                    height: parent.height;
+                    text: name;
+                    color: AppTheme.accent;
+                    font-size: TypeScale.micro;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+            if root.card.label-list.length > 2 : Text {
+                text: "+" + (root.card.label-list.length - 2);
+                color: AppTheme.secondary;
+                font-size: TypeScale.micro;
+                vertical-alignment: center;
+            }
         }
-        if root.card.no-reply-days >= 0 && !TasksUi.compact-cards : Text {
+        if root.card.no-reply-days >= 0 && !TasksUi.compact-cards : TaskPill {
             text: @tr("No reply · {}d", root.card.no-reply-days);
-            color: AppTheme.destructive;
-            font-size: TypeScale.micro;
+            tone: AppTheme.destructive;
         }
-        if root.card.quick-capture && !TasksUi.compact-cards : Text {
+        if root.card.follow-up != "" && !TasksUi.compact-cards : HorizontalLayout {
+            spacing: 3px;
+            alignment: start;
+            Image {
+                y: (parent.height - 11px) / 2;
+                width: 11px;
+                height: 11px;
+                source: @image-url("../icons/lucide/outline/history.svg");
+                colorize: AppTheme.secondary;
+            }
+            Text {
+                text: @tr("Follow up {}", root.card.follow-up);
+                color: AppTheme.secondary;
+                font-size: TypeScale.micro;
+            }
+        }
+        if root.card.quick-capture && !TasksUi.compact-cards : TaskPill {
             text: @tr("Quick capture");
-            color: AppTheme.secondary;
-            font-size: TypeScale.micro;
-            font-weight: 600;
+            tone: AppTheme.secondary;
         }
-        if root.card.replied && !TasksUi.compact-cards : Text {
+        if root.card.replied && !TasksUi.compact-cards : TaskPill {
             text: @tr("Reply received");
-            color: AppTheme.accent;
-            font-size: TypeScale.micro;
-            font-weight: 600;
+            tone: AppTheme.accent;
         }
         HorizontalLayout {
             spacing: 10px;
             alignment: start;
-            if root.card.due != "" : Text {
-                text: root.card.due;
-                color: root.card.due-warn ? AppTheme.destructive : AppTheme.secondary;
-                font-size: TypeScale.micro;
+            if root.card.due != "" : HorizontalLayout {
+                spacing: 3px;
+                Image {
+                    y: (parent.height - 11px) / 2;
+                    width: 11px;
+                    height: 11px;
+                    source: @image-url("../icons/lucide/outline/history.svg");
+                    colorize: root.card.due-warn ? AppTheme.destructive : AppTheme.secondary;
+                }
+                Text {
+                    text: root.card.due-kind != "" ? TasksUi.due-kind-title(root.card.due-kind) : root.card.due;
+                    color: root.card.due-warn ? AppTheme.destructive : AppTheme.secondary;
+                    font-size: TypeScale.micro;
+                }
             }
             if root.card.checklist-total > 0 && !TasksUi.compact-cards : Text {
                 text: @tr("{}/{} done", root.card.checklist-done, root.card.checklist-total);
@@ -830,6 +1402,29 @@ component TaskCard inherits Rectangle {
                     vertical-alignment: center;
                 }
             }
+            for more[i] in root.card.more-assignees : Rectangle {
+                visible: i < 2;
+                width: i < 2 ? 20px : 0px;
+                height: 20px;
+                border-radius: 10px;
+                background: AppTheme.avatar-selected-bg;
+                Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: more;
+                    color: AppTheme.title;
+                    font-size: 9px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            if root.card.more-assignees.length > 2 : Text {
+                text: "+" + (root.card.more-assignees.length - 2);
+                color: AppTheme.secondary;
+                font-size: TypeScale.micro;
+                vertical-alignment: center;
+            }
         }
     }
 }
@@ -840,7 +1435,7 @@ component TaskColumnView inherits Rectangle {
     callback card-used(int);
     in property <length> column-width: 272px;
     private property <bool> adding: TasksUi.adding-column == root.column.id;
-    // "" | "rename" | "wip": inline editor under the header.
+    // "" | "rename" | "wip" | "colour": inline editor under the header.
     private property <string> editing: "";
     private property <[ActionMenuEntry]> options: [
         { id: "rename", title: @tr("Rename column") },
@@ -852,6 +1447,7 @@ component TaskColumnView inherits Rectangle {
         { id: "colour:#22c55e", title: @tr("Colour: Green") },
         { id: "colour:#f59e0b", title: @tr("Colour: Orange") },
         { id: "colour:#ef4444", title: @tr("Colour: Red") },
+        { id: "custom-colour", title: @tr("Custom colour…") },
         { id: "icon:inbox", title: @tr("Icon: Inbox") },
         { id: "icon:bolt", title: @tr("Icon: Star") },
         { id: "icon:hourglass", title: @tr("Icon: Clock") },
@@ -954,8 +1550,8 @@ component TaskColumnView inherits Rectangle {
                 menu-width: 200px;
                 tooltip-text: @tr("Column options");
                 activated(id) => {
-                    if id == "rename" || id == "wip" {
-                        root.editing = id;
+                    if id == "rename" || id == "wip" || id == "custom-colour" {
+                        root.editing = id == "custom-colour" ? "colour" : id;
                     } else {
                         TasksUi.command("column-" + (id == "delete" ? "delete" : id == "left" || id == "right" ? "move" : id.starts-with("icon:") ? "icon" : "colour"),
                             "" + root.column.id, id);
@@ -971,11 +1567,17 @@ component TaskColumnView inherits Rectangle {
             }
         }
         if root.editing != "" : LineEdit {
-            text: root.editing == "rename" ? root.column.name : root.column.wip-limit > 0 ? "" + root.column.wip-limit : "";
-            placeholder-text: root.editing == "rename" ? @tr("Column name") : @tr("Task limit (empty = none)");
-            input-label: root.editing == "rename" ? @tr("Column name") : @tr("Task limit (empty = none)");
+            text: root.editing == "rename" ? root.column.name : root.editing == "colour" ? "" : root.column.wip-limit > 0 ? "" + root.column.wip-limit : "";
+            placeholder-text: root.editing == "rename" ? @tr("Column name") : root.editing == "colour" ? @tr("Colour as #rrggbb") : @tr("Task limit (empty = none)");
+            input-label: root.editing == "rename" ? @tr("Column name") : root.editing == "colour" ? @tr("Colour as #rrggbb") : @tr("Task limit (empty = none)");
             accepted(text) => {
-                TasksUi.command(root.editing == "rename" ? "column-rename" : "column-wip", "" + root.column.id, text);
+                TasksUi.command(root.editing == "rename" ? "column-rename" : root.editing == "colour" ? "column-colour" : "column-wip", "" + root.column.id, root.editing == "colour" ? "colour:" + text : text);
+                root.editing = "";
+            }
+        }
+        if root.editing == "colour" : TasksSwatches {
+            picked(hex) => {
+                TasksUi.command("column-colour", "" + root.column.id, "colour:" + hex);
                 root.editing = "";
             }
         }
@@ -1032,6 +1634,30 @@ component TaskColumnView inherits Rectangle {
                     delete-task => { TasksUi.command("delete", "" + card.id, ""); }
                     menu-action(id) => { TasksUi.command("card-menu", "" + card.id, id); }
                 }
+                // The design's "+ Add task" row under the last card.
+                if root.column.id >= 0 && !root.adding : Rectangle {
+                    height: 32px;
+                    add-touch := TouchArea {
+                        clicked => { TasksUi.adding-column = root.column.id; }
+                    }
+                    Rectangle {
+                        background: add-touch.has-hover ? AppTheme.selected-row : transparent;
+                        border-radius: LayoutMetrics.corner-radius;
+                    }
+                    Text {
+                        x: 10px;
+                        width: parent.width - 20px;
+                        height: parent.height;
+                        text: "+  " + @tr("Add task");
+                        color: AppTheme.secondary;
+                        font-size: TypeScale.secondary;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    accessible-role: button;
+                    accessible-label: @tr("Add task");
+                    accessible-action-default => { TasksUi.adding-column = root.column.id; }
+                }
             }
         }
             // Where a dragged card would land.
@@ -1056,6 +1682,73 @@ component DetailSection inherits Text {
     font-weight: 700;
 }
 
+// A round icon for the kind of activity, on a line that runs to the next entry.
+component TrailMarker inherits Rectangle {
+    in property <string> kind;
+    in property <bool> first;
+    in property <bool> last;
+    width: 22px;
+    Rectangle {
+        x: 10px;
+        y: 20px;
+        width: 2px;
+        height: parent.height - 20px;
+        background: AppTheme.border;
+        visible: !root.last;
+    }
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 22px;
+        height: 22px;
+        border-radius: 11px;
+        background: root.first ? AppTheme.accent-soft : AppTheme.sidebar-bg;
+        border-width: 1px;
+        border-color: root.first ? AppTheme.accent : AppTheme.control-border;
+        Image {
+            x: 5px;
+            y: 5px;
+            width: 12px;
+            height: 12px;
+            source: root.kind == "pending-follow" ? @image-url("../icons/lucide/outline/calendar.svg")
+                : root.kind == "pending-reply" ? @image-url("../icons/lucide/outline/mail.svg")
+                : root.kind == "created" ? @image-url("../icons/lucide/outline/tasks.svg")
+                : root.kind == "sent" ? @image-url("../icons/lucide/outline/paper-airplane.svg")
+                : root.kind == "linked" || root.kind == "unlinked" ? @image-url("../icons/lucide/outline/link.svg")
+                : root.kind == "moved" ? @image-url("../icons/lucide/outline/sync.svg")
+                : root.kind == "reopened" ? @image-url("../icons/lucide/outline/undo.svg")
+                : root.kind == "labels" ? @image-url("../icons/lucide/filled/tag.svg")
+                : @image-url("../icons/lucide/outline/pencil.svg");
+            colorize: root.first ? AppTheme.accent : AppTheme.secondary;
+        }
+    }
+}
+
+// Steps still to come, greyed, above the entries that happened.
+component PendingTrail inherits VerticalLayout {
+    spacing: 0px;
+    if TasksUi.detail.follow-up != "" && !TasksUi.detail.done : HorizontalLayout {
+        spacing: 10px;
+        TrailMarker { kind: "pending-follow"; first: false; last: false; }
+        VerticalLayout {
+            padding-bottom: 14px;
+            spacing: 1px;
+            Text { text: @tr("Follow up"); color: AppTheme.muted; font-size: TypeScale.caption; font-weight: 700; wrap: word-wrap; }
+            Text { text: @tr("If there is no reply by {}", TasksUi.detail.follow-up); color: AppTheme.muted; font-size: TypeScale.micro; wrap: word-wrap; }
+        }
+    }
+    if TasksUi.detail.waiting-days >= 0 : HorizontalLayout {
+        spacing: 10px;
+        TrailMarker { kind: "pending-reply"; first: false; last: false; }
+        VerticalLayout {
+            padding-bottom: 14px;
+            spacing: 1px;
+            Text { text: @tr("Reply expected"); color: AppTheme.muted; font-size: TypeScale.caption; font-weight: 700; wrap: word-wrap; }
+            Text { text: TasksUi.detail.move-back ? @tr("The task moves back when it arrives") : @tr("Awaiting reply · {}d", TasksUi.detail.waiting-days); color: AppTheme.muted; font-size: TypeScale.micro; wrap: word-wrap; }
+        }
+    }
+}
+
 component TaskDrawer inherits Rectangle {
     in property <bool> compact: false;
     background: AppTheme.surface;
@@ -1066,20 +1759,35 @@ component TaskDrawer inherits Rectangle {
     in-out property <string> description-draft;
     in-out property <string> due-draft;
     in-out property <string> start-draft;
-    in-out property <string> label-draft;
+    in-out property <string> label-name;
+    in-out property <string> label-hex: "#4a86e8";
+    in-out property <int> label-editing: -1;
+    in-out property <bool> label-edit-open: false;
+    in-out property <int> label-focus: 0;
+    in-out property <color> label-colour: #4a86e8;
+    in-out property <bool> assignee-open: false;
+    in-out property <bool> check-adding: false;
     in-out property <string> assignee-draft;
     in-out property <string> link-draft;
+    in-out property <bool> link-adding;
+    in-out property <bool> desc-editing: false;
+    in-out property <string> picker-for: "due";
     in-out property <string> link-kind: "depends";
     function reset-drafts() {
         root.title-draft = TasksUi.detail.title;
         root.description-draft = TasksUi.detail.description;
         root.due-draft = TasksUi.detail.due;
         root.start-draft = TasksUi.detail.start;
-        root.label-draft = "";
+        root.assignee-open = false;
+        root.check-adding = false;
         root.assignee-draft = "";
+        TasksUi.assignee-suggestions = [];
+        root.link-adding = false;
+        root.desc-editing = false;
     }
     init => { root.reset-drafts(); }
     private property <int> shown-id: -1;
+    private property <length> footer-height: TasksUi.links.length > 0 ? 138px : 98px;
     private property <int> detail-id: TasksUi.detail.id;
     changed detail-id => { root.reset-drafts(); }
 
@@ -1091,19 +1799,21 @@ component TaskDrawer inherits Rectangle {
 
     ScrollView {
         x: 1px;
+        y: 0px;
         width: parent.width - 1px;
-        height: parent.height;
+        height: parent.height - root.footer-height;
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
         HorizontalLayout {
+          x: 0px;
+          y: 0px;
           padding: 16px;
           spacing: 32px;
           alignment: start;
           VerticalLayout {
             spacing: 10px;
             alignment: start;
-            horizontal-stretch: 1;
-            max-width: 640px;
+            width: min(640px, root.width - 45px - (TasksUi.detail-expanded ? 372px : 0px));
             HorizontalLayout {
                 spacing: 8px;
                 Text {
@@ -1118,10 +1828,18 @@ component TaskDrawer inherits Rectangle {
                     width: 32px;
                     height: 32px;
                     icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
-                    entries: TasksUi.card-menu;
+                    entries: TasksUi.detail-menu;
                     menu-width: 220px;
                     tooltip-text: @tr("Move to column");
-                    activated(id) => { TasksUi.command("card-menu", "" + TasksUi.detail.id, id); }
+                    activated(id) => {
+                        if id == "priority" {
+                            TasksUi.command("toggle-priority", "" + TasksUi.detail.id, "");
+                        } else if id == "delete" {
+                            TasksUi.command("delete", "" + TasksUi.detail.id, "");
+                        } else {
+                            TasksUi.command("card-menu", "" + TasksUi.detail.id, id);
+                        }
+                    }
                 }
                 if !root.compact : TasksIconButton {
                     width: 32px;
@@ -1141,141 +1859,393 @@ component TaskDrawer inherits Rectangle {
                     }
                 }
             }
-            LineEdit {
-                text <=> root.title-draft;
-                placeholder-text: @tr("Task title");
-                input-label: @tr("Task title");
-                accepted(text) => { TasksUi.save-detail("" + TasksUi.detail.id, root.title-draft, root.description-draft, root.due-draft); }
-            }
-            HorizontalLayout {
-                spacing: 8px;
-                alignment: start;
-                Button {
-                    text: TasksUi.detail.done ? @tr("Reopen") : @tr("Complete");
-                    primary: !TasksUi.detail.done;
-                    width: max(100px, self.content-width + 28px);
-                    clicked => { TasksUi.command(TasksUi.detail.done ? "reopen" : "complete", "" + TasksUi.detail.id, ""); }
-                }
-                Button {
-                    text: @tr("Email");
-                    width: max(100px, self.content-width + 28px);
-                    clicked => { TasksUi.email-task(TasksUi.detail.id, TasksUi.detail.title); }
-                }
-                Button {
-                    text: @tr("High priority");
-                    selected: TasksUi.detail.high-priority;
-                    width: max(100px, self.content-width + 28px);
-                    clicked => { TasksUi.command("toggle-priority", "" + TasksUi.detail.id, ""); }
-                }
-            }
-            if TasksUi.links.length > 0 : Button {
-                text: @tr("Move back when a reply arrives");
-                selected: TasksUi.detail.move-back;
-                label-overflow: elide;
-                clicked => { TasksUi.command("toggle-move-back", "" + TasksUi.detail.id, ""); }
-            }
-            DetailSection { text: @tr("CONTEXT"); }
-            HorizontalLayout {
-                spacing: 8px;
-                Text {
-                    horizontal-stretch: 1;
-                    text: TasksUi.detail.context != "" ? TasksUi.detail.context : @tr("No context");
+            // Large heading, edited in place (mockup 2/3).
+            Rectangle {
+                height: max(34px, title-input.preferred-height + 8px);
+                border-radius: 6px;
+                border-width: title-input.has-focus ? 1px : 0px;
+                border-color: AppTheme.accent;
+                title-input := TextInput {
+                    x: 4px;
+                    y: 4px;
+                    width: parent.width - 8px;
+                    text <=> root.title-draft;
+                    font-size: 22px;
+                    font-weight: 700;
                     color: AppTheme.heading;
-                    font-size: TypeScale.body;
+                    wrap: word-wrap;
+                    single-line: false;
+                    accessible-role: text-input;
+                    accessible-label: @tr("Task title");
+                    accepted => { TasksUi.save-detail("" + TasksUi.detail.id, root.title-draft, root.description-draft, root.due-draft); }
+                }
+            }
+            // Label chips under the title: the tag button opens the label popup;
+            // the chips wrap onto further lines.
+            Rectangle {
+                private property <[ChipPos]> flow: TasksUi.chip-flow(TasksUi.label-rows, self.width, 0.62rem);
+                height: flow.length > 0 ? flow[0].h : 28px;
+                label-anchor := Rectangle {
+                    x: 0px;
+                    y: 0px;
+                    width: 28px;
+                    height: 28px;
+                    TasksIconButton {
+                        width: parent.width;
+                        height: parent.height;
+                        icon: @image-url("../icons/lucide/filled/tag.svg");
+                        tooltip-text: @tr("Manage labels");
+                        clicked => {
+                            TasksUi.label-query = "";
+                            root.label-edit-open = false;
+                            TasksUi.command("label-search", "", "");
+                            label-popup.show();
+                            root.label-focus += 1;
+                        }
+                    }
+                    label-popup := PopupWindow {
+                        x: max(8px - label-anchor.absolute-position.x, parent.width - self.width);
+                        y: parent.height + 4px;
+                        width: 288px;
+                        height: root.label-edit-open ? 196px : 156px + max(64px, min(174px, TasksUi.label-shown * 34px));
+                        close-policy: close-on-click-outside;
+                        Rectangle {
+                            border-radius: 10px;
+                            border-width: 1px;
+                            border-color: AppTheme.border;
+                            background: AppTheme.surface;
+                            drop-shadow-blur: 18px;
+                            drop-shadow-offset-y: 5px;
+                            drop-shadow-color: #0000002e;
+                            clip: true;
+                            if !root.label-edit-open : VerticalLayout {
+                                padding: 8px;
+                                spacing: 8px;
+                                Text {
+                                    height: 28px;
+                                    text: @tr("Labels");
+                                    color: AppTheme.heading;
+                                    font-size: TypeScale.subtitle;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                                label-search-field := LineEdit {
+                                    height: 36px;
+                                    text <=> TasksUi.label-query;
+                                    focus-request: root.label-focus;
+                                    placeholder-text: @tr("Search labels");
+                                    input-label: @tr("Search labels");
+                                    edited(value) => { TasksUi.command("label-search", value, ""); }
+                                }
+                                Rectangle { height: 1px; background: AppTheme.border; }
+                                Rectangle {
+                                    vertical-stretch: 1;
+                                    label-list := ScrollView {
+                                        x: 0px;
+                                        y: 0px;
+                                        width: parent.width;
+                                        height: parent.height;
+                                        content-width: self.visible-width;
+                                        horizontal-scrollbar-policy: always-off;
+                                        VerticalLayout {
+                                        x: 0px;
+                                        y: 0px;
+                                        alignment: start;
+                                        spacing: 0px;
+                                        for label in TasksUi.label-rows : Rectangle {
+                                            height: label.shown ? 34px : 0px;
+                                            visible: label.shown;
+                                            border-radius: 6px;
+                                            background: label-hit.has-hover ? AppTheme.sidebar-bg : transparent;
+                                            Image {
+                                                x: 8px;
+                                                y: (parent.height - self.height) / 2;
+                                                width: 16px;
+                                                height: 16px;
+                                                source: @image-url("../icons/lucide/filled/tag.svg");
+                                                colorize: label.colour;
+                                            }
+                                            Text {
+                                                x: 32px;
+                                                width: parent.width - 32px - 64px;
+                                                height: parent.height;
+                                                text: label.name;
+                                                color: AppTheme.heading;
+                                                font-size: TypeScale.body;
+                                                font-weight: label.applied ? 600 : 500;
+                                                vertical-alignment: center;
+                                                overflow: elide;
+                                            }
+                                            Image {
+                                                x: parent.width - 58px;
+                                                y: (parent.height - self.height) / 2;
+                                                width: 18px;
+                                                height: 18px;
+                                                visible: label.applied;
+                                                source: @image-url("../icons/lucide/outline/check.svg");
+                                                colorize: AppTheme.accent;
+                                            }
+                                            label-hit := TouchArea {
+                                                width: parent.width - 40px;
+                                                accessible-role: checkbox;
+                                                accessible-label: label.name;
+                                                accessible-checked: label.applied;
+                                                mouse-cursor: pointer;
+                                                clicked => {
+                                                    TasksUi.command("detail-label", "" + TasksUi.detail.id, "lbl:" + label.id);
+                                                    label-popup.close();
+                                                }
+                                            }
+                                            TasksIconButton {
+                                                x: parent.width - 34px;
+                                                y: (parent.height - 28px) / 2;
+                                                width: 28px;
+                                                height: 28px;
+                                                icon: @image-url("../icons/lucide/outline/pencil.svg");
+                                                tooltip-text: @tr("Edit label");
+                                                clicked => {
+                                                    root.label-editing = label.id;
+                                                    root.label-name = label.name;
+                                                    root.label-hex = label.hex;
+                                                    root.label-colour = label.colour;
+                                                    root.label-edit-open = true;
+                                                }
+                                            }
+                                        }
+                                        }
+                                    }
+                                    if TasksUi.label-rows.length == 0 : Text {
+                                        width: parent.width;
+                                        height: 64px;
+                                        text: @tr("No matching labels");
+                                        color: AppTheme.muted;
+                                        font-size: TypeScale.body;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                Rectangle { height: 1px; background: AppTheme.border; }
+                                Button {
+                                    height: 34px;
+                                    text: @tr("Create label…");
+                                    has-icon: true;
+                                    icon: @image-url("../icons/lucide/outline/plus.svg");
+                                    clicked => {
+                                        root.label-editing = -1;
+                                        root.label-name = TasksUi.label-query;
+                                        root.label-hex = "#4a86e8";
+                                        root.label-colour = #4a86e8;
+                                        root.label-edit-open = true;
+                                    }
+                                }
+                            }
+                            if root.label-edit-open : VerticalLayout {
+                                padding: 8px;
+                                spacing: 8px;
+                                HorizontalLayout {
+                                    height: 28px;
+                                    spacing: 8px;
+                                    Image {
+                                        width: 16px;
+                                        source: @image-url("../icons/lucide/filled/tag.svg");
+                                        colorize: root.label-colour;
+                                    }
+                                    Text {
+                                        horizontal-stretch: 1;
+                                        text: root.label-editing >= 0 ? @tr("Edit label") : @tr("Create label");
+                                        color: AppTheme.heading;
+                                        font-size: TypeScale.subtitle;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                label-name-field := LineEdit {
+                                    height: 36px;
+                                    text <=> root.label-name;
+                                    focus-on-show: true;
+                                    placeholder-text: @tr("Label name");
+                                    input-label: @tr("Label name");
+                                    accepted(text) => {
+                                        if text.character-count > 0 {
+                                            TasksUi.command("label-save", "" + TasksUi.detail.id, root.label-editing + "|" + root.label-hex + "|" + text);
+                                            root.label-edit-open = false;
+                                label-popup.close();
+                                        }
+                                    }
+                                }
+                                TasksSwatches {
+                                    selected-hex: root.label-hex;
+                                    picked(hex) => { root.label-hex = hex; }
+                                    picked-colour(c) => { root.label-colour = c; }
+                                }
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    height: 34px;
+                                    Button {
+                                        text: @tr("Save");
+                                        primary: true;
+                                        horizontal-stretch: 1;
+                                        clicked => {
+                                            if root.label-name.character-count > 0 {
+                                                TasksUi.command("label-save", "" + TasksUi.detail.id, root.label-editing + "|" + root.label-hex + "|" + root.label-name);
+                                                root.label-edit-open = false;
+                                label-popup.close();
+                                            }
+                                        }
+                                    }
+                                    Button {
+                                        text: @tr("Cancel");
+                                        horizontal-stretch: 1;
+                                        clicked => { root.label-edit-open = false; }
+                                    }
+                                    if root.label-editing >= 0 : Button {
+                                        text: @tr("Delete");
+                                        destructive: true;
+                                        horizontal-stretch: 1;
+                                        clicked => {
+                                            TasksUi.command("label-delete", "", "" + root.label-editing);
+                                            root.label-edit-open = false;
+                                label-popup.close();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                for label[i] in TasksUi.label-rows : Rectangle {
+                    x: i < parent.flow.length ? parent.flow[i].x : 0px;
+                    y: i < parent.flow.length ? parent.flow[i].y : 0px;
+                    height: 28px;
+                    visible: label.applied;
+                    width: label.applied ? label-text.preferred-width + 30px : 0px;
+                    border-radius: 6px;
+                    background: label.colour.with-alpha(0.22);
+                    Image {
+                        x: 7px;
+                        y: (parent.height - self.height) / 2;
+                        width: 12px;
+                        height: 12px;
+                        source: @image-url("../icons/lucide/filled/tag.svg");
+                        colorize: label.colour;
+                    }
+                    label-text := Text {
+                        x: 23px;
+                        width: self.preferred-width;
+                        height: parent.height;
+                        text: label.name;
+                        color: AppTheme.heading;
+                        font-size: TypeScale.caption;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+                if TasksUi.detail-labels.length == 0 : Text {
+                    x: 34px;
+                    y: 0px;
+                    height: 28px;
+                    text: @tr("No labels");
+                    color: AppTheme.secondary;
+                    font-size: TypeScale.caption;
                     vertical-alignment: center;
-                    overflow: elide;
-                }
-                ActionMenu {
-                    width: 32px;
-                    height: 32px;
-                    icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
-                    entries: TasksUi.context-menu;
-                    menu-width: 220px;
-                    tooltip-text: @tr("Set context");
-                    activated(id) => { TasksUi.command("detail-context", "" + TasksUi.detail.id, id); }
                 }
             }
-            DetailSection { text: @tr("ASSIGNEE"); }
-            Text {
-                text: TasksUi.detail.assignee != "" ? TasksUi.detail.assignee : @tr("Unassigned");
-                color: AppTheme.heading;
-                font-size: TypeScale.body;
-                overflow: elide;
-            }
-            LineEdit {
-                text <=> root.assignee-draft;
-                placeholder-text: @tr("Name or email, empty to clear");
-                input-label: @tr("Assignee");
-                accepted(text) => {
-                    TasksUi.command("detail-assignee", "" + TasksUi.detail.id, text);
-                    root.assignee-draft = "";
-                }
-            }
-            DetailSection { text: @tr("LABELS"); }
-            HorizontalLayout {
-                spacing: 8px;
-                Text {
-                    horizontal-stretch: 1;
-                    text: TasksUi.detail.labels != "" ? TasksUi.detail.labels : @tr("No labels");
-                    color: AppTheme.heading;
-                    font-size: TypeScale.body;
-                    vertical-alignment: center;
-                    overflow: elide;
-                }
-                ActionMenu {
-                    width: 32px;
-                    height: 32px;
-                    icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
-                    entries: TasksUi.label-menu;
-                    menu-width: 220px;
-                    tooltip-text: @tr("Toggle labels");
-                    activated(id) => { TasksUi.command("detail-label", "" + TasksUi.detail.id, id); }
-                }
-            }
-            LineEdit {
-                text <=> root.label-draft;
-                placeholder-text: @tr("New label");
-                input-label: @tr("New label");
-                accepted(text) => {
-                    TasksUi.command("detail-label-new", "" + TasksUi.detail.id, text);
-                    root.label-draft = "";
-                }
-            }
-            DetailSection { text: @tr("DUE DATE"); }
-            HorizontalLayout {
-                height: 34px;
-                spacing: 6px;
-                LineEdit {
-                    horizontal-stretch: 1;
-                    text <=> root.due-draft;
-                    placeholder-text: @tr("YYYY-MM-DD");
-                    input-label: @tr("Due date");
-                    accepted(text) => { TasksUi.save-detail("" + TasksUi.detail.id, root.title-draft, root.description-draft, root.due-draft); }
-                }
-                ActionMenu {
-                    width: 34px;
-                    height: 34px;
-                    icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
-                    entries: [
-                        { id: "today", title: @tr("Today") },
-                        { id: "tomorrow", title: @tr("Tomorrow") },
-                        { id: "week", title: @tr("In a week") },
-                        { id: "none", title: @tr("No date") },
-                    ];
-                    menu-width: 180px;
-                    tooltip-text: @tr("Quick due date");
-                    activated(id) => { TasksUi.command("detail-due", "" + TasksUi.detail.id, id); }
-                }
-                TasksIconButton {
-                    width: 34px;
-                    height: 34px;
-                    icon: @image-url("../icons/lucide/outline/calendar.svg");
-                    tooltip-text: @tr("Pick a date");
-                    clicked => { TasksUi.command("picker", "", TasksUi.picker-open ? "close" : ""); }
+            // Property tiles: two columns, small label over a bold value (mockup 2).
+            Rectangle {
+                height: 6 * 40px + 5 * 6px;
+                for prop[k] in [
+                    { name: @tr("Status"), value: TasksUi.detail.column, icon: TasksText.column-icon(TasksUi.detail.column-icon) },
+                    { name: @tr("Due"), value: TasksUi.detail.due != "" ? TasksUi.detail.due : "-", icon: @image-url("../icons/lucide/outline/calendar.svg") },
+                    { name: @tr("Start"), value: TasksUi.detail.start != "" ? TasksUi.detail.start : "-", icon: @image-url("../icons/lucide/outline/calendar.svg") },
+                    { name: @tr("Project"), value: TasksUi.detail.project, icon: @image-url("../icons/lucide/filled/project-dot.svg") },
+                    { name: @tr("Context"), value: TasksUi.detail.context != "" ? TasksUi.detail.context : @tr("No context"), icon: @image-url("../icons/lucide/outline/file-directory.svg") },
+                    { name: @tr("Assignee"), value: TasksUi.detail.assignee != "" ? TasksUi.detail.assignee : @tr("Unassigned"), icon: @image-url("../icons/lucide/outline/people.svg") },
+                ] : Rectangle {
+                    x: 0px;
+                    y: k * 46px;
+                    width: parent.width;
+                    height: 40px;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: AppTheme.border;
+                    background: AppTheme.sidebar-bg;
+                    Image {
+                        x: 12px;
+                        y: (parent.height - 18px) / 2;
+                        width: 18px;
+                        height: 18px;
+                        source: prop.icon;
+                        colorize: AppTheme.secondary;
+                    }
+                    Text {
+                        x: 40px;
+                        y: 0px;
+                        width: min(96px, (parent.width - 40px - 36px) / 2);
+                        height: parent.height;
+                        text: prop.name;
+                        color: AppTheme.muted;
+                        font-size: TypeScale.caption;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    Text {
+                        x: 40px + min(96px, (parent.width - 40px - 36px) / 2) + 8px;
+                        y: 0px;
+                        width: parent.width - self.x - 36px;
+                        height: parent.height;
+                        text: prop.value;
+                        color: AppTheme.heading;
+                        font-size: TypeScale.body;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    ActionMenu {
+                        x: parent.width - 30px;
+                        y: (parent.height - 26px) / 2;
+                        width: 26px;
+                        height: 26px;
+                        icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
+                    entries: k == 0 ? TasksUi.card-menu
+                            : (k == 1 || k == 2) ? [
+                                    { id: "today", title: @tr("Today") },
+                                    { id: "tomorrow", title: @tr("Tomorrow") },
+                                    { id: "week", title: @tr("In a week") },
+                                    { id: "none", title: @tr("No date") },
+                                    { id: "pick", title: @tr("Pick a date") },
+                                ]
+                                : k == 3 ? TasksUi.project-menu
+                                : k == 4 ? TasksUi.context-menu
+                                : TasksUi.assignee-menu;
+                        menu-width: 220px;
+                        tooltip-text: prop.name;
+                            activated(id) => {
+                                if k == 0 {
+                                    TasksUi.command("card-menu", "" + TasksUi.detail.id, id);
+                                } else if k == 1 || k == 2 {
+                                    if id == "pick" {
+                                        root.picker-for = k == 1 ? "due" : "start";
+                                        TasksUi.command("picker", "", "");
+                                    } else {
+                                        TasksUi.command(k == 1 ? "detail-due" : "detail-start", "" + TasksUi.detail.id, id);
+                                    }
+                                } else if k == 3 {
+                                    TasksUi.command("project-menu", "" + TasksUi.detail.id, id);
+                                } else if k == 4 {
+                                    TasksUi.command("detail-context", "" + TasksUi.detail.id, id);
+                                } else {
+                                    if id == "find" {
+                                        root.assignee-open = true;
+                                    } else {
+                                        TasksUi.command("detail-assignee", "" + TasksUi.detail.id, id == "me" ? "me" : id == "none" ? "" : id);
+                                    }
+                                }
+                            }
+                    }
                 }
             }
             if TasksUi.picker-open : Rectangle {
-                height: 6 * 30px + 40px;
+                height: 6 * 30px + 40px + 40px;
                 border-radius: LayoutMetrics.corner-radius;
                 background: AppTheme.sidebar-bg;
                 for day[i] in TasksUi.picker-days : Rectangle {
@@ -1296,7 +2266,7 @@ component TaskDrawer inherits Rectangle {
                         accessible-role: button;
                         accessible-label: day.date;
                         clicked => {
-                            TasksUi.command("detail-due", "" + TasksUi.detail.id, day.date);
+                            TasksUi.command(root.picker-for == "start" ? "detail-start" : "detail-due", "" + TasksUi.detail.id, day.date);
                             TasksUi.command("picker", "", "close");
                         }
                     }
@@ -1331,27 +2301,167 @@ component TaskDrawer inherits Rectangle {
                     tooltip-text: @tr("Next month");
                     clicked => { TasksUi.command("picker", "", "next:" + TasksUi.picker-month); }
                 }
+                Button {
+                    x: 8px;
+                    y: 6 * 30px + 40px;
+                    width: parent.width - 16px;
+                    height: 32px;
+                    text: @tr("Close");
+                    clicked => { TasksUi.command("picker", "", "close"); }
+                }
+                picker-keys := FocusScope {
+                    width: 0px;
+                    height: 0px;
+                    key-pressed(event) => {
+                        if event.text == Key.Escape {
+                            TasksUi.command("picker", "", "close");
+                            return accept;
+                        }
+                        return reject;
+                    }
+                }
+                init => { picker-keys.focus(); }
             }
-            DetailSection { text: @tr("START DATE"); }
-            LineEdit {
+            if root.assignee-open : VerticalLayout {
+                spacing: 10px;
+                HorizontalLayout {
+                    spacing: 6px;
+                    DetailSection { horizontal-stretch: 1; text: @tr("ASSIGNEE"); }
+                    Button {
+                        text: @tr("Done");
+                        width: max(72px, self.content-width + 28px);
+                        clicked => { root.assignee-open = false; }
+                    }
+                }
+            HorizontalLayout {
+                spacing: 6px;
                 height: 34px;
-                text <=> root.start-draft;
-                placeholder-text: @tr("YYYY-MM-DD");
-                input-label: @tr("Start date");
-                accepted(text) => { TasksUi.command("detail-start", "" + TasksUi.detail.id, root.start-draft); }
+                LineEdit {
+                    horizontal-stretch: 1;
+                    text <=> root.assignee-draft;
+                    placeholder-text: @tr("Name or email, empty to clear");
+                    input-label: @tr("Assignee");
+                    edited(text) => { TasksUi.command("assignee-suggest", text, ""); }
+                    accepted(text) => {
+                        TasksUi.command("detail-assignee", "" + TasksUi.detail.id, text);
+                        root.assignee-open = false;
+                        root.assignee-draft = "";
+                        TasksUi.assignee-suggestions = [];
+                    }
+                }
+                Button {
+                    text: @tr("Me");
+                    width: max(56px, self.content-width + 28px);
+                    clicked => {
+                        TasksUi.command("detail-assignee", "" + TasksUi.detail.id, "me");
+                        root.assignee-open = false;
+                    }
+                }
+            }
+            for other in TasksUi.co-assignees : HorizontalLayout {
+                height: 26px;
+                spacing: 6px;
+                Text {
+                    horizontal-stretch: 1;
+                    text: other.title;
+                    color: AppTheme.body;
+                    font-size: TypeScale.secondary;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                TasksIconButton {
+                    width: 22px;
+                    height: 22px;
+                    icon: @image-url("../icons/lucide/outline/x.svg");
+                    tooltip-text: @tr("Remove");
+                    clicked => { TasksUi.command("co-assignee-remove", "" + TasksUi.detail.id, other.id); }
+                }
+            }
+            LineEdit {
+                placeholder-text: @tr("Add another person");
+                input-label: @tr("Add another person");
+                accepted(text) => {
+                    TasksUi.command("co-assignee-add", "" + TasksUi.detail.id, text);
+                    self.text = "";
+                    root.assignee-open = false;
+                }
+            }
+            for person in TasksUi.assignee-suggestions : Rectangle {
+                height: 28px;
+                background: person-touch.has-hover ? AppTheme.sidebar-bg : transparent;
+                border-radius: 4px;
+                Text {
+                    x: 8px;
+                    width: parent.width - 16px;
+                    height: parent.height;
+                    text: person.title;
+                    color: AppTheme.body;
+                    font-size: TypeScale.secondary;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                person-touch := TouchArea {
+                    accessible-role: button;
+                    accessible-label: person.title;
+                    mouse-cursor: pointer;
+                    clicked => {
+                        TasksUi.command("detail-assignee", "" + TasksUi.detail.id, person.id);
+                        root.assignee-open = false;
+                        root.assignee-draft = "";
+                        TasksUi.assignee-suggestions = [];
+                    }
+                }
+            }
             }
             DetailSection { text: @tr("DESCRIPTION"); }
-            TextEdit {
+            // Plain text, as in the mockup; a click turns it into an editor.
+            if !root.desc-editing : Rectangle {
+                height: max(34px, desc-text.preferred-height + 12px);
+                border-radius: 6px;
+                background: desc-touch.has-hover ? AppTheme.sidebar-bg : transparent;
+                desc-text := Text {
+                    x: 6px;
+                    y: 6px;
+                    width: parent.width - 12px;
+                    height: self.preferred-height;
+                    text: root.description-draft != "" ? root.description-draft : @tr("Add a description");
+                    color: root.description-draft != "" ? AppTheme.body : AppTheme.muted;
+                    font-size: TypeScale.body;
+                    wrap: word-wrap;
+                }
+                desc-touch := TouchArea {
+                    accessible-role: button;
+                    accessible-label: @tr("Add a description");
+                    mouse-cursor: text;
+                    clicked => { root.desc-editing = true; }
+                }
+            }
+            if root.desc-editing : TextEdit {
                 height: 110px;
                 text <=> root.description-draft;
                 placeholder-text: @tr("Add a description");
             }
-            Button {
+            if root.desc-editing : Button {
                 text: @tr("Save");
                 width: max(100px, self.content-width + 28px);
-                clicked => { TasksUi.save-detail("" + TasksUi.detail.id, root.title-draft, root.description-draft, root.due-draft); }
+                clicked => {
+                    TasksUi.save-detail("" + TasksUi.detail.id, root.title-draft, root.description-draft, root.due-draft);
+                    root.desc-editing = false;
+                }
             }
-            DetailSection { text: @tr("CHECKLIST"); }
+            HorizontalLayout {
+                spacing: 6px;
+                DetailSection {
+                    horizontal-stretch: 1;
+                    text: TasksUi.checklist.length > 0 ? @tr("CHECKLIST") + " · " + TasksUi.checklist-done + " / " + TasksUi.checklist.length : @tr("CHECKLIST");
+                }
+                Button {
+                    text: root.check-adding ? @tr("Done") : "+";
+                    accessible-label: root.check-adding ? @tr("Done") : @tr("Add checklist item");
+                    width: root.check-adding ? max(72px, self.content-width + 28px) : 36px;
+                    clicked => { root.check-adding = !root.check-adding; }
+                }
+            }
             for item in TasksUi.checklist : HorizontalLayout {
                 spacing: 6px;
                 TasksIconButton {
@@ -1364,7 +2474,7 @@ component TaskDrawer inherits Rectangle {
                 }
                 Text {
                     horizontal-stretch: 1;
-                    text: item.text;
+                    text: item.done && item.struck != "" ? item.struck : item.text;
                     color: item.done ? AppTheme.muted : AppTheme.body;
                     font-size: TypeScale.body;
                     wrap: word-wrap;
@@ -1378,14 +2488,50 @@ component TaskDrawer inherits Rectangle {
                     clicked => { TasksUi.command("check-delete", "" + item.id, ""); }
                 }
             }
-            LineEdit {
+            if root.check-adding : LineEdit {
                 placeholder-text: @tr("Add checklist item");
                 input-label: @tr("Add checklist item");
                 accepted(text) => { TasksUi.command("check-add", "" + TasksUi.detail.id, text); self.text = ""; }
             }
-            DetailSection { text: @tr("LINKED ITEMS"); }
-            for link in TasksUi.links : HorizontalLayout {
+            HorizontalLayout {
                 spacing: 6px;
+                DetailSection {
+                    horizontal-stretch: 1;
+                    text: TasksUi.links.length > 0 ? @tr("LINKED ITEMS") + " · " + TasksUi.links.length : @tr("LINKED ITEMS");
+                }
+                Button {
+                    text: root.link-adding ? @tr("Done") : "+";
+                    accessible-label: root.link-adding ? @tr("Done") : @tr("Add a link");
+                    width: root.link-adding ? max(72px, self.content-width + 28px) : 36px;
+                    clicked => { root.link-adding = !root.link-adding; }
+                }
+            }
+            for link in TasksUi.links : Rectangle {
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: AppTheme.border;
+                background: AppTheme.sidebar-bg;
+                HorizontalLayout {
+                padding: 8px;
+                spacing: 8px;
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    y: 0px;
+                    border-radius: 6px;
+                    background: AppTheme.accent-soft;
+                    Image {
+                        x: 6px;
+                        y: 6px;
+                        width: 16px;
+                        height: 16px;
+                        source: link.kind == "mail_received" ? @image-url("../icons/lucide/outline/mail.svg")
+                            : link.kind == "mail_sent" ? @image-url("../icons/lucide/outline/paper-airplane.svg")
+                            : link.kind == "event" ? @image-url("../icons/lucide/outline/calendar.svg")
+                            : @image-url("../icons/lucide/outline/link.svg");
+                        colorize: AppTheme.accent;
+                    }
+                }
                 VerticalLayout {
                     horizontal-stretch: 1;
                     spacing: 2px;
@@ -1406,8 +2552,9 @@ component TaskDrawer inherits Rectangle {
                     }
                     Text {
                         text: link.found ? link.text : @tr("Not found");
-                        color: link.found ? AppTheme.body : AppTheme.destructive;
+                        color: link.found ? AppTheme.heading : AppTheme.destructive;
                         font-size: TypeScale.body;
+                        font-weight: 600;
                         wrap: word-wrap;
                         if link.open != "" : TouchArea {
                             mouse-cursor: pointer;
@@ -1418,6 +2565,26 @@ component TaskDrawer inherits Rectangle {
                                     TasksUi.command("open", link.open, "");
                                 }
                             }
+                        }
+                    }
+                    if link.kind == "mail_sent" && TasksUi.detail.waiting-days >= 0 : TaskPill {
+                        text: @tr("Awaiting reply · {}d", TasksUi.detail.waiting-days);
+                        tone: AppTheme.destructive;
+                    }
+                    if link.kind == "mail_sent" && TasksUi.detail.follow-up != "" && !TasksUi.detail.done : HorizontalLayout {
+                        spacing: 4px;
+                        alignment: start;
+                        Image {
+                            y: (parent.height - 11px) / 2;
+                            width: 11px;
+                            height: 11px;
+                            source: @image-url("../icons/lucide/outline/history.svg");
+                            colorize: AppTheme.secondary;
+                        }
+                        Text {
+                            text: @tr("Follow up {}", TasksUi.detail.follow-up);
+                            color: AppTheme.secondary;
+                            font-size: TypeScale.micro;
                         }
                     }
                     if link.note != "" && link.note != "done" && link.note != "open" : Text {
@@ -1433,8 +2600,9 @@ component TaskDrawer inherits Rectangle {
                     tooltip-text: @tr("Remove link");
                     clicked => { TasksUi.command("link-remove", "" + link.id, ""); }
                 }
+                }
             }
-            HorizontalLayout {
+            if root.link-adding : HorizontalLayout {
                 height: 34px;
                 spacing: 6px;
                 LineEdit {
@@ -1467,19 +2635,29 @@ component TaskDrawer inherits Rectangle {
             }
             if !TasksUi.detail-expanded : DetailSection { text: @tr("ACTIVITY"); visible: TasksUi.activity.length > 0; height: self.visible ? self.preferred-height : 0px; }
             if !TasksUi.detail-expanded : VerticalLayout {
-                spacing: 10px;
-                for entry in TasksUi.activity : VerticalLayout {
-                    spacing: 1px;
-                    Text {
-                        text: entry.text;
-                        color: AppTheme.body;
-                        font-size: TypeScale.caption;
-                        wrap: word-wrap;
+                spacing: 0px;
+                PendingTrail { }
+                for entry[index] in TasksUi.activity : HorizontalLayout {
+                    spacing: 10px;
+                    TrailMarker {
+                        kind: entry.kind;
+                        first: index == 0 && !TasksUi.trail-pending;
+                        last: index == TasksUi.activity.length - 1;
                     }
-                    Text {
-                        text: entry.at;
-                        color: AppTheme.muted;
-                        font-size: TypeScale.micro;
+                    VerticalLayout {
+                        padding-bottom: 14px;
+                        spacing: 1px;
+                        Text {
+                            text: entry.text;
+                            color: AppTheme.body;
+                            font-size: TypeScale.caption;
+                            wrap: word-wrap;
+                        }
+                        Text {
+                            text: entry.at;
+                            color: AppTheme.muted;
+                            font-size: TypeScale.micro;
+                        }
                     }
                 }
             }
@@ -1495,28 +2673,13 @@ component TaskDrawer inherits Rectangle {
             spacing: 0px;
             alignment: start;
             DetailSection { text: @tr("LINK TRAIL"); height: self.preferred-height + 10px; }
+            PendingTrail { }
             for entry[index] in TasksUi.activity : HorizontalLayout {
                 spacing: 10px;
-                Rectangle {
-                    width: 12px;
-                    // A dot on a vertical line that runs to the next entry.
-                    Rectangle {
-                        x: 5px;
-                        y: 8px;
-                        width: 2px;
-                        height: parent.height - 8px;
-                        background: AppTheme.border;
-                        visible: index < TasksUi.activity.length - 1;
-                    }
-                    Rectangle {
-                        y: 4px;
-                        width: 12px;
-                        height: 12px;
-                        border-radius: 6px;
-                        background: index == 0 ? AppTheme.accent : AppTheme.surface;
-                        border-width: 2px;
-                        border-color: index == 0 ? AppTheme.accent : AppTheme.control-border;
-                    }
+                TrailMarker {
+                    kind: entry.kind;
+                    first: index == 0 && !TasksUi.trail-pending;
+                    last: index == TasksUi.activity.length - 1;
                 }
                 VerticalLayout {
                     padding-bottom: 14px;
@@ -1535,6 +2698,66 @@ component TaskDrawer inherits Rectangle {
                 }
             }
           }
+        }
+    }
+
+    // Actions stay in view under the scrolling content, as in the mockup.
+    Rectangle {
+        x: 1px;
+        y: parent.height - root.footer-height;
+        width: parent.width - 1px;
+        height: root.footer-height;
+        background: AppTheme.surface;
+        Rectangle { x: 0px; y: 0px; height: LayoutMetrics.divider-width; background: AppTheme.border; }
+        VerticalLayout {
+            x: 16px;
+            y: 0px;
+            width: min(640px, parent.width - 32px - (TasksUi.detail-expanded ? 372px : 0px));
+            height: parent.height;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            spacing: 8px;
+            alignment: center;
+        HorizontalLayout {
+            spacing: 8px;
+            Button {
+                text: TasksUi.detail.waiting-days >= 0 ? @tr("Follow up") : TasksUi.detail.reply-thread >= 0 ? @tr("Reply from task") : @tr("Email");
+                primary: !TasksUi.detail.done;
+                horizontal-stretch: 1;
+                clicked => {
+                    if TasksUi.detail.reply-thread >= 0 && TasksUi.detail.waiting-days < 0 {
+                        TasksUi.command("reply-mail", TasksUi.detail.reply-thread + ":" + TasksUi.detail.id, TasksUi.detail.reply-subject);
+                    } else {
+                        TasksUi.email-task(TasksUi.detail.id, TasksUi.detail.title);
+                    }
+                }
+            }
+            Button {
+                text: @tr("Schedule");
+                horizontal-stretch: 1;
+                clicked => { TasksUi.command("picker", "", ""); }
+            }
+        }
+        if TasksUi.links.length > 0 : Button {
+            text: @tr("Move back when a reply arrives");
+            selected: TasksUi.detail.move-back;
+            label-overflow: elide;
+            clicked => { TasksUi.command("toggle-move-back", "" + TasksUi.detail.id, ""); }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Button {
+                text: TasksUi.detail.done ? @tr("Reopen") : @tr("Complete");
+                horizontal-stretch: 1;
+                clicked => { TasksUi.command(TasksUi.detail.done ? "reopen" : "complete", "" + TasksUi.detail.id, ""); }
+            }
+            Button {
+                text: @tr("High priority");
+                selected: TasksUi.detail.high-priority;
+                horizontal-stretch: 1;
+                clicked => { TasksUi.command("toggle-priority", "" + TasksUi.detail.id, ""); }
+            }
+        }
         }
     }
 }
@@ -1692,6 +2915,23 @@ export component TasksView inherits Rectangle {
                         }
                     }
                 }
+                // On the board the grouping is the columns (status); any other
+                // choice shows the open tasks as a grouped list.
+                if TasksUi.can-switch-view && !TasksUi.timeline-mode && TasksUi.group-menu.length == 0 : ActionMenu {
+                    width: 28px;
+                    height: 28px;
+                    icon: @image-url("../icons/lucide/outline/list-unordered.svg");
+                    entries: [
+                        { id: "status", title: "✓ " + TasksUi.group-title("status") },
+                        { id: "context", title: TasksUi.group-title("context") },
+                        { id: "label", title: TasksUi.group-title("label") },
+                        { id: "due", title: TasksUi.group-title("due") },
+                    ];
+                    menu-width: 220px;
+                    align-right: false;
+                    tooltip-text: @tr("Group");
+                    activated(id) => { TasksUi.command("board-group", id, ""); }
+                }
                 if TasksUi.group-menu.length > 0 : ActionMenu {
                     width: 28px;
                     height: 28px;
@@ -1712,6 +2952,32 @@ export component TasksView inherits Rectangle {
                     tooltip-text: @tr("Add filter");
                     activated(id) => { TasksUi.command("filter-add", id, ""); }
                 }
+                if TasksUi.can-switch-view : ActionMenu {
+                    width: 28px;
+                    height: 28px;
+                    icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
+                    entries: [
+                        { id: "rename", title: @tr("Rename project") },
+                        { id: "add-column", title: @tr("Add column") },
+                        { id: "delete", title: @tr("Delete project") },
+                        { id: "colour:#6b7280", title: @tr("Colour: Grey") },
+                        { id: "colour:#3b82f6", title: @tr("Colour: Blue") },
+                        { id: "colour:#22c55e", title: @tr("Colour: Green") },
+                        { id: "colour:#f59e0b", title: @tr("Colour: Orange") },
+                        { id: "colour:#ef4444", title: @tr("Colour: Red") },
+                        { id: "custom-colour", title: @tr("Custom colour…") },
+                    ];
+                    menu-width: 220px;
+                    align-right: false;
+                    tooltip-text: @tr("Project options");
+                    activated(id) => {
+                        if (id.starts-with("colour:")) {
+                            TasksUi.command("project-colour", "", id);
+                        } else {
+                            TasksUi.creating = id == "rename" ? "rename-project" : id == "add-column" ? "column-project" : id == "custom-colour" ? "colour-project" : "delete-project";
+                        }
+                    }
+                }
                 Rectangle { horizontal-stretch: 1; }
                 Text {
                     text: TasksUi.today-label + " · " + @tr("GTD workflow");
@@ -1719,6 +2985,47 @@ export component TasksView inherits Rectangle {
                     font-size: TypeScale.caption;
                     vertical-alignment: center;
                     overflow: elide;
+                }
+            }
+            if TasksUi.creating == "rename-project" && TasksUi.can-switch-view : LineEdit {
+                text: TasksUi.title;
+                placeholder-text: @tr("Project name");
+                input-label: @tr("Project name");
+                accepted(text) => { TasksUi.command("project-rename", text, ""); TasksUi.creating = ""; }
+            }
+            if TasksUi.creating == "column-project" && TasksUi.can-switch-view : LineEdit {
+                placeholder-text: @tr("Column name");
+                input-label: @tr("Column name");
+                accepted(text) => { TasksUi.command("add-column", text, ""); TasksUi.creating = ""; }
+            }
+            if TasksUi.creating == "colour-project" && TasksUi.can-switch-view : LineEdit {
+                placeholder-text: @tr("Colour as #rrggbb");
+                input-label: @tr("Colour as #rrggbb");
+                accepted(text) => { TasksUi.command("project-colour", "", "colour:" + text); TasksUi.creating = ""; }
+            }
+            if TasksUi.creating == "colour-project" && TasksUi.can-switch-view : TasksSwatches {
+                picked(hex) => { TasksUi.command("project-colour", "", "colour:" + hex); TasksUi.creating = ""; }
+            }
+            if TasksUi.creating == "delete-project" && TasksUi.can-switch-view : HorizontalLayout {
+                height: 32px;
+                spacing: 8px;
+                Text {
+                    horizontal-stretch: 1;
+                    text: @tr("Delete this project and its tasks?");
+                    color: AppTheme.destructive;
+                    font-size: TypeScale.secondary;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                Button {
+                    text: @tr("Delete");
+                    width: max(80px, self.content-width + 28px);
+                    clicked => { TasksUi.command("project-delete", "", ""); TasksUi.creating = ""; }
+                }
+                Button {
+                    text: @tr("Cancel");
+                    width: max(80px, self.content-width + 28px);
+                    clicked => { TasksUi.creating = ""; }
                 }
             }
             if TasksUi.status != "" : Text {

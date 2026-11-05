@@ -46,7 +46,7 @@ import { FilesView, FilesUi } from "views/files-view.slint";
 export { ComposeScheduleUi, TaskComposeUi, TaskSettingsUi } from "components/task-compose.slint";
 export { TaskReplyUi } from "components/task-reply.slint";
 export { SendUndoUi } from "components/send-undo.slint";
-export { TasksUi, TaskCardRow, TaskColumnRow, TaskNavRow, TaskDetailRow, ChecklistRow, LinkRow, ActivityRow } from "views/tasks-view.slint";
+export { TasksUi, TaskCardRow, TaskColumnRow, TaskNavRow, TaskDetailRow, TaskLabelRow, ChipPos, ChecklistRow, LinkRow, ActivityRow } from "views/tasks-view.slint";
 import { TasksView, TasksUi } from "views/tasks-view.slint";
 import { ContactsView } from "views/contacts-view.slint";
 import { OnboardingView } from "views/onboarding-view.slint";
@@ -803,6 +803,8 @@ export component AppWindow inherits Window {
     in property <string> calendar_period_title: "";
     in property <string> calendar_week_label: "";
     in property <string> calendar_selected_date: "";
+    // Event whose details the Calendar should open (-1 = none).
+    in-out property <int> calendar_focus_event: -1;
     in property <bool> calendar_selected_date_has_events: false;
     in-out property <bool> calendar_sidebar_collapsed: false;
     in-out property <string> calendar_view_mode: "week";
@@ -1567,6 +1569,8 @@ export component AppWindow inherits Window {
             today => { root.calendar-today(); }
             new-event => { root.calendar-open-editor(); }
             edit-event(event-id) => { root.calendar-edit-event(event-id); }
+            focus-event-id: root.calendar_focus_event;
+            event-focused => { root.calendar_focus_event = -1; }
             delete-event(event-id) => { root.calendar-delete-event(event-id); }
             open-link(url) => { root.open_email_link(url); }
         }

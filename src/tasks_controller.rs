@@ -2,7 +2,7 @@
 //! runtime; the database is never touched on the UI thread. Every command
 //! reloads one `Snapshot` (plain `Send` data) that is applied to the models.
 use crate::{
-    ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, PickerDayRow, TaskCardRow, TaskColumnRow,
+    ActivityRow, AppWindow, ChecklistRow, InboxState, LinkRow, PickerDayRow, TaskCardRow, TaskColumnRow, TaskLabelRow, ChipPos,
     LinkedTask, TaskChipEntry, TaskChips, TaskChipRow, TaskDetailRow, TaskFromMail, TaskNavRow, TaskReplyUi, TaskSettingsUi, TasksUi,
 };
 use crate::ui_message::AppWindowMessages;
@@ -13,7 +13,7 @@ use rustmail_core::tasks::{
     ColumnKind, ColumnPatch, LinkedTo, NewTask, Task, TaskColumn, TaskDraft, TaskFilter, TaskFocus, TaskLabel,
     TaskPatch,
 };
-use slint::{ComponentHandle, Model, ModelRc, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -177,6 +177,18 @@ fn linked_label(what: LinkedTo) -> &'static str {
     }
 }
 
+/// A filter chip or "Add filter" entry in the UI language. `id` starts with
+/// the kind (label, context, linked, assignee); `text` is "Kind: name".
+fn filter_text(ui: &TasksUi<'_>, id: &str, text: &str) -> slint::SharedString {
+    let kind = id.split(':').next().unwrap_or_default();
+    match text.split_once(": ") {
+        Some((_, name)) if ["label", "context", "linked", "assignee"].contains(&kind) => {
+            ui.invoke_chip_title(kind.into(), name.into())
+        }
+        _ => text.into(),
+    }
+}
+
 /// The filter chips beyond label and context.
 #[derive(Clone, Default)]
 struct Extra {
@@ -187,6 +199,8 @@ struct Extra {
     hide_done: bool,
     /// Show the project as a timeline instead of a board or list.
     timeline: bool,
+    /// Weeks the timeline window is moved from its home position.
+    timeline_shift: i32,
 }
 
 /// Who a task is assigned to: a key (the email in lower case, else the
@@ -199,6 +213,21 @@ fn assignee_of(task: &Task) -> Option<(String, String)> {
         (None, Some(name)) => Some((name.to_lowercase(), name.to_owned())),
         (None, None) => None,
     }
+}
+
+/// The addresses of the user's own accounts, in lower case. "Me" in the
+/// assignee filter and the drawer means any of them.
+async fn own_emails(core: &Core) -> Vec<String> {
+    core.list_accounts()
+        .await
+        .map(|accounts| {
+            accounts
+                .into_iter()
+                .map(|a| a.email.trim().to_lowercase())
+                .filter(|e| !e.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Cards beyond this many linked tasks show no link row.
@@ -223,6 +252,8 @@ struct Session {
     list: bool,
     /// Project shown as a timeline (Gantt).
     timeline: bool,
+    /// Weeks the timeline window is moved from its home position.
+    timeline_shift: i32,
     /// Sidebar search over project and context names.
     nav: String,
     group: Group,
@@ -244,16 +275,29 @@ struct DetailSnap {
     context: String,
     assignee: String,
     labels: String,
-    /// `(menu id, title)`: "ctx:<id>" / "ctx:none", "lbl:<id>" (ticked when set).
+    /// Days since the sent mail with no reply, -1 when the task is not waiting.
+    waiting_days: i64,
+    /// Date to follow up a sent mail, empty when unset.
+    follow_up: String,
+    /// Other people on the task: (address, shown name).
+    co_assignees: Vec<(String, String)>,
+    /// Icon token of the task's column.
+    column_icon: String,
+    /// Conversation to reply to from the drawer's primary button: the first
+    /// received mail, when no mail has been sent for the task; -1 otherwise.
+    reply_thread: i64,
+    reply_subject: String,
+    /// `(menu id, title)`: "ctx:<id>" / "ctx:none" (ticked when set).
     context_menu: Vec<(String, String)>,
-    label_menu: Vec<(String, String)>,
+    /// `(id, name, colour, set on this task)` for every label.
+    label_rows: Vec<(i64, String, String, bool)>,
     checklist: Vec<(i64, String, bool)>,
     /// `(link id, kind token, text, target found, open target)`; the open
     /// target is "task:<id>" for a linked task and empty otherwise.
     /// (link id, kind, text, found, open target, note). The note is "done" or
     /// "open" for a linked task, the start date for an event, else empty.
     links: Vec<(i64, String, String, bool, String, String)>,
-    activity: Vec<(String, String)>,
+    activity: Vec<(String, String, String)>,
 }
 
 #[derive(Clone)]
@@ -261,15 +305,22 @@ struct CardSnap {
     id: i64,
     title: String,
     due: String,
+    /// "today" or "tomorrow" when the due date falls on that day.
+    due_kind: &'static str,
+    /// Follow-up date of an open task, empty when none.
+    follow_up: String,
     due_warn: bool,
     high: bool,
     labels: String,
+    label_names: Vec<String>,
     checklist: (i64, i64),
     links: i64,
     done: bool,
     from_mail: bool,
     context: String,
     assignee: String,
+    /// Initials of the other people on the task.
+    more_assignees: Vec<String>,
     /// Column name, filled in for a project shown as a list.
     status: String,
     /// Whole days since the sent mail while no reply has come; -1 = none.
@@ -328,6 +379,20 @@ struct Snapshot {
     /// Token of the order of a flat list (`Sort::token`), for the header row.
     sort: String,
     filter_menu: Vec<(String, String)>,
+    /// People with an address already assigned on the tasks listed, for the
+    /// drawer's Assignee picker: `(email, display name)`.
+    people: Vec<(String, String)>,
+}
+
+/// A colour typed by the user, as `#rrggbb` (the leading `#` may be left out),
+/// returned lower-case.
+fn hex_colour(text: &str) -> Result<String, String> {
+    let digits = text.trim().trim_start_matches('#');
+    if digits.len() == 6 && digits.chars().all(|c| c.is_ascii_hexdigit()) {
+        Ok(format!("#{}", digits.to_ascii_lowercase()))
+    } else {
+        Err("Unknown colour".to_owned())
+    }
 }
 
 fn colour(hex: &str) -> slint::Color {
@@ -355,6 +420,62 @@ fn iso_date(ms: i64) -> String {
         .unwrap_or_default()
 }
 
+/// Who the user means by `text` in an assignee box: "Name <address>", a bare
+/// address, or part of a contact's name or address (best match).
+async fn person_from_text(core: &Core, text: &str) -> Result<(String, String), String> {
+    if let Some((name, rest)) = text.split_once('<')
+        && let Some(email) = rest.strip_suffix('>')
+    {
+        Ok((email.trim().to_owned(), name.trim().to_owned()))
+    } else if text.contains('@') && !text.contains(' ') {
+        Ok((text.to_owned(), String::new()))
+    } else {
+        let hit = core
+            .suggest_contacts(text.to_owned(), 1)
+            .await
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .next()
+            .ok_or("No contact matches; type an email address")?;
+        Ok((hit.email, hit.name.unwrap_or_default()))
+    }
+}
+
+/// "today" or "tomorrow" when the local date of `due` (ms) is the day that
+/// ends at `today_end`, or the day after it.
+fn due_kind(due: i64, today_end: i64) -> &'static str {
+    let day = |ms: i64| Local.timestamp_millis_opt(ms).single().map(|t| t.date_naive());
+    let (Some(due), Some(today)) = (day(due), day(today_end - 1)) else {
+        return "";
+    };
+    match (due - today).num_days() {
+        0 => "today",
+        1 => "tomorrow",
+        _ => "",
+    }
+}
+
+/// The conversation the drawer's "Reply from task" answers: the first received
+/// mail link, but only while no mail has been sent for the task.
+fn reply_target(links: &[(i64, String, String, bool, String, String)]) -> (i64, String) {
+    if links.iter().any(|l| l.1 == "mail_sent") {
+        return (-1, String::new());
+    }
+    links
+        .iter()
+        .find(|l| l.1 == "mail_received" && l.3)
+        .and_then(|l| Some((l.4.strip_prefix("mail:")?.parse::<i64>().ok()?, l.2.clone())))
+        .unwrap_or((-1, String::new()))
+}
+
+fn iso_date_time(ms: i64) -> String {
+    Local
+        .timestamp_millis_opt(ms)
+        .single()
+        .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_default()
+}
+
 fn focus_for(key: &str) -> Option<TaskFocus> {
     Some(match key {
         "inbox" => TaskFocus::Inbox,
@@ -377,6 +498,12 @@ fn card(
         id: task.id,
         title: task.title.clone(),
         due: task.due_at.map(iso_date).unwrap_or_default(),
+        due_kind: task.due_at.map_or("", |d| due_kind(d, today_end)),
+        follow_up: task
+            .follow_up_at
+            .filter(|_| task.completed_at.is_none())
+            .map(iso_date)
+            .unwrap_or_default(),
         due_warn: task.completed_at.is_none() && task.due_at.is_some_and(|d| d <= today_end),
         high: task.priority >= 3,
         labels: task
@@ -385,6 +512,11 @@ fn card(
             .filter_map(|id| labels.get(id).map(|l| l.name.as_str()))
             .collect::<Vec<_>>()
             .join(", "),
+        label_names: task
+            .label_ids
+            .iter()
+            .filter_map(|id| labels.get(id).map(|l| l.name.clone()))
+            .collect(),
         checklist: (task.checklist_done, task.checklist_total),
         links: task.link_count,
         done: task.completed_at.is_some(),
@@ -397,6 +529,7 @@ fn card(
             task.assignee_name.as_deref().filter(|n| !n.trim().is_empty()),
             task.assignee_email.as_deref(),
         ),
+        more_assignees: Vec::new(),
         status: String::new(),
         no_reply_days: -1,
         replied: false,
@@ -490,12 +623,9 @@ async fn load_detail(
         let tick = if task.context_id == Some(c.id) { "✓ " } else { "" };
         (format!("ctx:{}", c.id), format!("{tick}{}", c.name))
     }));
-    let label_menu = all_labels
+    let label_rows = all_labels
         .iter()
-        .map(|l| {
-            let tick = if task.label_ids.contains(&l.id) { "✓ " } else { "" };
-            (format!("lbl:{}", l.id), format!("{tick}{}", l.name))
-        })
+        .map(|l| (l.id, l.name.clone(), l.colour.clone(), task.label_ids.contains(&l.id)))
         .collect();
     let labels = all_labels
         .iter()
@@ -529,13 +659,21 @@ async fn load_detail(
                 Some(uid) => core.task_event_start(uid.clone()).await.ok().flatten().map(iso_date),
                 None => None,
             },
+            // Sender and date, as in the mockup's linked-item cards.
+            LinkTarget::Mail { from, date, to, .. } => Some(
+                if l.link.kind == rustmail_core::tasks::LinkKind::MailSent && !to.is_empty() {
+                    format!("→ {to} · {}", iso_date_time(*date))
+                } else {
+                    format!("{from} · {}", iso_date_time(*date))
+                },
+            ),
             _ => None,
         };
         if let Some(note) = note {
             notes.insert(l.link.id, note);
         }
     }
-    let links = links
+    let links: Vec<(i64, String, String, bool, String, String)> = links
         .into_iter()
         .map(|l| {
             use rustmail_core::tasks::LinkTarget;
@@ -559,6 +697,7 @@ async fn load_detail(
             (l.link.id, l.link.kind.as_str().to_owned(), text, found, open, note)
         })
         .collect();
+    let reply = reply_target(&links);
     let detail = DetailSnap {
         id,
         title: task.title.clone(),
@@ -574,6 +713,9 @@ async fn load_detail(
             .map(|p| p.name.clone())
             .unwrap_or_default(),
         column: column.name.clone(),
+        column_icon: column.icon.clone(),
+        reply_thread: reply.0,
+        reply_subject: reply.1,
         context,
         assignee: match (&task.assignee_name, &task.assignee_email) {
             (Some(n), Some(e)) if !n.is_empty() => format!("{n} <{e}>"),
@@ -581,8 +723,29 @@ async fn load_detail(
             _ => String::new(),
         },
         labels,
+        waiting_days: core
+            .task_no_reply_days(chrono::Utc::now().timestamp_millis())
+            .await
+            .ok()
+            .and_then(|all| all.into_iter().find(|(t, _)| *t == id).map(|(_, d)| d))
+            .unwrap_or(-1),
+        follow_up: task.follow_up_at.map(iso_date).unwrap_or_default(),
+        co_assignees: core
+            .task_co_assignees()
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|(t, _, _)| *t == id)
+            .map(|(_, email, name)| {
+                let shown = match name.as_deref().map(str::trim) {
+                    Some(n) if !n.is_empty() => format!("{n} <{email}>"),
+                    _ => email.clone(),
+                };
+                (email, shown)
+            })
+            .collect(),
         context_menu,
-        label_menu,
+        label_rows,
         checklist: checklist.into_iter().map(|c| (c.id, c.text, c.done)).collect(),
         links,
         activity: activity
@@ -593,7 +756,7 @@ async fn load_detail(
                     .single()
                     .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
                     .unwrap_or_default();
-                (a.text, at)
+                (a.kind, a.text, at)
             })
             .collect(),
     };
@@ -640,6 +803,7 @@ async fn load(
     filter.linked_to = extra.linked;
     let hide_done = extra.hide_done;
     let want_timeline = extra.timeline;
+    let timeline_shift = extra.timeline_shift;
     if kind != "context" {
         filter.context_id = context_chip.filter(|c| context_map.contains_key(c));
     }
@@ -749,19 +913,32 @@ async fn load(
         }
     }
     assignees.sort_by_key(|(_, name)| name.to_lowercase());
-    match assignee_chip
-        .as_deref()
-        .and_then(|key| assignees.iter().find(|(k, _)| k == key))
-    {
-        Some((key, name)) => {
-            snap.chips.push(("assignee".into(), format!("Assignee: {name}")));
-            tasks.retain(|t| assignee_of(t).is_some_and(|(k, _)| k == *key));
+    snap.people = assignees.iter().filter(|(key, _)| key.contains('@')).cloned().collect();
+    let mine = own_emails(core).await;
+    let me_chip = assignee_chip.as_deref() == Some("me") && !mine.is_empty();
+    if me_chip {
+        snap.chips.push(("assignee".into(), "Assignee: Me".into()));
+        tasks.retain(|t| assignee_of(t).is_some_and(|(k, _)| mine.contains(&k)));
+    } else {
+        match assignee_chip
+            .as_deref()
+            .and_then(|key| assignees.iter().find(|(k, _)| k == key))
+        {
+            Some((key, name)) => {
+                snap.chips.push(("assignee".into(), format!("Assignee: {name}")));
+                tasks.retain(|t| assignee_of(t).is_some_and(|(k, _)| k == *key));
+            }
+            None => {
+                if !mine.is_empty() {
+                    snap.filter_menu.push(("assignee:me".into(), "Assignee: Me".into()));
+                }
+                snap.filter_menu.extend(
+                    assignees
+                        .iter()
+                        .map(|(key, name)| (format!("assignee:{key}"), format!("Assignee: {name}"))),
+                );
+            }
         }
-        None => snap.filter_menu.extend(
-            assignees
-                .iter()
-                .map(|(key, name)| (format!("assignee:{key}"), format!("Assignee: {name}"))),
-        ),
     }
     snap.task_count = tasks.iter().filter(|t| t.completed_at.is_none()).count() as i64;
     if board {
@@ -788,11 +965,53 @@ async fn load(
             .collect();
     } else if timeline_mode {
         let dependencies = core.task_dependencies(project_id.unwrap_or_default()).await?;
-        snap.timeline = Some(crate::tasks_timeline::build(
+        let board_columns = core.task_columns(project_id.unwrap_or_default()).await?;
+        let column_colours: Vec<(i64, String)> =
+            board_columns.iter().map(|c| (c.id, c.colour.clone())).collect();
+        let columns: Vec<(i64, String)> =
+            board_columns.into_iter().map(|c| (c.id, c.name)).collect();
+        let mut timeline = crate::tasks_timeline::build_shifted(
             &tasks,
             Local::now().date_naive(),
             &dependencies,
-        ));
+            &columns,
+            timeline_shift,
+        );
+        // Calendar events are context only: a failed read leaves the lane empty.
+        if let Some((from, to)) = timeline.range_ms() {
+            let events = core.list_events(from, to).await.unwrap_or_default();
+            let lane: Vec<_> = events
+                .into_iter()
+                .map(|e| crate::tasks_timeline::LaneEvent {
+                    title: e.summary.filter(|s| !s.trim().is_empty()).unwrap_or_default(),
+                    starts_at: e.starts_at,
+                    ends_at: e.ends_at,
+                    all_day: e.all_day,
+                })
+                .collect();
+            timeline.set_events(&lane);
+        }
+        // Which kinds of mail and events each task links to. One read per
+        // linked task, for the first MAX_CARD_LINK_LOOKUPS of them.
+        let mut kinds = Vec::new();
+        for t in tasks.iter().filter(|t| t.link_count > 0).take(MAX_CARD_LINK_LOOKUPS) {
+            use rustmail_core::tasks::LinkKind;
+            let mut flags = (false, false, false);
+            for l in core.task_links(t.id).await? {
+                match l.link.kind {
+                    LinkKind::MailReceived => flags.0 = true,
+                    LinkKind::MailSent => flags.1 = true,
+                    LinkKind::Event => flags.2 = true,
+                    _ => {}
+                }
+            }
+            kinds.push((t.id, flags.0, flags.1, flags.2));
+        }
+        timeline.set_links(&kinds);
+        let waiting = core.task_no_reply_days(chrono::Utc::now().timestamp_millis()).await?;
+        timeline.set_no_reply(&waiting);
+        timeline.set_colours(&column_colours);
+        snap.timeline = Some(timeline);
     } else if !tasks.is_empty() || kind != "project" {
         // Focus, context and search views are one flat list, optionally
         // split into sections.
@@ -912,6 +1131,12 @@ async fn load(
         let found = all.into_iter().find_map(|l| {
             use rustmail_core::tasks::LinkTarget;
             let text = match &l.target {
+                // A sent mail is named by who it went to, as in the design.
+                LinkTarget::Mail { subject, to, .. }
+                    if l.link.kind == rustmail_core::tasks::LinkKind::MailSent && !to.is_empty() =>
+                {
+                    format!("{to} · {subject}")
+                }
                 LinkTarget::Mail { subject, .. } => subject.clone(),
                 LinkTarget::Event => l.link.event_uid.clone().unwrap_or_default(),
                 _ => return None,
@@ -938,6 +1163,16 @@ async fn load(
             if let Some(days) = waiting.get(&k.id) {
                 k.no_reply_days = *days;
             }
+        }
+    }
+    let co = core.task_co_assignees().await?;
+    if !co.is_empty() {
+        for k in snap.columns.iter_mut().flat_map(|c| c.cards.iter_mut()) {
+            k.more_assignees = co
+                .iter()
+                .filter(|(task, _, _)| *task == k.id)
+                .map(|(_, email, name)| initials(name.as_deref(), Some(email)))
+                .collect();
         }
     }
     let replied: std::collections::HashSet<i64> = core.task_replied().await?.into_iter().collect();
@@ -989,6 +1224,19 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
     ui.set_title(snap.title.into());
     ui.set_task_count(snap.task_count as i32);
     ui.set_focus_rows(nav_rows(snap.focus));
+    // The drawer's Project picker lists every project, not the filtered sidebar.
+    ui.set_project_menu(ModelRc::new(VecModel::from(
+        snap.projects
+            .iter()
+            .map(|p| crate::ActionMenuEntry {
+                id: p.key.clone().into(),
+                title: p.label.clone().into(),
+                icon: Default::default(),
+                disabled: false,
+                destructive: false,
+            })
+            .collect::<Vec<_>>(),
+    )));
     ui.set_projects(nav_rows(snap.projects));
     ui.set_contexts(nav_rows(snap.contexts));
     ui.set_today_label(Local::now().format("%a, %b %-d").to_string().into());
@@ -999,6 +1247,8 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
         Some(timeline) => {
             ui.set_timeline_title(timeline.title.into());
             ui.set_timeline_today(timeline.today_index);
+            ui.set_timeline_origin(timeline.origin_days);
+            ui.set_timeline_shifted(timeline.shifted);
             ui.set_timeline_undated(timeline.undated as i32);
             ui.set_timeline_days(ModelRc::new(VecModel::from(
                 timeline
@@ -1009,6 +1259,19 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         weekend: d.weekend,
                         today: d.today,
                         week: d.week.into(),
+                    })
+                    .collect::<Vec<_>>(),
+            )));
+            ui.set_timeline_events_hidden(timeline.events_hidden as i32);
+            ui.set_timeline_events(ModelRc::new(VecModel::from(
+                timeline
+                    .events
+                    .into_iter()
+                    .map(|e| crate::TimelineEventRow {
+                        label: e.label.into(),
+                        first_day: e.first_day,
+                        last_day: e.last_day,
+                        lane: e.lane,
                     })
                     .collect::<Vec<_>>(),
             )));
@@ -1025,6 +1288,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                     .into_iter()
                     .map(|b| crate::TimelineBarRow {
                         id: b.id as i32,
+                        struck_title: if b.done && !b.group { strike_through(&b.title) } else { String::new() }.into(),
                         title: b.title.into(),
                         start_text: b.start_text.into(),
                         due_text: b.due_text.into(),
@@ -1033,6 +1297,15 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         milestone: b.milestone,
                         done: b.done,
                         overdue: b.overdue,
+                        late_days: b.late_days,
+                        no_reply_days: b.no_reply_days,
+                        coloured: !b.colour.is_empty(),
+                        group_colour: colour(&b.colour),
+                        progress: b.progress,
+                        has_mail: b.has_mail,
+                        has_sent: b.has_sent,
+                        has_event: b.has_event,
+                        group: b.group,
                     })
                     .collect::<Vec<_>>(),
             )));
@@ -1041,6 +1314,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
             ui.set_timeline_days(ModelRc::default());
             ui.set_timeline_bars(ModelRc::default());
             ui.set_timeline_edges(ModelRc::default());
+            ui.set_timeline_events(ModelRc::default());
         }
     }
     ui.set_sort(snap.sort.into());
@@ -1067,21 +1341,55 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
     ui.set_filter_chips(ModelRc::new(VecModel::from(
         snap.chips
             .into_iter()
-            .map(|(key, text)| TaskChipRow { key: key.into(), text: text.into() })
+            .map(|(key, text)| TaskChipRow {
+                text: filter_text(ui, &key, &text),
+                key: key.into(),
+            })
             .collect::<Vec<_>>(),
     )));
     ui.set_filter_menu(ModelRc::new(VecModel::from(
         snap.filter_menu
             .into_iter()
             .map(|(id, title)| crate::ActionMenuEntry {
+                title: filter_text(ui, &id, &title),
                 id: id.into(),
-                title: title.into(),
                 icon: Default::default(),
                 disabled: false,
                 destructive: false,
             })
             .collect::<Vec<_>>(),
     )));
+    let assignee_entry = |id: String, title: String| crate::ActionMenuEntry {
+        id: id.into(),
+        title: title.into(),
+        icon: Default::default(),
+        disabled: false,
+        destructive: false,
+    };
+    let people = std::iter::once(assignee_entry("me".into(), ui.invoke_assignee_title("me".into()).into()))
+        .chain(std::iter::once(assignee_entry("none".into(), ui.invoke_assignee_title("none".into()).into())))
+        .chain(snap.people.iter().map(|(email, name)| {
+            assignee_entry(format!("person:{email}"), if name == email { email.clone() } else { format!("{name} <{email}>") })
+        }))
+        .collect::<Vec<_>>();
+    let mut people = people;
+    people.push(assignee_entry("find".into(), ui.invoke_assignee_title("find".into()).into()));
+    ui.set_assignee_menu(ModelRc::new(VecModel::from(people)));
+    let moves = snap.move_targets.iter().map(|(id, name)| (format!("move:{id}"), name.clone(), false));
+    let detail_menu = moves
+        .chain([
+            ("priority".to_owned(), ui.invoke_detail_title("priority".into()).to_string(), false),
+            ("delete".to_owned(), ui.invoke_detail_title("delete".into()).to_string(), true),
+        ])
+        .map(|(id, title, destructive)| crate::ActionMenuEntry {
+            id: id.into(),
+            title: title.into(),
+            icon: Default::default(),
+            disabled: false,
+            destructive,
+        })
+        .collect::<Vec<_>>();
+    ui.set_detail_menu(ModelRc::new(VecModel::from(detail_menu)));
     ui.set_card_menu(ModelRc::new(VecModel::from(
         snap.move_targets
             .into_iter()
@@ -1099,7 +1407,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
         .into_iter()
         .map(|c| TaskColumnRow {
             id: c.id as i32,
-            name: c.name.into(),
+            name: if c.fixed { ui.invoke_section_title(c.name.as_str().into()) } else { c.name.into() },
             icon: c.icon.into(),
             colour: colour(&c.colour),
             count: c.count.into(),
@@ -1115,9 +1423,17 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         struck_title: if k.done { strike_through(&k.title) } else { String::new() }.into(),
                         title: k.title.into(),
                         due: k.due.into(),
+                        more_assignees: ModelRc::new(VecModel::from(
+                            k.more_assignees.into_iter().map(SharedString::from).collect::<Vec<_>>(),
+                        )),
+                        due_kind: k.due_kind.into(),
+                        follow_up: k.follow_up.into(),
                         due_warn: k.due_warn,
                         high_priority: k.high,
                         labels: k.labels.into(),
+                        label_list: ModelRc::new(VecModel::from(
+                            k.label_names.into_iter().map(SharedString::from).collect::<Vec<_>>(),
+                        )),
                         checklist_total: k.checklist.1 as i32,
                         checklist_done: k.checklist.0 as i32,
                         link_count: k.links as i32,
@@ -1140,6 +1456,13 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
     ui.set_columns(ModelRc::new(VecModel::from(columns)));
     match snap.detail {
         Some(d) => {
+            ui.set_detail_labels(ModelRc::new(VecModel::from(
+                d.labels
+                    .split(", ")
+                    .filter(|l| !l.is_empty())
+                    .map(SharedString::from)
+                    .collect::<Vec<_>>(),
+            )));
             ui.set_detail(TaskDetailRow {
                 id: d.id as i32,
                 title: d.title.into(),
@@ -1153,6 +1476,11 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                 column: d.column.into(),
                 context: d.context.into(),
                 assignee: d.assignee.into(),
+                waiting_days: d.waiting_days as i32,
+                follow_up: d.follow_up.into(),
+                column_icon: d.column_icon.into(),
+                reply_thread: d.reply_thread as i32,
+                reply_subject: d.reply_subject.into(),
                 labels: d.labels.into(),
             });
             let entries = |rows: Vec<(String, String)>| {
@@ -1169,12 +1497,34 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                 ))
             };
             ui.set_context_menu(entries(d.context_menu));
-            ui.set_label_menu(entries(d.label_menu));
+            let query = ui.get_label_query().to_lowercase();
+            ui.set_label_shown(
+                d.label_rows
+                    .iter()
+                    .filter(|r| query.is_empty() || r.1.to_lowercase().contains(&query))
+                    .count() as i32,
+            );
+            ui.set_label_rows(ModelRc::new(VecModel::from(
+                d.label_rows
+                    .into_iter()
+                    .map(|(id, name, hex, applied)| TaskLabelRow {
+                        id: id as i32,
+                        shown: query.is_empty() || name.to_lowercase().contains(&query),
+                        name: name.into(),
+                        colour: colour(&hex),
+                        hex: hex.into(),
+                        applied,
+                    })
+                    .collect::<Vec<_>>(),
+            )));
+            ui.set_co_assignees(entries(d.co_assignees));
+            ui.set_checklist_done(d.checklist.iter().filter(|c| c.2).count() as i32);
             ui.set_checklist(ModelRc::new(VecModel::from(
                 d.checklist
                     .into_iter()
                     .map(|(id, text, done)| ChecklistRow {
                         id: id as i32,
+                        struck: if done { strike_through(&text) } else { String::new() }.into(),
                         text: text.into(),
                         done,
                     })
@@ -1200,8 +1550,9 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
             ui.set_activity(ModelRc::new(VecModel::from(
                 d.activity
                     .into_iter()
-                    .map(|(text, at)| ActivityRow {
-                        text: text.into(),
+                    .map(|(kind, text, at)| ActivityRow {
+                        kind: kind.into(),
+                        text: ui.invoke_activity_title(text.into()),
                         at: at.into(),
                     })
                     .collect::<Vec<_>>(),
@@ -1237,6 +1588,36 @@ pub(crate) fn register(
     });
     let command = Rc::clone(&ctx);
     let runtime_for_mail = Rc::clone(runtime);
+    app.global::<TasksUi>().on_chip_flow(|rows, width, char_width| {
+        // Label chips wrap onto new lines; a chip is as wide as its name
+        // (estimated: the real width is only known once it is drawn) plus
+        // its icon and padding. Positions start after the tag button.
+        const LINE: f32 = 34.0;
+        const START: f32 = 34.0;
+        let width = (width - START).max(40.0);
+        let (mut x, mut y, mut placed) = (0.0_f32, 0.0_f32, false);
+        let mut out = Vec::with_capacity(rows.row_count());
+        for i in 0..rows.row_count() {
+            let Some(row) = rows.row_data(i) else { continue };
+            if !row.applied {
+                out.push(ChipPos { x: 0.0, y: 0.0, h: 0.0 });
+                continue;
+            }
+            let w = row.name.chars().count() as f32 * char_width + 34.0;
+            if x > 0.0 && x + w > width {
+                x = 0.0;
+                y += LINE;
+            }
+            out.push(ChipPos { x: START + x, y, h: 0.0 });
+            x += w + 6.0;
+            placed = true;
+        }
+        let total = if placed { y + 28.0 } else { 28.0 };
+        for pos in &mut out {
+            pos.h = total;
+        }
+        ModelRc::new(VecModel::from(out))
+    });
     app.global::<TasksUi>().on_command(move |action, a, b| {
         if action == "board-key" {
             if let Some(app) = command.weak.upgrade() {
@@ -1264,9 +1645,80 @@ pub(crate) fn register(
             dispatch(&command, "refresh".into(), Vec::new());
             return;
         }
+        if action == "label-search" {
+            if let Some(app) = command.weak.upgrade() {
+                let ui = app.global::<TasksUi>();
+                let query = a.trim().to_lowercase();
+                let rows = ui.get_label_rows();
+                let mut shown = 0;
+                for i in 0..rows.row_count() {
+                    if let Some(mut row) = rows.row_data(i) {
+                        row.shown = query.is_empty() || row.name.to_lowercase().contains(&query);
+                        shown += i32::from(row.shown);
+                        rows.set_row_data(i, row);
+                    }
+                }
+                ui.set_label_shown(shown);
+            }
+            return;
+        }
+        if action == "assignee-suggest" {
+            let query = a.trim().to_owned();
+            if let Some(app) = command.weak.upgrade() {
+                let ui = app.global::<TasksUi>();
+                if query.is_empty() {
+                    ui.set_assignee_suggestions(ModelRc::default());
+                    return;
+                }
+                if let Some(core) = command.state.borrow().core.as_ref().map(|c| c.file_core()) {
+                    let weak = command.weak.clone();
+                    command.handle.spawn(async move {
+                        let hits = core.suggest_contacts(query, 5).await.unwrap_or_default();
+                        let _ = weak.upgrade_in_event_loop(move |app| {
+                            let rows: Vec<_> = hits
+                                .into_iter()
+                                .map(|h| {
+                                    let title = match h.name.as_deref().map(str::trim) {
+                                        Some(n) if !n.is_empty() => format!("{n} <{}>", h.email),
+                                        _ => h.email.clone(),
+                                    };
+                                    crate::ActionMenuEntry {
+                                        id: format!("person:{title}").into(),
+                                        title: title.into(),
+                                        icon: Default::default(),
+                                        disabled: false,
+                                        destructive: false,
+                                    }
+                                })
+                                .collect();
+                            app.global::<TasksUi>()
+                                .set_assignee_suggestions(ModelRc::new(VecModel::from(rows)));
+                        });
+                    });
+                }
+            }
+            return;
+        }
         if action == "picker" {
             if let Some(app) = command.weak.upgrade() {
                 show_date_picker(&app, b.as_str());
+            }
+            return;
+        }
+        if action == "reply-mail" {
+            // `a` is "<thread id>:<task id>", `b` the subject to search for.
+            if let Some(app) = command.weak.upgrade()
+                && let Some((thread, task)) = a.split_once(':')
+                && let (Ok(thread_id), Ok(task_id)) = (thread.parse::<i32>(), task.parse::<i64>())
+            {
+                open_linked_mail(
+                    &app,
+                    &command.state,
+                    &runtime_for_mail,
+                    thread_id,
+                    b.as_str(),
+                    Some(task_id),
+                );
             }
             return;
         }
@@ -1274,7 +1726,7 @@ pub(crate) fn register(
             if let Some(app) = command.weak.upgrade()
                 && let Ok(thread_id) = a.parse::<i32>()
             {
-                open_linked_mail(&app, &command.state, &runtime_for_mail, thread_id, b.as_str());
+                open_linked_mail(&app, &command.state, &runtime_for_mail, thread_id, b.as_str(), None);
             }
             return;
         }
@@ -1389,9 +1841,9 @@ fn open_linked_event(ctx: &Rc<Ctx>, uid: &str) {
     let uid = uid.to_owned();
     let weak = ctx.weak.clone();
     ctx.handle.spawn(async move {
-        let start = core.task_event_start(uid).await.ok().flatten();
+        let found = core.task_event_ref(uid).await.ok().flatten();
         let _ = weak.upgrade_in_event_loop(move |app| {
-            let Some(start) = start else {
+            let Some((row_id, start, local)) = found else {
                 app.set_sync_status(crate::UiMessage::plain(
                     "That event is no longer in the calendar.",
                 ));
@@ -1403,6 +1855,16 @@ fn open_linked_event(ctx: &Rc<Ctx>, uid: &str) {
             app.set_settings_open(false);
             app.set_active_view("calendar".into());
             app.invoke_calendar_select_date(day.format("%Y-%m-%d").to_string().into());
+            // An event made in Rustmail opens in the editor; one from a
+            // provider can only be shown on its day.
+            if let Ok(id) = i32::try_from(row_id) {
+                if local {
+                    app.invoke_calendar_edit_event(id);
+                } else {
+                    // Provider events cannot be edited: open their details.
+                    app.set_calendar_focus_event(id);
+                }
+            }
         });
     });
 }
@@ -1417,6 +1879,7 @@ fn open_linked_mail(
     runtime: &tokio::runtime::Runtime,
     thread_id: i32,
     subject: &str,
+    reply_task: Option<i64>,
 ) {
     app.set_settings_open(false);
     app.set_active_view("mail".into());
@@ -1425,10 +1888,16 @@ fn open_linked_mail(
         let listed = state.messages.iter().any(|row| row.id == thread_id)
             && state.query.is_empty();
         if listed {
+            state.pending_reply_task = reply_task;
             drop(state);
             app.invoke_select_email(thread_id);
+            if reply_task.is_some() {
+                app.invoke_compose_message_action("reply".into());
+            }
             return;
         }
+        state.pending_reply = reply_task.is_some();
+        state.pending_reply_task = reply_task;
         state.set_scope(crate::mail_scope::Scope::UNIFIED_INBOX);
         state.query = subject.to_owned();
         state.search_filter = "All mail".to_owned();
@@ -2043,6 +2512,21 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
             "view" => {
                 s.list = arg(0) == "list";
                 s.timeline = arg(0) == "timeline";
+                s.timeline_shift = 0;
+            }
+            // Move the timeline window by whole weeks; "reset" goes home.
+            "timeline-shift" => {
+                s.timeline_shift = match arg(0).parse::<i32>() {
+                    Ok(weeks) => s.timeline_shift.saturating_add(weeks).clamp(-5200, 5200),
+                    Err(_) => 0,
+                };
+            }
+            // The board's Group menu: status is the board itself, the rest
+            // is a grouped list.
+            "board-group" => {
+                s.timeline = false;
+                s.list = arg(0) != "status";
+                s.group = if s.list { Group::parse(&arg(0)) } else { Group::None };
             }
             "nav-filter" => s.nav = arg(0),
             "group" => match arg(0).strip_prefix("sort:") {
@@ -2087,6 +2571,7 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
                     linked: s.linked,
                     hide_done: hide_done_now,
                     timeline: s.timeline,
+                    timeline_shift: s.timeline_shift,
                 },
             ),
             s.nav.clone(),
@@ -2278,6 +2763,16 @@ async fn mutate(
             core.task_reopen(id.ok_or("bad task")?).await.map_err(err)?;
         }
         "delete" => core.task_delete(id.ok_or("bad task")?).await.map_err(err)?,
+        "project-menu" => {
+            // `b` is a project key, "project:<id>".
+            let project = b
+                .strip_prefix("project:")
+                .and_then(|p| p.parse::<i64>().ok())
+                .ok_or("bad project")?;
+            core.task_move_to_project(id.ok_or("bad task")?, project)
+                .await
+                .map_err(err)?;
+        }
         "card-menu" => {
             if let Some(column) = b.strip_prefix("move:").and_then(|c| c.parse::<i64>().ok()) {
                 core.task_move(id.ok_or("bad task")?, column, None)
@@ -2307,25 +2802,33 @@ async fn mutate(
             };
             core.task_update(id.ok_or("bad task")?, patch).await.map_err(err)?;
         }
+        "co-assignee-add" if !b.trim().is_empty() => {
+            let text = b.trim().strip_prefix("person:").unwrap_or(b.trim());
+            let (email, name) = person_from_text(core, text).await?;
+            core.task_co_assignee_add(
+                id.ok_or("bad task")?,
+                email,
+                Some(name).filter(|n| !n.is_empty()),
+            )
+            .await
+            .map_err(err)?;
+        }
+        "co-assignee-remove" => {
+            core.task_co_assignee_remove(id.ok_or("bad task")?, b.trim().to_owned())
+                .await
+                .map_err(err)?;
+        }
         "detail-assignee" => {
-            let text = b.trim();
+            // The picker sends `person:<email>` for someone already assigned.
+            let text = b.trim().strip_prefix("person:").unwrap_or(b.trim());
             let assignee = if text.is_empty() {
                 None
-            } else if let Some((name, rest)) = text.split_once('<')
-                && let Some(email) = rest.strip_suffix('>')
-            {
-                Some((email.trim().to_owned(), name.trim().to_owned()))
-            } else if text.contains('@') && !text.contains(' ') {
-                Some((text.to_owned(), String::new()))
+            } else if text == "me" {
+                let mine = core.list_accounts().await.map_err(err)?;
+                let me = mine.into_iter().find(|a| !a.email.trim().is_empty());
+                Some((me.ok_or("No account to assign to")?.email.trim().to_owned(), String::new()))
             } else {
-                let hit = core
-                    .suggest_contacts(text.to_owned(), 1)
-                    .await
-                    .map_err(err)?
-                    .into_iter()
-                    .next()
-                    .ok_or("No contact matches; type an email address")?;
-                Some((hit.email, hit.name.unwrap_or_default()))
+                Some(person_from_text(core, text).await?)
             };
             core.task_update(
                 id.ok_or("bad task")?,
@@ -2426,6 +2929,30 @@ async fn mutate(
             }
             core.task_set_labels(task_id, ids).await.map_err(err)?;
         }
+        // b is "<label id, -1 for a new one>|<colour>|<name>".
+        "label-save" => {
+            let mut parts = b.splitn(3, '|');
+            let label: i64 = parts.next().and_then(|p| p.parse().ok()).ok_or("bad label")?;
+            let hex = parts.next().unwrap_or_default().to_owned();
+            let name = parts.next().unwrap_or_default().trim().to_owned();
+            if name.is_empty() {
+                return Err("Name the label first".to_owned());
+            }
+            if label >= 0 {
+                core.task_label_update(label, name, hex).await.map_err(err)?;
+            } else {
+                let task_id = id.ok_or("bad task")?;
+                let created = core.task_label_create(name, hex).await.map_err(err)?;
+                let mut ids = core.task_get(task_id).await.map_err(err)?.label_ids;
+                ids.push(created.id);
+                core.task_set_labels(task_id, ids).await.map_err(err)?;
+            }
+        }
+        "label-delete" => {
+            core.task_label_delete(b.parse().map_err(|_| "bad label")?)
+                .await
+                .map_err(err)?;
+        }
         "detail-label-new" if !b.trim().is_empty() => {
             let task_id = id.ok_or("bad task")?;
             let label = core
@@ -2474,7 +3001,7 @@ async fn mutate(
         }
         "column-colour" => {
             let patch = ColumnPatch {
-                colour: Some(b.trim_start_matches("colour:").to_owned()),
+                colour: Some(hex_colour(b.trim_start_matches("colour:"))?),
                 ..Default::default()
             };
             core.task_column_update(id.ok_or("bad column")?, patch)
@@ -2586,7 +3113,20 @@ async fn mutate(
         }
         "detail-start" => {
             let task_id = id.ok_or("bad task")?;
-            let start = parse_start(b)?;
+            let quick = match b {
+                "today" => Some(0),
+                "tomorrow" => Some(1),
+                "week" => Some(7),
+                _ => None,
+            };
+            let start = match quick {
+                Some(d) => {
+                    let day = Local::now().date_naive() + chrono::Duration::days(d);
+                    parse_start(&day.format("%Y-%m-%d").to_string())?
+                }
+                None if b == "none" => None,
+                None => parse_start(b)?,
+            };
             if let Some(start) = start {
                 let task = core.task_get(task_id).await.map_err(err)?;
                 if task.due_at.is_some_and(|due| start > due) {
@@ -2638,6 +3178,40 @@ async fn mutate(
                 .await
                 .map_err(err)?;
             return Ok(Some(format!("project:{}", project.id)));
+        }
+        "project-rename" if !a.trim().is_empty() => {
+            let project = selected_project.ok_or("Select a project first")?;
+            let colour = core
+                .task_projects()
+                .await
+                .map_err(err)?
+                .into_iter()
+                .find(|p| p.id == project)
+                .map(|p| p.colour)
+                .ok_or("Unknown project")?;
+            core.task_project_update(project, a.trim().to_owned(), colour)
+                .await
+                .map_err(err)?;
+        }
+        "project-colour" => {
+            let project = selected_project.ok_or("Select a project first")?;
+            let colour = hex_colour(b.trim_start_matches("colour:"))?;
+            let name = core
+                .task_projects()
+                .await
+                .map_err(err)?
+                .into_iter()
+                .find(|p| p.id == project)
+                .map(|p| p.name)
+                .ok_or("Unknown project")?;
+            core.task_project_update(project, name, colour)
+                .await
+                .map_err(err)?;
+        }
+        "project-delete" => {
+            let project = selected_project.ok_or("Select a project first")?;
+            core.task_project_delete(project).await.map_err(err)?;
+            return Ok(Some("focus:inbox".to_owned()));
         }
         "create-context" if !a.trim().is_empty() => {
             let context = core.task_context_create(a.to_owned()).await.map_err(err)?;
@@ -2974,6 +3548,37 @@ mod tests {
     }
 
     #[test]
+    fn typed_colours_are_checked() {
+        assert_eq!(hex_colour(" #A1b2C3 ").as_deref(), Ok("#a1b2c3"));
+        assert_eq!(hex_colour("a1b2c3").as_deref(), Ok("#a1b2c3"));
+        for bad in ["", "#fff", "#12345g", "#1234567", "red"] {
+            assert!(hex_colour(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn due_dates_name_today_and_tomorrow() {
+        let end = Local.with_ymd_and_hms(2026, 10, 29, 0, 0, 0).unwrap().timestamp_millis();
+        let at = |h: i64| end - 86_400_000 + h * 3_600_000;
+        assert_eq!(due_kind(at(1), end), "today");
+        assert_eq!(due_kind(end - 1, end), "today");
+        assert_eq!(due_kind(end, end), "tomorrow");
+        assert_eq!(due_kind(at(1) - 86_400_000, end), "");
+        assert_eq!(due_kind(end + 2 * 86_400_000, end), "");
+    }
+
+    #[test]
+    fn reply_from_task_needs_a_received_mail_and_no_sent_one() {
+        let received = (1, "mail_received".to_owned(), "Invoice".to_owned(), true, "mail:7".to_owned(), String::new());
+        let sent = (2, "mail_sent".to_owned(), "Re: Invoice".to_owned(), true, "mail:7".to_owned(), String::new());
+        let lost = (3, "mail_received".to_owned(), String::new(), false, String::new(), String::new());
+        assert_eq!(reply_target(&[lost.clone(), received.clone()]), (7, "Invoice".to_owned()));
+        assert_eq!(reply_target(&[received, sent]).0, -1);
+        assert_eq!(reply_target(&[lost]).0, -1);
+        assert_eq!(reply_target(&[]).0, -1);
+    }
+
+    #[test]
     fn colours_parse_and_fall_back() {
         assert_eq!(colour("#2563eb"), slint::Color::from_rgb_u8(0x25, 0x63, 0xeb));
         assert_eq!(colour("bogus"), colour(DEFAULT_COLOUR));
@@ -3159,6 +3764,7 @@ mod tests {
         run(&core, &sel, "column-rename", &id, "QA").await.unwrap();
         run(&core, &sel, "column-wip", &id, "3").await.unwrap();
         run(&core, &sel, "column-colour", &id, "colour:#ef4444").await.unwrap();
+        assert!(run(&core, &sel, "column-colour", &id, "colour:nope").await.is_err());
         run(&core, &sel, "column-icon", &id, "icon:star").await.unwrap();
         let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         let qa = first_column(&snap, "QA");
@@ -3185,6 +3791,51 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_project_is_renamed_and_deleted_from_the_overflow_menu() {
+        let (_tmp, core, _sel) = board().await;
+        let made = mutate(&core, "create-project", &["Old".to_owned()], "focus:inbox")
+            .await
+            .unwrap()
+            .unwrap();
+        let id: i64 = made.strip_prefix("project:").unwrap().parse().unwrap();
+
+        run(&core, &made, "project-rename", "  New name ", "").await.unwrap();
+        let name = |projects: Vec<rustmail_core::tasks::TaskProject>| {
+            projects.into_iter().find(|p| p.id == id).map(|p| p.name)
+        };
+        assert_eq!(name(core.task_projects().await.unwrap()), Some("New name".into()));
+
+        // The colour changes and the name stays; a bad colour is refused.
+        run(&core, &made, "project-colour", "", "colour:#ef4444").await.unwrap();
+        let both = |projects: Vec<rustmail_core::tasks::TaskProject>| {
+            projects
+                .into_iter()
+                .find(|p| p.id == id)
+                .map(|p| (p.name, p.colour))
+        };
+        assert_eq!(
+            both(core.task_projects().await.unwrap()),
+            Some(("New name".into(), "#ef4444".into()))
+        );
+        let bad = run(&core, &made, "project-colour", "", "colour:red").await;
+        assert_eq!(bad, Err("Unknown colour".into()));
+        let refused = run(&core, "focus:inbox", "project-colour", "", "colour:#ef4444").await;
+        assert_eq!(refused, Err("Select a project first".into()));
+
+        // Without a project selected both commands refuse.
+        let refused = run(&core, "focus:inbox", "project-rename", "X", "").await;
+        assert_eq!(refused, Err("Select a project first".into()));
+        let refused = run(&core, "focus:inbox", "project-delete", "", "").await;
+        assert_eq!(refused, Err("Select a project first".into()));
+
+        let next = mutate(&core, "project-delete", &[String::new(), String::new()], &made)
+            .await
+            .unwrap();
+        assert_eq!(next.as_deref(), Some("focus:inbox"));
+        assert_eq!(name(core.task_projects().await.unwrap()), None);
+    }
+
+    #[tokio::test]
     async fn card_move_due_and_assignee_commands() {
         let (_tmp, core, sel) = board().await;
         run(&core, &sel, "add-column", "Review", "").await.unwrap();
@@ -3200,6 +3851,15 @@ mod tests {
         run(&core, &sel, "card-menu", &tid, &format!("move:{review}")).await.unwrap();
         let snap = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert_eq!(first_column(&snap, "Review").cards[0].id, task);
+
+        // The drawer's Project row sends the project key.
+        let other = core.task_project_create_default("Other".into()).await.unwrap();
+        run(&core, &sel, "project-menu", &tid, &format!("project:{}", other.id)).await.unwrap();
+        assert_eq!(core.task_get(task).await.unwrap().project_id, other.id);
+        run(&core, &sel, "project-menu", &tid, "project:x").await.unwrap_err();
+        let first = core.task_projects().await.unwrap()[0].id;
+        run(&core, &sel, "project-menu", &tid, &format!("project:{first}")).await.unwrap();
+        run(&core, &sel, "card-menu", &tid, &format!("move:{review}")).await.unwrap();
 
         // A card dropped on another card lands right below it, in any column.
         run(&core, &sel, "add-task", &review, "Second").await.unwrap();
@@ -3244,6 +3904,34 @@ mod tests {
         let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "bob@example.org");
         assert!(run(&core, &sel, "detail-assignee", &tid, "nobody known").await.is_err());
+        // More people sit beside the first one, show as initials on the card and can go.
+        run(&core, &sel, "co-assignee-add", &tid, "Cy Lee <cy@example.org>").await.unwrap();
+        run(&core, &sel, "co-assignee-add", &tid, "person:di@example.org").await.unwrap();
+        run(&core, &sel, "co-assignee-add", &tid, "bob@example.org").await.unwrap();
+        assert!(run(&core, &sel, "co-assignee-add", &tid, "nobody known").await.is_err());
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
+        assert_eq!(
+            snap.detail.as_ref().unwrap().co_assignees,
+            vec![
+                ("cy@example.org".to_owned(), "Cy Lee <cy@example.org>".to_owned()),
+                ("di@example.org".to_owned(), "di@example.org".to_owned()),
+            ],
+            "the first assignee is not added again"
+        );
+        let on_card = snap
+            .columns
+            .iter()
+            .flat_map(|c| c.cards.iter())
+            .find(|c| c.id == task)
+            .unwrap();
+        assert_eq!(on_card.more_assignees, ["CL".to_owned(), "D".to_owned()]);
+        run(&core, &sel, "co-assignee-remove", &tid, "cy@example.org").await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
+        assert_eq!(snap.detail.as_ref().unwrap().co_assignees.len(), 1);
+        run(&core, &sel, "detail-assignee", &tid, "person:ana@example.org").await.unwrap();
+        let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
+        assert_eq!(snap.people, vec![("ana@example.org".to_owned(), "ana@example.org".to_owned())]);
+        assert_eq!(snap.detail.as_ref().unwrap().assignee, "ana@example.org");
         run(&core, &sel, "detail-assignee", &tid, "").await.unwrap();
         let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "");
@@ -3327,6 +4015,13 @@ mod tests {
         let titles: Vec<_> = chosen.columns.iter().flat_map(|c| &c.cards).map(|k| k.title.clone()).collect();
         assert_eq!(titles, ["Ask Ben"]);
         assert_eq!(chosen.task_count, 1);
+        // "Me" needs one of the user's accounts: with none it is neither
+        // offered nor assignable (a test account would need the keychain).
+        assert!(all.filter_menu.iter().all(|(id, _)| id != "assignee:me"));
+        let ana = id_of(&all, "Ask Ana").to_string();
+        assert!(run(&core, &sel, "detail-assignee", &ana, "me").await.is_err());
+        let unchanged = load(&core, &sel, "", None, (None, None, false, Group::None, Sort::Manual, Extra { assignee: Some("me".into()), ..Default::default() })).await.unwrap();
+        assert!(unchanged.chips.is_empty());
         // With the chip set the menu no longer offers assignees.
         assert!(chosen.filter_menu.iter().all(|(id, _)| !id.starts_with("assignee:")));
         // A person who is not on the list leaves it unfiltered.

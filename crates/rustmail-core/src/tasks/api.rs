@@ -297,6 +297,30 @@ impl Core {
             .await
     }
 
+    /// Where a linked event is: its calendar row id, start (Unix ms) and
+    /// whether it was created in Rustmail (the only kind the editor opens).
+    pub async fn task_event_ref(&self, uid: String) -> Result<Option<(i64, i64, bool)>> {
+        self.calendar_db
+            .read(move |conn| {
+                use rusqlite::OptionalExtension;
+                Ok(conn
+                    .query_row(
+                        "SELECT id, starts_at, is_local FROM calendar_events
+                         WHERE ical_uid = ?1 LIMIT 1",
+                        [uid],
+                        |r| {
+                            Ok((
+                                r.get::<_, i64>(0)?,
+                                r.get::<_, i64>(1)?,
+                                r.get::<_, bool>(2)?,
+                            ))
+                        },
+                    )
+                    .optional()?)
+            })
+            .await
+    }
+
     /// The title of the calendar event a task link points at, by its iCalendar
     /// UID; `None` when the event is not (or no longer) in the calendar.
     pub async fn task_event_title(&self, uid: String) -> Result<Option<String>> {
@@ -601,6 +625,7 @@ impl Core {
         task_checklist(task_id: i64) -> Vec<ChecklistItem>, |s| s.list_checklist(task_id);
         task_links(task_id: i64) -> Vec<ResolvedLink>, |s| s.list_links(task_id);
         task_dependencies(project_id: i64) -> Vec<(i64, i64)>, |s| s.list_dependencies(project_id);
+        task_co_assignees() -> Vec<(i64, String, Option<String>)>, |s| s.list_co_assignees();
     }
 
     writes! {
@@ -623,6 +648,8 @@ impl Core {
         task_delete(id: i64) -> (), |s| s.delete_task(id);
         task_move(id: i64, column_id: i64, after: Option<i64>) -> MoveOutcome,
             |s| s.move_task(id, column_id, after);
+        task_move_to_project(id: i64, project_id: i64) -> MoveOutcome,
+            |s| s.move_task_to_project(id, project_id);
         task_complete(id: i64) -> Task, |s| s.complete_task(id);
         task_reopen(id: i64) -> Task, |s| s.reopen_task(id);
         task_set_labels(id: i64, label_ids: Vec<i64>) -> (), |s| s.set_task_labels(id, &label_ids);
@@ -641,5 +668,9 @@ impl Core {
         task_checklist_delete(id: i64) -> (), |s| s.delete_checklist_item(id);
         task_link_add(task_id: i64, link: NewLink) -> TaskLink, |s| s.add_link(task_id, link);
         task_link_remove(id: i64) -> (), |s| s.remove_link(id);
+        task_co_assignee_add(task_id: i64, email: String, name: Option<String>) -> (),
+            |s| s.add_co_assignee(task_id, &email, name.as_deref());
+        task_co_assignee_remove(task_id: i64, email: String) -> (),
+            |s| s.remove_co_assignee(task_id, &email);
     }
 }

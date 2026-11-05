@@ -15,6 +15,10 @@ export component LineEdit inherits Rectangle {
     in property <image> leading-icon;
     in property <color> leading-icon-color: AppTheme.secondary;
     in property <length> trailing-content-width: 0px;
+    // Takes focus when created (for fields inside an `if`, where
+    // `forward-focus` cannot reach) or whenever the number changes.
+    in property <bool> focus-on-show: false;
+    in property <int> focus-request: 0;
     private property <length> text-inset: root.show-leading-icon ? 40px : 12px;
     callback edited(string);
     callback accepted(string);
@@ -79,6 +83,12 @@ export component LineEdit inherits Rectangle {
 
     select-all => { editor.select-all(); }
     copy => { editor.copy(); }
+    init => {
+        if root.focus-on-show {
+            editor.focus();
+        }
+    }
+    changed focus-request => { editor.focus(); }
 }
 
 export component TextEdit inherits Rectangle {

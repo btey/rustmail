@@ -192,14 +192,22 @@ pub(super) fn register(
                 // A restored tab reopens its conversation if it is still in
                 // the first page, and otherwise shows an empty reader rather
                 // than an unrelated first row.
+                let mut reply_now = false;
                 if let Some(id) = state.pending_selection.take() {
                     let found = state.messages.iter().any(|row| row.id == id);
                     state.selected_id = found.then_some(id);
                     state.preview_closed = !found;
+                    reply_now = std::mem::take(&mut state.pending_reply) && found;
+                    if !found {
+                        state.pending_reply_task = None;
+                    }
                 }
                 drop(state);
                 if let Err(error) = render_current(&app, &page_state, &page_runtime) {
                     app.set_render_status(UiMessage::detail("Mail refresh failed: {}", error));
+                }
+                if reply_now {
+                    app.invoke_compose_message_action("reply".into());
                 }
             } else {
                 apply_background_mail_page(&app, &page_state, &page_runtime, page, &moved);

@@ -23,6 +23,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/018_task_reply_tracking.sql"),
     include_str!("migrations/019_task_follow_up.sql"),
     include_str!("migrations/020_task_quick_capture.sql"),
+    include_str!("migrations/021_task_co_assignees.sql"),
 ];
 pub const LATEST_VERSION: i64 = MIGRATIONS.len() as i64;
 
@@ -157,6 +158,7 @@ mod tests {
             "task_activity",
             "task_changes",
             "task_checklist_items",
+            "task_co_assignees",
             "task_columns",
             "task_contexts",
             "task_label_links",

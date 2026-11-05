@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-10-29 20:33+0000\n"
+"POT-Creation-Date: 2026-11-05 19:23+0000\n"
 "PO-Revision-Date: 2026-09-15 12:00+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Turkish\n"
@@ -104,31 +104,31 @@ msgstr "Ara"
 msgid "December"
 msgstr "Aralık"
 
-#: ui/app.slint:107 ui/components/calendar.slint:686
+#: ui/app.slint:107 ui/components/calendar.slint:700
 msgid "Mon"
 msgstr "Pzt"
 
-#: ui/app.slint:108 ui/components/calendar.slint:686
+#: ui/app.slint:108 ui/components/calendar.slint:700
 msgid "Tue"
 msgstr "Sal"
 
-#: ui/app.slint:109 ui/components/calendar.slint:686
+#: ui/app.slint:109 ui/components/calendar.slint:700
 msgid "Wed"
 msgstr "Çar"
 
-#: ui/app.slint:110 ui/components/calendar.slint:686
+#: ui/app.slint:110 ui/components/calendar.slint:700
 msgid "Thu"
 msgstr "Per"
 
-#: ui/app.slint:111 ui/components/calendar.slint:686
+#: ui/app.slint:111 ui/components/calendar.slint:700
 msgid "Fri"
 msgstr "Cum"
 
-#: ui/app.slint:112 ui/components/calendar.slint:686
+#: ui/app.slint:112 ui/components/calendar.slint:700
 msgid "Sat"
 msgstr "Cmt"
 
-#: ui/app.slint:113 ui/components/calendar.slint:686
+#: ui/app.slint:113 ui/components/calendar.slint:700
 msgid "Sun"
 msgstr "Paz"
 
@@ -184,7 +184,7 @@ msgstr "Konuşma geçmişi mevcut"
 msgid "New address-book entry"
 msgstr "Yeni adres defteri kaydı"
 
-#: ui/app.slint:134 ui/app.slint:943 ui/components/composer-fields.slint:66
+#: ui/app.slint:134 ui/app.slint:945 ui/components/composer-fields.slint:66
 #: ui/dialogs/compose-dialog.slint:37
 msgid "No connected account"
 msgstr "Bağlı hesap yok"
@@ -883,7 +883,7 @@ msgid "Local calendar"
 msgstr "Yerel takvim"
 
 #: ui/app.slint:369 ui/components/calendar.slint:271
-#: ui/components/calendar.slint:319 ui/components/calendar.slint:434
+#: ui/components/calendar.slint:319 ui/components/calendar.slint:437
 msgid "Calendar"
 msgstr "Takvim"
 
@@ -1544,105 +1544,105 @@ msgstr "İleti yükleniyor…"
 msgid "Rustmail"
 msgstr "Rustmail"
 
-#: ui/app.slint:1164 ui/app.slint:1177
+#: ui/app.slint:1166 ui/app.slint:1179
 msgid "Global Labels (local only)"
 msgstr "Genel Etiketler (yalnızca yerel)"
 
-#: ui/app.slint:2069
+#: ui/app.slint:2073
 msgid "Empty Trash?"
 msgstr ""
 
-#: ui/app.slint:2069 ui/views/files-view.slint:539
+#: ui/app.slint:2073 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr "Kalıcı olarak silinsin mi?"
 
-#: ui/app.slint:2073
+#: ui/app.slint:2077
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 
-#: ui/app.slint:2074
+#: ui/app.slint:2078
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr ""
 
-#: ui/app.slint:2076
+#: ui/app.slint:2080
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr ""
 
-#: ui/app.slint:2077
+#: ui/app.slint:2081
 msgid "Permanently delete this conversation from Trash?"
 msgstr ""
 
-#: ui/app.slint:2078 ui/components/calendar.slint:937
+#: ui/app.slint:2082 ui/components/calendar.slint:951
 msgid "This action cannot be undone."
 msgstr "Bu işlem geri alınamaz."
 
-#: ui/app.slint:2079
+#: ui/app.slint:2083
 msgid "Empty Trash"
 msgstr ""
 
-#: ui/app.slint:2079 ui/views/files-view.slint:621
+#: ui/app.slint:2083 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr "Kalıcı olarak sil"
 
-#: ui/app.slint:2253
+#: ui/app.slint:2257
 msgid "Mailbox startup failed"
 msgstr "Posta kutusu başlatılamadı"
 
-#: ui/app.slint:2259
+#: ui/app.slint:2263
 msgid "Rustmail could not open local storage"
 msgstr "Rustmail yerel depolamayı açamadı"
 
-#: ui/app.slint:2272
+#: ui/app.slint:2276
 msgid "Diagnostic ID: {}"
 msgstr "Tanılama kimliği: {}"
 
-#: ui/app.slint:2275
+#: ui/app.slint:2279
 msgid "Diagnostic ID {}"
 msgstr "Tanılama kimliği {}"
 
-#: ui/app.slint:2280
+#: ui/app.slint:2284
 msgid "Retry"
 msgstr "Yeniden dene"
 
-#: ui/app.slint:2288 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2292 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr "Tanılama bilgilerini kopyala"
 
-#: ui/app.slint:2354 ui/app.slint:2439 ui/app.slint:2497
+#: ui/app.slint:2358 ui/app.slint:2443 ui/app.slint:2501
 msgid "Dismiss"
 msgstr "Yoksay"
 
-#: ui/app.slint:2374 ui/app.slint:2379
+#: ui/app.slint:2378 ui/app.slint:2383
 msgid "Sent and linked"
 msgstr "Gönderildi ve bağlandı"
 
-#: ui/app.slint:2397
+#: ui/app.slint:2401
 msgid "Task moved to Waiting for"
 msgstr "Görev Beklenenler'e taşındı"
 
-#: ui/app.slint:2397
+#: ui/app.slint:2401
 msgid "Task marked as done"
 msgstr "Görev tamamlandı olarak işaretlendi"
 
-#: ui/app.slint:2406
+#: ui/app.slint:2410
 msgid "Follow-up in {} days"
 msgstr "{} gün içinde takip"
 
-#: ui/app.slint:2415
+#: ui/app.slint:2419
 msgid "Follow-up added to the calendar"
 msgstr "Takip takvime eklendi"
 
-#: ui/app.slint:2425
+#: ui/app.slint:2429
 msgid "Back to board"
 msgstr "Panoya dön"
 
-#: ui/app.slint:2484 ui/components/linked-task-banner.slint:114
+#: ui/app.slint:2488 ui/components/linked-task-banner.slint:114
 #: ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr "Görevi aç"
 
-#: ui/app.slint:2529 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2533 ui/components/workspace-navigation.slint:126
 #: ui/dialogs/settings-dialog.slint:2111
 msgid "Tasks"
 msgstr "Görevler"
@@ -1803,6 +1803,7 @@ msgstr ""
 #: ui/dialogs/folder-dialog.slint:128 ui/dialogs/settings-dialog.slint:2007
 #: ui/dialogs/settings-dialog.slint:2719 ui/dialogs/settings-dialog.slint:2954
 #: ui/views/contacts-view.slint:582 ui/views/files-view.slint:620
+#: ui/views/tasks-view.slint:2097
 msgid "Cancel"
 msgstr "İptal"
 
@@ -1891,6 +1892,7 @@ msgstr "İmzayı kaydet"
 
 #: ui/components/account-mail-preferences.slint:209
 #: ui/components/filter-rules.slint:218 ui/views/contacts-view.slint:586
+#: ui/views/tasks-view.slint:2102
 msgid "Delete"
 msgstr "Sil"
 
@@ -2086,8 +2088,8 @@ msgstr "Şifresi çözülmüş iletiyi dışa aktar"
 
 #: ui/components/account-mail-preferences.slint:296
 #: ui/dialogs/settings-dialog.slint:2665 ui/views/files-view.slint:455
-#: ui/views/files-view.slint:656 ui/views/tasks-view.slint:1137
-#: ui/window-chrome.slint:241
+#: ui/views/files-view.slint:656 ui/views/tasks-view.slint:1855
+#: ui/window-chrome.slint:204
 msgid "Close"
 msgstr "Kapat"
 
@@ -2310,7 +2312,7 @@ msgstr "Takvimleri filtrele · {} gizli"
 msgid "Filter calendars"
 msgstr "Takvimleri filtrele"
 
-#: ui/components/calendar-agenda.slint:67 ui/components/calendar.slint:557
+#: ui/components/calendar-agenda.slint:67 ui/components/calendar.slint:571
 msgid "Show calendars"
 msgstr "Takvimleri göster"
 
@@ -2322,12 +2324,13 @@ msgstr "Sıfırla"
 msgid "Filters only affect this agenda."
 msgstr "Filtreler yalnızca bu ajandayı etkiler."
 
-#: ui/components/calendar-agenda.slint:212 ui/components/calendar.slint:577
-#: ui/views/mail-list-pane.slint:325 ui/views/tasks-view.slint:347
+#: ui/components/calendar-agenda.slint:212 ui/components/calendar.slint:591
+#: ui/views/mail-list-pane.slint:325 ui/views/tasks-view.slint:281
+#: ui/views/tasks-view.slint:572 ui/views/tasks-view.slint:2211
 msgid "Today"
 msgstr "Bugün"
 
-#: ui/components/calendar-agenda.slint:214 ui/components/calendar.slint:591
+#: ui/components/calendar-agenda.slint:214 ui/components/calendar.slint:605
 msgid "{n} event"
 msgid_plural "{n} events"
 msgstr[0] "{n} etkinlik"
@@ -2338,7 +2341,7 @@ msgid "Cancelled"
 msgstr "İptal edildi"
 
 #: ui/components/calendar-agenda.slint:257 ui/components/calendar.slint:63
-#: ui/components/calendar.slint:720
+#: ui/components/calendar.slint:734
 msgid "View details for {}"
 msgstr "{} ayrıntılarını görüntüle"
 
@@ -2371,55 +2374,55 @@ msgid "Reset filters"
 msgstr "Filtreleri sıfırla"
 
 #: ui/components/calendar-agenda.slint:290 ui/components/calendar.slint:112
-#: ui/components/calendar.slint:748
+#: ui/components/calendar.slint:762
 msgid "New event"
 msgstr "Yeni etkinlik"
 
-#: ui/components/calendar.slint:141 ui/components/calendar.slint:746
+#: ui/components/calendar.slint:141 ui/components/calendar.slint:760
 msgid "Previous month"
 msgstr "Önceki ay"
 
-#: ui/components/calendar.slint:155 ui/components/calendar.slint:747
+#: ui/components/calendar.slint:155 ui/components/calendar.slint:761
 msgid "Next month"
 msgstr "Sonraki ay"
 
-#: ui/components/calendar.slint:160 ui/components/calendar.slint:790
+#: ui/components/calendar.slint:160 ui/components/calendar.slint:804
 msgctxt "Monday initial"
 msgid "M"
 msgstr "P"
 
-#: ui/components/calendar.slint:161 ui/components/calendar.slint:790
+#: ui/components/calendar.slint:161 ui/components/calendar.slint:804
 msgctxt "Tuesday initial"
 msgid "T"
 msgstr "S"
 
-#: ui/components/calendar.slint:162 ui/components/calendar.slint:790
+#: ui/components/calendar.slint:162 ui/components/calendar.slint:804
 msgctxt "Wednesday initial"
 msgid "W"
 msgstr "Ç"
 
-#: ui/components/calendar.slint:163 ui/components/calendar.slint:790
+#: ui/components/calendar.slint:163 ui/components/calendar.slint:804
 msgctxt "Thursday initial"
 msgid "T"
 msgstr "P"
 
-#: ui/components/calendar.slint:164 ui/components/calendar.slint:790
+#: ui/components/calendar.slint:164 ui/components/calendar.slint:804
 msgctxt "Friday initial"
 msgid "F"
 msgstr "C"
 
-#: ui/components/calendar.slint:165 ui/components/calendar.slint:790
+#: ui/components/calendar.slint:165 ui/components/calendar.slint:804
 msgctxt "Saturday initial"
 msgid "S"
 msgstr "C"
 
-#: ui/components/calendar.slint:166 ui/components/calendar.slint:790
+#: ui/components/calendar.slint:166 ui/components/calendar.slint:804
 msgctxt "Sunday initial"
 msgid "S"
 msgstr "P"
 
-#: ui/components/calendar.slint:212 ui/components/calendar.slint:619
-#: ui/components/calendar.slint:820
+#: ui/components/calendar.slint:212 ui/components/calendar.slint:633
+#: ui/components/calendar.slint:834
 msgid "Select {}"
 msgstr "Seç: {}"
 
@@ -2441,99 +2444,99 @@ msgid ""
 msgstr ""
 "Henüz sağlayıcı takvimi yok. Ayarlar'dan Google Takvim veya Outlook bağlayın."
 
-#: ui/components/calendar.slint:443
+#: ui/components/calendar.slint:446
 msgid "Read only"
 msgstr "Yalnızca okuma"
 
-#: ui/components/calendar.slint:443
+#: ui/components/calendar.slint:446
 msgid "Read and write"
 msgstr "Okuma ve yazma"
 
-#: ui/components/calendar.slint:444
+#: ui/components/calendar.slint:447
 msgid "Last synced {}"
 msgstr "Son eşitleme: {}"
 
-#: ui/components/calendar.slint:444
+#: ui/components/calendar.slint:447
 msgid "Not synced yet"
 msgstr "Henüz eşitlenmedi"
 
-#: ui/components/calendar.slint:445
+#: ui/components/calendar.slint:448
 msgid "Enabled"
 msgstr "Etkin"
 
-#: ui/components/calendar.slint:445
+#: ui/components/calendar.slint:448
 msgid "Paused"
 msgstr "Duraklatıldı"
 
-#: ui/components/calendar.slint:446 ui/components/calendar.slint:464
+#: ui/components/calendar.slint:449 ui/components/calendar.slint:478
 msgid "Default calendar"
 msgstr "Varsayılan takvim"
 
-#: ui/components/calendar.slint:461
+#: ui/components/calendar.slint:475
 msgid "Created in Rustmail"
 msgstr "Rustmail'de oluşturuldu"
 
-#: ui/components/calendar.slint:461
+#: ui/components/calendar.slint:475
 msgid "Synced provider event"
 msgstr "Eşitlenmiş sağlayıcı etkinliği"
 
-#: ui/components/calendar.slint:492 ui/components/calendar.slint:612
+#: ui/components/calendar.slint:506 ui/components/calendar.slint:626
 msgid "LOCAL"
 msgstr "YEREL"
 
-#: ui/components/calendar.slint:493 ui/components/calendar.slint:628
+#: ui/components/calendar.slint:507 ui/components/calendar.slint:642
 msgid "ALL DAY"
 msgstr "TÜM GÜN"
 
-#: ui/components/calendar.slint:557
+#: ui/components/calendar.slint:571
 msgid "Hide calendars"
 msgstr "Takvimleri gizle"
 
-#: ui/components/calendar.slint:572
+#: ui/components/calendar.slint:586
 msgid "Previous period"
 msgstr "Önceki dönem"
 
-#: ui/components/calendar.slint:573
+#: ui/components/calendar.slint:587
 msgid "Next period"
 msgstr "Sonraki dönem"
 
-#: ui/components/calendar.slint:574 ui/views/tasks-view.slint:328
+#: ui/components/calendar.slint:588 ui/views/tasks-view.slint:546
 msgid "Week"
 msgstr "Hafta"
 
-#: ui/components/calendar.slint:575 ui/components/calendar.slint:759
+#: ui/components/calendar.slint:589 ui/components/calendar.slint:773
 msgid "Month"
 msgstr "Ay"
 
-#: ui/components/calendar.slint:576 ui/components/calendar.slint:760
+#: ui/components/calendar.slint:590 ui/components/calendar.slint:774
 msgid "Agenda"
 msgstr "Ajanda"
 
-#: ui/components/calendar.slint:590 ui/components/calendar.slint:772
+#: ui/components/calendar.slint:604 ui/components/calendar.slint:786
 msgid "Local time · {}"
 msgstr "Yerel saat · {}"
 
-#: ui/components/calendar.slint:831
+#: ui/components/calendar.slint:845
 msgid "Agenda · {}"
 msgstr "Ajanda · {}"
 
-#: ui/components/calendar.slint:866
+#: ui/components/calendar.slint:880
 msgid "No events for this date"
 msgstr "Bu tarihte etkinlik yok"
 
-#: ui/components/calendar.slint:935
+#: ui/components/calendar.slint:949
 msgid "Delete this event?"
 msgstr "Bu etkinlik silinsin mi?"
 
-#: ui/components/calendar.slint:936
+#: ui/components/calendar.slint:950
 msgid "This event will be removed from your calendar."
 msgstr "Bu etkinlik takviminizden kaldırılacak."
 
-#: ui/components/calendar.slint:938
+#: ui/components/calendar.slint:952
 msgid "Delete event"
 msgstr "Etkinliği sil"
 
-#: ui/components/calendar.slint:939
+#: ui/components/calendar.slint:953
 msgid "Keep event"
 msgstr "Etkinliği koru"
 
@@ -2601,17 +2604,19 @@ msgstr "Eki kaldır"
 msgid "After sending"
 msgstr ""
 
-#: ui/components/composer-actions.slint:202 ui/views/tasks-view.slint:255
+#: ui/components/composer-actions.slint:202 ui/views/tasks-view.slint:422
 msgid "Waiting for"
-msgstr ""
+msgstr "Yanıt bekleniyor"
 
 #: ui/components/composer-actions.slint:202
 msgid "Stay in place"
 msgstr ""
 
-#: ui/components/composer-actions.slint:202 ui/views/tasks-view.slint:653
+#: ui/components/composer-actions.slint:202 ui/views/tasks-view.slint:1164
+#: ui/views/tasks-view.slint:2459 ui/views/tasks-view.slint:2503
+#: ui/views/tasks-view.slint:2548
 msgid "Done"
-msgstr ""
+msgstr "Bitti"
 
 #: ui/components/composer-actions.slint:207
 msgid "If no reply in"
@@ -2689,7 +2694,7 @@ msgstr "Seçili metin bu adresi açacak."
 msgid "https://example.com"
 msgstr "https://ornek.com"
 
-#: ui/components/composer-actions.slint:464 ui/views/tasks-view.slint:1433
+#: ui/components/composer-actions.slint:464 ui/views/tasks-view.slint:2600
 msgid "Remove link"
 msgstr "Bağlantıyı kaldır"
 
@@ -2768,19 +2773,19 @@ msgstr "Bu e-posta ne hakkında?"
 msgid "Confirm"
 msgstr "Onayla"
 
-#: ui/components/controls.slint:188
+#: ui/components/controls.slint:198
 msgid "On"
 msgstr "Açık"
 
-#: ui/components/controls.slint:188 ui/dialogs/settings-dialog.slint:520
+#: ui/components/controls.slint:198 ui/dialogs/settings-dialog.slint:520
 msgid "Off"
 msgstr "Kapalı"
 
-#: ui/components/controls.slint:236 ui/views/mail-list-pane.slint:439
+#: ui/components/controls.slint:246 ui/views/mail-list-pane.slint:439
 msgid "Clear selection"
 msgstr "Seçimi temizle"
 
-#: ui/components/controls.slint:236
+#: ui/components/controls.slint:246
 msgid "Select"
 msgstr "Seç"
 
@@ -3059,6 +3064,7 @@ msgid "Folder name, for example Receipts"
 msgstr ""
 
 #: ui/components/filter-rules.slint:156 ui/views/mail-reading-pane.slint:1984
+#: ui/views/tasks-view.slint:2067
 msgid "Label name"
 msgstr "Etiket adı"
 
@@ -3146,9 +3152,9 @@ msgstr ""
 msgid "Stop: skip the filters below when this one matches"
 msgstr ""
 
-#: ui/components/filter-rules.slint:325 ui/views/tasks-view.slint:1712
+#: ui/components/filter-rules.slint:325 ui/views/tasks-view.slint:2952
 msgid "Add filter"
-msgstr ""
+msgstr "Filtre ekle"
 
 #: ui/components/linked-task-banner.slint:49
 msgid "Task: {}"
@@ -3498,7 +3504,7 @@ msgid "All Inboxes"
 msgstr "Tüm Gelen Kutuları"
 
 #: ui/components/sidebar.slint:239 ui/dialogs/settings-dialog.slint:549
-#: ui/views/tasks-view.slint:252
+#: ui/views/tasks-view.slint:419
 msgid "Inbox"
 msgstr "Gelen Kutusu"
 
@@ -3515,6 +3521,7 @@ msgid "Other"
 msgstr "Diğer"
 
 #: ui/components/sidebar.slint:384 ui/components/sidebar.slint:539
+#: ui/views/tasks-view.slint:1926
 msgid "Labels"
 msgstr "Etiketler"
 
@@ -3536,7 +3543,6 @@ msgid "New folder"
 msgstr "Yeni klasör"
 
 #: ui/components/sidebar.slint:618 ui/dialogs/folder-dialog.slint:26
-#: ui/views/tasks-view.slint:1237
 msgid "New label"
 msgstr "Yeni etiket"
 
@@ -3556,7 +3562,7 @@ msgstr "Bugünü göster"
 msgid "Tasks due: {}"
 msgstr "Bekleyen görevler: {}"
 
-#: ui/components/task-reply.slint:20 ui/views/tasks-view.slint:770
+#: ui/components/task-reply.slint:20 ui/views/tasks-view.slint:1334
 msgid "Reply received"
 msgstr "Yanıt alındı"
 
@@ -3721,7 +3727,7 @@ msgid "Revert"
 msgstr "Eski haline dön"
 
 #: ui/components/theme-editor.slint:773 ui/dialogs/folder-dialog.slint:135
-#: ui/views/mail-reading-pane.slint:2028
+#: ui/views/mail-reading-pane.slint:2028 ui/views/tasks-view.slint:2445
 msgid "Save"
 msgstr "Kaydet"
 
@@ -3782,7 +3788,7 @@ msgid "thunderbird -file %f"
 msgstr ""
 
 #: ui/components/workspace-navigation.slint:104
-#: ui/dialogs/settings-dialog.slint:2236 ui/views/tasks-view.slint:1393
+#: ui/dialogs/settings-dialog.slint:2236 ui/views/tasks-view.slint:2539
 msgid "Mail"
 msgstr "E-posta"
 
@@ -3912,7 +3918,7 @@ msgstr "TEKRAR"
 msgid "ATTENDEES"
 msgstr "KATILIMCILAR"
 
-#: ui/dialogs/calendar-details-dialog.slint:188 ui/views/tasks-view.slint:1343
+#: ui/dialogs/calendar-details-dialog.slint:188 ui/views/tasks-view.slint:2416
 msgid "DESCRIPTION"
 msgstr "AÇIKLAMA"
 
@@ -3949,7 +3955,6 @@ msgid "START TIME"
 msgstr "BAŞLANGIÇ SAATİ"
 
 #: ui/dialogs/calendar-event-dialog.slint:55 ui/views/contacts-view.slint:691
-#: ui/views/tasks-view.slint:1339
 msgid "YYYY-MM-DD"
 msgstr "YYYY-AA-GG"
 
@@ -5496,10 +5501,10 @@ msgstr "Profili koru"
 msgid "New task from email"
 msgstr ""
 
-#: ui/dialogs/task-from-mail-dialog.slint:100 ui/views/tasks-view.slint:983
-#: ui/views/tasks-view.slint:1146
+#: ui/dialogs/task-from-mail-dialog.slint:100 ui/views/tasks-view.slint:1585
+#: ui/views/tasks-view.slint:1879
 msgid "Task title"
-msgstr ""
+msgstr "Görev başlığı"
 
 #: ui/dialogs/task-from-mail-dialog.slint:111
 msgid "Linked to the whole thread. Later replies show on the task."
@@ -5513,29 +5518,29 @@ msgstr ""
 msgid "Choose a status"
 msgstr ""
 
-#: ui/dialogs/task-from-mail-dialog.slint:136 ui/views/tasks-view.slint:1252
+#: ui/dialogs/task-from-mail-dialog.slint:136
 msgid "Due date"
-msgstr ""
+msgstr "Bitiş tarihi"
 
-#: ui/dialogs/task-from-mail-dialog.slint:151
+#: ui/dialogs/task-from-mail-dialog.slint:151 ui/views/tasks-view.slint:2160
 msgid "Project"
-msgstr ""
+msgstr "Proje"
 
 #: ui/dialogs/task-from-mail-dialog.slint:154
 msgid "Choose a project"
 msgstr ""
 
-#: ui/dialogs/task-from-mail-dialog.slint:158
+#: ui/dialogs/task-from-mail-dialog.slint:158 ui/views/tasks-view.slint:2161
 msgid "Context"
 msgstr ""
 
-#: ui/dialogs/task-from-mail-dialog.slint:159 ui/views/tasks-view.slint:1182
+#: ui/dialogs/task-from-mail-dialog.slint:159 ui/views/tasks-view.slint:275
 msgid "No context"
-msgstr ""
+msgstr "Bağlam yok"
 
-#: ui/dialogs/task-from-mail-dialog.slint:161 ui/views/tasks-view.slint:1194
+#: ui/dialogs/task-from-mail-dialog.slint:161
 msgid "Set context"
-msgstr ""
+msgstr "Bağlam ata"
 
 #: ui/dialogs/task-from-mail-dialog.slint:165
 msgid "Archive email once the task exists"
@@ -6356,6 +6361,7 @@ msgid "Show original colors"
 msgstr ""
 
 #: ui/views/mail-reading-pane.slint:378 ui/views/mail-reading-pane.slint:397
+#: ui/views/tasks-view.slint:1897
 msgid "Manage labels"
 msgstr "Etiketleri yönet"
 
@@ -6387,7 +6393,7 @@ msgstr "Sonraki konuşma"
 msgid "Archive message"
 msgstr "İletiyi arşivle"
 
-#: ui/views/mail-reading-pane.slint:866
+#: ui/views/mail-reading-pane.slint:866 ui/views/tasks-view.slint:1936
 msgid "Search labels"
 msgstr "Etiketlerde ara"
 
@@ -6400,14 +6406,15 @@ msgid "Smart category"
 msgstr "Akıllı kategori"
 
 #: ui/views/mail-reading-pane.slint:963 ui/views/mail-reading-pane.slint:1977
+#: ui/views/tasks-view.slint:2055
 msgid "Edit label"
 msgstr "Etiketi düzenle"
 
-#: ui/views/mail-reading-pane.slint:980
+#: ui/views/mail-reading-pane.slint:980 ui/views/tasks-view.slint:2020
 msgid "No matching labels"
 msgstr "Eşleşen etiket yok"
 
-#: ui/views/mail-reading-pane.slint:992
+#: ui/views/mail-reading-pane.slint:992 ui/views/tasks-view.slint:2030
 msgid "Create label…"
 msgstr "Etiket oluştur…"
 
@@ -6605,530 +6612,696 @@ msgstr ""
 msgid "Connect using IMAP and SMTP. POP3 is not supported."
 msgstr "IMAP ve SMTP kullanarak bağlanın. POP3 desteklenmez."
 
-#: ui/views/tasks-view.slint:182
-msgid "No grouping"
-msgstr ""
-
-#: ui/views/tasks-view.slint:183
-msgid "Group by status"
-msgstr ""
-
-#: ui/views/tasks-view.slint:184
-msgid "Group by project"
-msgstr ""
-
-#: ui/views/tasks-view.slint:185
-msgid "Group by context"
-msgstr ""
-
-#: ui/views/tasks-view.slint:186
-msgid "Group by label"
-msgstr ""
-
-#: ui/views/tasks-view.slint:187
-msgid "Group by due date"
-msgstr ""
-
-#: ui/views/tasks-view.slint:188
-msgid "Manual order"
-msgstr ""
-
-#: ui/views/tasks-view.slint:189
-msgid "Sort by due date"
-msgstr ""
-
-#: ui/views/tasks-view.slint:190
-msgid "Sort by priority"
-msgstr ""
-
-#: ui/views/tasks-view.slint:191
-msgid "Sort by title"
-msgstr ""
-
 #: ui/views/tasks-view.slint:254
-msgid "Upcoming"
-msgstr ""
+msgid "No grouping"
+msgstr "Gruplama yok"
 
-#: ui/views/tasks-view.slint:256 ui/views/tasks-view.slint:797
-msgid "From email"
-msgstr ""
+#: ui/views/tasks-view.slint:255
+msgid "Group by status"
+msgstr "Duruma göre grupla"
+
+#: ui/views/tasks-view.slint:256
+msgid "Group by project"
+msgstr "Projeye göre grupla"
 
 #: ui/views/tasks-view.slint:257
+msgid "Group by context"
+msgstr "Bağlama göre grupla"
+
+#: ui/views/tasks-view.slint:258
+msgid "Group by label"
+msgstr "Etikete göre grupla"
+
+#: ui/views/tasks-view.slint:259
+msgid "Group by due date"
+msgstr "Bitiş tarihine göre grupla"
+
+#: ui/views/tasks-view.slint:260
+msgid "Manual order"
+msgstr "Elle sıralama"
+
+#: ui/views/tasks-view.slint:261
+msgid "Sort by due date"
+msgstr "Bitiş tarihine göre sırala"
+
+#: ui/views/tasks-view.slint:262
+msgid "Sort by priority"
+msgstr "Önceliğe göre sırala"
+
+#: ui/views/tasks-view.slint:263
+msgid "Sort by title"
+msgstr "Başlığa göre sırala"
+
+#: ui/views/tasks-view.slint:270 ui/views/tasks-view.slint:980
+msgid "Overdue"
+msgstr "Gecikmiş"
+
+#: ui/views/tasks-view.slint:272
+msgid "Next 7 days"
+msgstr "Önümüzdeki 7 gün"
+
+#: ui/views/tasks-view.slint:273
+msgid "Later"
+msgstr "Daha sonra"
+
+#: ui/views/tasks-view.slint:274
+msgid "No due date"
+msgstr "Vade yok"
+
+#: ui/views/tasks-view.slint:276
+msgid "No label"
+msgstr "Etiket yok"
+
+#: ui/views/tasks-view.slint:281 ui/views/tasks-view.slint:2212
+msgid "Tomorrow"
+msgstr "Yarın"
+
+#: ui/views/tasks-view.slint:288 ui/views/tasks-view.slint:2353
+msgid "Me"
+msgstr "Ben"
+
+#: ui/views/tasks-view.slint:288
+msgid "Find or add people…"
+msgstr "Kişi bul veya ekle…"
+
+#: ui/views/tasks-view.slint:288 ui/views/tasks-view.slint:2162
+msgid "Unassigned"
+msgstr "Atanmamış"
+
+#: ui/views/tasks-view.slint:292 ui/views/tasks-view.slint:1167
+msgid "High priority"
+msgstr "Yüksek öncelik"
+
+#: ui/views/tasks-view.slint:292 ui/views/tasks-view.slint:1244
+msgid "Delete task"
+msgstr "Görevi sil"
+
+#: ui/views/tasks-view.slint:297
+msgid "Label: {}"
+msgstr "Etiket: {}"
+
+#: ui/views/tasks-view.slint:298
+msgid "Context: {}"
+msgstr "Bağlam: {}"
+
+#: ui/views/tasks-view.slint:299
+msgid "Assignee: Me"
+msgstr "Atanan: Ben"
+
+#: ui/views/tasks-view.slint:299
+msgid "Assignee: {}"
+msgstr "Atanan: {}"
+
+#: ui/views/tasks-view.slint:300
+msgid "Linked to: Mail"
+msgstr "Bağlı: e-posta"
+
+#: ui/views/tasks-view.slint:301
+msgid "Linked to: Event"
+msgstr "Bağlı: etkinlik"
+
+#: ui/views/tasks-view.slint:302
+msgid "Linked to: Task"
+msgstr "Bağlı: görev"
+
+#: ui/views/tasks-view.slint:307
+msgid "Task created"
+msgstr "Görev oluşturuldu"
+
+#: ui/views/tasks-view.slint:308
+msgid "Email sent"
+msgstr "E-posta gönderildi"
+
+#: ui/views/tasks-view.slint:309
+msgid "Reopened"
+msgstr "Yeniden açıldı"
+
+#: ui/views/tasks-view.slint:310
+msgid "Changed labels"
+msgstr "Etiketler değiştirildi"
+
+#: ui/views/tasks-view.slint:311
+msgid "Linked an item"
+msgstr "Bir öğe bağlandı"
+
+#: ui/views/tasks-view.slint:312
+msgid "Removed a link"
+msgstr "Bağlantı kaldırıldı"
+
+#: ui/views/tasks-view.slint:313
+msgid "Moved to another project"
+msgstr "Başka bir projeye taşındı"
+
+#: ui/views/tasks-view.slint:314
+msgid "Moved to Waiting for: email sent"
+msgstr "Yanıt bekleniyor'a taşındı: e-posta gönderildi"
+
+#: ui/views/tasks-view.slint:315
+msgid "Moved back to Next actions: a reply arrived"
+msgstr "Sonraki eylemler'e geri taşındı: yanıt geldi"
+
+#: ui/views/tasks-view.slint:421
+msgid "Upcoming"
+msgstr "Yaklaşan"
+
+#: ui/views/tasks-view.slint:423 ui/views/tasks-view.slint:1369
+msgid "From email"
+msgstr "E-postadan"
+
+#: ui/views/tasks-view.slint:424
 msgid "Someday / Maybe"
-msgstr ""
+msgstr "Belki bir gün"
 
-#: ui/views/tasks-view.slint:319
+#: ui/views/tasks-view.slint:537
 msgid "{} without dates"
-msgstr ""
+msgstr "{} tarihsiz"
 
-#: ui/views/tasks-view.slint:327
+#: ui/views/tasks-view.slint:545
 msgid "Day"
-msgstr ""
+msgstr "Gün"
 
-#: ui/views/tasks-view.slint:340
+#: ui/views/tasks-view.slint:558
+msgid "Calendar events"
+msgstr "Takvim etkinlikleri"
+
+#: ui/views/tasks-view.slint:565
 msgid "Dependencies"
-msgstr ""
+msgstr "Bağımlılıklar"
 
-#: ui/views/tasks-view.slint:354
+#: ui/views/tasks-view.slint:586
 msgid "Previous week"
-msgstr ""
+msgstr "Önceki hafta"
 
-#: ui/views/tasks-view.slint:361
+#: ui/views/tasks-view.slint:593
 msgid "Next week"
-msgstr ""
+msgstr "Sonraki hafta"
 
-#: ui/views/tasks-view.slint:376
+#: ui/views/tasks-view.slint:610
 msgid "TASK"
-msgstr ""
+msgstr "GÖREV"
 
-#: ui/views/tasks-view.slint:377
+#: ui/views/tasks-view.slint:611
 msgid "START"
-msgstr ""
+msgstr "BAŞL."
 
-#: ui/views/tasks-view.slint:378
+#: ui/views/tasks-view.slint:612
 msgid "DUE"
-msgstr ""
+msgstr "BİTİŞ"
 
-#: ui/views/tasks-view.slint:528
+#: ui/views/tasks-view.slint:613
+msgid "LINKS"
+msgstr "BAĞ."
+
+#: ui/views/tasks-view.slint:643
+msgid "CALENDAR EVENTS (+{} more)"
+msgstr "TAKVİM ETKİNLİKLERİ (+{} daha)"
+
+#: ui/views/tasks-view.slint:643
+msgid "CALENDAR EVENTS"
+msgstr "TAKVİM ETKİNLİKLERİ"
+
+#: ui/views/tasks-view.slint:854
+msgid "{} days late"
+msgstr "{} gün gecikti"
+
+#: ui/views/tasks-view.slint:863 ui/views/tasks-view.slint:1168
+msgid "No reply · {}d"
+msgstr "Yanıt yok · {} g"
+
+#: ui/views/tasks-view.slint:946
 msgid "No task has a start or due date yet."
-msgstr ""
+msgstr "Henüz hiçbir görevin başlangıç veya bitiş tarihi yok."
 
-#: ui/views/tasks-view.slint:550
+#: ui/views/tasks-view.slint:970
+msgid "Done portion"
+msgstr "Tamamlanan kısım"
+
+#: ui/views/tasks-view.slint:975
+msgid "Milestone"
+msgstr "Kilometre taşı"
+
+#: ui/views/tasks-view.slint:985 ui/views/tasks-view.slint:2543
+msgid "Depends on"
+msgstr "Şuna bağlı"
+
+#: ui/views/tasks-view.slint:1004
 msgid "New task"
-msgstr ""
+msgstr "Yeni görev"
 
-#: ui/views/tasks-view.slint:561 ui/views/tasks-view.slint:562
+#: ui/views/tasks-view.slint:1015 ui/views/tasks-view.slint:1016
 msgid "Find list, project or context"
-msgstr ""
+msgstr "Liste, proje veya bağlam bul"
 
-#: ui/views/tasks-view.slint:572
+#: ui/views/tasks-view.slint:1026
 msgid "FOCUS"
-msgstr ""
+msgstr "ODAK"
 
-#: ui/views/tasks-view.slint:584
+#: ui/views/tasks-view.slint:1038
 msgid "PROJECTS"
-msgstr ""
+msgstr "PROJELER"
 
-#: ui/views/tasks-view.slint:595 ui/views/tasks-view.slint:596
+#: ui/views/tasks-view.slint:1049 ui/views/tasks-view.slint:1050
+#: ui/views/tasks-view.slint:2993
 msgid "Project name"
-msgstr ""
+msgstr "Proje adı"
 
-#: ui/views/tasks-view.slint:600
+#: ui/views/tasks-view.slint:1054
 msgid "New project"
-msgstr ""
+msgstr "Yeni proje"
 
-#: ui/views/tasks-view.slint:605
+#: ui/views/tasks-view.slint:1059
 msgid "CONTEXTS"
-msgstr ""
+msgstr "BAĞLAMLAR"
 
-#: ui/views/tasks-view.slint:615 ui/views/tasks-view.slint:616
+#: ui/views/tasks-view.slint:1069 ui/views/tasks-view.slint:1070
 msgid "Context name"
-msgstr ""
+msgstr "Bağlam adı"
 
-#: ui/views/tasks-view.slint:620
+#: ui/views/tasks-view.slint:1074
 msgid "New context"
-msgstr ""
+msgstr "Yeni bağlam"
 
-#: ui/views/tasks-view.slint:655
+#: ui/views/tasks-view.slint:1166
 msgid "Due {}"
 msgstr "Son tarih {}"
 
-#: ui/views/tasks-view.slint:656 ui/views/tasks-view.slint:1165
-msgid "High priority"
-msgstr ""
-
-#: ui/views/tasks-view.slint:657 ui/views/tasks-view.slint:759
-msgid "No reply · {}d"
-msgstr ""
-
-#: ui/views/tasks-view.slint:658 ui/views/tasks-view.slint:784
+#: ui/views/tasks-view.slint:1169 ui/views/tasks-view.slint:1356
 msgid "{}/{} done"
-msgstr ""
+msgstr "{}/{} bitti"
 
-#: ui/views/tasks-view.slint:659 ui/views/tasks-view.slint:789
+#: ui/views/tasks-view.slint:1170 ui/views/tasks-view.slint:1361
 msgid "{} linked"
-msgstr ""
+msgstr "{} bağlantılı"
 
-#: ui/views/tasks-view.slint:707
+#: ui/views/tasks-view.slint:1218
 msgid "Reopen task"
-msgstr ""
+msgstr "Görevi yeniden aç"
 
-#: ui/views/tasks-view.slint:707
+#: ui/views/tasks-view.slint:1218
 msgid "Complete task"
-msgstr ""
+msgstr "Görevi tamamla"
 
-#: ui/views/tasks-view.slint:726 ui/views/tasks-view.slint:1123
+#: ui/views/tasks-view.slint:1237 ui/views/tasks-view.slint:1833
 msgid "Move to column"
-msgstr ""
+msgstr "Sütuna taşı"
 
-#: ui/views/tasks-view.slint:733 ui/views/tasks-view.slint:1487
-msgid "Delete task"
-msgstr ""
-
-#: ui/views/tasks-view.slint:745 ui/views/tasks-view.slint:1394
+#: ui/views/tasks-view.slint:1273 ui/views/tasks-view.slint:2540
 msgid "Sent"
-msgstr ""
+msgstr "Gönderildi"
 
-#: ui/views/tasks-view.slint:746 ui/views/tasks-view.slint:1395
+#: ui/views/tasks-view.slint:1274 ui/views/tasks-view.slint:2541
 msgid "Event"
-msgstr ""
+msgstr "Etkinlik"
 
-#: ui/views/tasks-view.slint:764
+#: ui/views/tasks-view.slint:1324 ui/views/tasks-view.slint:2585
+msgid "Follow up {}"
+msgstr "Takip {}"
+
+#: ui/views/tasks-view.slint:1330
 msgid "Quick capture"
-msgstr ""
+msgstr "Hızlı not"
 
-#: ui/views/tasks-view.slint:803
+#: ui/views/tasks-view.slint:1375
 msgid "High"
-msgstr ""
+msgstr "Yüksek"
 
-#: ui/views/tasks-view.slint:846
+#: ui/views/tasks-view.slint:1441
 msgid "Rename column"
-msgstr ""
+msgstr "Sütunu yeniden adlandır"
 
-#: ui/views/tasks-view.slint:847
+#: ui/views/tasks-view.slint:1442
 msgid "Set task limit"
-msgstr ""
+msgstr "Görev sınırını ayarla"
 
-#: ui/views/tasks-view.slint:848
+#: ui/views/tasks-view.slint:1443
 msgid "Move left"
-msgstr ""
+msgstr "Sola taşı"
 
-#: ui/views/tasks-view.slint:849
+#: ui/views/tasks-view.slint:1444
 msgid "Move right"
-msgstr ""
+msgstr "Sağa taşı"
 
-#: ui/views/tasks-view.slint:850
+#: ui/views/tasks-view.slint:1445 ui/views/tasks-view.slint:2963
 msgid "Colour: Grey"
-msgstr ""
+msgstr "Renk: Gri"
 
-#: ui/views/tasks-view.slint:851
+#: ui/views/tasks-view.slint:1446 ui/views/tasks-view.slint:2964
 msgid "Colour: Blue"
-msgstr ""
+msgstr "Renk: Mavi"
 
-#: ui/views/tasks-view.slint:852
+#: ui/views/tasks-view.slint:1447 ui/views/tasks-view.slint:2965
 msgid "Colour: Green"
-msgstr ""
+msgstr "Renk: Yeşil"
 
-#: ui/views/tasks-view.slint:853
+#: ui/views/tasks-view.slint:1448 ui/views/tasks-view.slint:2966
 msgid "Colour: Orange"
-msgstr ""
+msgstr "Renk: Turuncu"
 
-#: ui/views/tasks-view.slint:854
+#: ui/views/tasks-view.slint:1449 ui/views/tasks-view.slint:2967
 msgid "Colour: Red"
-msgstr ""
+msgstr "Renk: Kırmızı"
 
-#: ui/views/tasks-view.slint:855
+#: ui/views/tasks-view.slint:1450 ui/views/tasks-view.slint:2968
+msgid "Custom colour…"
+msgstr "Özel renk…"
+
+#: ui/views/tasks-view.slint:1451
 msgid "Icon: Inbox"
-msgstr ""
+msgstr "Simge: Gelen kutusu"
 
-#: ui/views/tasks-view.slint:856
+#: ui/views/tasks-view.slint:1452
 msgid "Icon: Star"
-msgstr ""
+msgstr "Simge: Yıldız"
 
-#: ui/views/tasks-view.slint:857
+#: ui/views/tasks-view.slint:1453
 msgid "Icon: Clock"
-msgstr ""
+msgstr "Simge: Saat"
 
-#: ui/views/tasks-view.slint:858
+#: ui/views/tasks-view.slint:1454
 msgid "Icon: Calendar"
-msgstr ""
+msgstr "Simge: Takvim"
 
-#: ui/views/tasks-view.slint:859
+#: ui/views/tasks-view.slint:1455
 msgid "Icon: Check"
-msgstr ""
+msgstr "Simge: Onay"
 
-#: ui/views/tasks-view.slint:860
+#: ui/views/tasks-view.slint:1456
 msgid "Icon: Archive"
-msgstr ""
+msgstr "Simge: Arşiv"
 
-#: ui/views/tasks-view.slint:861
+#: ui/views/tasks-view.slint:1457
 msgid "Icon: Mail"
-msgstr ""
+msgstr "Simge: E-posta"
 
-#: ui/views/tasks-view.slint:862
+#: ui/views/tasks-view.slint:1458
 msgid "Icon: Alert"
-msgstr ""
+msgstr "Simge: Uyarı"
 
-#: ui/views/tasks-view.slint:863
+#: ui/views/tasks-view.slint:1459
 msgid "Icon: People"
-msgstr ""
+msgstr "Simge: Kişiler"
 
-#: ui/views/tasks-view.slint:864
+#: ui/views/tasks-view.slint:1460
 msgid "Icon: Tasks"
-msgstr ""
+msgstr "Simge: Görevler"
 
-#: ui/views/tasks-view.slint:865
+#: ui/views/tasks-view.slint:1461
 msgid "Delete column"
-msgstr ""
+msgstr "Sütunu sil"
 
-#: ui/views/tasks-view.slint:946
+#: ui/views/tasks-view.slint:1542 ui/views/tasks-view.slint:1651
 msgid "Add task"
-msgstr ""
+msgstr "Görev ekle"
 
-#: ui/views/tasks-view.slint:955
+#: ui/views/tasks-view.slint:1551
 msgid "Column options"
-msgstr ""
+msgstr "Sütun seçenekleri"
 
-#: ui/views/tasks-view.slint:969
+#: ui/views/tasks-view.slint:1565
 msgid "Collapse column"
-msgstr ""
+msgstr "Sütunu daralt"
 
-#: ui/views/tasks-view.slint:975 ui/views/tasks-view.slint:976
-#: ui/views/tasks-view.slint:1804
+#: ui/views/tasks-view.slint:1571 ui/views/tasks-view.slint:1572
+#: ui/views/tasks-view.slint:2998 ui/views/tasks-view.slint:3111
 msgid "Column name"
-msgstr ""
+msgstr "Sütun adı"
 
-#: ui/views/tasks-view.slint:975 ui/views/tasks-view.slint:976
+#: ui/views/tasks-view.slint:1571 ui/views/tasks-view.slint:1572
+#: ui/views/tasks-view.slint:3003
+msgid "Colour as #rrggbb"
+msgstr "Renk, #rrggbb olarak"
+
+#: ui/views/tasks-view.slint:1571 ui/views/tasks-view.slint:1572
 msgid "Task limit (empty = none)"
-msgstr ""
+msgstr "Görev sınırı (boş = yok)"
 
-#: ui/views/tasks-view.slint:1130
+#: ui/views/tasks-view.slint:1736 ui/views/tasks-view.slint:2724
+msgid "Follow up"
+msgstr "Takip et"
+
+#: ui/views/tasks-view.slint:1737
+msgid "If there is no reply by {}"
+msgstr "{} tarihine kadar yanıt gelmezse"
+
+#: ui/views/tasks-view.slint:1746
+msgid "Reply expected"
+msgstr "Yanıt bekleniyor"
+
+#: ui/views/tasks-view.slint:1747
+msgid "The task moves back when it arrives"
+msgstr "Yanıt gelince görev geri döner"
+
+#: ui/views/tasks-view.slint:1747 ui/views/tasks-view.slint:2571
+msgid "Awaiting reply · {}d"
+msgstr "Yanıt bekleniyor · {} g"
+
+#: ui/views/tasks-view.slint:1848
 msgid "Back to the side panel"
 msgstr "Yan panele dön"
 
-#: ui/views/tasks-view.slint:1130
+#: ui/views/tasks-view.slint:1848
 msgid "Open as a page"
 msgstr "Sayfa olarak aç"
 
-#: ui/views/tasks-view.slint:1154
-msgid "Reopen"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1154
-msgid "Complete"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1160
-msgid "Email"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1172
-msgid "Move back when a reply arrives"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1177
-msgid "CONTEXT"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1198
-msgid "ASSIGNEE"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1200
-msgid "Unassigned"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1207
-msgid "Name or email, empty to clear"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1208
-msgid "Assignee"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1214
-msgid "LABELS"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1219
+#: ui/views/tasks-view.slint:2147
 msgid "No labels"
-msgstr ""
+msgstr "Etiket yok"
 
-#: ui/views/tasks-view.slint:1231
-msgid "Toggle labels"
-msgstr ""
+#: ui/views/tasks-view.slint:2157
+msgid "Status"
+msgstr "Durum"
 
-#: ui/views/tasks-view.slint:1244
-msgid "DUE DATE"
-msgstr ""
+#: ui/views/tasks-view.slint:2158 ui/views/tasks-view.slint:3051
+msgid "Due"
+msgstr "Bitiş"
 
-#: ui/views/tasks-view.slint:1261
-msgid "Tomorrow"
-msgstr ""
+#: ui/views/tasks-view.slint:2159
+msgid "Start"
+msgstr "Başlangıç"
 
-#: ui/views/tasks-view.slint:1262
+#: ui/views/tasks-view.slint:2162 ui/views/tasks-view.slint:2343
+msgid "Assignee"
+msgstr "Atanan"
+
+#: ui/views/tasks-view.slint:2213
 msgid "In a week"
-msgstr ""
+msgstr "Bir hafta sonra"
 
-#: ui/views/tasks-view.slint:1263
+#: ui/views/tasks-view.slint:2214
 msgid "No date"
-msgstr ""
+msgstr "Tarih yok"
 
-#: ui/views/tasks-view.slint:1266
-msgid "Quick due date"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1273
+#: ui/views/tasks-view.slint:2215
 msgid "Pick a date"
-msgstr ""
+msgstr "Tarih seç"
 
-#: ui/views/tasks-view.slint:1335
-msgid "START DATE"
-msgstr ""
+#: ui/views/tasks-view.slint:2329
+msgid "ASSIGNEE"
+msgstr "ATANAN"
 
-#: ui/views/tasks-view.slint:1340
-msgid "Start date"
-msgstr ""
+#: ui/views/tasks-view.slint:2342
+msgid "Name or email, empty to clear"
+msgstr "Ad veya e-posta, silmek için boş bırak"
 
-#: ui/views/tasks-view.slint:1347
+#: ui/views/tasks-view.slint:2381 ui/views/tasks-view.slint:2382
+msgid "Add another person"
+msgstr "Başka bir kişi ekle"
+
+#: ui/views/tasks-view.slint:2427 ui/views/tasks-view.slint:2434
 msgid "Add a description"
-msgstr ""
+msgstr "Açıklama ekle"
 
-#: ui/views/tasks-view.slint:1354
+#: ui/views/tasks-view.slint:2456
 msgid "CHECKLIST"
-msgstr ""
+msgstr "KONTROL LİSTESİ"
 
-#: ui/views/tasks-view.slint:1362
-msgid "Uncheck item"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1362
-msgid "Check item"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1377
-msgid "Remove item"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1382 ui/views/tasks-view.slint:1383
+#: ui/views/tasks-view.slint:2460 ui/views/tasks-view.slint:2492
 msgid "Add checklist item"
-msgstr ""
+msgstr "Kontrol listesi öğesi ekle"
 
-#: ui/views/tasks-view.slint:1386
+#: ui/views/tasks-view.slint:2472
+msgid "Uncheck item"
+msgstr "Öğenin işaretini kaldır"
+
+#: ui/views/tasks-view.slint:2472
+msgid "Check item"
+msgstr "Öğeyi işaretle"
+
+#: ui/views/tasks-view.slint:2487
+msgid "Remove item"
+msgstr "Öğeyi kaldır"
+
+#: ui/views/tasks-view.slint:2500
 msgid "LINKED ITEMS"
-msgstr ""
+msgstr "BAĞLANTILI ÖĞELER"
 
-#: ui/views/tasks-view.slint:1396 ui/views/tasks-view.slint:1459
+#: ui/views/tasks-view.slint:2504
+msgid "Add a link"
+msgstr "Bağlantı ekle"
+
+#: ui/views/tasks-view.slint:2542 ui/views/tasks-view.slint:2627
 msgid "Blocks"
-msgstr ""
+msgstr "Engelliyor"
 
-#: ui/views/tasks-view.slint:1397 ui/views/tasks-view.slint:1458
-msgid "Depends on"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1402
+#: ui/views/tasks-view.slint:2548
 msgid "Open"
-msgstr ""
+msgstr "Aç"
 
-#: ui/views/tasks-view.slint:1408
+#: ui/views/tasks-view.slint:2554
 msgid "Not found"
-msgstr ""
+msgstr "Bulunamadı"
 
-#: ui/views/tasks-view.slint:1443
+#: ui/views/tasks-view.slint:2611
 msgid "Blocks task (title)"
-msgstr ""
+msgstr "Engellediği görev (başlık)"
 
-#: ui/views/tasks-view.slint:1444
+#: ui/views/tasks-view.slint:2612
 msgid "Calendar event (title)"
-msgstr ""
+msgstr "Takvim etkinliği (başlık)"
 
-#: ui/views/tasks-view.slint:1445
+#: ui/views/tasks-view.slint:2613
 msgid "Mail (subject)"
-msgstr ""
+msgstr "E-posta (konu)"
 
-#: ui/views/tasks-view.slint:1446
+#: ui/views/tasks-view.slint:2614
 msgid "Depends on task (title)"
-msgstr ""
+msgstr "Bağlı olduğu görev (başlık)"
 
-#: ui/views/tasks-view.slint:1447
+#: ui/views/tasks-view.slint:2615
 msgid "Link a task, event or mail"
-msgstr ""
+msgstr "Görev, etkinlik veya e-posta bağla"
 
-#: ui/views/tasks-view.slint:1460
+#: ui/views/tasks-view.slint:2628
 msgid "Calendar event"
-msgstr ""
+msgstr "Takvim etkinliği"
 
-#: ui/views/tasks-view.slint:1464
+#: ui/views/tasks-view.slint:2632
 msgid "Link type"
-msgstr ""
+msgstr "Bağlantı türü"
 
-#: ui/views/tasks-view.slint:1468
+#: ui/views/tasks-view.slint:2636
 msgid "ACTIVITY"
-msgstr ""
+msgstr "ETKİNLİK GEÇMİŞİ"
 
-#: ui/views/tasks-view.slint:1497
+#: ui/views/tasks-view.slint:2675
 msgid "LINK TRAIL"
 msgstr "BAĞLANTI GEÇMİŞİ"
 
-#: ui/views/tasks-view.slint:1594
+#: ui/views/tasks-view.slint:2724
+msgid "Reply from task"
+msgstr "Görevden yanıtla"
+
+#: ui/views/tasks-view.slint:2724
+msgid "Email"
+msgstr "E-posta"
+
+#: ui/views/tasks-view.slint:2736
+msgid "Schedule"
+msgstr "Planla"
+
+#: ui/views/tasks-view.slint:2742
+msgid "Move back when a reply arrives"
+msgstr "Yanıt gelince geri taşı"
+
+#: ui/views/tasks-view.slint:2750
+msgid "Reopen"
+msgstr "Yeniden aç"
+
+#: ui/views/tasks-view.slint:2750
+msgid "Complete"
+msgstr "Tamamla"
+
+#: ui/views/tasks-view.slint:2817
 msgid "Lists"
-msgstr ""
+msgstr "Listeler"
 
-#: ui/views/tasks-view.slint:1611
+#: ui/views/tasks-view.slint:2834
 msgid "{} tasks"
-msgstr ""
+msgstr "{} görev"
 
-#: ui/views/tasks-view.slint:1621 ui/views/tasks-view.slint:1622
+#: ui/views/tasks-view.slint:2844 ui/views/tasks-view.slint:2845
 msgid "Search tasks and linked mail"
-msgstr ""
+msgstr "Görevlerde ve bağlantılı e-postalarda ara"
 
-#: ui/views/tasks-view.slint:1650
+#: ui/views/tasks-view.slint:2873
 msgid "Remove filter"
-msgstr ""
+msgstr "Filtreyi kaldır"
 
-#: ui/views/tasks-view.slint:1656
+#: ui/views/tasks-view.slint:2879
 msgid "Board"
-msgstr ""
+msgstr "Pano"
 
-#: ui/views/tasks-view.slint:1663
+#: ui/views/tasks-view.slint:2886
 msgid "List"
-msgstr ""
+msgstr "Liste"
 
-#: ui/views/tasks-view.slint:1670
+#: ui/views/tasks-view.slint:2893
 msgid "Timeline"
-msgstr ""
+msgstr "Zaman çizelgesi"
 
-#: ui/views/tasks-view.slint:1680
+#: ui/views/tasks-view.slint:2903
 msgid "Show completed tasks"
-msgstr ""
+msgstr "Tamamlanan görevleri göster"
 
-#: ui/views/tasks-view.slint:1681
+#: ui/views/tasks-view.slint:2904
 msgid "Compact cards"
-msgstr ""
+msgstr "Kompakt kartlar"
 
-#: ui/views/tasks-view.slint:1682
+#: ui/views/tasks-view.slint:2905
 msgid "Collapse empty columns"
-msgstr ""
+msgstr "Boş sütunları daralt"
 
-#: ui/views/tasks-view.slint:1686
+#: ui/views/tasks-view.slint:2909
 msgid "Display"
-msgstr ""
+msgstr "Görünüm"
 
-#: ui/views/tasks-view.slint:1702
+#: ui/views/tasks-view.slint:2932 ui/views/tasks-view.slint:2942
 msgid "Group"
-msgstr ""
+msgstr "Grup"
 
-#: ui/views/tasks-view.slint:1717
-msgid "GTD workflow"
-msgstr ""
+#: ui/views/tasks-view.slint:2960
+msgid "Rename project"
+msgstr "Projeyi yeniden adlandır"
 
-#: ui/views/tasks-view.slint:1735
-msgid "No tasks"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1743
-msgid "Title"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1744
-msgid "Due"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1745
-msgid "Priority"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1761
-msgid "Sort by {}"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1770
-msgid "Task board"
-msgstr ""
-
-#: ui/views/tasks-view.slint:1808
+#: ui/views/tasks-view.slint:2961 ui/views/tasks-view.slint:3115
 msgid "Add column"
-msgstr ""
+msgstr "Sütun ekle"
+
+#: ui/views/tasks-view.slint:2962
+msgid "Delete project"
+msgstr "Projeyi sil"
+
+#: ui/views/tasks-view.slint:2972
+msgid "Project options"
+msgstr "Proje seçenekleri"
+
+#: ui/views/tasks-view.slint:2983
+msgid "GTD workflow"
+msgstr "GTD iş akışı"
+
+#: ui/views/tasks-view.slint:3014
+msgid "Delete this project and its tasks?"
+msgstr "Bu proje ve görevleri silinsin mi?"
+
+#: ui/views/tasks-view.slint:3042
+msgid "No tasks"
+msgstr "Görev yok"
+
+#: ui/views/tasks-view.slint:3050
+msgid "Title"
+msgstr "Başlık"
+
+#: ui/views/tasks-view.slint:3052
+msgid "Priority"
+msgstr "Öncelik"
+
+#: ui/views/tasks-view.slint:3068
+msgid "Sort by {}"
+msgstr "{} ölçütüne göre sırala"
+
+#: ui/views/tasks-view.slint:3077
+msgid "Task board"
+msgstr "Görev panosu"
 
 #: ui/window-chrome.slint:203 ui/window-chrome.slint:240
 msgid "Minimize"
@@ -7141,3 +7314,39 @@ msgstr "Önceki boyuta getir"
 #: ui/window-chrome.slint:205 ui/window-chrome.slint:242
 msgid "Maximize"
 msgstr "Ekranı kapla"
+
+#~ msgid "+ Link"
+#~ msgstr "+ Bağlantı"
+
+#~ msgid "Toggle labels"
+#~ msgstr "Etiketleri aç/kapat"
+
+#~ msgid "DUE DATE"
+#~ msgstr "BİTİŞ TARİHİ"
+
+#~ msgid "Quick due date"
+#~ msgstr "Hızlı bitiş tarihi"
+
+#~ msgid "START DATE"
+#~ msgstr "BAŞLANGIÇ TARİHİ"
+
+#~ msgid "Start date"
+#~ msgstr "Başlangıç tarihi"
+
+#~ msgid "Quick start date"
+#~ msgstr "Hızlı başlangıç tarihi"
+
+#~ msgid "Follow up by email"
+#~ msgstr "E-postayla takip et"
+
+#~ msgid "No reply"
+#~ msgstr "Yanıt yok"
+
+#~ msgid "Waiting on a reply"
+#~ msgstr "Yanıt bekleniyor"
+
+#~ msgid "CONTEXT"
+#~ msgstr "BAĞLAM"
+
+#~ msgid "LABELS"
+#~ msgstr "ETİKETLER"

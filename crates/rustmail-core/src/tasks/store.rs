@@ -532,12 +532,33 @@ fn pairs(tx: &Connection, sql: &str) -> Result<Vec<(i64, i64)>> {
         .collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
+/// The first recipient of a `to_json` column (name, else address) followed by
+/// " +N" for the others; empty when none can be read.
+pub(super) fn first_recipient(to_json: &str) -> String {
+    let people: Vec<crate::models::Address> = serde_json::from_str(to_json).unwrap_or_default();
+    let Some(first) = people.first() else {
+        return String::new();
+    };
+    let name = first
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .unwrap_or(&first.email);
+    match people.len() {
+        1 => name.to_owned(),
+        n => format!("{name} +{}", n - 1),
+    }
+}
+
 fn resolve_link(tx: &Connection, link: TaskLink) -> Result<ResolvedLink> {
     let target = if link.kind.is_mail() {
         let found = match &link.message_id {
             Some(mid) => tx
                 .query_row(
-                    "SELECT m.account_id, m.thread_id, m.subject
+                    "SELECT m.account_id, m.thread_id, m.subject,
+                            COALESCE(NULLIF(m.from_name, ''), m.from_addr, ''), m.date,
+                            m.to_json
                      FROM messages m JOIN accounts a ON a.id = m.account_id
                      WHERE m.message_id = ?1 AND m.thread_id IS NOT NULL
                        AND (?2 IS NULL OR a.email = ?2)
@@ -548,6 +569,9 @@ fn resolve_link(tx: &Connection, link: TaskLink) -> Result<ResolvedLink> {
                             r.get::<_, i64>(0)?,
                             r.get::<_, i64>(1)?,
                             r.get::<_, String>(2)?,
+                            r.get::<_, String>(3)?,
+                            r.get::<_, i64>(4)?,
+                            r.get::<_, String>(5)?,
                         ))
                     },
                 )
@@ -555,10 +579,13 @@ fn resolve_link(tx: &Connection, link: TaskLink) -> Result<ResolvedLink> {
             None => None,
         };
         match found {
-            Some((account_id, thread_id, subject)) => LinkTarget::Mail {
+            Some((account_id, thread_id, subject, from, date, to_json)) => LinkTarget::Mail {
                 account_id,
                 thread_id,
                 subject,
+                from,
+                date,
+                to: first_recipient(&to_json),
             },
             None => LinkTarget::MailNotFound,
         }
@@ -1449,6 +1476,33 @@ impl TaskStore for SqliteTaskStore<'_> {
         Ok(out)
     }
 
+    fn move_task_to_project(&mut self, id: i64, project_id: i64) -> Result<MoveOutcome> {
+        let tx = self.conn.transaction()?;
+        let task = fetch_task(&tx, id)?;
+        if task.project_id == project_id {
+            return Err(invalid("the task is already in that project"));
+        }
+        let column: i64 = tx
+            .query_row(
+                "SELECT id FROM task_columns
+                 WHERE project_id = ?1 AND deleted_at IS NULL
+                 ORDER BY (kind = 'inbox') DESC, position LIMIT 1",
+                [project_id],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| CoreError::NotFound(format!("project {project_id}")))?;
+        // Reopened: a Done column of the old project means nothing here.
+        tx.execute(
+            "UPDATE tasks SET project_id = ?2, column_id = ?3, completed_at = NULL WHERE id = ?1",
+            params![id, project_id, column],
+        )?;
+        let out = move_task_inner(&tx, id, column, Place::Top)?;
+        activity(&tx, id, "moved", "Moved to another project")?;
+        tx.commit()?;
+        Ok(out)
+    }
+
     fn complete_task(&mut self, id: i64) -> Result<Task> {
         let tx = self.conn.transaction()?;
         let t = fetch_task(&tx, id)?;
@@ -1955,6 +2009,70 @@ impl TaskStore for SqliteTaskStore<'_> {
 
     fn list_dependencies(&mut self, project_id: i64) -> Result<Vec<(i64, i64)>> {
         dependency_edges(self.conn, Some(project_id))
+    }
+
+    fn add_co_assignee(&mut self, task_id: i64, email: &str, name: Option<&str>) -> Result<()> {
+        let email = email.trim();
+        if !email.contains('@') || email.contains(char::is_whitespace) {
+            return Err(CoreError::Other(format!("not an email address: {email}")));
+        }
+        let name = name.map(str::trim).filter(|n| !n.is_empty());
+        let tx = self.conn.transaction()?;
+        require(&tx, "tasks", task_id)?;
+        let first: Option<String> = tx.query_row(
+            "SELECT assignee_email FROM tasks WHERE id = ?1",
+            [task_id],
+            |r| r.get(0),
+        )?;
+        if first.is_some_and(|f| f.eq_ignore_ascii_case(email)) {
+            return Ok(());
+        }
+        let added = tx.execute(
+            "INSERT OR IGNORE INTO task_co_assignees (task_id, email, name, created_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![task_id, email, name, now_ms()],
+        )?;
+        if added > 0 {
+            stamp(&tx, "task", "tasks", task_id, "update")?;
+            activity(
+                &tx,
+                task_id,
+                "assignee_added",
+                &format!("Added assignee: {}", name.unwrap_or(email)),
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn remove_co_assignee(&mut self, task_id: i64, email: &str) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        let removed = tx.execute(
+            "DELETE FROM task_co_assignees WHERE task_id = ?1 AND email = ?2",
+            params![task_id, email.trim()],
+        )?;
+        if removed > 0 {
+            stamp(&tx, "task", "tasks", task_id, "update")?;
+            activity(
+                &tx,
+                task_id,
+                "assignee_removed",
+                &format!("Removed assignee: {}", email.trim()),
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn list_co_assignees(&mut self) -> Result<Vec<(i64, String, Option<String>)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT c.task_id, c.email, c.name FROM task_co_assignees c
+             JOIN tasks t ON t.id = c.task_id AND t.deleted_at IS NULL
+             ORDER BY c.created_at, c.email",
+        )?;
+        Ok(stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
     fn list_links(&mut self, task_id: i64) -> Result<Vec<ResolvedLink>> {
