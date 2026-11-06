@@ -72,6 +72,7 @@ mod tests {
         s.monochrome_sidebar_icons = true;
         s.task_hide_completed = true;
         s.task_compact_cards = true;
+        s.task_timeline_hidden_calendars = vec![0, 7];
         s.reverse_scroll = true;
         s.show_avatars = false;
         s.group_mail_by_date = false;
@@ -128,6 +129,7 @@ mod tests {
         assert!(!back.notifications_enabled);
         assert!(back.monochrome_sidebar_icons);
         assert!(back.task_hide_completed && back.task_compact_cards);
+        assert_eq!(back.task_timeline_hidden_calendars, vec![0, 7]);
         assert!(back.reverse_scroll);
         assert!(!back.show_avatars);
         assert!(!back.group_mail_by_date);

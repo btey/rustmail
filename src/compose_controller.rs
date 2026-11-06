@@ -42,6 +42,7 @@ impl TaskSend {
         let on_page = tasks.get_detail_expanded()
             && tasks.get_detail_open()
             && i64::from(tasks.get_detail().id) == task_id;
+        options.set_docked_task(task_id as i32);
         if !on_page {
             tabs.invoke_open_task(task_id as i32, title.into());
         }

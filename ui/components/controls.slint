@@ -367,6 +367,36 @@ global IconButtonInput {
     in-out property <bool> keyboard: false;
 }
 
+// One tooltip for the whole window. A button reports where it is; the layer
+// at the end of the window draws the label above every dialog and panel, which
+// a label inside the button cannot do (z only orders siblings).
+export global TooltipHost {
+    in-out property <string> text;
+    in-out property <length> anchor-x;
+    in-out property <length> anchor-y;
+    in-out property <length> anchor-width;
+    in-out property <length> anchor-height;
+    in-out property <bool> above;
+    in-out property <bool> align-left;
+
+    public function show(text: string, x: length, y: length, width: length, height: length, above: bool, align-left: bool) {
+        TooltipHost.anchor-x = x;
+        TooltipHost.anchor-y = y;
+        TooltipHost.anchor-width = width;
+        TooltipHost.anchor-height = height;
+        TooltipHost.above = above;
+        TooltipHost.align-left = align-left;
+        TooltipHost.text = text;
+    }
+    // Only the button that showed the label may take it down.
+    public function hide(x: length, y: length) {
+        if (TooltipHost.anchor-x == x && TooltipHost.anchor-y == y) {
+            TooltipHost.text = "";
+        }
+    }
+    public function clear() { TooltipHost.text = ""; }
+}
+
 export component IconButton inherits Rectangle {
     in property <image> icon;
     in property <color> icon-color;
@@ -430,12 +460,15 @@ export component IconButton inherits Rectangle {
 
     keyboard := FocusVisibleScope {
         enabled: root.interactive;
-        changed has-focus => { if self.has-focus { IconButtonInput.keyboard = true; } }
+        // Only keyboard focus counts: a click also focuses the button, and
+        // must not leave its tooltip pinned after the pointer moves away.
+        changed has-focus => { if self.has-focus && self.focus-visible { IconButtonInput.keyboard = true; } }
         focus-on-tab-navigation: true;
         accessible-role: none;
         key-pressed(event) => {
             IconButtonInput.keyboard = true;
             if root.interactive && (event.text == Key.Return || event.text == Key.Space) {
+                TooltipHost.clear();
                 root.clicked();
                 return accept;
             }
@@ -446,29 +479,21 @@ export component IconButton inherits Rectangle {
     hit-area := TouchArea {
         enabled: root.interactive;
         moved => { IconButtonInput.keyboard = false; }
-        clicked => { keyboard.focus(); root.pointer-activated(); root.clicked(); }
+        clicked => { TooltipHost.clear(); keyboard.focus(); root.pointer-activated(); root.clicked(); }
         mouse-cursor: pointer;
     }
 
-    // Keep action help inside the main scene. Native Tooltip uses a popup
-    // surface, which is not consistently presented by every AppImage/Wayland
-    // compositor combination.
-    Rectangle {
-        visible: root.tooltip-text != "" && (IconButtonInput.keyboard ? keyboard.has-focus : hit-area.has-hover);
-        x: root.tooltip-align-left ? 0px : parent.width - self.width;
-        y: root.tooltip-above ? -self.height - 6px : parent.height + 6px;
-        width: tooltip-label.preferred-width + 16px;
-        height: 28px;
-        border-radius: 5px;
-        background: #292929;
-        z: 10000;
-
-        tooltip-label := Text {
-            text: root.tooltip-text;
-            color: white;
-            font-size: TypeScale.secondary;
-            horizontal-alignment: center;
-            vertical-alignment: center;
+    // The label is drawn by the layer at the end of the window (`TooltipHost`);
+    // native Tooltip uses a popup surface, which is not consistently
+    // presented by every AppImage/Wayland compositor combination.
+    private property <bool> tip-shown: root.tooltip-text != ""
+        && (hit-area.has-hover || (IconButtonInput.keyboard && keyboard.focus-visible));
+    changed tip-shown => {
+        if self.tip-shown {
+            TooltipHost.show(root.tooltip-text, root.absolute-position.x, root.absolute-position.y,
+                root.width, root.height, root.tooltip-above, root.tooltip-align-left);
+        } else {
+            TooltipHost.hide(root.absolute-position.x, root.absolute-position.y);
         }
     }
 }

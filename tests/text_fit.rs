@@ -33,7 +33,7 @@ use rustmail::{
     MotionSettings, SendUndoUi, SidebarRow, SidebarRowKind, StorageUsageRow, TaskCardRow,
     TaskChipEntry, TaskChipRow, TaskChips, TaskColumnRow, TaskComposeUi, TaskDetailRow,
     TaskFromMail, TaskNavRow, TaskReplyUi, TasksUi, ThreadMessageRow, TimelineBarRow,
-    TimelineDayRow, TimelineEdgeRow, TimelineEventRow,
+    TimelineDayRow, TimelineEdgeRow, TimelineEventRow, TimelineLinkRow, TimelinePinRow,
 };
 use slint::platform::{
     Platform, WindowAdapter,
@@ -735,6 +735,7 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
             labels: "quarterly, finance".into(),
             waiting_days: 2,
             follow_up: "2026-12-04".into(),
+            percent: 40,
             column_icon: "hourglass".into(),
             reply_thread: 3,
             reply_subject: "Quarterly invoice".into(),
@@ -1116,6 +1117,7 @@ fn states() -> Vec<State> {
                         label: format!("{}", i % 28 + 1).into(),
                         weekend: i % 7 >= 5,
                         today: i == 9,
+                        month: "October 2026".into(),
                         week: if i % 7 == 0 {
                             format!("W{}", 40 + i / 7).into()
                         } else {
@@ -1149,6 +1151,31 @@ fn states() -> Vec<State> {
                     has_sent: id % 3 == 0,
                     has_event: id % 2 == 1,
                     group: id == 1,
+                    column_id: 1,
+                    collapsed: id == 1,
+                    status: "Waiting for the quarterly figures".into(),
+                    day_count: 18,
+                    waiting_from: if id == 3 { 14 } else { -1 },
+                    pins: model(vec![
+                        TimelinePinRow {
+                            day: first,
+                            kind: "sent".into(),
+                        },
+                        TimelinePinRow {
+                            day: first + 2,
+                            kind: "event".into(),
+                        },
+                    ]),
+                    links: model(vec![
+                        TimelineLinkRow {
+                            kind: "sent".into(),
+                            text: "Request: EU data residency quote".into(),
+                        },
+                        TimelineLinkRow {
+                            kind: "event".into(),
+                            text: "Follow up with Northwind · Fri 11, 09:00".into(),
+                        },
+                    ]),
                 };
             tasks.set_timeline_bars(model(vec![
                 bar(
@@ -1174,12 +1201,22 @@ fn states() -> Vec<State> {
                     first_day: 9,
                     last_day: 10,
                     lane: 0,
+                    id: 1,
+                    date: "2026-10-30".into(),
+                    local: true,
+                    coloured: true,
+                    colour: slint::Color::from_rgb_u8(0x22, 0xa0, 0x6b),
                 },
                 TimelineEventRow {
                     label: "Launch".into(),
                     first_day: 9,
                     last_day: 9,
                     lane: 1,
+                    id: 2,
+                    date: "2026-10-30".into(),
+                    local: false,
+                    coloured: false,
+                    colour: slint::Color::default(),
                 },
             ]));
             tasks.set_timeline_edges(model(vec![
@@ -1192,6 +1229,136 @@ fn states() -> Vec<State> {
                     to_bar: 2,
                 },
             ]));
+            app.set_active_view("tasks".into());
+        }),
+        state("tasks timeline card", |app| {
+            tasks_fixture(app, false);
+            let tasks = app.global::<TasksUi>();
+            tasks.set_timeline_mode(true);
+            tasks.set_timeline_title("October 2026".into());
+            tasks.set_timeline_today(9);
+            tasks.set_timeline_undated(3);
+            tasks.set_timeline_days(model(
+                (0..42)
+                    .map(|i| TimelineDayRow {
+                        label: format!("{}", i % 28 + 1).into(),
+                        weekend: i % 7 >= 5,
+                        today: i == 9,
+                        month: "October 2026".into(),
+                        week: if i % 7 == 0 {
+                            format!("W{}", 40 + i / 7).into()
+                        } else {
+                            Default::default()
+                        },
+                    })
+                    .collect(),
+            ));
+            let bar =
+                |id: i32, title: &str, first: i32, last: i32, milestone: bool| TimelineBarRow {
+                    id,
+                    title: title.into(),
+                    struck_title: if id % 3 == 0 { title.into() } else { "".into() },
+                    start_text: if milestone {
+                        "".into()
+                    } else {
+                        "2026-10-21".into()
+                    },
+                    due_text: "2026-10-30".into(),
+                    first_day: first,
+                    last_day: last,
+                    milestone,
+                    done: id % 3 == 0,
+                    overdue: id % 2 == 0,
+                    late_days: if id % 2 == 0 { 12 } else { 0 },
+                    no_reply_days: if id == 3 || id == 5 { 4 } else { -1 },
+                    coloured: id % 2 == 1,
+                    group_colour: slint::Color::from_rgb_u8(0x8b, 0x5c, 0xf6),
+                    progress: id * 25 % 100,
+                    has_mail: id % 2 == 0,
+                    has_sent: id % 3 == 0,
+                    has_event: id % 2 == 1,
+                    group: id == 1,
+                    column_id: 1,
+                    collapsed: id == 1,
+                    status: "Waiting for the quarterly figures".into(),
+                    day_count: 18,
+                    waiting_from: if id == 3 { 14 } else { -1 },
+                    pins: model(vec![
+                        TimelinePinRow {
+                            day: first,
+                            kind: "sent".into(),
+                        },
+                        TimelinePinRow {
+                            day: first + 2,
+                            kind: "event".into(),
+                        },
+                    ]),
+                    links: model(vec![
+                        TimelineLinkRow {
+                            kind: "sent".into(),
+                            text: "Request: EU data residency quote".into(),
+                        },
+                        TimelineLinkRow {
+                            kind: "event".into(),
+                            text: "Follow up with Northwind · Fri 11, 09:00".into(),
+                        },
+                    ]),
+                };
+            tasks.set_timeline_bars(model(vec![
+                bar(
+                    1,
+                    "Reply to the auditors about the revised quarterly figures",
+                    3,
+                    20,
+                    false,
+                ),
+                bar(2, "Book travel", 12, 12, true),
+                bar(
+                    3,
+                    "Waiting for reply from the finance department",
+                    8,
+                    30,
+                    false,
+                ),
+            ]));
+            tasks.set_timeline_events_hidden(2);
+            tasks.set_timeline_events(model(vec![
+                TimelineEventRow {
+                    label: "09:30 Quarterly design review with the whole department".into(),
+                    first_day: 9,
+                    last_day: 10,
+                    lane: 0,
+                    id: 1,
+                    date: "2026-10-30".into(),
+                    local: true,
+                    coloured: true,
+                    colour: slint::Color::from_rgb_u8(0x22, 0xa0, 0x6b),
+                },
+                TimelineEventRow {
+                    label: "Launch".into(),
+                    first_day: 9,
+                    last_day: 9,
+                    lane: 1,
+                    id: 2,
+                    date: "2026-10-30".into(),
+                    local: false,
+                    coloured: false,
+                    colour: slint::Color::default(),
+                },
+            ]));
+            tasks.set_timeline_edges(model(vec![
+                TimelineEdgeRow {
+                    from_bar: 0,
+                    to_bar: 2,
+                },
+                TimelineEdgeRow {
+                    from_bar: 1,
+                    to_bar: 2,
+                },
+            ]));
+            tasks.set_timeline_selected(3);
+            tasks.set_timeline_selected_index(2);
+            tasks.set_timeline_now("11:00".into());
             app.set_active_view("tasks".into());
         }),
         state("tasks page", |app| {

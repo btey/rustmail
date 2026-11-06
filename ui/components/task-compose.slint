@@ -62,6 +62,8 @@ export global TaskComposeUi {
     // True while the composer sits in the right column of the task page; the
     // pop-out button clears it and the composer returns to its own window.
     in-out property <bool> docked: false;
+    // The task whose page holds the docked composer, -1 when none.
+    in-out property <int> docked-task: -1;
     // Also book the follow-up on the (local) calendar once the mail is sent.
     in-out property <bool> follow-up-event: false;
     callback cycle-after();

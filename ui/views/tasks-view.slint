@@ -65,6 +65,19 @@ export struct TimelineDayRow {
     today: bool,
     // "W36" on a Monday, empty otherwise.
     week: string,
+    // "November 2026"; the toolbar names the month in the middle of the view.
+    month: string,
+}
+
+export struct TimelinePinRow {
+    day: int,
+    // "mail" | "sent" | "event"
+    kind: string,
+}
+
+export struct TimelineLinkRow {
+    kind: string,
+    text: string,
 }
 
 export struct TimelineBarRow {
@@ -96,6 +109,16 @@ export struct TimelineBarRow {
     has-event: bool,
     // A group row (one board column) with a summary bar.
     group: bool,
+    // The group's board column, and whether its tasks are folded away.
+    column-id: int,
+    collapsed: bool,
+    // The board column's name and the calendar days the bar covers.
+    status: string,
+    day-count: int,
+    // Day index where the wait for a reply starts, -1 when not waiting.
+    waiting-from: int,
+    pins: [TimelinePinRow],
+    links: [TimelineLinkRow],
 }
 
 export struct TimelineEventRow {
@@ -106,6 +129,13 @@ export struct TimelineEventRow {
     last-day: int,
     // Row in the events lane.
     lane: int,
+    // Calendar row id, the first day as YYYY-MM-DD, made in Rustmail, and the
+    // calendar's colour.
+    id: int,
+    date: string,
+    local: bool,
+    coloured: bool,
+    colour: color,
 }
 
 export struct TimelineEdgeRow {
@@ -162,6 +192,8 @@ export struct TaskDetailRow {
     waiting-days: int,
     // Date to follow up a sent mail (YYYY-MM-DD), empty when unset.
     follow-up: string,
+    // Percentage complete set by hand, -1 when it follows the checklist.
+    percent: int,
     // Icon token of the task's column, for the Status row.
     column-icon: string,
     // Conversation the primary button replies to, -1 when it does not.
@@ -286,6 +318,8 @@ export global TasksUi {
     // The other people on the open task: id = address, title = shown name.
     in-out property <[ActionMenuEntry]> co-assignees;
     // The name of the fixed Assignee picker entries ("me" and "none").
+    pure callback calendar-title(string) -> string;
+    calendar-title(id) => { return @tr("Local calendar"); }
     pure callback assignee-title(string) -> string;
     assignee-title(id) => { return id == "me" ? @tr("Me") : id == "find" ? @tr("Find or add people…") : @tr("Unassigned"); }
     // The drawer header's menu: the card menu's moves, then these entries.
@@ -336,6 +370,26 @@ export global TasksUi {
     in-out property <int> timeline-origin: 0;
     in-out property <bool> timeline-shifted: false;
     in-out property <int> timeline-undated: 0;
+    // Local time for the "Today" label, and tasks past the row cap.
+    in-out property <string> timeline-now;
+    in-out property <int> timeline-bars-hidden: 0;
+    // The card open at the start (the chart owns it afterwards); for tests.
+    in-out property <int> timeline-selected: -1;
+    in-out property <int> timeline-selected-index: -1;
+    // Every list can be shown as a timeline, not only projects.
+    in-out property <bool> timeline-available: false;
+    // The chart's own state outlives the view: zoom, lane and arrows, and where
+    // it was scrolled to (left-most day as a day number, rows, and the list it
+    // belongs to).
+    in-out property <string> timeline-zoom: "week";
+    in-out property <bool> timeline-show-events: true;
+    in-out property <bool> timeline-show-dependencies: true;
+    in-out property <float> timeline-scroll-day: 0;
+    in-out property <length> timeline-scroll-y: 0px;
+    in-out property <string> timeline-scroll-key: "";
+    // Calendars the events lane can draw, ticked when shown.
+    in-out property <[ActionMenuEntry]> timeline-calendar-menu;
+    callback open-calendar-event(int, string, bool);
     in-out property <string> timeline-title;
     // Display menu: completed tasks on the board, and compact cards.
     in-out property <bool> show-completed: true;
@@ -443,13 +497,59 @@ component TasksNavItem inherits SidebarItem {
     row-height: 32px;
 }
 
+// Diagonal stripes over a bar: the span still waiting for a reply.
+component TimelineHatch inherits Rectangle {
+    in property <color> line-colour: #ffffff;
+    clip: true;
+    for k in Math.min(120, Math.ceil((self.width + self.height) / 7px)) : Path {
+        x: k * 7px - parent.height;
+        y: 0px;
+        width: parent.height;
+        height: parent.height;
+        viewbox-width: 1;
+        viewbox-height: 1;
+        commands: "M 0 1 L 1 0";
+        stroke: root.line-colour;
+        stroke-width: 1px;
+    }
+}
+
 component TasksTimeline inherits Rectangle {
+    // The task whose summary card is open, and where it sits in the rows.
+    in-out property <int> selected-id: TasksUi.timeline-selected;
+    in-out property <int> selected-index: TasksUi.timeline-selected-index;
+    function select(index: int, id: int) {
+        root.selected-index = index;
+        root.selected-id = id;
+        nudge.focus();
+        root.reveal(TasksUi.timeline-bars[index].first-day, TasksUi.timeline-bars[index].last-day);
+    }
+    // Arrow keys move the selected bar a day; Shift moves its due edge, Ctrl
+    // its start edge.
+    nudge := FocusScope {
+        width: 0px;
+        height: 0px;
+        key-pressed(event) => {
+            if root.selected-id < 0 { return reject; }
+            if event.text == Key.Escape {
+                root.selected-id = -1;
+                return accept;
+            }
+            if event.text == Key.LeftArrow || event.text == Key.RightArrow {
+                TasksUi.command("timeline-drag", "" + root.selected-id,
+                    (event.modifiers.shift ? "due:" : event.modifiers.control ? "start:" : "move:")
+                    + (event.text == Key.RightArrow ? "1" : "-1"));
+                return accept;
+            }
+            reject
+        }
+    }
     // "day" | "week" | "month"
-    in-out property <string> zoom: "week";
+    in-out property <string> zoom <=> TasksUi.timeline-zoom;
     // Finish-to-start arrows between bars.
-    in-out property <bool> show-dependencies: true;
+    in-out property <bool> show-dependencies <=> TasksUi.timeline-show-dependencies;
     // Read-only calendar events lane above the tasks.
-    in-out property <bool> show-events: true;
+    in-out property <bool> show-events <=> TasksUi.timeline-show-events;
     private property <length> lane-height: root.show-events ? 80px : 0px;
     private property <length> day-width: root.zoom == "day" ? 44px : root.zoom == "week" ? 22px : 9px;
     private property <length> row-height: 32px;
@@ -460,19 +560,57 @@ component TasksTimeline inherits Rectangle {
     private property <length> left-width: root.width < 720px ? 0px : 416px;
     private property <length> chart-width: TasksUi.timeline-days.length * root.day-width;
     private property <length> rows-height: root.lane-height + TasksUi.timeline-bars.length * root.row-height;
+    // Only the rows and days in (or just beside) the view are instantiated;
+    // the elements are recycled as the chart scrolls.
+    private property <int> first-row: max(0, Math.floor((-chart.content-y - root.lane-height) / root.row-height) - 4);
+    private property <int> shown-rows: max(0, min(Math.ceil(chart.visible-height / root.row-height) + 10, TasksUi.timeline-bars.length - root.first-row));
+    // The day in the middle of the chart, whose month the toolbar shows.
+    private property <int> middle-day: max(0, min(TasksUi.timeline-days.length - 1,
+        Math.floor((-chart.content-x + chart.visible-width / 2) / root.day-width)));
+    private property <int> first-day: max(0, Math.floor(-chart.content-x / root.day-width) - 8);
+    private property <int> shown-days: max(0, min(Math.ceil(chart.visible-width / root.day-width) + 18, TasksUi.timeline-days.length - root.first-day));
     private property <int> today-index: TasksUi.timeline-today;
     private property <int> origin: TasksUi.timeline-origin;
     private property <int> seen-origin: -1;
     private property <bool> want-today: false;
     private property <bool> shifting: false;
 
+    // The left-most day, kept when the zoom changes.
+    private property <float> pending-day: 0;
+    function left-day() -> float {
+        return root.origin + (-chart.content-x / root.day-width);
+    }
+    // Where the chart is scrolled to outlives the view, per list.
+    function remember() {
+        TasksUi.timeline-scroll-day = root.left-day();
+        TasksUi.timeline-scroll-y = chart.content-y;
+        TasksUi.timeline-scroll-key = TasksUi.selection;
+    }
+    function keep-y() {
+        chart.content-y = max(min(0px, TasksUi.timeline-scroll-y), min(0px, chart.visible-height - root.rows-height));
+    }
+    function scroll-to-day(day: float) {
+        chart.content-x = min(0px, max(chart.visible-width - root.chart-width,
+            -(day - root.origin) * root.day-width));
+    }
     function scroll-to-today() {
         chart.content-x = min(0px, max(chart.visible-width - root.chart-width,
             root.day-width * 3 - root.today-index * root.day-width));
+        root.remember();
     }
     function scroll-by(days: int) {
         chart.content-x = min(0px, max(chart.visible-width - root.chart-width,
             chart.content-x - days * root.day-width));
+        root.remember();
+    }
+    // A task picked in the grid whose bar is out of sight brings it into view.
+    function reveal(first: int, last: int) {
+        if (last + 1) * root.day-width <= -chart.content-x + root.day-width
+            || first * root.day-width >= -chart.content-x + chart.visible-width - root.day-width {
+            chart.content-x = min(0px, max(chart.visible-width - root.chart-width,
+                root.day-width * 3 - first * root.day-width));
+            root.remember();
+        }
     }
     // Near an edge of the window, ask for the next 26 weeks. The window has a
     // fixed size, so scrolling far costs no more memory.
@@ -488,8 +626,30 @@ component TasksTimeline inherits Rectangle {
             TasksUi.command("timeline-shift", "26", "");
         }
     }
-    init => { root.scroll-to-today(); root.seen-origin = root.origin; }
-    changed day-width => { root.scroll-to-today(); }
+    init => {
+        root.seen-origin = root.origin;
+        if TasksUi.timeline-scroll-key == TasksUi.selection
+            && TasksUi.timeline-scroll-day >= root.origin
+            && TasksUi.timeline-scroll-day < root.origin + TasksUi.timeline-days.length {
+            root.scroll-to-day(TasksUi.timeline-scroll-day);
+            root.keep-y();
+        } else {
+            root.scroll-to-today();
+        }
+    }
+    changed day-width => {
+        if root.pending-day > 0 {
+            root.scroll-to-day(root.pending-day);
+            root.pending-day = 0;
+            root.remember();
+        } else {
+            root.scroll-to-today();
+        }
+    }
+    // Fewer or more rows: the clamp must not lose the place.
+    changed rows-height => {
+        if TasksUi.timeline-scroll-key == TasksUi.selection { root.keep-y(); }
+    }
     changed today-index => {
         if !root.shifting && !root.want-today && !TasksUi.timeline-shifted { root.scroll-to-today(); }
     }
@@ -508,6 +668,7 @@ component TasksTimeline inherits Rectangle {
 
     // Toolbar: month and year, tasks without dates, zoom, Today and paging.
     HorizontalLayout {
+        z: 30;
         x: 0px;
         y: 0px;
         width: parent.width;
@@ -515,7 +676,7 @@ component TasksTimeline inherits Rectangle {
         spacing: 6px;
         padding-bottom: 6px;
         Text {
-            text: TasksUi.timeline-title;
+            text: TasksUi.timeline-days.length > 0 ? TasksUi.timeline-days[root.middle-day].month : TasksUi.timeline-title;
             color: AppTheme.heading;
             font-size: TypeScale.body;
             font-weight: 700;
@@ -536,7 +697,8 @@ component TasksTimeline inherits Rectangle {
             }
         }
         Text {
-            text: TasksUi.timeline-undated > 0 ? @tr("{} without dates", TasksUi.timeline-undated) : "";
+            text: TasksUi.timeline-undated > 0 ? @tr("{} without dates", TasksUi.timeline-undated)
+                : TasksUi.timeline-bars-hidden > 0 ? @tr("{} more tasks not shown", TasksUi.timeline-bars-hidden) : "";
             color: AppTheme.secondary;
             font-size: TypeScale.caption;
             vertical-alignment: center;
@@ -552,7 +714,10 @@ component TasksTimeline inherits Rectangle {
             width: max(60px, self.content-width + 20px);
             text: choice.text;
             primary: root.zoom == choice.id;
-            clicked => { root.zoom = choice.id; }
+            clicked => {
+                root.pending-day = root.left-day();
+                root.zoom = choice.id;
+            }
         }
         Button {
             height: 28px;
@@ -560,6 +725,16 @@ component TasksTimeline inherits Rectangle {
             text: @tr("Calendar events");
             primary: root.show-events;
             clicked => { root.show-events = !root.show-events; }
+        }
+        if TasksUi.timeline-calendar-menu.length > 1 : ActionMenu {
+            width: 28px;
+            height: 28px;
+            icon: @image-url("../icons/lucide/outline/calendar.svg");
+            entries: TasksUi.timeline-calendar-menu;
+            menu-width: 260px;
+            align-right: true;
+            tooltip-text: @tr("Calendars shown");
+            activated(id) => { TasksUi.command("timeline-calendar", id, ""); }
         }
         Button {
             height: 28px;
@@ -649,28 +824,50 @@ component TasksTimeline inherits Rectangle {
                 vertical-alignment: center;
                 overflow: elide;
             }
-            for bar[i] in TasksUi.timeline-bars : Rectangle {
+            for k in root.shown-rows : lrow := Rectangle {
+                property <int> i: root.first-row + k;
+                property <TimelineBarRow> bar: TasksUi.timeline-bars[self.i];
                 x: 0px;
                 y: root.lane-height + i * root.row-height;
                 width: left-rows.visible-width;
                 height: root.row-height;
-                if !bar.group : Rectangle {
+                if lrow.bar.id == root.selected-id && !lrow.bar.group : Rectangle {
+                    background: AppTheme.accent.with-alpha(0.1);
+                }
+                if lrow.bar.group : Image {
+                    x: 6px;
+                    y: (parent.height - 12px) / 2;
+                    width: 12px;
+                    height: 12px;
+                    source: lrow.bar.collapsed ? @image-url("../icons/lucide/outline/chevron-right.svg") : @image-url("../icons/lucide/outline/chevron-down.svg");
+                    colorize: AppTheme.secondary;
+                    accessible-role: none;
+                }
+                if lrow.bar.group : Rectangle {
+                    x: 22px;
+                    y: (parent.height - 10px) / 2;
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 3px;
+                    background: lrow.bar.coloured ? lrow.bar.group-colour : AppTheme.accent;
+                }
+                if !lrow.bar.group : Rectangle {
                     x: 8px;
                     y: (parent.height - 10px) / 2;
                     width: 10px;
                     height: 10px;
                     border-radius: 5px;
                     border-width: 1.5px;
-                    border-color: bar.done ? AppTheme.muted : bar.overdue ? AppTheme.destructive : bar.coloured ? bar.group-colour : AppTheme.accent;
-                    background: bar.done ? AppTheme.muted : transparent;
+                    border-color: lrow.bar.done ? AppTheme.muted : lrow.bar.overdue ? AppTheme.destructive : lrow.bar.coloured ? lrow.bar.group-colour : AppTheme.accent;
+                    background: lrow.bar.done ? AppTheme.muted : transparent;
                 }
-                Text { x: bar.group ? 8px : 24px; width: parent.width - (bar.group ? 278px : 294px); height: parent.height; text: bar.done && !bar.group && bar.struck-title != "" ? bar.struck-title : bar.title; color: bar.done && !bar.group ? AppTheme.muted : AppTheme.heading; font-size: TypeScale.secondary; font-weight: bar.group ? 700 : 400; vertical-alignment: center; overflow: elide; }
-                Text { x: parent.width - 262px; width: 88px; height: parent.height; text: bar.start-text; color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
-                Text { x: parent.width - 174px; width: 88px; height: parent.height; text: bar.due-text; color: bar.overdue ? AppTheme.destructive : AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+                Text { x: lrow.bar.group ? 38px : 24px; width: parent.width - (lrow.bar.group ? 308px : 294px); height: parent.height; text: lrow.bar.done && !lrow.bar.group && lrow.bar.struck-title != "" ? lrow.bar.struck-title : lrow.bar.title; color: lrow.bar.done && !lrow.bar.group ? AppTheme.muted : AppTheme.heading; font-size: TypeScale.secondary; font-weight: lrow.bar.group ? 700 : 400; vertical-alignment: center; overflow: elide; }
+                Text { x: parent.width - 262px; width: 88px; height: parent.height; text: lrow.bar.start-text; color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+                Text { x: parent.width - 174px; width: 88px; height: parent.height; text: lrow.bar.due-text; color: lrow.bar.overdue ? AppTheme.destructive : AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
                 for glyph[k] in [
-                    { shown: bar.has-mail, icon: @image-url("../icons/lucide/outline/mail.svg") },
-                    { shown: bar.has-sent, icon: @image-url("../icons/lucide/outline/paper-airplane.svg") },
-                    { shown: bar.has-event, icon: @image-url("../icons/lucide/outline/calendar.svg") },
+                    { shown: lrow.bar.has-mail, icon: @image-url("../icons/lucide/outline/mail.svg") },
+                    { shown: lrow.bar.has-sent, icon: @image-url("../icons/lucide/outline/paper-airplane.svg") },
+                    { shown: lrow.bar.has-event, icon: @image-url("../icons/lucide/outline/calendar.svg") },
                 ] : Image {
                     x: parent.width - 82px + k * 20px;
                     y: (parent.height - self.height) / 2;
@@ -682,10 +879,15 @@ component TasksTimeline inherits Rectangle {
                 }
                 TouchArea {
                     accessible-role: button;
-                    accessible-label: bar.title;
+                    accessible-label: lrow.bar.title;
                     mouse-cursor: pointer;
-                    enabled: !bar.group;
-                    clicked => { TasksUi.command("open", "task:" + bar.id, ""); }
+                    clicked => {
+                        if lrow.bar.group {
+                            TasksUi.command("timeline-collapse", "" + lrow.bar.column-id, "");
+                        } else {
+                            root.select(lrow.i, lrow.bar.id);
+                        }
+                    }
                 }
             }
         }
@@ -718,28 +920,32 @@ component TasksTimeline inherits Rectangle {
             horizontal-scrollbar-policy: always-off;
             content-x <=> chart.content-x;
             // The ISO week sits over the seven days it covers, not in one cell.
-            for day[i] in TasksUi.timeline-days : Rectangle {
+            for k in root.shown-days : hweek := Rectangle {
+                property <int> i: root.first-day + k;
+                property <TimelineDayRow> day: TasksUi.timeline-days[self.i];
                 x: i * root.day-width + 2px;
                 y: 2px;
                 width: root.day-width * 7 - 4px;
                 height: 18px;
-                if day.week != "" : Text {
+                if hweek.day.week != "" : Text {
                     width: parent.width;
                     height: parent.height;
-                    text: day.week;
+                    text: hweek.day.week;
                     color: AppTheme.secondary;
                     font-size: TypeScale.micro;
                     font-weight: 700;
                     overflow: elide;
                 }
             }
-            for day[i] in TasksUi.timeline-days : Rectangle {
+            for k in root.shown-days : hday := Rectangle {
+                property <int> i: root.first-day + k;
+                property <TimelineDayRow> day: TasksUi.timeline-days[self.i];
                 x: i * root.day-width;
                 y: 0px;
                 width: root.day-width;
                 height: root.header-height;
-                background: day.weekend ? AppTheme.sidebar-bg : transparent;
-                if day.today && root.day-width >= 20px : Rectangle {
+                background: hday.day.weekend ? AppTheme.sidebar-bg : transparent;
+                if hday.day.today && root.day-width >= 20px : Rectangle {
                     x: (parent.width - 24px) / 2;
                     y: 20px;
                     width: 24px;
@@ -751,10 +957,10 @@ component TasksTimeline inherits Rectangle {
                     y: 20px;
                     width: parent.width;
                     height: 24px;
-                    text: day.label;
-                    color: day.today ? AppTheme.accent : AppTheme.body;
+                    text: hday.day.label;
+                    color: hday.day.today ? AppTheme.accent : AppTheme.body;
                     font-size: TypeScale.caption;
-                    font-weight: day.today ? 800 : 400;
+                    font-weight: hday.day.today ? 800 : 400;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
@@ -769,18 +975,21 @@ component TasksTimeline inherits Rectangle {
         }
         chart := ScrollView {
             changed content-x => { root.edge-check(); }
+            scrolled => { root.remember(); }
             y: root.header-height;
             width: parent.width;
             height: parent.height - root.header-height;
             content-width: root.chart-width;
             content-height: max(root.rows-height, self.visible-height);
-            for day[i] in TasksUi.timeline-days : Rectangle {
+            for k in root.shown-days : cday := Rectangle {
+                property <int> i: root.first-day + k;
+                property <TimelineDayRow> day: TasksUi.timeline-days[self.i];
                 x: i * root.day-width;
                 y: 0px;
                 width: root.day-width;
                 height: max(root.rows-height, chart.visible-height);
-                background: day.weekend ? AppTheme.sidebar-bg : transparent;
-                if day.week != "" : Rectangle { x: 0px; y: 0px; width: 1px; background: AppTheme.border; }
+                background: cday.day.weekend ? AppTheme.sidebar-bg : transparent;
+                if cday.day.week != "" : Rectangle { x: 0px; y: 0px; width: 1px; background: AppTheme.border; }
             }
             if TasksUi.timeline-today >= 0 : Rectangle {
                 x: TasksUi.timeline-today * root.day-width + root.day-width / 2 - 1px;
@@ -809,7 +1018,7 @@ component TasksTimeline inherits Rectangle {
                         width: self.preferred-width;
                         height: parent.height;
                         wrap: no-wrap;
-                        text: @tr("Today");
+                        text: TasksUi.timeline-now == "" ? @tr("Today") : @tr("Today") + " " + TasksUi.timeline-now;
                         color: #ffffff;
                         font-size: TypeScale.caption;
                         font-weight: 700;
@@ -817,81 +1026,172 @@ component TasksTimeline inherits Rectangle {
                     }
                 }
             }
-            for bar[i] in TasksUi.timeline-bars : Rectangle {
-                x: bar.first-day * root.day-width;
+            for k in root.shown-rows : cell := Rectangle {
+                property <int> i: root.first-row + k;
+                property <TimelineBarRow> bar: TasksUi.timeline-bars[self.i];
+                // The cell stays put while a bar is dragged, so the pointer keeps
+                // one frame of reference; only the drawn bar follows it.
+                x: cell.bar.first-day * root.day-width;
                 y: root.lane-height + i * root.row-height;
-                width: (bar.last-day - bar.first-day + 1) * root.day-width;
+                width: (cell.bar.last-day - cell.bar.first-day + 1) * root.day-width;
                 height: root.row-height;
-                if bar.group : Rectangle {
-                    x: 1px;
-                    y: (parent.height - 6px) / 2;
-                    width: parent.width - 2px;
-                    height: 6px;
-                    border-radius: 3px;
-                    background: (bar.coloured ? bar.group-colour : AppTheme.accent).with-alpha(0.3);
-                    Rectangle {
-                        width: parent.width * bar.progress / 100;
+                property <string> drag-kind: "";
+                property <int> drag-days: 0;
+                property <length> shift-x: (self.drag-kind == "move" || self.drag-kind == "start") ? self.drag-days * root.day-width : 0px;
+                property <length> grow: self.drag-kind == "start" ? -self.drag-days * root.day-width : self.drag-kind == "due" ? self.drag-days * root.day-width : 0px;
+                if cell.bar.id == root.selected-id && !cell.bar.group : Rectangle {
+                    x: -cell.x;
+                    width: root.chart-width;
+                    background: AppTheme.accent.with-alpha(0.08);
+                }
+                bar-body := Rectangle {
+                    x: cell.shift-x;
+                    width: max(root.day-width, cell.width + cell.grow);
+                    height: parent.height;
+                    if cell.bar.group : Rectangle {
+                        x: 1px;
+                        y: (parent.height - 6px) / 2;
+                        width: parent.width - 2px;
+                        height: 6px;
                         border-radius: 3px;
-                        background: bar.coloured ? bar.group-colour : AppTheme.accent;
+                        background: (cell.bar.coloured ? cell.bar.group-colour : AppTheme.accent).with-alpha(0.3);
+                        Rectangle {
+                            width: parent.width * cell.bar.progress / 100;
+                            border-radius: 3px;
+                            background: cell.bar.coloured ? cell.bar.group-colour : AppTheme.accent;
+                        }
                     }
-                }
-                if !bar.milestone && !bar.group : Rectangle {
-                    x: 1px;
-                    y: 7px;
-                    width: parent.width - 2px;
-                    height: parent.height - 14px;
-                    border-radius: 4px;
-                    background: (bar.done ? AppTheme.muted : bar.overdue ? AppTheme.destructive : bar.coloured ? bar.group-colour : AppTheme.accent).with-alpha(bar.progress > 0 && !bar.done ? 0.35 : 1);
-                    opacity: bar.done ? 0.6 : 1;
-                    if bar.progress > 0 && !bar.done : Rectangle {
-                        width: parent.width * bar.progress / 100;
+                    if !cell.bar.milestone && !cell.bar.group : Rectangle {
+                        x: 1px;
+                        y: 7px;
+                        width: parent.width - 2px;
+                        height: parent.height - 14px;
                         border-radius: 4px;
-                        background: bar.overdue ? AppTheme.destructive : bar.coloured ? bar.group-colour : AppTheme.accent;
+                        clip: true;
+                        background: (cell.bar.done ? AppTheme.muted : cell.bar.overdue ? AppTheme.destructive : cell.bar.coloured ? cell.bar.group-colour : AppTheme.accent).with-alpha(cell.bar.progress > 0 && !cell.bar.done ? 0.35 : 1);
+                        opacity: cell.bar.done ? 0.6 : 1;
+                        if cell.bar.progress > 0 && !cell.bar.done : Rectangle {
+                            width: parent.width * cell.bar.progress / 100;
+                            border-radius: 4px;
+                            background: cell.bar.overdue ? AppTheme.destructive : cell.bar.coloured ? cell.bar.group-colour : AppTheme.accent;
+                        }
+                        if cell.bar.waiting-from >= 0 && !cell.bar.done : TimelineHatch {
+                            x: (cell.bar.waiting-from - cell.bar.first-day) * root.day-width;
+                            width: max(0px, parent.width - self.x);
+                            height: parent.height;
+                            line-colour: #ffffffaa;
+                        }
+                    }
+                    if !cell.bar.group && cell.bar.overdue && cell.bar.late-days > 0 : Text {
+                        x: cell.bar.milestone ? (parent.width + 16px) / 2 + 6px : parent.width + 6px;
+                        width: 160px;
+                        height: parent.height;
+                        text: @tr("{} days late", cell.bar.late-days);
+                        color: AppTheme.destructive;
+                        font-size: TypeScale.caption;
+                        vertical-alignment: center;
+                    }
+                    if !cell.bar.group && !cell.bar.done && !cell.bar.overdue && cell.bar.no-reply-days >= 0 : Text {
+                        x: cell.bar.milestone ? (parent.width + 16px) / 2 + 6px : parent.width + 6px;
+                        width: 160px;
+                        height: parent.height;
+                        text: @tr("No reply · {}d", cell.bar.no-reply-days);
+                        color: AppTheme.destructive;
+                        font-size: TypeScale.caption;
+                        vertical-alignment: center;
+                    }
+                    if !cell.bar.milestone && !cell.bar.group && !cell.bar.overdue && cell.bar.no-reply-days < 0 && cell.bar.progress > 0 : Text {
+                        x: parent.width + 6px;
+                        width: 40px;
+                        height: parent.height;
+                        text: cell.bar.done ? "100%" : cell.bar.progress + "%";
+                        color: AppTheme.secondary;
+                        font-size: TypeScale.caption;
+                        vertical-alignment: center;
+                    }
+                    if cell.bar.milestone : Path {
+                        x: (parent.width - 16px) / 2;
+                        y: 8px;
+                        width: 16px;
+                        height: 16px;
+                        viewbox-width: 16;
+                        viewbox-height: 16;
+                        commands: "M 8 0 L 16 8 L 8 16 L 0 8 Z";
+                        fill: cell.bar.done ? AppTheme.muted : cell.bar.overdue ? AppTheme.destructive : cell.bar.coloured ? cell.bar.group-colour : AppTheme.accent;
                     }
                 }
-                if !bar.group && bar.overdue && bar.late-days > 0 : Text {
-                    x: bar.milestone ? (parent.width + 16px) / 2 + 6px : parent.width + 6px;
-                    width: 160px;
-                    height: parent.height;
-                    text: @tr("{} days late", bar.late-days);
-                    color: AppTheme.destructive;
-                    font-size: TypeScale.caption;
-                    vertical-alignment: center;
+                // Mail and event pins, on the day each happened.
+                if !cell.bar.group && root.day-width >= 20px : Rectangle {
+                    for pin in cell.bar.pins : Rectangle {
+                        x: (pin.day - cell.bar.first-day) * root.day-width + root.day-width / 2 - 9px;
+                        y: (cell.height - 18px) / 2;
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 9px;
+                        border-width: 1.5px;
+                        border-color: pin.kind == "event" ? #8b5cf6 : AppTheme.accent;
+                        background: AppTheme.surface;
+                        Image {
+                            x: 3px;
+                            y: 3px;
+                            width: 12px;
+                            height: 12px;
+                            source: pin.kind == "event" ? @image-url("../icons/lucide/outline/calendar.svg")
+                                : pin.kind == "sent" ? @image-url("../icons/lucide/outline/paper-airplane.svg")
+                                : @image-url("../icons/lucide/outline/mail.svg");
+                            colorize: pin.kind == "event" ? #8b5cf6 : AppTheme.accent;
+                            accessible-role: none;
+                        }
+                    }
                 }
-                if !bar.group && !bar.done && !bar.overdue && bar.no-reply-days >= 0 : Text {
-                    x: bar.milestone ? (parent.width + 16px) / 2 + 6px : parent.width + 6px;
-                    width: 160px;
-                    height: parent.height;
-                    text: @tr("No reply · {}d", bar.no-reply-days);
-                    color: AppTheme.destructive;
-                    font-size: TypeScale.caption;
-                    vertical-alignment: center;
-                }
-                if !bar.milestone && !bar.group && !bar.overdue && bar.no-reply-days < 0 && bar.progress > 0 && !bar.done : Text {
-                    x: parent.width + 6px;
-                    width: 40px;
-                    height: parent.height;
-                    text: bar.progress + "%";
-                    color: AppTheme.secondary;
-                    font-size: TypeScale.caption;
-                    vertical-alignment: center;
-                }
-                if bar.milestone : Path {
-                    x: (parent.width - 16px) / 2;
-                    y: 8px;
-                    width: 16px;
-                    height: 16px;
-                    viewbox-width: 16;
-                    viewbox-height: 16;
-                    commands: "M 8 0 L 16 8 L 8 16 L 0 8 Z";
-                    fill: bar.done ? AppTheme.muted : bar.overdue ? AppTheme.destructive : bar.coloured ? bar.group-colour : AppTheme.accent;
-                }
-                TouchArea {
+                // Drag the bar to move both dates; a click opens its card.
+                body-touch := TouchArea {
                     accessible-role: button;
-                    accessible-label: bar.title;
-                    enabled: !bar.group;
+                    accessible-label: cell.bar.title;
+                    enabled: !cell.bar.group;
                     mouse-cursor: pointer;
-                    clicked => { TasksUi.command("open", "task:" + bar.id, ""); }
+                    pointer-event(event) => {
+                        if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                            if cell.drag-kind == "move" && cell.drag-days != 0 {
+                                TasksUi.command("timeline-drag", "" + cell.bar.id, "move:" + cell.drag-days);
+                            } else if cell.drag-kind == "" {
+                                root.select(cell.i, cell.bar.id);
+                            }
+                            cell.drag-kind = "";
+                            cell.drag-days = 0;
+                        }
+                    }
+                    moved => {
+                        if self.pressed && (cell.drag-kind == "move" || abs(self.mouse-x - self.pressed-x) > 4px) {
+                            cell.drag-kind = "move";
+                            cell.drag-days = Math.round((self.mouse-x - self.pressed-x) / root.day-width);
+                        }
+                    }
+                }
+                // Drag an edge to change the start or the due date.
+                if !cell.bar.group && !cell.bar.milestone : Rectangle {
+                    for edge[k] in ["start", "due"] : TouchArea {
+                        x: k == 0 ? 0px : cell.width - 7px;
+                        width: 7px;
+                        height: cell.height;
+                        mouse-cursor: ew-resize;
+                        accessible-role: none;
+                        pointer-event(event) => {
+                            if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                                if cell.drag-kind == edge && cell.drag-days != 0 {
+                                    TasksUi.command("timeline-drag", "" + cell.bar.id, edge + ":" + cell.drag-days);
+                                }
+                                cell.drag-kind = "";
+                                cell.drag-days = 0;
+                            }
+                        }
+                        moved => {
+                            if self.pressed {
+                                cell.drag-kind = edge;
+                                cell.drag-days = Math.round((self.mouse-x - self.pressed-x) / root.day-width);
+                            }
+                        }
+                    }
                 }
             }
             if root.show-events : Rectangle {
@@ -908,8 +1208,8 @@ component TasksTimeline inherits Rectangle {
                 height: 22px;
                 border-radius: 5px;
                 border-width: 1px;
-                border-color: AppTheme.accent;
-                background: AppTheme.accent.with-alpha(0.15);
+                border-color: event.coloured ? event.colour : AppTheme.accent;
+                background: (event.coloured ? event.colour : AppTheme.accent).with-alpha(0.15);
                 clip: true;
                 Text {
                     x: 6px;
@@ -922,24 +1222,164 @@ component TasksTimeline inherits Rectangle {
                     vertical-alignment: center;
                     overflow: elide;
                 }
+                TouchArea {
+                    accessible-role: button;
+                    accessible-label: event.label;
+                    mouse-cursor: pointer;
+                    clicked => { TasksUi.open-calendar-event(event.id, event.date, event.local); }
+                }
             }
+            // Each arrow is drawn in its own bounding box, and only when one of its
+            // rows is near the view.
             for edge in TasksUi.timeline-edges : Path {
-                visible: root.show-dependencies;
                 private property <length> x1: (TasksUi.timeline-bars[edge.from-bar].last-day + 1) * root.day-width;
                 private property <length> y1: root.lane-height + edge.from-bar * root.row-height + root.row-height / 2;
                 private property <length> x2: TasksUi.timeline-bars[edge.to-bar].first-day * root.day-width;
                 private property <length> y2: root.lane-height + edge.to-bar * root.row-height + root.row-height / 2;
                 private property <length> mid: self.x1 + 8px;
-                x: 0px;
-                y: 0px;
-                width: root.chart-width;
-                height: root.rows-height;
+                private property <length> left: min(self.x1, self.x2) - 8px;
+                private property <length> top: min(self.y1, self.y2) - 6px;
+                visible: root.show-dependencies
+                    && max(edge.from-bar, edge.to-bar) >= root.first-row - 2
+                    && min(edge.from-bar, edge.to-bar) <= root.first-row + root.shown-rows + 2;
+                x: self.left;
+                y: self.top;
+                width: max(self.mid, self.x2) + 4px - self.left;
+                height: max(self.y1, self.y2) + 6px - self.top;
                 viewbox-width: self.width / 1px;
                 viewbox-height: self.height / 1px;
-                commands: "M \{self.x1 / 1px} \{self.y1 / 1px} L \{self.mid / 1px} \{self.y1 / 1px} L \{self.mid / 1px} \{self.y2 / 1px} L \{self.x2 / 1px} \{self.y2 / 1px} M \{self.x2 / 1px - 5} \{self.y2 / 1px - 4} L \{self.x2 / 1px} \{self.y2 / 1px} L \{self.x2 / 1px - 5} \{self.y2 / 1px + 4}";
+                commands: "M \{(self.x1 - self.left) / 1px} \{(self.y1 - self.top) / 1px} L \{(self.mid - self.left) / 1px} \{(self.y1 - self.top) / 1px} L \{(self.mid - self.left) / 1px} \{(self.y2 - self.top) / 1px} L \{(self.x2 - self.left) / 1px} \{(self.y2 - self.top) / 1px} M \{(self.x2 - self.left) / 1px - 5} \{(self.y2 - self.top) / 1px - 4} L \{(self.x2 - self.left) / 1px} \{(self.y2 - self.top) / 1px} L \{(self.x2 - self.left) / 1px - 5} \{(self.y2 - self.top) / 1px + 4}";
                 stroke: AppTheme.secondary;
                 stroke-width: 1.5px;
                 fill: transparent;
+            }
+            // The summary card of the selected task, kept inside the visible chart.
+            if root.selected-index >= 0 && root.selected-index < TasksUi.timeline-bars.length
+                && TasksUi.timeline-bars[root.selected-index].id == root.selected-id : card := Rectangle {
+                private property <TimelineBarRow> sel: TasksUi.timeline-bars[root.selected-index];
+                private property <length> card-height: 192px + 22px * self.sel.links.length;
+                width: 360px;
+                height: self.card-height;
+                x: max(-chart.content-x + 8px, min(-chart.content-x + chart.visible-width - self.width - 8px,
+                    (self.sel.last-day + 1) * root.day-width + 12px));
+                y: max(-chart.content-y + 8px, min(root.lane-height + (root.selected-index + 1) * root.row-height + 4px,
+                    -chart.content-y + chart.visible-height - self.card-height - 8px));
+                border-radius: 10px;
+                border-width: 1px;
+                border-color: AppTheme.border;
+                background: AppTheme.surface;
+                drop-shadow-blur: 14px;
+                drop-shadow-color: #00000055;
+                drop-shadow-offset-y: 4px;
+                accessible-role: groupbox;
+                accessible-label: self.sel.title;
+                TouchArea { }
+                Text {
+                    x: 14px;
+                    y: 10px;
+                    width: parent.width - 56px;
+                    height: 26px;
+                    text: card.sel.title;
+                    color: AppTheme.heading;
+                    font-size: TypeScale.body;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                TasksIconButton {
+                    x: parent.width - 36px;
+                    y: 8px;
+                    width: 28px;
+                    height: 28px;
+                    icon: @image-url("../icons/lucide/outline/x.svg");
+                    tooltip-text: @tr("Close");
+                    clicked => { root.selected-id = -1; }
+                }
+                Rectangle {
+                    x: 14px;
+                    y: 42px;
+                    width: min(parent.width - 28px, pill-text.preferred-width + 20px);
+                    height: 24px;
+                    border-radius: 12px;
+                    background: card.sel.waiting-from >= 0 ? #d9770633 : card.sel.overdue ? AppTheme.destructive.with-alpha(0.15) : AppTheme.accent.with-alpha(0.15);
+                    pill-text := Text {
+                        x: 10px;
+                        width: parent.width - 20px;
+                        height: parent.height;
+                        text: card.sel.waiting-from >= 0 && card.sel.no-reply-days >= 0 ? @tr("Waiting · no reply {} days", card.sel.no-reply-days)
+                            : card.sel.overdue ? @tr("{} days late", card.sel.late-days)
+                            : card.sel.done ? @tr("Done")
+                            : card.sel.status;
+                        color: card.sel.waiting-from >= 0 ? #d97706 : card.sel.overdue ? AppTheme.destructive : AppTheme.accent;
+                        font-size: TypeScale.caption;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+                Text {
+                    x: 14px;
+                    y: 72px;
+                    width: parent.width - 28px;
+                    height: 22px;
+                    text: card.sel.milestone ? (card.sel.start-text != "" ? card.sel.start-text : card.sel.due-text)
+                        : card.sel.start-text + " – " + card.sel.due-text + " · " + @tr("{} days", card.sel.day-count);
+                    color: AppTheme.secondary;
+                    font-size: TypeScale.caption;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                for link[k] in card.sel.links : Rectangle {
+                    x: 14px;
+                    y: 98px + k * 22px;
+                    width: parent.width - 28px;
+                    height: 22px;
+                    Image {
+                        x: 0px;
+                        y: (parent.height - 14px) / 2;
+                        width: 14px;
+                        height: 14px;
+                        source: link.kind == "event" ? @image-url("../icons/lucide/outline/calendar.svg")
+                            : link.kind == "sent" ? @image-url("../icons/lucide/outline/paper-airplane.svg")
+                            : @image-url("../icons/lucide/outline/mail.svg");
+                        colorize: link.kind == "event" ? #8b5cf6 : AppTheme.accent;
+                        accessible-role: none;
+                    }
+                    Text {
+                        x: 22px;
+                        width: parent.width - 22px;
+                        height: parent.height;
+                        text: (link.kind == "sent" ? @tr("Sent") : link.kind == "event" ? @tr("Event") : @tr("Received")) + "  " + link.text;
+                        color: AppTheme.body;
+                        font-size: TypeScale.caption;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+                VerticalLayout {
+                    x: 14px;
+                    y: parent.height - 84px;
+                    width: parent.width - 28px;
+                    height: 72px;
+                    spacing: 8px;
+                    Button {
+                        vertical-stretch: 1;
+                        text: @tr("Open on board");
+                        clicked => {
+                            TasksUi.command("open-on-board", "task:" + card.sel.id, "");
+                            root.selected-id = -1;
+                        }
+                    }
+                    Button {
+                        vertical-stretch: 1;
+                        text: @tr("Email from task");
+                        primary: true;
+                        clicked => {
+                            TasksUi.email-task(card.sel.id, card.sel.title);
+                            root.selected-id = -1;
+                        }
+                    }
+                }
             }
         }
         if TasksUi.timeline-bars.length == 0 : Text {
@@ -985,6 +1425,29 @@ component TasksTimeline inherits Rectangle {
                 spacing: 6px;
                 Rectangle { width: 22px; height: 1px; y: parent.height / 2; background: AppTheme.secondary; }
                 Text { text: @tr("Depends on"); color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+            }
+            if root.width >= 1100px : HorizontalLayout {
+                spacing: 6px;
+                TimelineHatch { width: 26px; height: 10px; y: (parent.height - 10px) / 2; border-radius: 3px; background: AppTheme.accent.with-alpha(0.25); line-colour: AppTheme.accent; }
+                Text { text: @tr("Waiting on a reply"); color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+            }
+            if root.width >= 1300px : HorizontalLayout {
+                spacing: 6px;
+                for pin in [
+                    { kind: "mail", icon: @image-url("../icons/lucide/outline/mail.svg"), label: @tr("Received email") },
+                    { kind: "sent", icon: @image-url("../icons/lucide/outline/paper-airplane.svg"), label: @tr("Sent email") },
+                    { kind: "event", icon: @image-url("../icons/lucide/outline/calendar.svg"), label: @tr("Calendar event") },
+                ] : HorizontalLayout {
+                    spacing: 4px;
+                    Image { width: 12px; height: 12px; y: (parent.height - 12px) / 2; source: pin.icon; colorize: pin.kind == "event" ? #8b5cf6 : AppTheme.accent; }
+                    Text { text: pin.label; color: AppTheme.secondary; font-size: TypeScale.caption; vertical-alignment: center; }
+                }
+            }
+            if root.width >= 1600px : Text {
+                text: @tr("Drag a bar to reschedule · drag its edge to change the due date");
+                color: AppTheme.muted;
+                font-size: TypeScale.caption;
+                vertical-alignment: center;
             }
         }
     }
@@ -2183,7 +2646,7 @@ component TaskDrawer inherits Rectangle {
             }
             // Property tiles: two columns, small label over a bold value (mockup 2).
             Rectangle {
-                height: 6 * 40px + 5 * 6px;
+                height: 7 * 40px + 6 * 6px;
                 for prop[k] in [
                     { name: @tr("Status"), value: TasksUi.detail.column, icon: TasksText.column-icon(TasksUi.detail.column-icon) },
                     { name: @tr("Due"), value: TasksUi.detail.due != "" ? TasksUi.detail.due : "-", icon: @image-url("../icons/lucide/outline/calendar.svg") },
@@ -2191,6 +2654,7 @@ component TaskDrawer inherits Rectangle {
                     { name: @tr("Project"), value: TasksUi.detail.project, icon: @image-url("../icons/lucide/filled/project-dot.svg") },
                     { name: @tr("Context"), value: TasksUi.detail.context != "" ? TasksUi.detail.context : @tr("No context"), icon: @image-url("../icons/lucide/outline/file-directory.svg") },
                     { name: @tr("Assignee"), value: TasksUi.detail.assignee != "" ? TasksUi.detail.assignee : @tr("Unassigned"), icon: @image-url("../icons/lucide/outline/people.svg") },
+                    { name: @tr("Progress"), value: TasksUi.detail.percent >= 0 ? TasksUi.detail.percent + "%" : @tr("Automatic"), icon: @image-url("../icons/lucide/outline/check-circle.svg") },
                 ] : Rectangle {
                     x: 0px;
                     y: k * 46px;
@@ -2247,7 +2711,17 @@ component TaskDrawer inherits Rectangle {
                                 ]
                                 : k == 3 ? TasksUi.project-menu
                                 : k == 4 ? TasksUi.context-menu
-                                : TasksUi.assignee-menu;
+                                : k == 5 ? TasksUi.assignee-menu
+                                : [
+                                    { id: "auto", title: (TasksUi.detail.percent < 0 ? "✓ " : "") + @tr("Automatic (from the checklist)") },
+                                    { id: "0", title: (TasksUi.detail.percent == 0 ? "✓ " : "") + "0%" },
+                                    { id: "10", title: (TasksUi.detail.percent == 10 ? "✓ " : "") + "10%" },
+                                    { id: "25", title: (TasksUi.detail.percent == 25 ? "✓ " : "") + "25%" },
+                                    { id: "50", title: (TasksUi.detail.percent == 50 ? "✓ " : "") + "50%" },
+                                    { id: "75", title: (TasksUi.detail.percent == 75 ? "✓ " : "") + "75%" },
+                                    { id: "90", title: (TasksUi.detail.percent == 90 ? "✓ " : "") + "90%" },
+                                    { id: "100", title: (TasksUi.detail.percent == 100 ? "✓ " : "") + "100%" },
+                                ];
                         menu-width: 220px;
                         tooltip-text: prop.name;
                             activated(id) => {
@@ -2264,6 +2738,8 @@ component TaskDrawer inherits Rectangle {
                                     TasksUi.command("project-menu", "" + TasksUi.detail.id, id);
                                 } else if k == 4 {
                                     TasksUi.command("detail-context", "" + TasksUi.detail.id, id);
+                                } else if k == 6 {
+                                    TasksUi.command("detail-percent", "" + TasksUi.detail.id, id);
                                 } else {
                                     if id == "find" {
                                         root.assignee-open = true;
@@ -2809,6 +3285,8 @@ export component TasksView inherits Rectangle {
             spacing: 10px;
             HorizontalLayout {
                 height: 40px;
+                // Tooltips hang below the toolbar rows, over the board.
+                z: 30;
                 spacing: 8px;
                 TasksIconButton {
                     width: 36px;
@@ -2850,6 +3328,7 @@ export component TasksView inherits Rectangle {
             }
             HorizontalLayout {
                 height: 30px;
+                z: 30;
                 spacing: 8px;
                 for chip in TasksUi.filter-chips : Rectangle {
                     width: chip-text.preferred-width + 40px;
@@ -2875,6 +3354,8 @@ export component TasksView inherits Rectangle {
                         clicked => { TasksUi.command("filter-remove", chip.key, ""); }
                     }
                 }
+                // Projects offer Board, List and Timeline; the other lists offer
+                // List and Timeline. The switch never disappears.
                 if TasksUi.can-switch-view : Button {
                     height: 28px;
                     text: @tr("Board");
@@ -2882,14 +3363,14 @@ export component TasksView inherits Rectangle {
                     primary: !TasksUi.list-mode && !TasksUi.timeline-mode;
                     clicked => { TasksUi.command("view", "board", ""); }
                 }
-                if TasksUi.can-switch-view : Button {
+                Button {
                     height: 28px;
                     text: @tr("List");
                     width: max(64px, self.content-width + 24px);
-                    primary: TasksUi.list-mode;
+                    primary: TasksUi.can-switch-view ? TasksUi.list-mode : !TasksUi.timeline-mode;
                     clicked => { TasksUi.command("view", "list", ""); }
                 }
-                if TasksUi.can-switch-view : Button {
+                Button {
                     height: 28px;
                     text: @tr("Timeline");
                     width: max(72px, self.content-width + 24px);

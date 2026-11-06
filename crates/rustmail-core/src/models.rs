@@ -1854,6 +1854,10 @@ pub struct Settings {
     /// Display menu: cards show only the title and the due date.
     #[serde(default)]
     pub task_compact_cards: bool,
+    /// Calendars left out of the Tasks timeline's events lane (row ids; 0 is
+    /// the local calendar).
+    #[serde(default)]
+    pub task_timeline_hidden_calendars: Vec<i64>,
     /// Name of the project "New task from email" starts with; empty = the first project.
     #[serde(default)]
     pub task_default_project: String,
@@ -2206,6 +2210,7 @@ impl Default for Settings {
             task_archive_on_create: false,
             task_hide_completed: false,
             task_compact_cards: false,
+            task_timeline_hidden_calendars: Vec::new(),
             task_default_project: String::new(),
             task_default_context: String::new(),
             task_default_status: String::new(),

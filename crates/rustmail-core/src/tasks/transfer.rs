@@ -61,6 +61,8 @@ pub struct ExportTask {
     pub checklist: Vec<ExportChecklistItem>,
     #[serde(default)]
     pub completed_at: Option<i64>,
+    #[serde(default)]
+    pub percent: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,6 +138,7 @@ impl SqliteTaskStore<'_> {
                         })
                         .collect(),
                     completed_at: task.completed_at,
+                    percent: task.percent,
                 });
             }
             projects.push(ExportProject {
@@ -274,6 +277,15 @@ impl SqliteTaskStore<'_> {
                     if item.done {
                         self.update_checklist_item(added.id, None, Some(true))?;
                     }
+                }
+                if let Some(percent) = task.percent.filter(|p| (0..=100).contains(p)) {
+                    self.update_task(
+                        created.id,
+                        TaskPatch {
+                            percent: Some(Some(percent)),
+                            ..TaskPatch::default()
+                        },
+                    )?;
                 }
                 if task.completed_at.is_some() {
                     self.complete_task(created.id)?;

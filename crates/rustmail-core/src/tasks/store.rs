@@ -248,7 +248,7 @@ const TASK_SELECT: &str = "SELECT t.id, t.uid, t.project_id, t.column_id, t.titl
         (SELECT COUNT(*) FROM task_checklist_items c
            WHERE c.task_id = t.id AND c.deleted_at IS NULL AND c.done = 1),
         (SELECT COUNT(*) FROM task_links l WHERE l.task_id = t.id AND l.deleted_at IS NULL),
-        t.move_back_on_reply, t.follow_up_at, t.quick_capture
+        t.move_back_on_reply, t.follow_up_at, t.quick_capture, t.percent
      FROM tasks t";
 
 fn task_from_row(r: &Row) -> rusqlite::Result<Task> {
@@ -282,6 +282,7 @@ fn task_from_row(r: &Row) -> rusqlite::Result<Task> {
         move_back_on_reply: r.get::<_, i64>(20)? != 0,
         follow_up_at: r.get(21)?,
         quick_capture: r.get::<_, i64>(22)? != 0,
+        percent: r.get(23)?,
     })
 }
 
@@ -1425,6 +1426,16 @@ impl TaskStore for SqliteTaskStore<'_> {
             }
             None => t.follow_up_at,
         };
+        let percent = match patch.percent {
+            Some(Some(p)) if !(0..=100).contains(&p) => {
+                return Err(invalid("percent must be 0-100"));
+            }
+            Some(p) => {
+                changed.push("progress");
+                p
+            }
+            None => t.percent,
+        };
         let move_back = match patch.move_back_on_reply {
             Some(v) => {
                 changed.push("reply tracking");
@@ -1435,7 +1446,7 @@ impl TaskStore for SqliteTaskStore<'_> {
         tx.execute(
             "UPDATE tasks SET title = ?2, description = ?3, due_at = ?4, start_at = ?5,
                 priority = ?6, context_id = ?7, assignee_email = ?8, assignee_name = ?9,
-                move_back_on_reply = ?10, follow_up_at = ?11
+                move_back_on_reply = ?10, follow_up_at = ?11, percent = ?12
              WHERE id = ?1",
             params![
                 id,
@@ -1448,7 +1459,8 @@ impl TaskStore for SqliteTaskStore<'_> {
                 assignee_email,
                 assignee_name,
                 move_back,
-                follow_up_at
+                follow_up_at,
+                percent
             ],
         )?;
         stamp(&tx, "task", "tasks", id, "update")?;

@@ -812,6 +812,28 @@ fn a_quick_capture_stays_marked_until_it_leaves_the_inbox() {
     assert!(!s.get_task(captured.id).unwrap().quick_capture);
 }
 
+#[test]
+fn a_hand_set_percent_is_kept_validated_and_clearable() {
+    let (mut c, p) = setup();
+    let mut s = SqliteTaskStore::new(&mut c);
+    let task = plain_task(&mut s, p, "Write the report");
+    assert_eq!(task.percent, None);
+    let set = |s: &mut SqliteTaskStore, v: Option<i64>| {
+        s.update_task(
+            task.id,
+            TaskPatch {
+                percent: Some(v),
+                ..Default::default()
+            },
+        )
+    };
+    assert_eq!(set(&mut s, Some(65)).unwrap().percent, Some(65));
+    assert!(set(&mut s, Some(101)).is_err());
+    assert!(set(&mut s, Some(-1)).is_err());
+    assert_eq!(s.get_task(task.id).unwrap().percent, Some(65));
+    assert_eq!(set(&mut s, None).unwrap().percent, None);
+}
+
 fn plain_task(s: &mut SqliteTaskStore, p: i64, title: &str) -> Task {
     s.create_task(NewTask {
         project_id: p,
@@ -1488,6 +1510,7 @@ fn an_import_creates_missing_projects_and_columns_and_rejects_other_versions() {
                 labels: Vec::new(),
                 checklist: Vec::new(),
                 completed_at: None,
+                percent: Some(40),
             }],
         }],
     };
@@ -1511,6 +1534,7 @@ fn an_import_creates_missing_projects_and_columns_and_rejects_other_versions() {
         .unwrap()[0];
     // An out-of-range priority is clamped, not stored as given.
     assert_eq!(task.priority, 3);
+    assert_eq!(task.percent, Some(40));
 
     let mut wrong = export;
     wrong.version = 99;

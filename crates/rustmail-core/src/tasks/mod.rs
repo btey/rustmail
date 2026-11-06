@@ -15,7 +15,7 @@
 //!
 //! # iCalendar VTODO mapping
 //! title→SUMMARY, description→DESCRIPTION, due→DUE, start→DTSTART,
-//! priority→PRIORITY, completed_at→COMPLETED, labels→CATEGORIES,
+//! priority→PRIORITY, percent→PERCENT-COMPLETE, completed_at→COMPLETED, labels→CATEGORIES,
 //! task_blocks/task_depends→RELATED-TO (RELTYPE), checklist→sub-VTODOs
 //! (RELATED-TO PARENT) or `X-RUSTMAIL-CHECKLIST`, column→STATUS plus
 //! `X-RUSTMAIL-COLUMN`. No standard mapping (would need `X-` properties or a
@@ -232,6 +232,9 @@ pub struct Task {
     /// Typed straight into the board and not yet moved out of the Inbox.
     #[serde(default)]
     pub quick_capture: bool,
+    /// Percentage complete set by hand (0-100); `None` = from the checklist.
+    #[serde(default)]
+    pub percent: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -323,6 +326,9 @@ pub struct TaskPatch {
     pub assignee: Option<Option<(String, String)>>,
     pub move_back_on_reply: Option<bool>,
     pub follow_up_at: Option<Option<i64>>,
+    /// Hand-set percentage complete, 0-100; an inner `None` goes back to the
+    /// checklist.
+    pub percent: Option<Option<i64>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

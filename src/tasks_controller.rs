@@ -201,6 +201,8 @@ struct Extra {
     timeline: bool,
     /// Weeks the timeline window is moved from its home position.
     timeline_shift: i32,
+    /// Board columns folded away on the timeline.
+    timeline_collapsed: Vec<i64>,
 }
 
 /// Who a task is assigned to: a key (the email in lower case, else the
@@ -230,6 +232,12 @@ async fn own_emails(core: &Core) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// The calendar an event belongs to as the timeline's menu counts it: 0 is
+/// the local calendar.
+fn calendar_of(event: &rustmail_core::models::CalendarEvent) -> i64 {
+    if event.is_local { 0 } else { event.calendar_id.unwrap_or(0) }
+}
+
 /// Cards beyond this many linked tasks show no link row.
 const MAX_CARD_LINK_LOOKUPS: usize = 150;
 
@@ -254,6 +262,8 @@ struct Session {
     timeline: bool,
     /// Weeks the timeline window is moved from its home position.
     timeline_shift: i32,
+    /// Board columns folded away on the timeline.
+    timeline_collapsed: Vec<i64>,
     /// Sidebar search over project and context names.
     nav: String,
     group: Group,
@@ -279,6 +289,8 @@ struct DetailSnap {
     waiting_days: i64,
     /// Date to follow up a sent mail, empty when unset.
     follow_up: String,
+    /// Percentage complete set by hand; -1 = worked out from the checklist.
+    percent: i64,
     /// Other people on the task: (address, shown name).
     co_assignees: Vec<(String, String)>,
     /// Icon token of the task's column.
@@ -373,6 +385,9 @@ struct Snapshot {
     /// The project is shown as a timeline; `timeline` has the chart.
     timeline_mode: bool,
     timeline: Option<crate::tasks_timeline::TimelineSnap>,
+    /// `(calendar id, name, shown)` for the events lane's calendar menu; id 0
+    /// is the local calendar (empty name).
+    calendar_menu: Vec<(i64, String, bool)>,
     can_switch_view: bool,
     /// `(menu id, title)` for the Group menu; empty when the view is a board.
     group_menu: Vec<(String, String)>,
@@ -730,6 +745,7 @@ async fn load_detail(
             .and_then(|all| all.into_iter().find(|(t, _)| *t == id).map(|(_, d)| d))
             .unwrap_or(-1),
         follow_up: task.follow_up_at.map(iso_date).unwrap_or_default(),
+        percent: task.percent.unwrap_or(-1),
         co_assignees: core
             .task_co_assignees()
             .await
@@ -804,6 +820,7 @@ async fn load(
     let hide_done = extra.hide_done;
     let want_timeline = extra.timeline;
     let timeline_shift = extra.timeline_shift;
+    let timeline_collapsed = extra.timeline_collapsed.clone();
     if kind != "context" {
         filter.context_id = context_chip.filter(|c| context_map.contains_key(c));
     }
@@ -896,7 +913,7 @@ async fn load(
         })
         .collect();
 
-    let timeline_mode = kind == "project" && want_timeline;
+    let timeline_mode = want_timeline;
     let board = kind == "project" && filter.text.is_none() && !list_mode && !timeline_mode;
     snap.list_mode = kind == "project" && list_mode && !timeline_mode;
     snap.timeline_mode = timeline_mode;
@@ -964,8 +981,12 @@ async fn load(
             })
             .collect();
     } else if timeline_mode {
-        let dependencies = core.task_dependencies(project_id.unwrap_or_default()).await?;
-        let board_columns = core.task_columns(project_id.unwrap_or_default()).await?;
+        // Dependencies and the board's columns belong to one project; the
+        // other lists are a flat set of bars.
+        let (dependencies, board_columns) = match project_id.filter(|_| kind == "project") {
+            Some(p) => (core.task_dependencies(p).await?, core.task_columns(p).await?),
+            None => (Vec::new(), Vec::new()),
+        };
         let column_colours: Vec<(i64, String)> =
             board_columns.iter().map(|c| (c.id, c.colour.clone())).collect();
         let columns: Vec<(i64, String)> =
@@ -976,13 +997,41 @@ async fn load(
             &dependencies,
             &columns,
             timeline_shift,
+            &timeline_collapsed,
         );
         // Calendar events are context only: a failed read leaves the lane empty.
         if let Some((from, to)) = timeline.range_ms() {
             let events = core.list_events(from, to).await.unwrap_or_default();
+            let calendars = core.list_calendars(None).await.unwrap_or_default();
+            let calendar_colours: HashMap<i64, String> = calendars
+                .iter()
+                .filter_map(|c| Some((c.id, c.color.clone()?)))
+                .collect();
+            // Calendars the user left out of the lane; 0 is the local one.
+            let hidden = core
+                .get_settings()
+                .await
+                .map(|s| s.task_timeline_hidden_calendars)
+                .unwrap_or_default();
+            snap.calendar_menu = std::iter::once((0, String::new()))
+                .chain(
+                    calendars
+                        .iter()
+                        .filter(|c| c.enabled)
+                        .map(|c| (c.id, c.display_name.clone().unwrap_or_else(|| c.url.clone()))),
+                )
+                .map(|(id, name)| (id, name, !hidden.contains(&id)))
+                .collect();
             let lane: Vec<_> = events
                 .into_iter()
+                .filter(|e| !hidden.contains(&calendar_of(e)))
                 .map(|e| crate::tasks_timeline::LaneEvent {
+                    id: e.id,
+                    local: e.is_local,
+                    colour: e
+                        .calendar_id
+                        .and_then(|id| calendar_colours.get(&id).cloned())
+                        .unwrap_or_default(),
                     title: e.summary.filter(|s| !s.trim().is_empty()).unwrap_or_default(),
                     starts_at: e.starts_at,
                     ends_at: e.ends_at,
@@ -991,22 +1040,57 @@ async fn load(
                 .collect();
             timeline.set_events(&lane);
         }
-        // Which kinds of mail and events each task links to. One read per
-        // linked task, for the first MAX_CARD_LINK_LOOKUPS of them.
+        // Which kinds of mail and events each task links to, where each
+        // happened, and a few lines for the summary card. One read per linked
+        // task, for the first MAX_CARD_LINK_LOOKUPS of them.
         let mut kinds = Vec::new();
+        let mut pins = Vec::new();
         for t in tasks.iter().filter(|t| t.link_count > 0).take(MAX_CARD_LINK_LOOKUPS) {
-            use rustmail_core::tasks::LinkKind;
+            use crate::tasks_timeline::{LinkLine, PinKind};
+            use rustmail_core::tasks::{LinkKind, LinkTarget};
             let mut flags = (false, false, false);
+            let mut marks = Vec::new();
+            let mut lines = Vec::new();
             for l in core.task_links(t.id).await? {
-                match l.link.kind {
-                    LinkKind::MailReceived => flags.0 = true,
-                    LinkKind::MailSent => flags.1 = true,
-                    LinkKind::Event => flags.2 = true,
-                    _ => {}
+                let (kind, when, text) = match (&l.link.kind, &l.target) {
+                    (LinkKind::MailReceived, LinkTarget::Mail { date, subject, .. }) => {
+                        flags.0 = true;
+                        (PinKind::Mail, Some(*date), subject.clone())
+                    }
+                    (LinkKind::MailSent, LinkTarget::Mail { date, subject, .. }) => {
+                        flags.1 = true;
+                        (PinKind::Sent, Some(*date), subject.clone())
+                    }
+                    (LinkKind::MailReceived, _) => {
+                        flags.0 = true;
+                        continue;
+                    }
+                    (LinkKind::MailSent, _) => {
+                        flags.1 = true;
+                        continue;
+                    }
+                    (LinkKind::Event, _) => {
+                        flags.2 = true;
+                        let (start, title) = match l.link.event_uid.clone() {
+                            Some(uid) => (
+                                core.task_event_ref(uid.clone()).await.ok().flatten().map(|e| e.1),
+                                core.task_event_title(uid).await.ok().flatten().unwrap_or_default(),
+                            ),
+                            None => (None, String::new()),
+                        };
+                        (PinKind::Event, start, title)
+                    }
+                    _ => continue,
+                };
+                if let Some(ms) = when {
+                    marks.push((ms, kind));
                 }
+                lines.push(LinkLine { kind, text });
             }
             kinds.push((t.id, flags.0, flags.1, flags.2));
+            pins.push((t.id, marks, lines));
         }
+        timeline.set_pins(&pins);
         timeline.set_links(&kinds);
         let waiting = core.task_no_reply_days(chrono::Utc::now().timestamp_millis()).await?;
         timeline.set_no_reply(&waiting);
@@ -1243,6 +1327,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
     ui.set_week_label(Local::now().format("W%V").to_string().into());
     ui.set_list_mode(snap.list_mode);
     ui.set_timeline_mode(snap.timeline_mode);
+    ui.set_timeline_available(true);
     match snap.timeline {
         Some(timeline) => {
             ui.set_timeline_title(timeline.title.into());
@@ -1250,6 +1335,8 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
             ui.set_timeline_origin(timeline.origin_days);
             ui.set_timeline_shifted(timeline.shifted);
             ui.set_timeline_undated(timeline.undated as i32);
+            ui.set_timeline_now(timeline.now_text.clone().into());
+            ui.set_timeline_bars_hidden(timeline.bars_hidden as i32);
             ui.set_timeline_days(ModelRc::new(VecModel::from(
                 timeline
                     .days
@@ -1259,6 +1346,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         weekend: d.weekend,
                         today: d.today,
                         week: d.week.into(),
+                        month: d.month.into(),
                     })
                     .collect::<Vec<_>>(),
             )));
@@ -1272,6 +1360,11 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         first_day: e.first_day,
                         last_day: e.last_day,
                         lane: e.lane,
+                        id: i32::try_from(e.id).unwrap_or(-1),
+                        date: e.date.into(),
+                        local: e.local,
+                        coloured: !e.colour.is_empty(),
+                        colour: colour(&e.colour),
                     })
                     .collect::<Vec<_>>(),
             )));
@@ -1306,6 +1399,29 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         has_sent: b.has_sent,
                         has_event: b.has_event,
                         group: b.group,
+                        column_id: i32::try_from(b.column_id).unwrap_or(-1),
+                        collapsed: b.collapsed,
+                        status: b.status.into(),
+                        day_count: b.day_count,
+                        waiting_from: b.waiting_from,
+                        pins: ModelRc::new(VecModel::from(
+                            b.pins
+                                .iter()
+                                .map(|p| crate::TimelinePinRow {
+                                    day: p.day,
+                                    kind: p.kind.token().into(),
+                                })
+                                .collect::<Vec<_>>(),
+                        )),
+                        links: ModelRc::new(VecModel::from(
+                            b.links
+                                .iter()
+                                .map(|l| crate::TimelineLinkRow {
+                                    kind: l.kind.token().into(),
+                                    text: l.text.clone().into(),
+                                })
+                                .collect::<Vec<_>>(),
+                        )),
                     })
                     .collect::<Vec<_>>(),
             )));
@@ -1317,6 +1433,23 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
             ui.set_timeline_events(ModelRc::default());
         }
     }
+    ui.set_timeline_calendar_menu(ModelRc::new(VecModel::from(
+        snap.calendar_menu
+            .into_iter()
+            .map(|(id, name, shown)| crate::ActionMenuEntry {
+                title: format!(
+                    "{}{}",
+                    if shown { "✓ " } else { "" },
+                    if id == 0 { ui.invoke_calendar_title("local".into()).to_string() } else { name }
+                )
+                .into(),
+                id: id.to_string().into(),
+                icon: Default::default(),
+                disabled: false,
+                destructive: false,
+            })
+            .collect::<Vec<_>>(),
+    )));
     ui.set_sort(snap.sort.into());
     ui.set_can_switch_view(snap.can_switch_view);
     // The snapshot carries English names; the menu shows the translated ones,
@@ -1478,6 +1611,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                 assignee: d.assignee.into(),
                 waiting_days: d.waiting_days as i32,
                 follow_up: d.follow_up.into(),
+                percent: d.percent as i32,
                 column_icon: d.column_icon.into(),
                 reply_thread: d.reply_thread as i32,
                 reply_subject: d.reply_subject.into(),
@@ -1852,6 +1986,20 @@ pub(crate) fn register(
     let create = Rc::clone(&ctx);
     app.global::<TaskFromMail>()
         .on_create(move || create_from_mail(&create));
+    // A calendar event on the timeline: show its day in Calendar, and open an
+    // event made in Rustmail in the editor.
+    let event_app = app.as_weak();
+    app.global::<TasksUi>().on_open_calendar_event(move |id, date, local| {
+        let Some(app) = event_app.upgrade() else {
+            return;
+        };
+        app.set_settings_open(false);
+        app.set_active_view("calendar".into());
+        app.invoke_calendar_select_date(date);
+        if local {
+            app.invoke_calendar_edit_event(id);
+        }
+    });
     let save = Rc::clone(&ctx);
     app.global::<TasksUi>()
         .on_save_detail(move |id, title, description, due| {
@@ -2680,6 +2828,17 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
                 s.timeline = arg(0) == "timeline";
                 s.timeline_shift = 0;
             }
+            // Fold or unfold a column's tasks on the timeline.
+            "timeline-collapse" => {
+                if let Ok(column) = arg(0).parse::<i64>() {
+                    match s.timeline_collapsed.iter().position(|c| *c == column) {
+                        Some(i) => {
+                            s.timeline_collapsed.remove(i);
+                        }
+                        None => s.timeline_collapsed.push(column),
+                    }
+                }
+            }
             // Move the timeline window by whole weeks; "reset" goes home.
             "timeline-shift" => {
                 s.timeline_shift = match arg(0).parse::<i32>() {
@@ -2738,6 +2897,7 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
                     hide_done: hide_done_now,
                     timeline: s.timeline,
                     timeline_shift: s.timeline_shift,
+                    timeline_collapsed: s.timeline_collapsed.clone(),
                 },
             ),
             s.nav.clone(),
@@ -2976,6 +3136,20 @@ async fn mutate(
                     core.task_move(id, column, Some(target)).await.map_err(err)?;
                 }
             }
+        }
+        // Show or hide one calendar in the timeline's events lane; the choice
+        // is kept in the settings. 0 is the local calendar.
+        "timeline-calendar" => {
+            let calendar = id.ok_or("bad calendar")?;
+            let mut settings = core.get_settings().await.map_err(err)?;
+            let hidden = &mut settings.task_timeline_hidden_calendars;
+            match hidden.iter().position(|c| *c == calendar) {
+                Some(at) => {
+                    hidden.remove(at);
+                }
+                None => hidden.push(calendar),
+            }
+            core.set_settings(settings).await.map_err(err)?;
         }
         "detail-context" => {
             let context = match b.strip_prefix("ctx:") {
@@ -3292,6 +3466,51 @@ async fn mutate(
                 id.ok_or("bad task")?,
                 TaskPatch {
                     due_at: Some(due),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map_err(err)?;
+        }
+        // A bar dragged or nudged on the timeline: `move:3`, `start:-1`, `due:2`
+        // (whole days).
+        "timeline-drag" => {
+            let task_id = id.ok_or("bad task")?;
+            let (kind, days) = b.split_once(':').ok_or("bad drag")?;
+            let kind = crate::tasks_timeline::DragKind::parse(kind).ok_or("bad drag")?;
+            let days = days.parse::<i64>().map_err(|_| "bad drag")?;
+            if days == 0 {
+                return Ok(None);
+            }
+            let task = core.task_get(task_id).await.map_err(err)?;
+            let (start, due) =
+                crate::tasks_timeline::drag_dates(task.start_at, task.due_at, kind, days)?;
+            core.task_update(
+                task_id,
+                TaskPatch {
+                    start_at: Some(start),
+                    due_at: Some(due),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map_err(err)?;
+        }
+        // A hand-set percentage; "auto" goes back to the checklist.
+        "detail-percent" => {
+            let percent = match b {
+                "auto" => None,
+                n => Some(
+                    n.parse::<i64>()
+                        .ok()
+                        .filter(|p| (0..=100).contains(p))
+                        .ok_or("The percentage must be between 0 and 100")?,
+                ),
+            };
+            core.task_update(
+                id.ok_or("bad task")?,
+                TaskPatch {
+                    percent: Some(percent),
                     ..Default::default()
                 },
             )

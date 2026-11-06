@@ -19,6 +19,8 @@ pub(crate) struct DaySnap {
     pub today: bool,
     /// "W36" on a Monday (ISO week), empty on the other days.
     pub week: String,
+    /// "November 2026": the toolbar names the month in the middle of the view.
+    pub month: String,
 }
 
 #[derive(Clone)]
@@ -51,7 +53,59 @@ pub(crate) struct BarSnap {
     pub has_event: bool,
     /// A group row (one board column): the span and progress of its tasks.
     pub group: bool,
+    /// The board column's name, for the summary card.
+    pub status: String,
+    /// Calendar days from the first to the last date, both counted.
+    pub day_count: i32,
+    /// A group row whose tasks are folded away.
+    pub collapsed: bool,
+    /// Day index where the wait for a reply starts (the sent mail's day, cut at
+    /// the bar), -1 when the task is not waiting.
+    pub waiting_from: i32,
+    /// Mail and event pins on the bar, at the day each happened.
+    pub pins: Vec<PinSnap>,
+    /// The first few linked items, for the summary card.
+    pub links: Vec<LinkLine>,
 }
+
+/// A pin on a bar: the day index and what happened (`PinKind`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PinSnap {
+    pub day: i32,
+    pub kind: PinKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PinKind {
+    Mail,
+    Sent,
+    Event,
+}
+
+impl PinKind {
+    pub fn token(self) -> &'static str {
+        match self {
+            Self::Mail => "mail",
+            Self::Sent => "sent",
+            Self::Event => "event",
+        }
+    }
+}
+
+/// One linked item in the summary card: kind token and its text.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct LinkLine {
+    pub kind: PinKind,
+    pub text: String,
+}
+
+/// A task's pins as (Unix ms, kind) and its card lines, by task id.
+pub(crate) type TaskPins = (i64, Vec<(i64, PinKind)>, Vec<LinkLine>);
+
+/// At most this many bars are laid out; the rest are counted in the toolbar.
+pub(crate) const MAX_BARS: usize = 500;
+/// Links listed in the summary card.
+const CARD_LINKS: usize = 3;
 
 /// A calendar event drawn in the lane above the tasks.
 pub(crate) struct EventSnap {
@@ -61,6 +115,13 @@ pub(crate) struct EventSnap {
     pub last_day: i32,
     /// Row in the lane (0 to `EVENT_LANES` - 1); overlapping events stack.
     pub lane: i32,
+    /// Calendar event row id, its first day as `YYYY-MM-DD`, and whether it
+    /// was made in Rustmail (opens in the editor).
+    pub id: i64,
+    pub date: String,
+    pub local: bool,
+    /// The calendar's colour (hex), empty for none.
+    pub colour: String,
 }
 
 /// Rows in the events lane; an event that finds them all taken is counted in
@@ -78,6 +139,10 @@ pub(crate) struct TimelineSnap {
     pub shifted: bool,
     pub events: Vec<EventSnap>,
     pub events_hidden: i64,
+    /// Tasks with dates that did not fit in `MAX_BARS`.
+    pub bars_hidden: i64,
+    /// Local time of day for the "Today" label, "11:00".
+    pub now_text: String,
     pub days: Vec<DaySnap>,
     pub bars: Vec<BarSnap>,
     /// Index of today in `days`, -1 when outside the range.
@@ -107,7 +172,7 @@ pub(crate) fn build(
     dependencies: &[(i64, i64)],
     columns: &[(i64, String)],
 ) -> TimelineSnap {
-    build_shifted(tasks, today, dependencies, columns, 0)
+    build_shifted(tasks, today, dependencies, columns, 0, &[])
 }
 
 /// Lay out `tasks` on a day grid; `dependencies` are (prerequisite id,
@@ -121,6 +186,7 @@ pub(crate) fn build_shifted(
     dependencies: &[(i64, i64)],
     columns: &[(i64, String)],
     shift_weeks: i32,
+    collapsed: &[i64],
 ) -> TimelineSnap {
     let dates = |t: &Task| {
         (
@@ -158,6 +224,7 @@ pub(crate) fn build_shifted(
                 } else {
                     String::new()
                 },
+                month: date.format("%B %Y").to_string(),
             }
         })
         .collect();
@@ -202,10 +269,14 @@ pub(crate) fn build_shifted(
                     }
                     _ => 0,
                 },
-                progress: if t.checklist_total > 0 {
-                    (t.checklist_done.clamp(0, t.checklist_total) * 100 / t.checklist_total) as i32
-                } else {
-                    0
+                // A percentage typed by hand wins over the checklist.
+                progress: match t.percent {
+                    Some(p) => p.clamp(0, 100) as i32,
+                    None if t.checklist_total > 0 => {
+                        (t.checklist_done.clamp(0, t.checklist_total) * 100 / t.checklist_total)
+                            as i32
+                    }
+                    None => 0,
                 },
                 column_id: if grouped { t.column_id } else { -1 },
                 no_reply_days: -1,
@@ -214,9 +285,22 @@ pub(crate) fn build_shifted(
                 has_sent: false,
                 has_event: false,
                 group: false,
+                status: columns
+                    .iter()
+                    .find(|(id, _)| *id == t.column_id)
+                    .map(|(_, name)| name.clone())
+                    .unwrap_or_default(),
+                day_count: (end.max(start) - start.min(end)).num_days().clamp(0, 36500) as i32 + 1,
+                collapsed: false,
+                waiting_from: -1,
+                pins: Vec::new(),
+                links: Vec::new(),
             })
         })
         .collect();
+    let bars_hidden = bars.len().saturating_sub(MAX_BARS) as i64;
+    let mut bars = bars;
+    bars.truncate(MAX_BARS);
 
     let bars: Vec<BarSnap> = if grouped {
         let mut out = Vec::with_capacity(bars.len() + columns.len());
@@ -246,8 +330,16 @@ pub(crate) fn build_shifted(
                 has_sent: false,
                 has_event: false,
                 group: true,
+                status: name.clone(),
+                day_count: 0,
+                collapsed: collapsed.contains(column),
+                waiting_from: -1,
+                pins: Vec::new(),
+                links: Vec::new(),
             });
-            out.extend(bars.iter().filter(|(c, _)| c == column).map(|(_, b)| b.clone()));
+            if !collapsed.contains(column) {
+                out.extend(bars.iter().filter(|(c, _)| c == column).map(|(_, b)| b.clone()));
+            }
         }
         out
     } else {
@@ -276,6 +368,8 @@ pub(crate) fn build_shifted(
             .filter(|t| t.start_at.is_none() && t.due_at.is_none())
             .count() as i64,
         title: today.format("%B %Y").to_string(),
+        bars_hidden,
+        now_text: Local::now().format("%H:%M").to_string(),
         ..TimelineSnap::default()
     }
 }
@@ -283,6 +377,9 @@ pub(crate) fn build_shifted(
 /// Calendar event as the lane needs it: title, start, end (Unix ms) and
 /// whether it lasts whole days.
 pub(crate) struct LaneEvent {
+    pub id: i64,
+    pub local: bool,
+    pub colour: String,
     pub title: String,
     pub starts_at: i64,
     pub ends_at: Option<i64>,
@@ -314,10 +411,39 @@ impl TimelineSnap {
     /// Mark the tasks whose sent mail has gone without a reply, as
     /// (task id, days).
     pub(crate) fn set_no_reply(&mut self, waiting: &[(i64, i64)]) {
+        let today = self.today_index;
         for &(id, days) in waiting {
             if let Some(b) = self.bars.iter_mut().find(|b| b.id == id) {
                 b.no_reply_days = days.clamp(0, i64::from(i32::MAX)) as i32;
+                // The hatched span starts the day the mail went out.
+                b.waiting_from = if today >= 0 && !b.milestone {
+                    (today - b.no_reply_days).clamp(b.first_day, b.last_day)
+                } else {
+                    -1
+                };
             }
+        }
+    }
+
+    /// Pins and card lines for each task: (task id, pins as (Unix ms, kind),
+    /// lines). A pin outside the grid is dropped; a pin day is clamped to the
+    /// bar so it never floats off it.
+    pub(crate) fn set_pins(&mut self, pins: &[TaskPins]) {
+        let Some(first) = self.first_date else { return };
+        let span = self.days.len() as i64;
+        for (id, marks, lines) in pins {
+            let Some(b) = self.bars.iter_mut().find(|b| b.id == *id) else { continue };
+            b.pins = marks
+                .iter()
+                .filter_map(|&(ms, kind)| {
+                    let day = (local_date(ms)? - first).num_days();
+                    (0..span).contains(&day).then(|| PinSnap {
+                        day: (day as i32).clamp(b.first_day, b.last_day),
+                        kind,
+                    })
+                })
+                .collect();
+            b.links = lines.iter().take(CARD_LINKS).cloned().collect();
         }
     }
 
@@ -371,9 +497,71 @@ impl TimelineSnap {
                 first_day: from as i32,
                 last_day: to as i32,
                 lane: lane as i32,
+                id: e.id,
+                date: start.format("%Y-%m-%d").to_string(),
+                local: e.local,
+                colour: e.colour.clone(),
             });
         }
     }
+}
+
+/// Which part of a bar is dragged.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DragKind {
+    /// The whole bar: both dates move.
+    Move,
+    /// The left edge: the start date.
+    Start,
+    /// The right edge: the due date.
+    Due,
+}
+
+impl DragKind {
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "move" => Some(Self::Move),
+            "start" => Some(Self::Start),
+            "due" => Some(Self::Due),
+            _ => None,
+        }
+    }
+}
+
+/// `ms` moved by whole local calendar days, keeping the time of day.
+fn shift_days(ms: i64, days: i64) -> Option<i64> {
+    let date = Local.timestamp_millis_opt(ms).single()?.naive_local();
+    Local
+        .from_local_datetime(&(date + Duration::days(days)))
+        .earliest()
+        .map(|t| t.timestamp_millis())
+}
+
+/// The start and due dates after dragging a bar by `days`. A bar with one date
+/// moves that date; its edges cannot be dragged. An edge never crosses the
+/// other date.
+pub(crate) fn drag_dates(
+    start: Option<i64>,
+    due: Option<i64>,
+    kind: DragKind,
+    days: i64,
+) -> Result<(Option<i64>, Option<i64>), &'static str> {
+    const BAD: &str = "That date is out of range";
+    let shift = |ms: Option<i64>| ms.map(|ms| shift_days(ms, days).ok_or(BAD)).transpose();
+    let (start, due) = match kind {
+        DragKind::Move => (shift(start)?, shift(due)?),
+        DragKind::Start | DragKind::Due if start.is_none() || due.is_none() => {
+            return Err("Only a bar with a start and a due date has edges");
+        }
+        DragKind::Start => (shift(start)?, due),
+        DragKind::Due => (start, shift(due)?),
+    };
+    if let (Some(start), Some(due)) = (start, due)
+        && start > due
+    {
+        return Err("The start date must not be after the due date");
+    }
+    Ok((start, due))
 }
 
 fn local_time(ms: i64) -> Option<String> {
@@ -403,7 +591,7 @@ mod tests {
             "assignee_email": null, "assignee_name": null, "position": "a",
             "completed_at": null, "source": "manual", "created_at": 0, "updated_at": 0,
             "label_ids": [], "checklist_total": 0, "checklist_done": 0, "link_count": 0,
-            "move_back_on_reply": false, "follow_up_at": null, "quick_capture": false
+            "move_back_on_reply": false, "follow_up_at": null, "quick_capture": false, "percent": null
         }))
         .unwrap()
     }
@@ -421,6 +609,21 @@ mod tests {
         let t = build(&[with_list, plain], day(2026, 10, 28), &[], &[]);
         assert_eq!(t.bars[0].progress, 25);
         assert_eq!(t.bars[1].progress, 0);
+    }
+
+    #[test]
+    fn a_hand_set_percent_beats_the_checklist() {
+        let mut t = task(1, Some(at(2026, 10, 21)), Some(at(2026, 10, 30)));
+        t.checklist_total = 4;
+        t.checklist_done = 1;
+        t.percent = Some(80);
+        let mut zero = task(2, Some(at(2026, 10, 21)), Some(at(2026, 10, 30)));
+        zero.checklist_total = 4;
+        zero.checklist_done = 4;
+        zero.percent = Some(0);
+        let built = build(&[t, zero], day(2026, 10, 28), &[], &[]);
+        assert_eq!(built.bars[0].progress, 80);
+        assert_eq!(built.bars[1].progress, 0);
     }
 
     #[test]
@@ -546,12 +749,12 @@ mod tests {
         // Moved 13 weeks on: the origin advances by 91 days, today falls out
         // of the window and a bar wholly before it is not drawn.
         let old = task(2, Some(at(2026, 10, 1)), Some(at(2026, 10, 5)));
-        let moved = build_shifted(&[old], today, &[], &[], 13);
+        let moved = build_shifted(&[old], today, &[], &[], 13, &[]);
         assert_eq!(moved.origin_days - empty.origin_days, 91);
         assert_eq!(moved.today_index, -1);
         assert!(moved.bars[0].last_day < 0);
         // A bar wholly after the window is off the chart on the right.
-        let late = build_shifted(&[task(3, Some(at(2027, 12, 1)), Some(at(2027, 12, 5)))], today, &[], &[], 0);
+        let late = build_shifted(&[task(3, Some(at(2027, 12, 1)), Some(at(2027, 12, 5)))], today, &[], &[], 0, &[]);
         assert!(late.bars[0].first_day >= WINDOW_DAYS as i32);
     }
 
@@ -560,6 +763,9 @@ mod tests {
         let today = day(2026, 10, 28);
         let mut t = build(&[], today, &[], &[]);
         let ev = |title: &str, y, m, d| LaneEvent {
+            id: 1,
+            local: true,
+            colour: String::new(),
             title: title.into(),
             starts_at: at(y, m, d),
             ends_at: Some(at(y, m, d) + 3_600_000),
@@ -574,6 +780,9 @@ mod tests {
         ];
         // An all-day event ending at midnight covers only its own day.
         list.push(LaneEvent {
+            id: 2,
+            local: false,
+            colour: "#22a06b".into(),
             title: "Day".into(),
             starts_at: at(2026, 10, 30) - 12 * 3_600_000,
             ends_at: Some(at(2026, 10, 31) - 12 * 3_600_000),
@@ -587,5 +796,100 @@ mod tests {
         let all_day = t.events.last().unwrap();
         assert_eq!(all_day.label, "Day");
         assert_eq!(all_day.first_day, all_day.last_day);
+    }
+
+    #[test]
+    fn pins_sit_on_their_day_and_stay_on_the_bar() {
+        let today = day(2026, 10, 28);
+        let mut t = build(&[task(1, Some(at(2026, 10, 26)), Some(at(2026, 10, 30)))], today, &[], &[]);
+        let bar = t.bars[0].clone();
+        t.set_pins(&[(
+            1,
+            vec![
+                (at(2026, 10, 28), PinKind::Sent),
+                // Before the bar: clamped to its first day.
+                (at(2026, 10, 1), PinKind::Mail),
+                // Outside the grid: dropped.
+                (at(2040, 1, 1), PinKind::Event),
+            ],
+            vec![LinkLine { kind: PinKind::Sent, text: "Request".into() }; 5],
+        )]);
+        let b = &t.bars[0];
+        assert_eq!(b.pins.len(), 2);
+        assert_eq!(b.pins[0].day, bar.first_day + 2);
+        assert_eq!(b.pins[1].day, bar.first_day);
+        // The card lists a few links only.
+        assert_eq!(b.links.len(), 3);
+    }
+
+    #[test]
+    fn the_wait_for_a_reply_is_hatched_from_the_day_the_mail_went() {
+        let today = day(2026, 10, 28);
+        let mut t = build(&[task(1, Some(at(2026, 10, 26)), Some(at(2026, 11, 3)))], today, &[], &[]);
+        let (first, today_index) = (t.bars[0].first_day, t.today_index);
+        t.set_no_reply(&[(1, 2)]);
+        assert_eq!(t.bars[0].waiting_from, today_index - 2);
+        assert!(t.bars[0].waiting_from >= first);
+        // Sent before the bar started: the span starts at the bar.
+        t.set_no_reply(&[(1, 30)]);
+        assert_eq!(t.bars[0].waiting_from, first);
+    }
+
+    #[test]
+    fn collapsing_a_group_hides_its_tasks_and_the_cap_counts_the_rest() {
+        let today = day(2026, 10, 28);
+        let mut a = task(1, Some(at(2026, 10, 26)), Some(at(2026, 10, 30)));
+        let mut b = task(2, Some(at(2026, 10, 27)), Some(at(2026, 10, 31)));
+        a.column_id = 1;
+        b.column_id = 2;
+        let columns = vec![(1, "Next".to_owned()), (2, "Waiting".to_owned())];
+        let open = build_shifted(&[a.clone(), b.clone()], today, &[], &columns, 0, &[]);
+        assert_eq!(open.bars.len(), 4);
+        assert_eq!(open.bars[1].status, "Next");
+        let folded = build_shifted(&[a, b], today, &[], &columns, 0, &[1]);
+        assert_eq!(folded.bars.len(), 3);
+        assert!(folded.bars[0].group && folded.bars[0].collapsed);
+        // Past the cap, the surplus is counted, not drawn.
+        let many: Vec<Task> = (0..(MAX_BARS as i64 + 25))
+            .map(|i| task(i + 10, Some(at(2026, 10, 26)), Some(at(2026, 10, 30))))
+            .collect();
+        let capped = build(&many, today, &[], &[]);
+        assert_eq!(capped.bars.len(), MAX_BARS);
+        assert_eq!(capped.bars_hidden, 25);
+    }
+
+    #[test]
+    fn a_thousand_tasks_lay_out_quickly() {
+        let today = day(2026, 10, 28);
+        let many: Vec<Task> = (0..1000)
+            .map(|i| task(i + 1, Some(at(2026, 10, 1) + i * 3_600_000), Some(at(2026, 11, 1))))
+            .collect();
+        let began = std::time::Instant::now();
+        let t = build(&many, today, &[], &[]);
+        assert_eq!(t.bars.len(), MAX_BARS);
+        assert!(began.elapsed() < std::time::Duration::from_secs(2));
+    }
+
+    #[test]
+    fn dragging_moves_whole_days_and_edges_never_cross() {
+        let (s, d) = (at(2026, 10, 26), at(2026, 10, 30));
+        let day_ms = |ms: i64| local_date(ms).unwrap();
+        let (ns, nd) = drag_dates(Some(s), Some(d), DragKind::Move, 3).unwrap();
+        assert_eq!(day_ms(ns.unwrap()), day(2026, 10, 29));
+        assert_eq!(day_ms(nd.unwrap()), day(2026, 11, 2));
+        let (ns, nd) = drag_dates(Some(s), Some(d), DragKind::Due, 2).unwrap();
+        assert_eq!(ns, Some(s));
+        assert_eq!(day_ms(nd.unwrap()), day(2026, 11, 1));
+        let (ns, _) = drag_dates(Some(s), Some(d), DragKind::Start, -5).unwrap();
+        assert_eq!(day_ms(ns.unwrap()), day(2026, 10, 21));
+        // Crossing the other date is refused.
+        assert!(drag_dates(Some(s), Some(d), DragKind::Start, 6).is_err());
+        assert!(drag_dates(Some(s), Some(d), DragKind::Due, -6).is_err());
+        // A diamond moves its one date and has no edges.
+        let (ns, nd) = drag_dates(None, Some(d), DragKind::Move, 1).unwrap();
+        assert!(ns.is_none() && day_ms(nd.unwrap()) == day(2026, 10, 31));
+        assert!(drag_dates(None, Some(d), DragKind::Due, 1).is_err());
+        assert_eq!(DragKind::parse("due"), Some(DragKind::Due));
+        assert_eq!(DragKind::parse("x"), None);
     }
 }
