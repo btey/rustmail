@@ -378,6 +378,8 @@ export global TasksUi {
     in-out property <int> timeline-selected-index: -1;
     // Every list can be shown as a timeline, not only projects.
     in-out property <bool> timeline-available: false;
+    // A dragged bar can be put back.
+    in-out property <bool> timeline-can-undo: false;
     // The chart's own state outlives the view: zoom, lane and arrows, and where
     // it was scrolled to (left-most day as a day number, rows, and the list it
     // belongs to).
@@ -725,6 +727,13 @@ component TasksTimeline inherits Rectangle {
             text: @tr("Calendar events");
             primary: root.show-events;
             clicked => { root.show-events = !root.show-events; }
+        }
+        if TasksUi.timeline-can-undo : ToolbarIconButton {
+            width: 28px;
+            height: 28px;
+            icon: @image-url("../icons/lucide/outline/undo.svg");
+            tooltip-text: @tr("Undo");
+            clicked => { TasksUi.command("timeline-undo", "", ""); }
         }
         if TasksUi.timeline-calendar-menu.length > 1 : ActionMenu {
             width: 28px;
@@ -1237,7 +1246,11 @@ component TasksTimeline inherits Rectangle {
                 private property <length> x2: TasksUi.timeline-bars[edge.to-bar].first-day * root.day-width;
                 private property <length> y2: root.lane-height + edge.to-bar * root.row-height + root.row-height / 2;
                 private property <length> mid: self.x1 + 8px;
-                private property <length> left: min(self.x1, self.x2) - 8px;
+                // The dependent starts before its prerequisite ends: the arrow
+                // is red and runs along the gap between the rows, not through bars.
+                private property <bool> conflict: TasksUi.timeline-bars[edge.to-bar].first-day <= TasksUi.timeline-bars[edge.from-bar].last-day;
+                private property <length> gap-y: self.y1 < self.y2 ? self.y1 + root.row-height / 2 : self.y1 - root.row-height / 2;
+                private property <length> left: min(self.x1, self.x2 - 12px) - 8px;
                 private property <length> top: min(self.y1, self.y2) - 6px;
                 visible: root.show-dependencies
                     && max(edge.from-bar, edge.to-bar) >= root.first-row - 2
@@ -1248,8 +1261,10 @@ component TasksTimeline inherits Rectangle {
                 height: max(self.y1, self.y2) + 6px - self.top;
                 viewbox-width: self.width / 1px;
                 viewbox-height: self.height / 1px;
-                commands: "M \{(self.x1 - self.left) / 1px} \{(self.y1 - self.top) / 1px} L \{(self.mid - self.left) / 1px} \{(self.y1 - self.top) / 1px} L \{(self.mid - self.left) / 1px} \{(self.y2 - self.top) / 1px} L \{(self.x2 - self.left) / 1px} \{(self.y2 - self.top) / 1px} M \{(self.x2 - self.left) / 1px - 5} \{(self.y2 - self.top) / 1px - 4} L \{(self.x2 - self.left) / 1px} \{(self.y2 - self.top) / 1px} L \{(self.x2 - self.left) / 1px - 5} \{(self.y2 - self.top) / 1px + 4}";
-                stroke: AppTheme.secondary;
+                commands: self.conflict
+                    ? "M \{(self.x1 - self.left) / 1px} \{(self.y1 - self.top) / 1px} L \{(self.mid - self.left) / 1px} \{(self.y1 - self.top) / 1px} L \{(self.mid - self.left) / 1px} \{(self.gap-y - self.top) / 1px} L \{(self.x2 - 12px - self.left) / 1px} \{(self.gap-y - self.top) / 1px} L \{(self.x2 - 12px - self.left) / 1px} \{(self.y2 - self.top) / 1px} L \{(self.x2 - self.left) / 1px} \{(self.y2 - self.top) / 1px} M \{(self.x2 - self.left) / 1px - 5} \{(self.y2 - self.top) / 1px - 4} L \{(self.x2 - self.left) / 1px} \{(self.y2 - self.top) / 1px} L \{(self.x2 - self.left) / 1px - 5} \{(self.y2 - self.top) / 1px + 4}"
+                    : "M \{(self.x1 - self.left) / 1px} \{(self.y1 - self.top) / 1px} L \{(self.mid - self.left) / 1px} \{(self.y1 - self.top) / 1px} L \{(self.mid - self.left) / 1px} \{(self.y2 - self.top) / 1px} L \{(self.x2 - self.left) / 1px} \{(self.y2 - self.top) / 1px} M \{(self.x2 - self.left) / 1px - 5} \{(self.y2 - self.top) / 1px - 4} L \{(self.x2 - self.left) / 1px} \{(self.y2 - self.top) / 1px} L \{(self.x2 - self.left) / 1px - 5} \{(self.y2 - self.top) / 1px + 4}";
+                stroke: self.conflict ? AppTheme.destructive : AppTheme.secondary;
                 stroke-width: 1.5px;
                 fill: transparent;
             }
@@ -1444,6 +1459,12 @@ component TasksTimeline inherits Rectangle {
                 }
             }
             if root.width >= 1600px : Text {
+                text: @tr("No reply · {}d", 3);
+                color: AppTheme.destructive;
+                font-size: TypeScale.caption;
+                vertical-alignment: center;
+            }
+            if root.width >= 2000px : Text {
                 text: @tr("Drag a bar to reschedule · drag its edge to change the due date");
                 color: AppTheme.muted;
                 font-size: TypeScale.caption;
@@ -2695,7 +2716,13 @@ component TaskDrawer inherits Rectangle {
                         vertical-alignment: center;
                         overflow: elide;
                     }
-                    ActionMenu {
+                    // The whole tile opens the same menu as the "…" button.
+                    TouchArea {
+                        accessible-role: none;
+                        mouse-cursor: pointer;
+                        clicked => { tile-menu.open-menu(); }
+                    }
+                    tile-menu := ActionMenu {
                         x: parent.width - 30px;
                         y: (parent.height - 26px) / 2;
                         width: 26px;
@@ -2716,9 +2743,15 @@ component TaskDrawer inherits Rectangle {
                                     { id: "auto", title: (TasksUi.detail.percent < 0 ? "✓ " : "") + @tr("Automatic (from the checklist)") },
                                     { id: "0", title: (TasksUi.detail.percent == 0 ? "✓ " : "") + "0%" },
                                     { id: "10", title: (TasksUi.detail.percent == 10 ? "✓ " : "") + "10%" },
+                                    { id: "20", title: (TasksUi.detail.percent == 20 ? "✓ " : "") + "20%" },
                                     { id: "25", title: (TasksUi.detail.percent == 25 ? "✓ " : "") + "25%" },
+                                    { id: "30", title: (TasksUi.detail.percent == 30 ? "✓ " : "") + "30%" },
+                                    { id: "40", title: (TasksUi.detail.percent == 40 ? "✓ " : "") + "40%" },
                                     { id: "50", title: (TasksUi.detail.percent == 50 ? "✓ " : "") + "50%" },
+                                    { id: "60", title: (TasksUi.detail.percent == 60 ? "✓ " : "") + "60%" },
+                                    { id: "70", title: (TasksUi.detail.percent == 70 ? "✓ " : "") + "70%" },
                                     { id: "75", title: (TasksUi.detail.percent == 75 ? "✓ " : "") + "75%" },
+                                    { id: "80", title: (TasksUi.detail.percent == 80 ? "✓ " : "") + "80%" },
                                     { id: "90", title: (TasksUi.detail.percent == 90 ? "✓ " : "") + "90%" },
                                     { id: "100", title: (TasksUi.detail.percent == 100 ? "✓ " : "") + "100%" },
                                 ];

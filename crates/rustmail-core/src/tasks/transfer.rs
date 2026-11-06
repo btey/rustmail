@@ -63,6 +63,9 @@ pub struct ExportTask {
     pub completed_at: Option<i64>,
     #[serde(default)]
     pub percent: Option<i64>,
+    /// The other people on the task: (address, name).
+    #[serde(default)]
+    pub co_assignees: Vec<(String, Option<String>)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +93,7 @@ impl SqliteTaskStore<'_> {
     pub fn export_all(&mut self, now_ms: i64) -> Result<TaskExport> {
         let contexts = self.list_contexts()?;
         let labels = self.list_labels()?;
+        let others = self.list_co_assignees()?;
         let mut projects = Vec::new();
         for project in self.list_projects()? {
             let columns = self.list_columns(project.id)?;
@@ -139,6 +143,11 @@ impl SqliteTaskStore<'_> {
                         .collect(),
                     completed_at: task.completed_at,
                     percent: task.percent,
+                    co_assignees: others
+                        .iter()
+                        .filter(|(task_id, _, _)| *task_id == task.id)
+                        .map(|(_, email, name)| (email.clone(), name.clone()))
+                        .collect(),
                 });
             }
             projects.push(ExportProject {
@@ -277,6 +286,9 @@ impl SqliteTaskStore<'_> {
                     if item.done {
                         self.update_checklist_item(added.id, None, Some(true))?;
                     }
+                }
+                for (email, name) in &task.co_assignees {
+                    self.add_co_assignee(created.id, email, name.as_deref())?;
                 }
                 if let Some(percent) = task.percent.filter(|p| (0..=100).contains(p)) {
                     self.update_task(

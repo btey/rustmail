@@ -1511,6 +1511,7 @@ fn an_import_creates_missing_projects_and_columns_and_rejects_other_versions() {
                 checklist: Vec::new(),
                 completed_at: None,
                 percent: Some(40),
+                co_assignees: vec![("di@example.org".into(), Some("Di".into()))],
             }],
         }],
     };
@@ -1535,6 +1536,15 @@ fn an_import_creates_missing_projects_and_columns_and_rejects_other_versions() {
     // An out-of-range priority is clamped, not stored as given.
     assert_eq!(task.priority, 3);
     assert_eq!(task.percent, Some(40));
+    // The other people on the task travel with it.
+    assert_eq!(
+        s.list_co_assignees().unwrap(),
+        vec![(
+            task.id,
+            "di@example.org".to_string(),
+            Some("Di".to_string())
+        )]
+    );
 
     let mut wrong = export;
     wrong.version = 99;

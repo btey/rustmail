@@ -217,6 +217,18 @@ fn assignee_of(task: &Task) -> Option<(String, String)> {
     }
 }
 
+/// Everyone on a task: the first assignee and the other people, each as
+/// (key, shown name).
+fn people_of(
+    task: &Task,
+    others: &HashMap<i64, Vec<(String, String)>>,
+) -> Vec<(String, String)> {
+    assignee_of(task)
+        .into_iter()
+        .chain(others.get(&task.id).into_iter().flatten().cloned())
+        .collect()
+}
+
 /// The addresses of the user's own accounts, in lower case. "Me" in the
 /// assignee filter and the drawer means any of them.
 async fn own_emails(core: &Core) -> Vec<String> {
@@ -237,6 +249,11 @@ async fn own_emails(core: &Core) -> Vec<String> {
 fn calendar_of(event: &rustmail_core::models::CalendarEvent) -> i64 {
     if event.is_local { 0 } else { event.calendar_id.unwrap_or(0) }
 }
+
+/// The last bar dragged on the timeline: the task and its dates before the
+/// drag, so one Undo can put them back.
+static LAST_DRAG: std::sync::Mutex<LastDrag> = std::sync::Mutex::new(None);
+type LastDrag = Option<(i64, Option<i64>, Option<i64>)>;
 
 /// Cards beyond this many linked tasks show no link row.
 const MAX_CARD_LINK_LOOKUPS: usize = 150;
@@ -920,13 +937,19 @@ async fn load(
     snap.can_switch_view = kind == "project";
     filter.include_done = (board || timeline_mode) && !hide_done;
     let mut tasks = core.task_list(filter).await?;
-    // Assignee chip: the people on the tasks listed here, one entry each.
+    // Assignee chip: the people on the tasks listed here (the first assignee
+    // and the other people), one entry each.
+    let mut others: HashMap<i64, Vec<(String, String)>> = HashMap::new();
+    for (task_id, email, name) in core.task_co_assignees().await.unwrap_or_default() {
+        let shown = name.filter(|n| !n.trim().is_empty()).unwrap_or_else(|| email.clone());
+        others.entry(task_id).or_default().push((email.to_lowercase(), shown));
+    }
     let mut assignees: Vec<(String, String)> = Vec::new();
     for task in &tasks {
-        if let Some((key, name)) = assignee_of(task)
-            && !assignees.iter().any(|(k, _)| *k == key)
-        {
-            assignees.push((key, name));
+        for (key, name) in people_of(task, &others) {
+            if !assignees.iter().any(|(k, _)| *k == key) {
+                assignees.push((key, name));
+            }
         }
     }
     assignees.sort_by_key(|(_, name)| name.to_lowercase());
@@ -935,7 +958,7 @@ async fn load(
     let me_chip = assignee_chip.as_deref() == Some("me") && !mine.is_empty();
     if me_chip {
         snap.chips.push(("assignee".into(), "Assignee: Me".into()));
-        tasks.retain(|t| assignee_of(t).is_some_and(|(k, _)| mine.contains(&k)));
+        tasks.retain(|t| people_of(t, &others).iter().any(|(k, _)| mine.contains(k)));
     } else {
         match assignee_chip
             .as_deref()
@@ -943,7 +966,7 @@ async fn load(
         {
             Some((key, name)) => {
                 snap.chips.push(("assignee".into(), format!("Assignee: {name}")));
-                tasks.retain(|t| assignee_of(t).is_some_and(|(k, _)| k == *key));
+                tasks.retain(|t| people_of(t, &others).iter().any(|(k, _)| k == key));
             }
             None => {
                 if !mine.is_empty() {
@@ -1328,6 +1351,7 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
     ui.set_list_mode(snap.list_mode);
     ui.set_timeline_mode(snap.timeline_mode);
     ui.set_timeline_available(true);
+    ui.set_timeline_can_undo(LAST_DRAG.lock().unwrap_or_else(|e| e.into_inner()).is_some());
     match snap.timeline {
         Some(timeline) => {
             ui.set_timeline_title(timeline.title.into());
@@ -3495,6 +3519,24 @@ async fn mutate(
             )
             .await
             .map_err(err)?;
+            *LAST_DRAG.lock().unwrap_or_else(|e| e.into_inner()) =
+                Some((task_id, task.start_at, task.due_at));
+        }
+        // Put the last dragged bar back where it was.
+        "timeline-undo" => {
+            let last = LAST_DRAG.lock().unwrap_or_else(|e| e.into_inner()).take();
+            if let Some((task_id, start, due)) = last {
+                core.task_update(
+                    task_id,
+                    TaskPatch {
+                        start_at: Some(start),
+                        due_at: Some(due),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .map_err(err)?;
+            }
         }
         // A hand-set percentage; "auto" goes back to the checklist.
         "detail-percent" => {
@@ -4336,7 +4378,14 @@ mod tests {
         assert_eq!(snap.detail.as_ref().unwrap().co_assignees.len(), 1);
         run(&core, &sel, "detail-assignee", &tid, "person:ana@example.org").await.unwrap();
         let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();
-        assert_eq!(snap.people, vec![("ana@example.org".to_owned(), "ana@example.org".to_owned())]);
+        // The other people on the task are people to filter by too.
+        assert_eq!(
+            snap.people,
+            vec![
+                ("ana@example.org".to_owned(), "ana@example.org".to_owned()),
+                ("di@example.org".to_owned(), "di@example.org".to_owned()),
+            ]
+        );
         assert_eq!(snap.detail.as_ref().unwrap().assignee, "ana@example.org");
         run(&core, &sel, "detail-assignee", &tid, "").await.unwrap();
         let snap = load(&core, &sel, "", Some(task), (None, None, false, Group::None, Sort::Manual, Extra::default())).await.unwrap();

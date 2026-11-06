@@ -36,6 +36,15 @@ export component ActionMenu inherits Rectangle {
     width: root.compact ? LayoutMetrics.touch-target : LayoutMetrics.desktop-icon-button-size;
     height: root.compact ? LayoutMetrics.touch-target : LayoutMetrics.desktop-icon-button-size;
 
+    // Opens the menu from outside, e.g. a click anywhere on a property tile.
+    public function open-menu() {
+        if !root.menu-open && root.interactive {
+            root.scroll-y = 0px;
+            root.highlighted-index = root.entries.length > 0 ? 0 : -1;
+            menu-popup.show();
+        }
+    }
+
     function move-highlight(direction: int) {
         if root.entries.length == 0 { root.highlighted-index = -1; return; }
         root.highlighted-index = direction > 0

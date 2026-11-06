@@ -1195,6 +1195,7 @@ fn states() -> Vec<State> {
                 ),
             ]));
             tasks.set_timeline_events_hidden(2);
+            tasks.set_timeline_can_undo(true);
             tasks.set_timeline_events(model(vec![
                 TimelineEventRow {
                     label: "09:30 Quarterly design review with the whole department".into(),
@@ -1322,6 +1323,7 @@ fn states() -> Vec<State> {
                 ),
             ]));
             tasks.set_timeline_events_hidden(2);
+            tasks.set_timeline_can_undo(true);
             tasks.set_timeline_events(model(vec![
                 TimelineEventRow {
                     label: "09:30 Quarterly design review with the whole department".into(),
