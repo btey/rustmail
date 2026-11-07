@@ -1,7 +1,7 @@
 import { HorizontalBox, ScrollView } from "std-widgets.slint";
 import { ComposeAttachment } from "../models.slint";
 import { Button } from "button.slint";
-import { IconButton, LineEdit } from "controls.slint";
+import { IconButton, LineEdit, TooltipHost } from "controls.slint";
 import { TypeScale } from "../typography.slint";
 import { UserActions } from "user-actions.slint";
 import { AppTheme, LayoutMetrics } from "../design-system.slint";
@@ -750,6 +750,8 @@ export component DiscardConfirmation inherits Rectangle {
                 text: @tr("Discard");
                 primary: true;
                 clicked => {
+                    // The composer's buttons go away with it; none may keep the label up.
+                    TooltipHost.clear();
                     root.keep();
                     root.discard();
                 }

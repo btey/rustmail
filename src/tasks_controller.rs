@@ -1897,14 +1897,20 @@ pub(crate) fn register(
                 && let Some((thread, task)) = a.split_once(':')
                 && let (Ok(thread_id), Ok(task_id)) = (thread.parse::<i32>(), task.parse::<i64>())
             {
-                open_linked_mail(
-                    &app,
-                    &command.state,
-                    &runtime_for_mail,
-                    thread_id,
-                    b.as_str(),
-                    Some(task_id),
-                );
+                // After this click has returned: the view switch removes the
+                // button whose handler is running, and the composer it opens
+                // docks on a page in another tab.
+                let weak = command.weak.clone();
+                let state = Rc::clone(&command.state);
+                let runtime = Rc::clone(&runtime_for_mail);
+                let subject = b.to_string();
+                slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+                    if let Some(app) = weak.upgrade()
+                        && !app.get_compose_open()
+                    {
+                        open_linked_mail(&app, &state, &runtime, thread_id, &subject, Some(task_id));
+                    }
+                });
             }
             return;
         }

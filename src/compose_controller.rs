@@ -72,7 +72,8 @@ impl TaskSend {
             options.set_docked(false);
             return;
         }
-        let on_page = tasks.get_detail_expanded()
+        let on_page = app.get_active_view() == "tasks"
+            && tasks.get_detail_expanded()
             && tasks.get_detail_open()
             && i64::from(tasks.get_detail().id) == task_id;
         options.set_docked_task(task_id as i32);
