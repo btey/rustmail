@@ -1890,7 +1890,10 @@ pub(crate) fn register(
         }
         if action == "reply-mail" {
             // `a` is "<thread id>:<task id>", `b` the subject to search for.
+            // A message already being written stays: switching to the mail view
+            // would take the open composer's page away while its callback runs.
             if let Some(app) = command.weak.upgrade()
+                && !app.get_compose_open()
                 && let Some((thread, task)) = a.split_once(':')
                 && let (Ok(thread_id), Ok(task_id)) = (thread.parse::<i32>(), task.parse::<i64>())
             {
