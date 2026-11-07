@@ -191,7 +191,7 @@ fn edited_rule(app: &AppWindow) -> Result<FilterRule, String> {
         });
     }
     Ok(FilterRule {
-        id: String::new(),
+        id: ui.get_edit_id().to_string(),
         name: ui.get_edit_name().to_string(),
         enabled: true,
         match_all: ui.get_edit_match_all(),
@@ -209,8 +209,72 @@ fn default_action() -> FilterActionEdit {
     FilterActionEdit::default()
 }
 
+/// A saved rule's "Create task" value as picker positions: status, project and
+/// context (0 = the default / none, otherwise the entry's place in the lists).
+fn task_picks(app: &AppWindow, value: &str) -> (i32, i32, i32) {
+    let settings = app.global::<crate::TaskSettingsUi>();
+    let position = |list: slint::ModelRc<SharedString>, name: &str| -> i32 {
+        if name.is_empty() {
+            return 0;
+        }
+        list.iter()
+            .position(|entry| entry.as_str().eq_ignore_ascii_case(name))
+            .map_or(0, |at| at as i32)
+    };
+    let mut parts = value.split(';');
+    let status = match parts.next().map(str::trim) {
+        Some("next") => 1,
+        Some("waiting") => 2,
+        Some("scheduled") => 3,
+        _ => 0,
+    };
+    let project = position(settings.get_project_choices(), parts.next().unwrap_or("").trim());
+    let context = position(settings.get_context_choices(), parts.next().unwrap_or("").trim());
+    (status, project, context)
+}
+
+/// Load a saved rule into the editor to change it.
+fn load_into_editor(app: &AppWindow, rule: &FilterRule) {
+    let ui = app.global::<FilterRules>();
+    ui.set_edit_id(rule.id.clone().into());
+    ui.set_edit_name(rule.name.clone().into());
+    ui.set_edit_match_all(rule.match_all);
+    ui.set_edit_stop(rule.stop);
+    let conditions = rule
+        .conditions
+        .iter()
+        .map(|c| FilterConditionEdit {
+            field: FIELDS.iter().position(|f| *f == c.field).unwrap_or(0) as i32,
+            op: ops_for(c.field).iter().position(|o| *o == c.op).unwrap_or(0) as i32,
+            name: c.name.clone().into(),
+            value: c.value.clone().into(),
+        })
+        .collect::<Vec<_>>();
+    ui.set_edit_conditions(ModelRc::new(VecModel::from(if conditions.is_empty() {
+        vec![default_condition()]
+    } else {
+        conditions
+    })));
+    let actions = rule
+        .actions
+        .iter()
+        .map(|a| {
+            let kind = ACTION_KINDS.iter().position(|k| *k == a.kind).unwrap_or(0) as i32;
+            let (status, project, context) =
+                if kind == 11 { task_picks(app, &a.value) } else { (0, 0, 0) };
+            FilterActionEdit { kind, value: a.value.clone().into(), status, project, context }
+        })
+        .collect::<Vec<_>>();
+    ui.set_edit_actions(ModelRc::new(VecModel::from(if actions.is_empty() {
+        vec![default_action()]
+    } else {
+        actions
+    })));
+}
+
 fn clear_editor(app: &AppWindow) {
     let ui = app.global::<FilterRules>();
+    ui.set_edit_id(SharedString::default());
     ui.set_edit_name(SharedString::default());
     ui.set_edit_match_all(true);
     ui.set_edit_stop(false);
@@ -289,16 +353,44 @@ pub(super) fn register(
         match edited_rule(&app) {
             Ok(rule) => {
                 let mut list = rl.borrow().clone();
-                list.push(rule);
-                save(&app, &st, &rt, &rl, list, "Filter added.", true);
+                // A rule being changed keeps its place and whether it is on.
+                match list.iter().position(|r| !rule.id.is_empty() && r.id == rule.id) {
+                    Some(at) => {
+                        let enabled = list[at].enabled;
+                        list[at] = FilterRule { enabled, ..rule };
+                        save(&app, &st, &rt, &rl, list, "Filter updated.", true);
+                    }
+                    None => {
+                        list.push(FilterRule { id: String::new(), ..rule });
+                        save(&app, &st, &rt, &rl, list, "Filter added.", true);
+                    }
+                }
             }
             Err(error) => app.global::<FilterRules>().set_status(error.into()),
+        }
+    });
+
+    let (weak, rl) = (app.as_weak(), rules.clone());
+    ui.on_edit_rule(move |id| {
+        let Some(app) = weak.upgrade() else { return };
+        if let Some(rule) = rl.borrow().iter().find(|r| r.id == id.as_str()) {
+            load_into_editor(&app, rule);
+            app.global::<FilterRules>().set_status(SharedString::default());
+        }
+    });
+    let weak = app.as_weak();
+    ui.on_cancel_edit(move || {
+        if let Some(app) = weak.upgrade() {
+            clear_editor(&app);
         }
     });
 
     let (weak, st, rt, rl) = (app.as_weak(), state.clone(), runtime.clone(), rules.clone());
     ui.on_delete_rule(move |id| {
         let Some(app) = weak.upgrade() else { return };
+        if app.global::<FilterRules>().get_edit_id() == id {
+            clear_editor(&app);
+        }
         let mut list = rl.borrow().clone();
         list.retain(|r| r.id != id.as_str());
         save(&app, &st, &rt, &rl, list, "Filter deleted.", false);

@@ -30,10 +30,11 @@ use rustmail::{
     CalendarEventRow, CalendarSourceRow, CalendarWeekDay, ContactAccountRow, ContactRow,
     ContactSidebarRow, ContactSidebarRowKind, EmailRow, LinkRow, LinkedTask, LocalizedMessage,
     MailAttachment, MailAttachments, MailLabelRow, MailListEntry, MailProfileRow, MailboxRow,
-    MotionSettings, SendUndoUi, SidebarRow, SidebarRowKind, StorageUsageRow, TaskCardRow,
-    TaskChipEntry, TaskChipRow, TaskChips, TaskColumnRow, TaskComposeUi, TaskDetailRow,
-    TaskFromMail, TaskNavRow, TaskReplyUi, TasksUi, ThreadMessageRow, TimelineBarRow,
-    TimelineDayRow, TimelineEdgeRow, TimelineEventRow, TimelineLinkRow, TimelinePinRow,
+    MotionSettings, ScheduledRow, ScheduledUi, SendUndoUi, SidebarRow, SidebarRowKind,
+    StorageUsageRow, TaskCardRow, TaskChipEntry, TaskChipRow, TaskChips, TaskColumnRow,
+    TaskComposeUi, TaskDetailRow, TaskFromMail, TaskNavRow, TaskReplyUi, TasksUi, ThreadMessageRow,
+    TimelineBarRow, TimelineDayRow, TimelineEdgeRow, TimelineEventRow, TimelineLinkRow,
+    TimelinePinRow,
 };
 use slint::platform::{
     Platform, WindowAdapter,
@@ -582,6 +583,9 @@ fn reset(app: &AppWindow) {
     app.global::<SendUndoUi>().set_can_undo(false);
     app.global::<TaskComposeUi>().set_active(false);
     app.global::<TaskComposeUi>().set_sent_title("".into());
+    app.global::<ScheduledUi>().set_open(false);
+    app.global::<rustmail::ComposeScheduleUi>()
+        .set_picking(false);
     app.global::<TaskReplyUi>().set_title("".into());
     app.global::<TaskReplyUi>().set_due_today(false);
     let tasks = app.global::<TasksUi>();
@@ -626,6 +630,11 @@ fn tasks_fixture(app: &AppWindow, drawer: bool) {
             "quarterly".into(),
             "finance".into(),
             "audit committee".into(),
+        ]),
+        label_colours: model(vec![
+            slint::Color::from_rgb_u8(0x3b, 0x82, 0xf6),
+            slint::Color::from_rgb_u8(0xf5, 0x9e, 0x0b),
+            slint::Color::from_rgb_u8(0x22, 0xc5, 0x5e),
         ]),
         checklist_total: 4,
         checklist_done: 1,
@@ -1383,7 +1392,51 @@ fn states() -> Vec<State> {
             app.set_compose_open(true);
             let options = app.global::<TaskComposeUi>();
             options.set_follow_up_date("2026-11-03".into());
+            options.set_follow_up_event(true);
+            options.set_calendar_name("Shared team calendar of the finance department".into());
+            options.set_calendar_menu(model(vec![
+                ActionMenuEntry {
+                    id: "local".into(),
+                    title: "Local calendar".into(),
+                    icon: Default::default(),
+                    disabled: false,
+                    destructive: false,
+                },
+                ActionMenuEntry {
+                    id: "1:2".into(),
+                    title: "Shared team calendar of the finance department".into(),
+                    icon: Default::default(),
+                    disabled: false,
+                    destructive: false,
+                },
+            ]));
             options.set_active(true);
+        }),
+        state("compose send at a chosen time", |app| {
+            app.set_compose_to("jamie.rivera@example.com".into());
+            app.set_compose_subject("Re: Quarterly planning notes".into());
+            app.set_compose_open(true);
+            let schedule = app.global::<rustmail::ComposeScheduleUi>();
+            schedule.set_picking(true);
+            schedule.set_date("2026-11-12".into());
+        }),
+        state("scheduled messages", |app| {
+            let ui = app.global::<ScheduledUi>();
+            ui.set_rows(model(vec![
+                ScheduledRow {
+                    action_id: 1,
+                    subject: "Quarterly planning notes for the finance committee review".into(),
+                    to: "jamie.rivera@example.com, accounting-team@example.com".into(),
+                    when: "Thu 12 Nov, 09:00".into(),
+                },
+                ScheduledRow {
+                    action_id: 2,
+                    subject: String::new().into(),
+                    to: "ana.diaz@example.org".into(),
+                    when: "Mon 16 Nov, 08:00".into(),
+                },
+            ]));
+            ui.set_open(true);
         }),
         state("compose undo send", |app| {
             app.set_compose_to("jamie.rivera@example.com".into());

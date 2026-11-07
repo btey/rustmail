@@ -3952,6 +3952,40 @@ impl Core {
         Ok(true)
     }
 
+    /// Messages held for a later time (not the few seconds of the undo window),
+    /// soonest first, so the user can see and cancel them.
+    pub async fn list_scheduled_sends(&self) -> Result<Vec<ScheduledSend>> {
+        let after = now_ms() + 60_000;
+        self.db
+            .read(move |conn| {
+                let mut out = Vec::new();
+                for (action_id, draft_id, send_at) in repo::actions::scheduled_sends(conn, after)? {
+                    let Ok(detail) = repo::messages::detail(conn, draft_id) else {
+                        continue;
+                    };
+                    out.push(ScheduledSend {
+                        action_id,
+                        draft_id,
+                        subject: detail.subject,
+                        to: detail
+                            .to
+                            .iter()
+                            .map(|a| {
+                                a.name
+                                    .clone()
+                                    .filter(|n| !n.is_empty())
+                                    .unwrap_or_else(|| a.email.clone())
+                            })
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        send_at,
+                    });
+                }
+                Ok(out)
+            })
+            .await
+    }
+
     pub async fn cancel_send(&self, action_id: i64) -> Result<bool> {
         self.db
             .write(move |conn| repo::actions::try_cancel(conn, action_id))

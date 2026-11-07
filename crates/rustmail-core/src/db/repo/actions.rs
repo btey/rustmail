@@ -293,6 +293,18 @@ pub fn expedite(conn: &Connection, id: i64) -> Result<Option<i64>> {
 }
 
 /// Transition pending -> cancelled; returns false if it was no longer pending.
+/// A send held for a later time: the queue action, its draft and the time (ms).
+pub fn scheduled_sends(conn: &Connection, after_ms: i64) -> Result<Vec<(i64, i64, i64)>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, message_id, not_before FROM pending_actions
+         WHERE kind = 'send' AND state = 'pending' AND message_id IS NOT NULL
+           AND not_before IS NOT NULL AND not_before > ?1
+         ORDER BY not_before, id",
+    )?;
+    let rows = stmt.query_map(params![after_ms], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+    Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
 pub fn try_cancel(conn: &Connection, id: i64) -> Result<bool> {
     let n = conn.execute(
         "UPDATE pending_actions SET state = 'cancelled', finished_at = ?2
@@ -415,6 +427,45 @@ pub fn gc(conn: &Connection, older_than_ms: i64) -> Result<()> {
 mod tests {
     use super::*;
     use crate::db::testutil;
+
+    #[test]
+    fn scheduled_sends_lists_only_pending_sends_held_for_later() {
+        let conn = testutil::conn();
+        testutil::seed_account(&conn);
+        let payload = serde_json::json!({});
+        let draft = |name: &str| testutil::seed_message(&conn, "me@example.org", name, false).1;
+        let (d1, d2, d3, d4, d5) = (draft("a"), draft("b"), draft("c"), draft("d"), draft("e"));
+        let now = 1_000_000;
+        let hour = 3_600_000;
+        let later = enqueue(&conn, 1, "send", Some(d1), None, &payload, Some(now + hour)).unwrap();
+        let _soon = enqueue(
+            &conn,
+            1,
+            "send",
+            Some(d2),
+            None,
+            &payload,
+            Some(now + 10_000),
+        )
+        .unwrap();
+        let _star = enqueue(&conn, 1, "star", Some(d3), None, &payload, Some(now + hour)).unwrap();
+        let _now = enqueue(&conn, 1, "send", Some(d4), None, &payload, None).unwrap();
+        let cancelled = enqueue(
+            &conn,
+            1,
+            "send",
+            Some(d5),
+            None,
+            &payload,
+            Some(now + 2 * hour),
+        )
+        .unwrap();
+        assert!(try_cancel(&conn, cancelled).unwrap());
+        // The undo window (a few seconds) is not "scheduled".
+        let held = scheduled_sends(&conn, now + 60_000).unwrap();
+        assert_eq!(held, vec![(later, d1, now + hour)]);
+        assert_eq!(scheduled_sends(&conn, now).unwrap().len(), 2);
+    }
 
     #[test]
     fn due_is_stable_and_has_due_ignores_future_and_calendar_actions() {

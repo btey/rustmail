@@ -1207,11 +1207,24 @@ async fn a_queued_send_links_and_announces_once_delivery_is_confirmed() {
         .unwrap();
 
     let mut events = core.bus.subscribe();
-    core.task_link_after_send(&queued, task_id, AfterSend::Waiting, Some(2), None);
+    let step = core
+        .task_checklist_add(task_id, "Send the invoice".into())
+        .await
+        .unwrap()
+        .id;
+    core.task_link_after_send(
+        &queued,
+        task_id,
+        AfterSend::Waiting,
+        Some(2),
+        None,
+        Some(step),
+    );
 
     // Still queued: nothing is linked and nothing is announced.
     tokio::time::sleep(std::time::Duration::from_millis(600)).await;
     assert_eq!(core.task_get(task_id).await.unwrap().link_count, 0);
+    assert!(!core.task_checklist(task_id).await.unwrap()[0].done);
     assert!(!matches!(
         events.try_recv(),
         Ok(crate::events::CoreEvent::TaskMailSent { .. })
@@ -1248,6 +1261,8 @@ async fn a_queued_send_links_and_announces_once_delivery_is_confirmed() {
     .expect("TaskMailSent after delivery");
     assert_eq!(title, "Ask about the invoice");
     assert_eq!(core.task_get(task_id).await.unwrap().link_count, 1);
+    // The chosen checklist step is ticked once the mail is out, not before.
+    assert!(core.task_checklist(task_id).await.unwrap()[0].done);
 }
 
 #[tokio::test]

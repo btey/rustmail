@@ -89,6 +89,7 @@ fn account_form_screenshots() {
             FilterActionEdit {
                 kind: 6,
                 value: "Newsletters".into(),
+                ..Default::default()
             },
             FilterActionEdit {
                 kind: 0,

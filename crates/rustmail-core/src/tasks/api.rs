@@ -118,7 +118,14 @@ impl Core {
             .read(move |conn| SqliteTaskStore::new(conn).get_task(task_id).map(|_| ()))
             .await?;
         let queued = self.queue_send(args).await?;
-        self.task_link_after_send(&queued, task_id, after, follow_up_days, follow_up_event);
+        self.task_link_after_send(
+            &queued,
+            task_id,
+            after,
+            follow_up_days,
+            follow_up_event,
+            None,
+        );
         Ok(queued)
     }
 
@@ -132,6 +139,7 @@ impl Core {
         after: AfterSend,
         follow_up_days: Option<u32>,
         follow_up_event: Option<(i64, Option<i64>)>,
+        tick_item: Option<i64>,
     ) {
         let core = self.clone();
         let (action_id, draft_id) = (queued.action_id, queued.draft_id);
@@ -149,6 +157,12 @@ impl Core {
                     return;
                 }
             };
+            // The checklist step the user chose is ticked off once the mail is out.
+            if let Some(item) = tick_item
+                && let Err(e) = core.task_checklist_update(item, None, Some(true)).await
+            {
+                tracing::warn!(task_id, item, "ticking the checklist step failed: {e}");
+            }
             let mut event_booked = false;
             if let (Some((account_id, calendar_id)), Some(_)) = (follow_up_event, follow_up_days) {
                 match core

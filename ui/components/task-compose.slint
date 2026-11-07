@@ -1,3 +1,5 @@
+import { ActionMenuEntry } from "action-menu.slint";
+
 // The "Tasks" settings; the app loads them at start and writes changes back.
 export global TaskSettingsUi {
     // 0 four days, 1 two days, 2 one week, 3 never (see TaskComposeUi.follow-up).
@@ -39,6 +41,27 @@ export global TaskSettingsUi {
 // and clears it when the send is submitted.
 export global ComposeScheduleUi {
     in-out property <string> when: "";
+    // The "Send at a chosen time" bar is open, with its date (YYYY-MM-DD) and
+    // time (HH:MM); the send reads them as "at:<date> <time>".
+    in-out property <bool> picking: false;
+    in-out property <string> date: "";
+    in-out property <string> time: "09:00";
+}
+
+export struct ScheduledRow {
+    action-id: int,
+    subject: string,
+    to: string,
+    when: string,
+}
+
+// Messages waiting for their send time.
+export global ScheduledUi {
+    in-out property <bool> open: false;
+    in-out property <[ScheduledRow]> rows;
+    in-out property <string> error;
+    callback request();
+    callback cancel(int);
 }
 
 export global TaskComposeUi {
@@ -66,10 +89,23 @@ export global TaskComposeUi {
     in-out property <int> docked-task: -1;
     // Also book the follow-up on the (local) calendar once the mail is sent.
     in-out property <bool> follow-up-event: false;
+    // Where that event goes: "local" or "<account id>:<calendar id>".
+    in-out property <string> calendar-id: "local";
+    in-out property <string> calendar-name;
+    in-out property <[ActionMenuEntry]> calendar-menu;
     callback cycle-after();
     callback cycle-follow-up();
     // The dropdowns of the options row: 0 Waiting for / Stay in place / Done,
     // and 0 four days / 1 two days / 2 one week / 3 never.
     callback choose-after(int);
     callback choose-follow-up(int);
+    // An open checklist step of the task to tick off once the mail is sent:
+    // the steps (menu ids are the item ids) and the chosen one (-1 = none).
+    in-out property <[ActionMenuEntry]> checklist-menu;
+    in-out property <int> tick-item: -1;
+    in-out property <string> tick-name;
+    // A calendar picked in the menu (its id); the controller sets the name.
+    callback choose-calendar(string);
+    // A checklist step picked (its item id), or "-1" for none.
+    callback choose-tick(string);
 }

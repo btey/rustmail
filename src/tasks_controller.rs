@@ -342,6 +342,8 @@ struct CardSnap {
     high: bool,
     labels: String,
     label_names: Vec<String>,
+    /// Each label's colour (hex), in the order of `label_names`.
+    label_colours: Vec<String>,
     checklist: (i64, i64),
     links: i64,
     done: bool,
@@ -402,6 +404,9 @@ struct Snapshot {
     /// The project is shown as a timeline; `timeline` has the chart.
     timeline_mode: bool,
     timeline: Option<crate::tasks_timeline::TimelineSnap>,
+    /// Calendars a follow-up event can go to: `("local" | "<account>:<id>", name)`;
+    /// the local calendar's name is empty (the view translates it).
+    writable_calendars: Vec<(String, String)>,
     /// `(calendar id, name, shown)` for the events lane's calendar menu; id 0
     /// is the local calendar (empty name).
     calendar_menu: Vec<(i64, String, bool)>,
@@ -548,6 +553,11 @@ fn card(
             .label_ids
             .iter()
             .filter_map(|id| labels.get(id).map(|l| l.name.clone()))
+            .collect(),
+        label_colours: task
+            .label_ids
+            .iter()
+            .filter_map(|id| labels.get(id).map(|l| l.colour.clone()))
             .collect(),
         checklist: (task.checklist_done, task.checklist_total),
         links: task.link_count,
@@ -935,6 +945,18 @@ async fn load(
     snap.list_mode = kind == "project" && list_mode && !timeline_mode;
     snap.timeline_mode = timeline_mode;
     snap.can_switch_view = kind == "project";
+    snap.writable_calendars = std::iter::once(("local".to_owned(), String::new()))
+        .chain(
+            core.list_calendars(None)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|c| c.enabled && !c.read_only)
+                .map(|c| {
+                    (format!("{}:{}", c.account_id, c.id), c.display_name.unwrap_or(c.url))
+                }),
+        )
+        .collect();
     filter.include_done = (board || timeline_mode) && !hide_done;
     let mut tasks = core.task_list(filter).await?;
     // Assignee chip: the people on the tasks listed here (the first assignee
@@ -1590,6 +1612,9 @@ fn apply(ui: &TasksUi<'_>, snap: Snapshot) {
                         labels: k.labels.into(),
                         label_list: ModelRc::new(VecModel::from(
                             k.label_names.into_iter().map(SharedString::from).collect::<Vec<_>>(),
+                        )),
+                        label_colours: ModelRc::new(VecModel::from(
+                            k.label_colours.iter().map(|hex| colour(hex)).collect::<Vec<_>>(),
                         )),
                         checklist_total: k.checklist.1 as i32,
                         checklist_done: k.checklist.0 as i32,
@@ -2963,6 +2988,33 @@ fn dispatch(ctx: &Rc<Ctx>, action: String, args: Vec<String>) {
                     .into(),
             );
             if let Ok(snap) = snap {
+                // The composer's follow-up event can go to any writable calendar.
+                let options = app.global::<crate::TaskComposeUi>();
+                options.set_calendar_menu(ModelRc::new(VecModel::from(
+                    snap.writable_calendars
+                        .iter()
+                        .map(|(id, name)| crate::ActionMenuEntry {
+                            id: id.as_str().into(),
+                            title: if id == "local" {
+                                ui.invoke_calendar_title("local".into())
+                            } else {
+                                name.as_str().into()
+                            },
+                            icon: Default::default(),
+                            disabled: false,
+                            destructive: false,
+                        })
+                        .collect::<Vec<_>>(),
+                )));
+                let menu = options.get_calendar_menu();
+                let current = options.get_calendar_id();
+                match menu.iter().find(|entry| entry.id == current) {
+                    Some(entry) => options.set_calendar_name(entry.title),
+                    None => {
+                        options.set_calendar_id("local".into());
+                        options.set_calendar_name(ui.invoke_calendar_title("local".into()));
+                    }
+                }
                 apply(&ui, snap);
             }
         });

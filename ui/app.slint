@@ -19,7 +19,7 @@ import { TooltipHost } from "components/controls.slint";
 export { AppTheme, MotionSettings, ThemeUtilities } from "design-system.slint";
 import { AppTheme, LayoutMetrics } from "design-system.slint";
 import { Button } from "components/button.slint";
-import { TaskComposeUi } from "components/task-compose.slint";
+import { ScheduledUi, TaskComposeUi } from "components/task-compose.slint";
 import { TaskReplyUi } from "components/task-reply.slint";
 import { LoadingSkeletonBlock } from "components/loading-skeleton.slint";
 import { AccountRow, AdvancedOptions, CalendarAgendaRow, CalendarAgendaFilterRow, CalendarDay, CalendarEventRow, CalendarSourceRow, CalendarWeekDay, ComposeAttachment, ComposeContact, ComposeEditorTile, ContactSidebarRow, ContactRow, EmailLink, EmailRow, EmailTemplateRow, EmailTile, LocalizedMessage, MailListEntry, MailProfileRow, SidebarRow, MailLabelRow, StorageUsageRow, ThreadMessageRow } from "models.slint";
@@ -36,6 +36,7 @@ import { CalendarEventDialog } from "dialogs/calendar-event-dialog.slint";
 import { ComposeDialog } from "dialogs/compose-dialog.slint";
 import { FolderDialog } from "dialogs/folder-dialog.slint";
 import { TaskFromMail, TaskFromMailDialog } from "dialogs/task-from-mail-dialog.slint";
+import { ScheduledDialog } from "dialogs/scheduled-dialog.slint";
 export { TaskFromMail } from "dialogs/task-from-mail-dialog.slint";
 export { LinkedTask, TaskChips, TaskChipEntry } from "components/linked-task-banner.slint";
 import { ConfirmationDialog } from "components/confirmation-dialog.slint";
@@ -44,7 +45,7 @@ import { MailView } from "views/mail-view.slint";
 export { MessageColors } from "message-colors.slint";
 export { FilesUi, FileRow, OperationRow } from "views/files-view.slint";
 import { FilesView, FilesUi } from "views/files-view.slint";
-export { ComposeScheduleUi, TaskComposeUi, TaskSettingsUi } from "components/task-compose.slint";
+export { ComposeScheduleUi, ScheduledRow, ScheduledUi, TaskComposeUi, TaskSettingsUi } from "components/task-compose.slint";
 export { TaskReplyUi } from "components/task-reply.slint";
 export { SendUndoUi } from "components/send-undo.slint";
 export { TasksUi, TaskCardRow, TaskColumnRow, TaskNavRow, TaskDetailRow, TaskLabelRow, ChipPos, ChecklistRow, LinkRow, ActivityRow } from "views/tasks-view.slint";
@@ -510,6 +511,8 @@ export global I18n {
         if (key == "Connect an account before managing email templates.") { return @tr("Connect an account before managing email templates."); }
         if (key == "Could not load email templates: {}") { return @tr("Could not load email templates: {}", argument); }
         if (key == "Enter a template name.") { return @tr("Enter a template name."); }
+        if (key == "Enter the send date as YYYY-MM-DD and the time as HH:MM.") { return @tr("Enter the send date as YYYY-MM-DD and the time as HH:MM."); }
+        if (key == "That time has already passed.") { return @tr("That time has already passed."); }
         if (key == "Add a subject or message to the template.") { return @tr("Add a subject or message to the template."); }
         if (key == "Email template saved.") { return @tr("Email template saved."); }
         if (key == "Could not save email template: {}") { return @tr("Could not save email template: {}", argument); }
@@ -2099,6 +2102,14 @@ export component AppWindow inherits Window {
             else if root.trash-delete-kind == "row" { root.message_action_for_email(root.trash-delete-id, "delete_permanently"); }
             else { root.message_action("delete_permanently"); }
         }
+    }
+
+    if ScheduledUi.open : ScheduledDialog {
+        x: root.content-x;
+        y: root.content-y;
+        width: root.content-width;
+        height: root.content-height;
+        z: 15000;
     }
 
     if TaskFromMail.open : TaskFromMailDialog {

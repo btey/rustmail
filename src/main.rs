@@ -20,6 +20,7 @@ mod email_document;
 pub mod favicon;
 mod files_controller;
 mod desktop_notify;
+mod scheduled_controller;
 mod tasks_controller;
 mod tasks_timeline;
 mod latest_load;
@@ -5757,6 +5758,42 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         }
     }
 
+    {
+        let app_weak = app.as_weak();
+        app.global::<TaskComposeUi>().on_choose_tick(move |id| {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let options = app.global::<TaskComposeUi>();
+            let menu = options.get_checklist_menu();
+            match menu.iter().find(|entry| entry.id == id) {
+                Some(entry) => {
+                    options.set_tick_item(id.parse().unwrap_or(-1));
+                    options.set_tick_name(entry.title);
+                }
+                None => {
+                    options.set_tick_item(-1);
+                    options.set_tick_name("".into());
+                }
+            }
+        });
+    }
+
+    {
+        let app_weak = app.as_weak();
+        app.global::<TaskComposeUi>().on_choose_calendar(move |id| {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let options = app.global::<TaskComposeUi>();
+            let menu = options.get_calendar_menu();
+            if let Some(entry) = menu.iter().find(|entry| entry.id == id) {
+                options.set_calendar_id(id);
+                options.set_calendar_name(entry.title);
+            }
+        });
+    }
+
     let app_weak = app.as_weak();
     let intent_for_task = Rc::clone(&compose_intent);
     let document_for_task = Rc::clone(&compose_document);
@@ -5789,6 +5826,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         options.set_follow_up_date(TaskSend::follow_up_date_label(follow_up).into());
         options.set_active(true);
         options.set_follow_up_event(false);
+        TaskSend::offer_checklist(&app, i64::from(task_id));
         TaskSend::dock(&app, i64::from(task_id), title.as_str());
         app.set_compose_notice_is_error(false);
         app.set_compose_open(true);
@@ -6035,6 +6073,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             options.set_active(true);
             options.set_follow_up_event(false);
             let title = app.global::<TasksUi>().get_detail().title;
+            TaskSend::offer_checklist(&app, task_id);
             TaskSend::dock(&app, task_id, title.as_str());
         }
         app.set_compose_mode(action);
@@ -6504,6 +6543,26 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         if send {
             // "Send later": the menu choice, read once.
             let schedule = app.global::<ComposeScheduleUi>();
+            // A typed time that cannot be used must not send the message now.
+            if let Some(typed) = schedule.get_when().strip_prefix("at:") {
+                match custom_send_time(typed, Local::now()) {
+                    Ok(_) => {}
+                    Err(true) => {
+                        app.set_compose_notice(UiMessage::plain(
+                            "Enter the send date as YYYY-MM-DD and the time as HH:MM.",
+                        ));
+                        app.set_compose_notice_is_error(true);
+                        schedule.set_when("".into());
+                        return;
+                    }
+                    Err(false) => {
+                        app.set_compose_notice(UiMessage::plain("That time has already passed."));
+                        app.set_compose_notice_is_error(true);
+                        schedule.set_when("".into());
+                        return;
+                    }
+                }
+            }
             let send_at = schedule_send_time(schedule.get_when().as_str(), Local::now())
                 .map(|at| at.timestamp_millis());
             schedule.set_when("".into());
@@ -6535,7 +6594,12 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                                 follow_up_event: app.global::<TaskComposeUi>().get_follow_up_event(),
                                 ..task
                             }
-                            .follow_up_event_target(),
+                            .follow_up_event_target(
+                                app.global::<TaskComposeUi>().get_calendar_id().as_str(),
+                            ),
+                            Some(app.global::<TaskComposeUi>().get_tick_item())
+                                .filter(|item| *item >= 0)
+                                .map(i64::from),
                         );
                     }
                     clear_compose(
@@ -6575,7 +6639,12 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                                 follow_up_event: app.global::<TaskComposeUi>().get_follow_up_event(),
                                 ..task
                             }
-                            .follow_up_event_target(),
+                            .follow_up_event_target(
+                                app.global::<TaskComposeUi>().get_calendar_id().as_str(),
+                            ),
+                            Some(app.global::<TaskComposeUi>().get_tick_item())
+                                .filter(|item| *item >= 0)
+                                .map(i64::from),
                         );
                     }
                     send_action_for_save.set(Some(queued.action_id));
@@ -7437,6 +7506,8 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
 
     settings_controller::register_oauth_settings_callbacks(&app, &state, &runtime);
 
+    scheduled_controller::register(&app, &state, &runtime);
+
     register_data_management_callbacks(
         &app,
         &platform.paths,
@@ -7880,6 +7951,23 @@ mod calendar_tests {
     }
 }
 
+/// A date and time typed in the composer (`YYYY-MM-DD HH:MM`, local time):
+/// `Err(true)` when it does not read as one, `Err(false)` when it is already
+/// past.
+fn custom_send_time(
+    typed: &str,
+    now: chrono::DateTime<Local>,
+) -> Result<chrono::DateTime<Local>, bool> {
+    let parsed = chrono::NaiveDateTime::parse_from_str(typed.trim(), "%Y-%m-%d %H:%M")
+        .ok()
+        .and_then(|naive| Local.from_local_datetime(&naive).earliest())
+        .ok_or(true)?;
+    if parsed <= now {
+        return Err(false);
+    }
+    Ok(parsed)
+}
+
 /// When the composer's "Send later" choice sends: an hour or four hours from
 /// `now`, or 08:00 local time tomorrow or next Monday (a Monday asks for the
 /// Monday after). `None` for an empty or unknown choice, which sends now.
@@ -7888,6 +7976,9 @@ fn schedule_send_time(
     now: chrono::DateTime<Local>,
 ) -> Option<chrono::DateTime<Local>> {
     use chrono::Datelike;
+    if let Some(typed) = choice.strip_prefix("at:") {
+        return custom_send_time(typed, now).ok();
+    }
     let morning = |date: NaiveDate| {
         Local
             .from_local_datetime(&date.and_hms_opt(8, 0, 0)?)
@@ -7930,6 +8021,12 @@ mod tests {
         );
         assert_eq!(schedule_send_time("", now), None);
         assert_eq!(schedule_send_time("someday", now), None);
+        // A typed time: valid and in the future, malformed, or past.
+        assert_eq!(schedule_send_time("at:2026-11-03 09:15", now), Local.with_ymd_and_hms(2026, 11, 3, 9, 15, 0).earliest());
+        assert_eq!(custom_send_time("tomorrow", now), Err(true));
+        assert_eq!(custom_send_time("2026-13-40 25:00", now), Err(true));
+        assert_eq!(custom_send_time("2026-10-01 09:00", now), Err(false));
+        assert_eq!(schedule_send_time("at:2026-10-01 09:00", now), None);
     }
 
     use super::*;

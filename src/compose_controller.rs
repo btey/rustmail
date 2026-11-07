@@ -23,14 +23,47 @@ pub(super) struct TaskSend {
 }
 
 impl TaskSend {
-    /// The calendar to book the follow-up on once the mail is delivered:
-    /// the local calendar when the composer's option asks for one.
-    pub fn follow_up_event_target(self) -> Option<(i64, Option<i64>)> {
-        (self.follow_up_event && self.follow_up_days.is_some()).then_some((0, None))
+    /// The calendar to book the follow-up on once the mail is delivered when
+    /// the composer's option asks for one: `calendar` is "local" or
+    /// "<account id>:<calendar id>" (anything else means the local calendar).
+    pub fn follow_up_event_target(self, calendar: &str) -> Option<(i64, Option<i64>)> {
+        if !(self.follow_up_event && self.follow_up_days.is_some()) {
+            return None;
+        }
+        let picked = calendar.split_once(':').and_then(|(account, id)| {
+            Some((account.parse::<i64>().ok()?, Some(id.parse::<i64>().ok()?)))
+        });
+        Some(picked.unwrap_or((0, None)))
     }
 
     /// Show the composer of a task mail in the right column of the task's own
     /// page (a tab), or in its window when the tab strip is off.
+    /// The open checklist steps of the task, when its drawer is the one on
+    /// screen, for the composer's "tick off a step once sent" choice.
+    pub fn offer_checklist(app: &AppWindow, task_id: i64) {
+        let tasks = app.global::<TasksUi>();
+        let options = app.global::<TaskComposeUi>();
+        let steps: Vec<crate::ActionMenuEntry> = if i64::from(tasks.get_detail().id) == task_id {
+            tasks
+                .get_checklist()
+                .iter()
+                .filter(|row| !row.done)
+                .map(|row| crate::ActionMenuEntry {
+                    id: row.id.to_string().into(),
+                    title: row.text,
+                    icon: Default::default(),
+                    disabled: false,
+                    destructive: false,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        options.set_checklist_menu(ModelRc::new(VecModel::from(steps)));
+        options.set_tick_item(-1);
+        options.set_tick_name("".into());
+    }
+
     pub fn dock(app: &AppWindow, task_id: i64, title: &str) {
         let tabs = app.global::<TabsUi>();
         let tasks = app.global::<TasksUi>();
@@ -627,6 +660,8 @@ pub(super) fn clear_compose(
     options.set_active(false);
     options.set_docked(false);
     options.set_follow_up_event(false);
+    options.set_checklist_menu(ModelRc::new(VecModel::from(Vec::new())));
+    options.set_tick_item(-1);
     files.borrow_mut().clear();
     // A picker still open for this composer must not attach to the next one.
     session.set(session.get().wrapping_add(1));

@@ -1,6 +1,7 @@
 import { VerticalBox, HorizontalBox, ComboBox, CheckBox } from "std-widgets.slint";
 import { Button } from "button.slint";
 import { LineEdit } from "controls.slint";
+import { TaskSettingsUi } from "task-compose.slint";
 import { AppTheme } from "../design-system.slint";
 import { TypeScale } from "../typography.slint";
 
@@ -23,6 +24,10 @@ export struct FilterConditionEdit {
 export struct FilterActionEdit {
     kind: int,
     value: string,
+    // "Create task" picks: status, project and context (positions in the lists).
+    status: int,
+    project: int,
+    context: int,
 }
 
 // Filter rules (conditions and actions applied to incoming mail). The Rust
@@ -38,7 +43,11 @@ export global FilterRules {
     in-out property <bool> edit-match-all: true;
     in-out property <bool> edit-stop: false;
     in-out property <[FilterConditionEdit]> edit-conditions: [{ field: 0, op: 0, name: "", value: "" }];
-    in-out property <[FilterActionEdit]> edit-actions: [{ kind: 0, value: "" }];
+    in-out property <[FilterActionEdit]> edit-actions: [{ kind: 0, value: "", status: 0, project: 0, context: 0 }];
+    // The id of the rule being changed; empty while a new one is written.
+    in-out property <string> edit-id;
+    callback edit-rule(string);
+    callback cancel-edit();
     callback context-changed();
     callback add-rule();
     callback delete-rule(string);
@@ -139,23 +148,57 @@ component ActionRow inherits HorizontalBox {
     spacing: 8px;
     height: 36px;
 
+    // "Create task" is picked from lists; the value is `status;project;context`.
+    function task-value(status: int, project: int, context: int) -> string {
+        return (status == 1 ? "next" : status == 2 ? "waiting" : status == 3 ? "scheduled" : "inbox")
+            + (project > 0 || context > 0 ? ";" + (project > 0 ? TaskSettingsUi.project-choices[project] : "") : "")
+            + (context > 0 ? ";" + TaskSettingsUi.context-choices[context] : "");
+    }
+
     ComboBox {
         width: 230px;
         enabled: root.enabled;
         model: [@tr("Mark as read"), @tr("Mark as unread"), @tr("Star"), @tr("Archive"), @tr("Mark as spam"), @tr("Move to trash"), @tr("Move to folder"), @tr("Add label"), @tr("Copy to folder"), @tr("Forward to address"), @tr("Run command"), @tr("Create task")];
         current-index: root.data.kind;
         selected(value) => {
-            root.changed({ kind: self.current-index, value: "" });
+            root.changed({ kind: self.current-index, value: self.current-index == 11 ? "inbox" : "", status: 0, project: 0, context: 0 });
         }
     }
-    if root.data.kind >= 6 : LineEdit {
+    if root.data.kind == 11 : ComboBox {
+        horizontal-stretch: 1;
+        enabled: root.enabled;
+        model: [@tr("Inbox"), @tr("Next actions"), @tr("Waiting for"), @tr("Scheduled")];
+        current-index: root.data.status;
+        selected(value) => {
+            root.changed({ kind: 11, value: root.task-value(self.current-index, root.data.project, root.data.context), status: self.current-index, project: root.data.project, context: root.data.context });
+        }
+    }
+    if root.data.kind == 11 && TaskSettingsUi.project-choices.length > 1 : ComboBox {
+        horizontal-stretch: 1;
+        enabled: root.enabled;
+        model: TaskSettingsUi.project-choices;
+        current-index: root.data.project;
+        selected(value) => {
+            root.changed({ kind: 11, value: root.task-value(root.data.status, self.current-index, root.data.context), status: root.data.status, project: self.current-index, context: root.data.context });
+        }
+    }
+    if root.data.kind == 11 && TaskSettingsUi.context-choices.length > 1 : ComboBox {
+        horizontal-stretch: 1;
+        enabled: root.enabled;
+        model: TaskSettingsUi.context-choices;
+        current-index: root.data.context;
+        selected(value) => {
+            root.changed({ kind: 11, value: root.task-value(root.data.status, root.data.project, self.current-index), status: root.data.status, project: root.data.project, context: self.current-index });
+        }
+    }
+    if root.data.kind >= 6 && root.data.kind != 11 : LineEdit {
         horizontal-stretch: 1;
         enabled: root.enabled;
         text: root.data.value;
         input-label: @tr("Action value");
-        placeholder-text: root.data.kind == 6 || root.data.kind == 8 ? @tr("Folder name, for example Receipts") : root.data.kind == 7 ? @tr("Label name") : root.data.kind == 9 ? @tr("Address, for example me@example.org") : root.data.kind == 11 ? @tr("Status: inbox, next, waiting or scheduled; then ;project and ;context") : @tr("Command; %f is the message file");
+        placeholder-text: root.data.kind == 6 || root.data.kind == 8 ? @tr("Folder name, for example Receipts") : root.data.kind == 7 ? @tr("Label name") : root.data.kind == 9 ? @tr("Address, for example me@example.org") : @tr("Command; %f is the message file");
         edited(text) => {
-            root.changed({ kind: root.data.kind, value: text });
+            root.changed({ kind: root.data.kind, value: text, status: 0, project: 0, context: 0 });
         }
     }
     Button {
@@ -214,6 +257,7 @@ export component FilterRulesSettings inherits VerticalBox {
             }
             Button { width: 40px; text: "↑"; enabled: !FilterRules.busy && index > 0; clicked => { FilterRules.move-rule(row.id, -1); } }
             Button { width: 40px; text: "↓"; enabled: !FilterRules.busy && index < FilterRules.rows.length - 1; clicked => { FilterRules.move-rule(row.id, 1); } }
+            Button { width: max(64px, self.content-width + 24px); text: @tr("Edit"); enabled: !FilterRules.busy; clicked => { FilterRules.edit-rule(row.id); } }
             Button { width: max(88px, self.content-width + 24px); text: row.enabled ? @tr("Turn off") : @tr("Turn on"); enabled: !FilterRules.busy; clicked => { FilterRules.toggle-rule(row.id); } }
             Button { width: max(76px, self.content-width + 24px); text: @tr("Delete"); enabled: !FilterRules.busy; clicked => { FilterRules.delete-rule(row.id); } }
         }
@@ -240,7 +284,7 @@ export component FilterRulesSettings inherits VerticalBox {
 
     Text {
         height: max(20px, self.preferred-height);
-        text: @tr("New filter");
+        text: FilterRules.edit-id != "" ? @tr("Edit filter") : @tr("New filter");
         color: root.heading-color;
         font-size: TypeScale.secondary;
         font-weight: 600;
@@ -322,9 +366,15 @@ export component FilterRulesSettings inherits VerticalBox {
         Button {
             width: max(120px, self.content-width + 28px);
             primary: true;
-            text: @tr("Add filter");
+            text: FilterRules.edit-id != "" ? @tr("Save changes") : @tr("Add filter");
             enabled: !FilterRules.busy && FilterRules.edit-name != "";
             clicked => { FilterRules.add-rule(); }
+        }
+        if FilterRules.edit-id != "" : Button {
+            width: max(100px, self.content-width + 28px);
+            text: @tr("Cancel");
+            enabled: !FilterRules.busy;
+            clicked => { FilterRules.cancel-edit(); }
         }
     }
     if FilterRules.status != "" : Text {

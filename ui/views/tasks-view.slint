@@ -27,6 +27,8 @@ export struct TaskCardRow {
     labels: string,
     // The same labels one by one, for the chips on the card.
     label-list: [string],
+    // Each label's own colour, in the order of `label-list`.
+    label-colours: [color],
     checklist-total: int,
     checklist-done: int,
     link-count: int,
@@ -890,6 +892,16 @@ component TasksTimeline inherits Rectangle {
                     accessible-role: button;
                     accessible-label: lrow.bar.title;
                     mouse-cursor: pointer;
+                    // A sideways wheel or touchpad swipe over the grid moves the chart.
+                    scroll-event(event) => {
+                        if abs(event.delta-x) > abs(event.delta-y) {
+                            chart.content-x = min(0px, max(chart.visible-width - root.chart-width,
+                                chart.content-x + event.delta-x));
+                            root.remember();
+                            return accept;
+                        }
+                        reject
+                    }
                     clicked => {
                         if lrow.bar.group {
                             TasksUi.command("timeline-collapse", "" + lrow.bar.column-id, "");
@@ -1209,33 +1221,38 @@ component TasksTimeline inherits Rectangle {
                 height: 1px;
                 background: AppTheme.border;
             }
+            // Only the chips near the view get their content; the others are
+            // empty boxes.
             for event in TasksUi.timeline-events : Rectangle {
                 visible: root.show-events;
                 x: event.first-day * root.day-width + 1px;
                 y: 8px + event.lane * 24px;
                 width: (event.last-day - event.first-day + 1) * root.day-width - 2px;
                 height: 22px;
-                border-radius: 5px;
-                border-width: 1px;
-                border-color: event.coloured ? event.colour : AppTheme.accent;
-                background: (event.coloured ? event.colour : AppTheme.accent).with-alpha(0.15);
-                clip: true;
-                Text {
-                    x: 6px;
-                    width: parent.width - 8px;
-                    height: parent.height;
-                    text: event.label;
-                    color: AppTheme.heading;
-                    font-size: TypeScale.micro;
-                    font-weight: 600;
-                    vertical-alignment: center;
-                    overflow: elide;
-                }
-                TouchArea {
-                    accessible-role: button;
-                    accessible-label: event.label;
-                    mouse-cursor: pointer;
-                    clicked => { TasksUi.open-calendar-event(event.id, event.date, event.local); }
+                if event.last-day + 2 >= root.first-day && event.first-day <= root.first-day + root.shown-days + 2 : Rectangle {
+                    border-radius: 5px;
+                    border-width: 1px;
+                    border-color: event.coloured ? event.colour : AppTheme.accent;
+                    background: (event.coloured ? event.colour : AppTheme.accent).with-alpha(0.15);
+                    clip: true;
+                    // A chip one day wide has no room for a title.
+                    if parent.width > 48px : Text {
+                        x: 6px;
+                        width: parent.width - 8px;
+                        height: parent.height;
+                        text: event.label;
+                        color: AppTheme.heading;
+                        font-size: TypeScale.micro;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    TouchArea {
+                        accessible-role: button;
+                        accessible-label: event.label;
+                        mouse-cursor: pointer;
+                        clicked => { TasksUi.open-calendar-event(event.id, event.date, event.local); }
+                    }
                 }
             }
             // Each arrow is drawn in its own bounding box, and only when one of its
@@ -1773,13 +1790,14 @@ component TaskCard inherits Rectangle {
                 height: 20px;
                 width: i < 2 ? min(chip-text.preferred-width + 14px, 110px) : 0px;
                 border-radius: 4px;
-                background: AppTheme.accent-soft;
+                // A label with a colour of its own wears it; one without keeps the accent.
+                background: i < root.card.label-colours.length ? root.card.label-colours[i].with-alpha(0.2) : AppTheme.accent-soft;
                 chip-text := Text {
                     x: 7px;
                     width: parent.width - 14px;
                     height: parent.height;
                     text: name;
-                    color: AppTheme.accent;
+                    color: i < root.card.label-colours.length ? root.card.label-colours[i] : AppTheme.accent;
                     font-size: TypeScale.micro;
                     vertical-alignment: center;
                     overflow: elide;

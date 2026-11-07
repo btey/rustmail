@@ -1333,6 +1333,17 @@ pub struct QueueSendArgs {
     pub send_at: Option<i64>,
 }
 
+/// A message held for a later time (see `Core::list_scheduled_sends`).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduledSend {
+    pub action_id: i64,
+    pub draft_id: i64,
+    pub subject: String,
+    pub to: String,
+    pub send_at: i64,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QueueSendResult {
