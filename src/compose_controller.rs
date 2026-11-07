@@ -76,10 +76,11 @@ impl TaskSend {
             && tasks.get_detail_open()
             && i64::from(tasks.get_detail().id) == task_id;
         options.set_docked_task(task_id as i32);
+        // Set first: opening the tab undocks again when no tab can be opened.
+        options.set_docked(true);
         if !on_page {
             tabs.invoke_open_task(task_id as i32, title.into());
         }
-        options.set_docked(true);
     }
 
     /// The follow-up date for a picker position as `YYYY-MM-DD` in local

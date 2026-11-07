@@ -173,7 +173,7 @@ component ActionRow inherits HorizontalBox {
             root.changed({ kind: 11, value: root.task-value(self.current-index, root.data.project, root.data.context), status: self.current-index, project: root.data.project, context: root.data.context });
         }
     }
-    if root.data.kind == 11 && TaskSettingsUi.project-choices.length > 1 : ComboBox {
+    if root.data.kind == 11 : ComboBox {
         horizontal-stretch: 1;
         enabled: root.enabled;
         model: TaskSettingsUi.project-choices;
@@ -182,7 +182,7 @@ component ActionRow inherits HorizontalBox {
             root.changed({ kind: 11, value: root.task-value(root.data.status, self.current-index, root.data.context), status: root.data.status, project: self.current-index, context: root.data.context });
         }
     }
-    if root.data.kind == 11 && TaskSettingsUi.context-choices.length > 1 : ComboBox {
+    if root.data.kind == 11 : ComboBox {
         horizontal-stretch: 1;
         enabled: root.enabled;
         model: TaskSettingsUi.context-choices;

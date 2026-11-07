@@ -510,10 +510,14 @@ impl Tabs {
                 self.restore(index);
                 self.changed();
             }
-            None => app.set_sync_status(UiMessage::detail(
-                "At most {} tabs can be open. Close a tab to open another.",
-                MAX_TABS,
-            )),
+            None => {
+                // No page to dock a task mail on: it opens as a dialog.
+                app.global::<TaskComposeUi>().set_docked(false);
+                app.set_sync_status(UiMessage::detail(
+                    "At most {} tabs can be open. Close a tab to open another.",
+                    MAX_TABS,
+                ));
+            }
         }
     }
 

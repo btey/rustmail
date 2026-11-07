@@ -5803,6 +5803,16 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             return;
         };
         if app.get_compose_open() {
+            // A message is already open. When it is a task mail docked on a page
+            // that is not on screen, bring it back instead of doing nothing.
+            let options = app.global::<TaskComposeUi>();
+            if options.get_active() && options.get_docked() {
+                if options.get_docked_task() == task_id {
+                    TaskSend::dock(&app, i64::from(task_id), title.as_str());
+                } else {
+                    options.set_docked(false);
+                }
+            }
             return;
         }
         *intent_for_task.borrow_mut() = ComposeIntent {
