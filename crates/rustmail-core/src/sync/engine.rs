@@ -260,6 +260,8 @@ pub fn spawn_account(ctx: SyncCtx, config: AccountConfig) -> AccountHandle {
             MailProtocol::Local => !config.smtp_host.trim().is_empty(),
             // News accounts post through the same durable dispatcher.
             MailProtocol::News => true,
+            // POP3 accounts send only when an SMTP server is configured.
+            MailProtocol::Pop3 => !config.smtp_host.trim().is_empty(),
             MailProtocol::Jmap => false,
         };
     let (tx, rx) = mpsc::channel(SYNC_COMMAND_QUEUE_CAPACITY);
@@ -276,6 +278,17 @@ pub fn spawn_account(ctx: SyncCtx, config: AccountConfig) -> AccountHandle {
         crate::jmap::sync::spawn(ctx, config, rx, body_rx, settings_rx)
     } else if config.mail_protocol == MailProtocol::Local {
         let mut tasks = crate::local::spawn(ctx.clone(), config.clone(), rx, body_rx, settings_rx);
+        if dedicated_smtp {
+            tasks.push(tokio::spawn(run_send_dispatcher(
+                ctx,
+                config,
+                send_rx,
+                tx.clone(),
+            )));
+        }
+        tasks
+    } else if config.mail_protocol == MailProtocol::Pop3 {
+        let mut tasks = crate::pop3::spawn(ctx.clone(), config.clone(), rx, body_rx, settings_rx);
         if dedicated_smtp {
             tasks.push(tokio::spawn(run_send_dispatcher(
                 ctx,

@@ -424,6 +424,18 @@ fn dedupe_overview(list: Vec<Overview>) -> Vec<(u64, Option<u64>)> {
 /// A header-only stand-in for an article too large to download during sync.
 /// MIME headers are dropped so the note is shown as plain text.
 fn placeholder_article(head: &[u8], bytes: u64) -> Vec<u8> {
+    placeholder_with_note(
+        head,
+        &format!(
+            "[This article is large ({} KiB). Open it to download the full text.]",
+            bytes.div_ceil(1024)
+        ),
+    )
+}
+
+/// Headers of `head` (MIME headers dropped) followed by a one-line plain-text
+/// `note` as the body. Shared with the POP3 importer.
+pub(crate) fn placeholder_with_note(head: &[u8], note: &str) -> Vec<u8> {
     let text = String::from_utf8_lossy(head);
     let mut out = String::with_capacity(text.len() + 160);
     let mut skipping = false;
@@ -447,10 +459,8 @@ fn placeholder_article(head: &[u8], bytes: u64) -> Vec<u8> {
         }
     }
     out.push_str("MIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n");
-    out.push_str(&format!(
-        "[This article is large ({} KiB). Open it to download the full text.]\r\n",
-        bytes.div_ceil(1024)
-    ));
+    out.push_str(note);
+    out.push_str("\r\n");
     out.into_bytes()
 }
 
@@ -785,7 +795,7 @@ async fn fetch_full(
     Ok(())
 }
 
-async fn attachment_bytes(ctx: &SyncCtx, attachment_id: i64) -> Result<Vec<u8>> {
+pub(crate) async fn attachment_bytes(ctx: &SyncCtx, attachment_id: i64) -> Result<Vec<u8>> {
     let (part_id, raw_path) = ctx
         .db
         .read(move |conn| {

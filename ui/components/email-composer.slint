@@ -4,8 +4,8 @@ import { AccountMailPreferences } from "account-mail-preferences.slint";
 import { SettingsSelectRow } from "settings-components.slint";
 import { ScrollView, VerticalBox } from "std-widgets.slint";
 import { AccountRow, ComposeAttachment, ComposeContact, ComposeEditorTile, EmailTemplateRow } from "../models.slint";
-import { ComposerFromRow, ComposerHeader, ComposerRecipients, ComposerSubject } from "composer-fields.slint";
-import { ComposerAttachments, ComposerFooter, ComposerNotice, ComposerToolbar, DiscardConfirmation, LinkEditor } from "composer-actions.slint";
+import { ComposerChoiceRow, ComposerFromRow, ComposerHeader, ComposerRecipients, ComposerSubject } from "composer-fields.slint";
+import { ComposerAttachments, ComposerFooter, ComposerNotice, TaskLinkBanner, ComposerToolbar, DiscardConfirmation, LinkEditor } from "composer-actions.slint";
 import { EmailTemplates } from "email-templates.slint";
 import { TypeScale } from "../typography.slint";
 
@@ -94,6 +94,12 @@ export component EmailComposer inherits Rectangle {
     private property <bool> caret-visible: true;
     private property <string> pending-key-text: "";
     private property <bool> ime-edit-pending: false;
+    // Slint only learns about Shift from press/release events, so one lost
+    // release leaves it "held" for good: typing still looks normal (the text
+    // comes from the OS) but every arrow key and click then extends the
+    // selection. A plain lowercase letter that arrives with Shift reported
+    // proves the state is stale; ignore it until Shift is pressed again.
+    private property <bool> shift-stale: false;
     private property <length> input-caret-x: 0px;
     private property <length> input-caret-y: 0px;
     private property <bool> has-content: root.to != "" || root.cc != "" || root.bcc != ""
@@ -111,12 +117,9 @@ export component EmailComposer inherits Rectangle {
             root.link-editor-open = true;
             return;
         }
-        root.format-requested(
-            kind,
-            root.body,
-            body-input.anchor-position-byte-offset,
-            body-input.cursor-position_byte-offset,
-        );
+        // The toolbar button may already have taken the TextInput's selection
+        // away; the document's own selection is the one to format.
+        root.format-requested(kind, root.body, root.selection-start, root.selection-end);
         body-input.set-selection-offsets(root.selection-start, root.selection-end);
         body-input.focus();
     }
@@ -223,6 +226,11 @@ export component EmailComposer inherits Rectangle {
             request-close => { root.request-close(); }
         }
 
+        TaskLinkBanner {
+            accent-background: root.accent-background;
+            accent-color: root.accent-color;
+        }
+
         ComposerFromRow {
             accounts: root.accounts;
             selected-account-id <=> root.selected-account-id;
@@ -241,13 +249,16 @@ export component EmailComposer inherits Rectangle {
             }
         }
 
-        SettingsSelectRow {
-            compact: root.compact;
-            title: @tr("From");
-            description: @tr("Verified sender identity");
+        ComposerChoiceRow {
+            label: @tr("From");
             choices: AccountMailPreferences.composer-sender-names;
             selected-index: AccountMailPreferences.composer-sender-index;
-            title-color: root.title-color; description-color: root.secondary-color;
+            background-color: root.background-color;
+            frame-border-color: root.subtle-border-color;
+            hover-color: root.control-hover-color;
+            muted-color: root.muted-color;
+            selected-background: root.accent-background;
+            title-color: root.title-color;
             selected(index, value) => {
                 if AccountMailPreferences.composer-preferences-ready {
                     AccountMailPreferences.composer-sender(index);
@@ -255,13 +266,17 @@ export component EmailComposer inherits Rectangle {
             }
         }
 
-        SettingsSelectRow {
-            compact: root.compact;
-            title: @tr("Signature");
+        ComposerChoiceRow {
+            label: @tr("Signature");
             description: AccountMailPreferences.composer-security;
             choices: AccountMailPreferences.composer-signature-names;
             selected-index: AccountMailPreferences.composer-signature-index;
-            title-color: root.title-color; description-color: root.secondary-color;
+            background-color: root.background-color;
+            frame-border-color: root.subtle-border-color;
+            hover-color: root.control-hover-color;
+            muted-color: root.muted-color;
+            selected-background: root.accent-background;
+            title-color: root.title-color;
             selected(index, value) => { if AccountMailPreferences.composer-preferences-ready { AccountMailPreferences.composer-signature(index); } }
         }
         recipients := ComposerRecipients {
@@ -401,6 +416,20 @@ export component EmailComposer inherits Rectangle {
                     }
                     key-pressed(event) => {
                         root.pending-key-text = "";
+                        if (event.text == Key.Shift || event.text == Key.ShiftR) {
+                            root.shift-stale = false;
+                        } else if (event.modifiers.shift && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta
+                            && event.text.character-count == 1 && event.text != event.text.to-uppercase()) {
+                            root.shift-stale = true;
+                        } else if (event.modifiers.shift && event.text != event.text.to-lowercase()) {
+                            root.shift-stale = false;
+                        }
+                        let shift = event.modifiers.shift && !root.shift-stale;
+                        // Escape lets go of a selection (and only that).
+                        if (event.text == Key.Escape && root.selection-start != root.selection-end) {
+                            self.set-selection-offsets(root.selection-end, root.selection-end);
+                            return accept;
+                        }
                         if ((event.modifiers.control || event.modifiers.meta) && event.text.to-lowercase() == "b") {
                             root.apply-format("bold");
                             return accept;
@@ -413,12 +442,20 @@ export component EmailComposer inherits Rectangle {
                             root.apply-format("underline");
                             return accept;
                         }
-                        if ((event.modifiers.control || event.modifiers.meta) && event.modifiers.shift && event.text.to-lowercase() == "x") {
+                        if ((event.modifiers.control || event.modifiers.meta) && shift && event.text.to-lowercase() == "x") {
                             root.apply-format("strike");
                             return accept;
                         }
+                        if ((event.modifiers.control || event.modifiers.meta) && event.text == "]") {
+                            root.apply-format("indent");
+                            return accept;
+                        }
+                        if ((event.modifiers.control || event.modifiers.meta) && event.text == "[") {
+                            root.apply-format("outdent");
+                            return accept;
+                        }
                         if ((event.modifiers.control || event.modifiers.meta) && event.text.to-lowercase() == "z") {
-                            root.history-requested(event.modifiers.shift ? "redo" : "undo");
+                            root.history-requested(shift ? "redo" : "undo");
                             self.set-selection-offsets(root.selection-start, root.selection-end);
                             return accept;
                         }
@@ -429,7 +466,7 @@ export component EmailComposer inherits Rectangle {
                         if (root.editor-key-event(
                             event.text,
                             event.modifiers.control,
-                            event.modifiers.shift,
+                            shift,
                             event.modifiers.alt,
                             event.modifiers.meta,
                         )) {
@@ -470,9 +507,11 @@ export component EmailComposer inherits Rectangle {
                             root.editor-pointer-event(
                                 editor-hit.mouse-x / 1px,
                                 editor-hit.mouse-y / 1px,
-                                event.kind == PointerEventKind.down ? "down" : event.kind == PointerEventKind.move ? "move" : event.kind == PointerEventKind.up ? "up" : "cancel",
+                                event.kind == PointerEventKind.down ? "down"
+                                    : event.kind == PointerEventKind.move ? (editor-hit.pressed ? "move" : "cancel")
+                                    : event.kind == PointerEventKind.up ? "up" : "cancel",
                                 event.modifiers.control,
-                                event.modifiers.shift,
+                                event.modifiers.shift && !root.shift-stale,
                                 event.modifiers.alt,
                                 event.modifiers.meta,
                             );

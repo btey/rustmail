@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-07 13:43+0000\n"
+"POT-Creation-Date: 2026-11-08 12:44+0000\n"
 "PO-Revision-Date: 2026-09-20 23:21+0000\n"
 "Last-Translator: Admin <admin@rustmail.org>\n"
 "Language-Team: Spanish <https://translate.rustmail.org/projects/rustmail/"
@@ -1586,109 +1586,109 @@ msgstr "Cargando mensaje…"
 msgid "Rustmail"
 msgstr "Rustmail"
 
-#: ui/app.slint:1170 ui/app.slint:1183
+#: ui/app.slint:1173 ui/app.slint:1186
 msgid "Global Labels (local only)"
 msgstr "Etiquetas globales (solo locales)"
 
-#: ui/app.slint:2082
+#: ui/app.slint:2087
 msgid "Empty Trash?"
 msgstr "¿Vaciar la papelera?"
 
-#: ui/app.slint:2082 ui/views/files-view.slint:539
+#: ui/app.slint:2087 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr "¿Eliminar permanentemente?"
 
-#: ui/app.slint:2086
+#: ui/app.slint:2091
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 "¿Eliminar permanentemente todos los mensajes de la papelera de todas las "
 "cuentas conectadas?"
 
-#: ui/app.slint:2087
+#: ui/app.slint:2092
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr ""
 "¿Eliminar permanentemente todos los mensajes de la papelera de esta cuenta?"
 
-#: ui/app.slint:2089
+#: ui/app.slint:2094
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr ""
 "¿Eliminar permanentemente las conversaciones seleccionadas de la papelera?"
 
-#: ui/app.slint:2090
+#: ui/app.slint:2095
 msgid "Permanently delete this conversation from Trash?"
 msgstr "¿Eliminar permanentemente esta conversación de la papelera?"
 
-#: ui/app.slint:2091 ui/components/calendar.slint:951
+#: ui/app.slint:2096 ui/components/calendar.slint:951
 msgid "This action cannot be undone."
 msgstr "Esta acción no se puede deshacer."
 
-#: ui/app.slint:2092
+#: ui/app.slint:2097
 msgid "Empty Trash"
 msgstr "Vaciar la papelera"
 
-#: ui/app.slint:2092 ui/views/files-view.slint:621
+#: ui/app.slint:2097 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr "Eliminar permanentemente"
 
-#: ui/app.slint:2274
+#: ui/app.slint:2279
 msgid "Mailbox startup failed"
 msgstr "Error al iniciar el buzón"
 
-#: ui/app.slint:2280
+#: ui/app.slint:2285
 msgid "Rustmail could not open local storage"
 msgstr "Rustmail no pudo abrir el almacenamiento local"
 
-#: ui/app.slint:2293
+#: ui/app.slint:2298
 msgid "Diagnostic ID: {}"
 msgstr "ID de diagnóstico: {}"
 
-#: ui/app.slint:2296
+#: ui/app.slint:2301
 msgid "Diagnostic ID {}"
 msgstr "ID de diagnóstico {}"
 
-#: ui/app.slint:2301
+#: ui/app.slint:2306
 msgid "Retry"
 msgstr "Reintentar"
 
-#: ui/app.slint:2309 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2314 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr "Copiar datos de diagnóstico"
 
-#: ui/app.slint:2375 ui/app.slint:2460 ui/app.slint:2518
+#: ui/app.slint:2380 ui/app.slint:2465 ui/app.slint:2523
 msgid "Dismiss"
 msgstr "Descartar"
 
-#: ui/app.slint:2395 ui/app.slint:2400
+#: ui/app.slint:2400 ui/app.slint:2405
 msgid "Sent and linked"
 msgstr "Enviado y vinculado"
 
-#: ui/app.slint:2418
+#: ui/app.slint:2423
 msgid "Task moved to Waiting for"
 msgstr "Tarea movida a En espera"
 
-#: ui/app.slint:2418
+#: ui/app.slint:2423
 msgid "Task marked as done"
 msgstr "Tarea marcada como hecha"
 
-#: ui/app.slint:2427
+#: ui/app.slint:2432
 msgid "Follow-up in {} days"
 msgstr "Seguimiento en {} días"
 
-#: ui/app.slint:2436
+#: ui/app.slint:2441
 msgid "Follow-up added to the calendar"
 msgstr "Seguimiento añadido al calendario"
 
-#: ui/app.slint:2446
+#: ui/app.slint:2451
 msgid "Back to board"
 msgstr "Volver al tablero"
 
-#: ui/app.slint:2505 ui/components/linked-task-banner.slint:116
+#: ui/app.slint:2510 ui/components/linked-task-banner.slint:116
 #: ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr "Abrir tarea"
 
-#: ui/app.slint:2551 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2556 ui/components/workspace-navigation.slint:126
 #: ui/dialogs/settings-dialog.slint:2127
 msgid "Tasks"
 msgstr "Tareas"
@@ -2626,239 +2626,251 @@ msgstr "Eliminar evento"
 msgid "Keep event"
 msgstr "Conservar evento"
 
-#: ui/components/composer-actions.slint:54
+#: ui/components/composer-actions.slint:56
 msgid "Bold · Ctrl+B"
 msgstr "Negrita · Ctrl+B"
 
-#: ui/components/composer-actions.slint:55
+#: ui/components/composer-actions.slint:57
 msgid "Italic · Ctrl+I"
 msgstr "Cursiva · Ctrl+I"
 
-#: ui/components/composer-actions.slint:56
+#: ui/components/composer-actions.slint:58
 msgid "Underline · Ctrl+U"
 msgstr "Subrayado · Ctrl+U"
 
-#: ui/components/composer-actions.slint:57
+#: ui/components/composer-actions.slint:59
 msgid "Strikethrough"
 msgstr "Tachado"
 
-#: ui/components/composer-actions.slint:61
+#: ui/components/composer-actions.slint:63
 msgid "Bulleted list"
 msgstr "Lista con viñetas"
 
-#: ui/components/composer-actions.slint:62
+#: ui/components/composer-actions.slint:64
 msgid "Numbered list"
 msgstr "Lista numerada"
 
-#: ui/components/composer-actions.slint:63
+#: ui/components/composer-actions.slint:65
+msgid "Decrease list indent · Ctrl+["
+msgstr "Reducir sangría de lista · Ctrl+["
+
+#: ui/components/composer-actions.slint:66
+msgid "Increase list indent · Ctrl+]"
+msgstr "Aumentar sangría de lista · Ctrl+]"
+
+#: ui/components/composer-actions.slint:67
 msgid "Quote"
 msgstr "Cita"
 
-#: ui/components/composer-actions.slint:64
+#: ui/components/composer-actions.slint:68
 msgid "Inline code"
 msgstr "Código en línea"
 
-#: ui/components/composer-actions.slint:65
+#: ui/components/composer-actions.slint:69
 msgid "Add or edit link"
 msgstr "Añadir o editar enlace"
 
-#: ui/components/composer-actions.slint:65
+#: ui/components/composer-actions.slint:69
 msgid "Select text to add a link"
 msgstr "Selecciona texto para añadir un enlace"
 
-#: ui/components/composer-actions.slint:69
+#: ui/components/composer-actions.slint:73
 msgid "Email templates"
 msgstr "Plantillas de correo"
 
-#: ui/components/composer-actions.slint:70
+#: ui/components/composer-actions.slint:74
 msgid "Edit in external editor"
 msgstr "Editar en el editor externo"
 
-#: ui/components/composer-actions.slint:74
+#: ui/components/composer-actions.slint:85
 msgid "Undo · Ctrl+Z"
 msgstr "Deshacer · Ctrl+Z"
 
-#: ui/components/composer-actions.slint:75
+#: ui/components/composer-actions.slint:86
 msgid "Redo · Ctrl+Shift+Z"
 msgstr "Rehacer · Ctrl+Mayús+Z"
 
-#: ui/components/composer-actions.slint:169
+#: ui/components/composer-actions.slint:90
+msgid "More tools"
+msgstr "Más herramientas"
+
+#: ui/components/composer-actions.slint:201
 msgid "Remove attachment"
 msgstr "Quitar adjunto"
 
-#: ui/components/composer-actions.slint:233
+#: ui/components/composer-actions.slint:310
 msgid "This email and every reply in its thread will be linked to the task."
 msgstr ""
 "Este correo y cada respuesta de su conversación se vincularán a la tarea."
 
-#: ui/components/composer-actions.slint:244
+#: ui/components/composer-actions.slint:352
 msgid "After sending, move task to"
 msgstr "Tras enviar, mover la tarea a"
 
-#: ui/components/composer-actions.slint:253
+#: ui/components/composer-actions.slint:355
 #: ui/dialogs/settings-dialog.slint:551 ui/views/tasks-view.slint:482
 msgid "Waiting for"
 msgstr "En espera"
 
-#: ui/components/composer-actions.slint:253
+#: ui/components/composer-actions.slint:355
 msgid "Stay in place"
 msgstr "Dejar donde está"
 
-#: ui/components/composer-actions.slint:253 ui/views/tasks-view.slint:1343
+#: ui/components/composer-actions.slint:355 ui/views/tasks-view.slint:1343
 #: ui/views/tasks-view.slint:2889 ui/views/tasks-view.slint:3018
 #: ui/views/tasks-view.slint:3062
 msgid "Done"
 msgstr "Hecho"
 
-#: ui/components/composer-actions.slint:268
+#: ui/components/composer-actions.slint:367
 msgid "If there's no reply, add a follow-up in"
 msgstr "Si no hay respuesta, añadir seguimiento en"
 
-#: ui/components/composer-actions.slint:277
+#: ui/components/composer-actions.slint:370
 msgid "4 days"
 msgstr "4 días"
 
-#: ui/components/composer-actions.slint:277
+#: ui/components/composer-actions.slint:370
 msgid "2 days"
 msgstr "2 días"
 
-#: ui/components/composer-actions.slint:277
+#: ui/components/composer-actions.slint:370
 msgid "1 week"
 msgstr "1 semana"
 
-#: ui/components/composer-actions.slint:277
+#: ui/components/composer-actions.slint:370
 msgid "Never"
 msgstr "Nunca"
 
-#: ui/components/composer-actions.slint:293
+#: ui/components/composer-actions.slint:383
 msgid "Add the follow-up to the Calendar"
 msgstr "Añadir el seguimiento al Calendario"
 
-#: ui/components/composer-actions.slint:303
+#: ui/components/composer-actions.slint:385
 msgid "Yes"
 msgstr "Sí"
 
-#: ui/components/composer-actions.slint:303
+#: ui/components/composer-actions.slint:385
 msgid "No"
 msgstr "No"
 
-#: ui/components/composer-actions.slint:334
+#: ui/components/composer-actions.slint:404
 msgid "Tick off a checklist step once sent"
 msgstr "Marcar un paso de la lista al enviar"
 
-#: ui/components/composer-actions.slint:343
+#: ui/components/composer-actions.slint:407
 msgid "None"
 msgstr "Ninguno"
 
-#: ui/components/composer-actions.slint:354
+#: ui/components/composer-actions.slint:416
 msgid "No checklist step"
 msgstr "Ningún paso de la lista"
 
-#: ui/components/composer-actions.slint:428 ui/views/contacts-view.slint:691
+#: ui/components/composer-actions.slint:493 ui/views/contacts-view.slint:691
 msgid "YYYY-MM-DD"
 msgstr "AAAA-MM-DD"
 
-#: ui/components/composer-actions.slint:429
+#: ui/components/composer-actions.slint:494
 msgid "Send date"
 msgstr "Fecha de envío"
 
-#: ui/components/composer-actions.slint:434
+#: ui/components/composer-actions.slint:499
 msgid "HH:MM"
 msgstr "HH:MM"
 
-#: ui/components/composer-actions.slint:435
+#: ui/components/composer-actions.slint:500
 msgid "Send time"
 msgstr "Hora de envío"
 
-#: ui/components/composer-actions.slint:440 ui/views/tasks-view.slint:3264
+#: ui/components/composer-actions.slint:505 ui/views/tasks-view.slint:3264
 msgid "Schedule"
 msgstr "Programar"
 
-#: ui/components/composer-actions.slint:463
+#: ui/components/composer-actions.slint:528
 msgid "Sending…"
 msgstr "Enviando…"
 
-#: ui/components/composer-actions.slint:463
+#: ui/components/composer-actions.slint:528
 msgid "Send and link"
 msgstr "Enviar y vincular"
 
-#: ui/components/composer-actions.slint:463
+#: ui/components/composer-actions.slint:528
 msgid "Send"
 msgstr "Enviar"
 
-#: ui/components/composer-actions.slint:479
+#: ui/components/composer-actions.slint:544
 msgid "Send in 1 hour"
 msgstr "Enviar en 1 hora"
 
-#: ui/components/composer-actions.slint:480
+#: ui/components/composer-actions.slint:545
 msgid "Send in 4 hours"
 msgstr "Enviar en 4 horas"
 
-#: ui/components/composer-actions.slint:481
+#: ui/components/composer-actions.slint:546
 msgid "Send tomorrow morning"
 msgstr "Enviar mañana por la mañana"
 
-#: ui/components/composer-actions.slint:482
+#: ui/components/composer-actions.slint:547
 msgid "Send Monday morning"
 msgstr "Enviar el lunes por la mañana"
 
-#: ui/components/composer-actions.slint:483
+#: ui/components/composer-actions.slint:548
 msgid "Pick a date and time…"
 msgstr "Elegir fecha y hora…"
 
-#: ui/components/composer-actions.slint:484
+#: ui/components/composer-actions.slint:549
 msgid "Scheduled messages…"
 msgstr "Mensajes programados…"
 
-#: ui/components/composer-actions.slint:488
+#: ui/components/composer-actions.slint:553
 msgid "Send later"
 msgstr "Enviar más tarde"
 
-#: ui/components/composer-actions.slint:513
+#: ui/components/composer-actions.slint:578
 msgid "Attach files"
 msgstr "Adjuntar archivos"
 
-#: ui/components/composer-actions.slint:534
+#: ui/components/composer-actions.slint:600
 msgid "Save draft"
 msgstr "Guardar borrador"
 
-#: ui/components/composer-actions.slint:547
+#: ui/components/composer-actions.slint:613
 msgid "Discard"
 msgstr "Descartar"
 
-#: ui/components/composer-actions.slint:595
+#: ui/components/composer-actions.slint:661
 msgid "Edit link"
 msgstr "Editar enlace"
 
-#: ui/components/composer-actions.slint:595
+#: ui/components/composer-actions.slint:661
 msgid "Add link"
 msgstr "Añadir enlace"
 
-#: ui/components/composer-actions.slint:606
+#: ui/components/composer-actions.slint:672
 msgid "The selected text will open this address."
 msgstr "El texto seleccionado abrirá esta dirección."
 
-#: ui/components/composer-actions.slint:627 ui/views/contacts-view.slint:710
+#: ui/components/composer-actions.slint:693 ui/views/contacts-view.slint:710
 msgid "https://example.com"
 msgstr "https://ejemplo.com"
 
-#: ui/components/composer-actions.slint:663 ui/views/tasks-view.slint:3158
+#: ui/components/composer-actions.slint:729 ui/views/tasks-view.slint:3158
 msgid "Remove link"
 msgstr "Eliminar enlace"
 
-#: ui/components/composer-actions.slint:681
+#: ui/components/composer-actions.slint:747
 msgid "Apply"
 msgstr "Aplicar"
 
-#: ui/components/composer-actions.slint:719
+#: ui/components/composer-actions.slint:785
 msgid "Discard this draft?"
 msgstr "¿Descartar este borrador?"
 
-#: ui/components/composer-actions.slint:730
+#: ui/components/composer-actions.slint:796
 msgid "The message and its attachments will be removed from this composer."
 msgstr "El mensaje y sus archivos adjuntos se eliminarán de este editor."
 
-#: ui/components/composer-actions.slint:741
+#: ui/components/composer-actions.slint:807
 msgid "Keep"
 msgstr "Conservar"
 
@@ -2893,35 +2905,35 @@ msgstr "Nuevo mensaje"
 msgid "Open in its own window"
 msgstr "Abrir en su propia ventana"
 
-#: ui/components/composer-fields.slint:348 ui/components/filter-rules.slint:80
+#: ui/components/composer-fields.slint:345 ui/components/filter-rules.slint:80
 msgid "To"
 msgstr "Para"
 
-#: ui/components/composer-fields.slint:349
+#: ui/components/composer-fields.slint:346
 msgid "name@example.com · separate with commas"
 msgstr "nombre@ejemplo.com · separa con comas"
 
-#: ui/components/composer-fields.slint:383 ui/components/filter-rules.slint:80
+#: ui/components/composer-fields.slint:380 ui/components/filter-rules.slint:80
 msgid "Cc"
 msgstr "Cc"
 
-#: ui/components/composer-fields.slint:393
+#: ui/components/composer-fields.slint:390
 msgid "Bcc"
 msgstr "Cco"
 
-#: ui/components/composer-fields.slint:408
+#: ui/components/composer-fields.slint:405
 msgid "Carbon copy"
 msgstr "Copia"
 
-#: ui/components/composer-fields.slint:422
+#: ui/components/composer-fields.slint:419
 msgid "Blind carbon copy"
 msgstr "Copia oculta"
 
-#: ui/components/composer-fields.slint:480 ui/components/filter-rules.slint:80
+#: ui/components/composer-fields.slint:477 ui/components/filter-rules.slint:80
 msgid "Subject"
 msgstr "Asunto"
 
-#: ui/components/composer-fields.slint:492
+#: ui/components/composer-fields.slint:489
 msgid "What is this email about?"
 msgstr "¿De qué trata este correo?"
 
@@ -2958,23 +2970,19 @@ msgstr "Página {} de {}"
 msgid "Next page"
 msgstr "Página siguiente"
 
-#: ui/components/email-composer.slint:246 ui/components/filter-rules.slint:80
+#: ui/components/email-composer.slint:253 ui/components/filter-rules.slint:80
 msgid "From"
 msgstr "De"
 
-#: ui/components/email-composer.slint:247
-msgid "Verified sender identity"
-msgstr "Identidad de remitente verificada"
-
-#: ui/components/email-composer.slint:260
+#: ui/components/email-composer.slint:270
 msgid "Signature"
 msgstr "Firma"
 
-#: ui/components/email-composer.slint:354
+#: ui/components/email-composer.slint:369
 msgid "Write your message…"
 msgstr "Escribe tu mensaje…"
 
-#: ui/components/email-composer.slint:628
+#: ui/components/email-composer.slint:667
 msgid "Undo send"
 msgstr "Deshacer envío"
 
@@ -3699,45 +3707,53 @@ msgstr "TODAS LAS CUENTAS"
 msgid "All Inboxes"
 msgstr "Todas las bandejas"
 
-#: ui/components/sidebar.slint:303
+#: ui/components/sidebar.slint:263
+msgid "With tasks"
+msgstr "Con tareas"
+
+#: ui/components/sidebar.slint:263
+msgid "Waiting on reply"
+msgstr "Esperando respuesta"
+
+#: ui/components/sidebar.slint:305
 msgid "Categories"
 msgstr "Categorías"
 
-#: ui/components/sidebar.slint:321
+#: ui/components/sidebar.slint:323
 msgid "Important"
 msgstr "Importante"
 
-#: ui/components/sidebar.slint:341 ui/dialogs/settings-dialog.slint:296
+#: ui/components/sidebar.slint:343 ui/dialogs/settings-dialog.slint:296
 msgid "Other"
 msgstr "Otros"
 
-#: ui/components/sidebar.slint:384 ui/components/sidebar.slint:539
+#: ui/components/sidebar.slint:386 ui/components/sidebar.slint:541
 #: ui/views/tasks-view.slint:2459
 msgid "Labels"
 msgstr "Etiquetas"
 
-#: ui/components/sidebar.slint:403
+#: ui/components/sidebar.slint:405
 msgid "Global label {}"
 msgstr "Etiqueta global {}"
 
-#: ui/components/sidebar.slint:435 ui/views/contacts-view.slint:208
+#: ui/components/sidebar.slint:437 ui/views/contacts-view.slint:208
 msgid "ACCOUNTS"
 msgstr "CUENTAS"
 
-#: ui/components/sidebar.slint:559
+#: ui/components/sidebar.slint:561
 msgid "{} label, {} account"
 msgstr "Etiqueta {}, cuenta {}"
 
-#: ui/components/sidebar.slint:601 ui/dialogs/folder-dialog.slint:27
+#: ui/components/sidebar.slint:603 ui/dialogs/folder-dialog.slint:27
 #: ui/views/files-view.slint:336
 msgid "New folder"
 msgstr "Nueva carpeta"
 
-#: ui/components/sidebar.slint:618 ui/dialogs/folder-dialog.slint:26
+#: ui/components/sidebar.slint:620 ui/dialogs/folder-dialog.slint:26
 msgid "New label"
 msgstr "Nueva etiqueta"
 
-#: ui/components/sidebar.slint:638
+#: ui/components/sidebar.slint:640
 msgid "No folders found"
 msgstr "No se encontraron carpetas"
 
@@ -7680,6 +7696,9 @@ msgstr "Restaurar"
 #: ui/window-chrome.slint:205 ui/window-chrome.slint:242
 msgid "Maximize"
 msgstr "Maximizar"
+
+#~ msgid "Verified sender identity"
+#~ msgstr "Identidad de remitente verificada"
 
 #~ msgid ""
 #~ "Status: inbox, next, waiting or scheduled; then ;project and ;context"

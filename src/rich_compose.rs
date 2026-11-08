@@ -112,6 +112,9 @@ pub struct RichComposeDocument {
     revision: u64,
 }
 
+const INDENT_STEP: usize = 4;
+const MAX_INDENT: usize = 16;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum BlockKind {
     Bullet,
@@ -340,6 +343,8 @@ impl RichComposeDocument {
             "bullet" => return self.toggle_block(BlockKind::Bullet, start, end),
             "number" => return self.toggle_block(BlockKind::Number, start, end),
             "quote" => return self.toggle_block(BlockKind::Quote, start, end),
+            "indent" => return self.shift_indent(start, end, true),
+            "outdent" => return self.shift_indent(start, end, false),
             _ => {}
         }
 
@@ -473,23 +478,36 @@ impl RichComposeDocument {
         }
 
         let mut html = String::with_capacity(self.text.len());
-        let mut open_list: Option<BlockKind> = None;
+        // One entry per open list level; each level's last `<li>` stays open
+        // until the next item shows whether a deeper list nests inside it.
+        let mut open_lists: Vec<BlockKind> = Vec::new();
         let mut line_start = 0;
 
         for line in self.text.split('\n') {
             let prefix = block_prefix_text(line);
             let block = prefix.map(|(kind, _)| kind);
             if !matches!(block, Some(BlockKind::Bullet | BlockKind::Number)) {
-                close_list(&mut html, &mut open_list);
+                close_lists(&mut html, &mut open_lists, 0);
             }
             let skip = prefix.map_or(0, |(_, bytes)| bytes);
             let content = line_start + skip..line_start + line.len();
             match block {
                 Some(kind @ (BlockKind::Bullet | BlockKind::Number)) => {
-                    ensure_list(&mut html, &mut open_list, kind);
+                    let depth = (line_indent(line).unwrap_or(0) / INDENT_STEP).min(open_lists.len());
+                    close_lists(&mut html, &mut open_lists, depth + 1);
+                    if open_lists.len() == depth + 1 {
+                        if open_lists[depth] == kind {
+                            html.push_str("</li>");
+                        } else {
+                            close_lists(&mut html, &mut open_lists, depth);
+                        }
+                    }
+                    if open_lists.len() == depth {
+                        html.push_str(if kind == BlockKind::Bullet { "<ul>" } else { "<ol>" });
+                        open_lists.push(kind);
+                    }
                     html.push_str("<li>");
                     append_inline_html(&mut html, &self.text, &self.styles, content);
-                    html.push_str("</li>");
                 }
                 Some(BlockKind::Quote) => {
                     html.push_str("<blockquote>");
@@ -512,7 +530,7 @@ impl RichComposeDocument {
             }
             line_start += line.len() + 1;
         }
-        close_list(&mut html, &mut open_list);
+        close_lists(&mut html, &mut open_lists, 0);
         Some(html)
     }
 
@@ -545,6 +563,95 @@ impl RichComposeDocument {
         });
         self.bump_revision();
         self.commit_style_edit(start_byte, before);
+    }
+
+    /// Moves the list items in the selection one level deeper or shallower.
+    /// A level is `INDENT_STEP` spaces before the marker; lines that are not
+    /// bulleted or numbered items are left alone.
+    fn shift_indent(&mut self, start_byte: usize, end_byte: usize, deeper: bool) -> ComposeSelection {
+        let start_line = self.text.as_bytes()[..start_byte]
+            .iter()
+            .filter(|&&byte| byte == b'\n')
+            .count();
+        let end_probe = if end_byte > start_byte {
+            end_byte - 1
+        } else {
+            end_byte
+        };
+        let end_line = self.text.as_bytes()[..end_probe]
+            .iter()
+            .filter(|&&byte| byte == b'\n')
+            .count();
+
+        let mut line_starts = Vec::new();
+        let mut offset = 0;
+        for (index, line) in self.text.split('\n').enumerate() {
+            if (start_line..=end_line).contains(&index) {
+                line_starts.push((offset, line_indent(line)));
+            }
+            offset += line.len() + 1;
+        }
+
+        let mut text = self.text.clone();
+        let mut styles = self.styles.clone();
+        let mut start = start_byte;
+        let mut end = end_byte;
+        let mut changed = false;
+        for &(line_start, indent) in line_starts.iter().rev() {
+            let Some(indent) = indent else {
+                continue;
+            };
+            let delta: isize = if deeper {
+                if indent + INDENT_STEP > MAX_INDENT {
+                    continue;
+                }
+                text.insert_str(line_start, &" ".repeat(INDENT_STEP));
+                let inserted = ComposeStyleRun {
+                    range: 0..INDENT_STEP,
+                    style: CharacterStyle::default(),
+                };
+                styles = replaced_style_runs(
+                    &styles,
+                    line_start,
+                    line_start,
+                    std::slice::from_ref(&inserted),
+                );
+                INDENT_STEP as isize
+            } else {
+                let removed = indent.min(INDENT_STEP);
+                if removed == 0 {
+                    continue;
+                }
+                text.replace_range(line_start..line_start + removed, "");
+                styles = replaced_style_runs(&styles, line_start, line_start + removed, &[]);
+                -(removed as isize)
+            };
+            changed = true;
+            if line_start <= start {
+                start = start.saturating_add_signed(delta).max(line_start);
+            }
+            if line_start <= end {
+                end = end.saturating_add_signed(delta).max(line_start);
+            }
+        }
+        if !changed {
+            return ComposeSelection {
+                start: to_i32(start_byte),
+                end: to_i32(end_byte),
+            };
+        }
+
+        let before = self.take_snapshot();
+        self.typing_override = None;
+        self.text = text;
+        self.styles = styles;
+        self.bump_revision();
+        self.selection = (to_i32(start), to_i32(end));
+        self.commit_edit(before);
+        ComposeSelection {
+            start: to_i32(start),
+            end: to_i32(end),
+        }
     }
 
     fn toggle_block(
@@ -1178,7 +1285,17 @@ fn continue_list_edit(old_text: &str, new_text: &str) -> Option<(String, i32)> {
     let line_start = old_text[..insertion].rfind('\n').map_or(0, |byte| byte + 1);
     let line = &old_text[line_start..insertion];
     let (kind, prefix_len) = block_prefix_text(line)?;
+    let indent = line.bytes().take_while(|&byte| byte == b' ').count();
     let content_is_empty = line[prefix_len..].chars().all(char::is_whitespace);
+    if content_is_empty && indent > 0 {
+        // Enter on an empty nested item steps one level out.
+        let removed = indent.min(INDENT_STEP);
+        let mut text = String::with_capacity(new_text.len());
+        text.push_str(&new_text[..line_start]);
+        text.push_str(&new_text[line_start + removed..insertion]);
+        text.push_str(&new_text[insertion + 1..]);
+        return Some((text, to_i32(insertion - removed)));
+    }
     if content_is_empty {
         let mut text = String::with_capacity(new_text.len() - (insertion + 1 - line_start));
         text.push_str(&new_text[..line_start]);
@@ -1187,16 +1304,17 @@ fn continue_list_edit(old_text: &str, new_text: &str) -> Option<(String, i32)> {
     }
 
     let number = if kind == BlockKind::Number {
-        line[..prefix_len.saturating_sub(2)]
+        line[indent..prefix_len.saturating_sub(2)]
             .parse::<usize>()
             .unwrap_or(1)
             .saturating_add(1)
     } else {
         1
     };
-    let marker_len = block_marker_len(kind, number);
+    let marker_len = indent + block_marker_len(kind, number);
     let mut text = String::with_capacity(new_text.len() + marker_len);
     text.push_str(&new_text[..insertion + 1]);
+    text.push_str(&" ".repeat(indent));
     append_block_marker(&mut text, kind, number);
     text.push_str(&new_text[insertion + 1..]);
     Some((text, to_i32(insertion + 1 + marker_len)))
@@ -1221,44 +1339,50 @@ fn append_block_marker(text: &mut String, kind: BlockKind, number: usize) {
     }
 }
 
-// Prefix lengths are UTF-8 byte offsets into the borrowed line.
+// Prefix lengths are UTF-8 byte offsets into the borrowed line. A list item
+// may be indented with spaces; the indentation counts as part of the prefix.
 fn block_prefix_text(text: &str) -> Option<(BlockKind, usize)> {
-    if text.starts_with("• ") {
-        return Some((BlockKind::Bullet, "• ".len()));
-    }
-    if text.starts_with("│ ") {
-        return Some((BlockKind::Quote, "│ ".len()));
-    }
-    let digits = text.bytes().take_while(u8::is_ascii_digit).count();
-    if digits > 0 && text.as_bytes().get(digits..digits + 2) == Some(b". ") {
-        return Some((BlockKind::Number, digits + 2));
-    }
-    None
-}
-
-fn ensure_list(html: &mut String, current: &mut Option<BlockKind>, requested: BlockKind) {
-    if *current == Some(requested) {
-        return;
-    }
-    close_list(html, current);
-    html.push_str(if requested == BlockKind::Bullet {
-        "<ul>"
+    let indent = text.bytes().take_while(|&byte| byte == b' ').count();
+    let rest = &text[indent..];
+    let (kind, length) = if rest.starts_with("• ") {
+        (BlockKind::Bullet, "• ".len())
+    } else if rest.starts_with("│ ") {
+        (BlockKind::Quote, "│ ".len())
     } else {
-        "<ol>"
-    });
-    *current = Some(requested);
+        let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
+        if digits > 0 && rest.as_bytes().get(digits..digits + 2) == Some(b". ") {
+            (BlockKind::Number, digits + 2)
+        } else {
+            return None;
+        }
+    };
+    if indent > 0 && kind == BlockKind::Quote {
+        return None;
+    }
+    Some((kind, indent + length))
 }
 
-fn close_list(html: &mut String, current: &mut Option<BlockKind>) {
-    if let Some(kind) = current.take() {
+/// Leading spaces of a bulleted or numbered line; `None` for other lines.
+fn line_indent(line: &str) -> Option<usize> {
+    match block_prefix_text(line) {
+        Some((BlockKind::Bullet | BlockKind::Number, _)) => {
+            Some(line.bytes().take_while(|&byte| byte == b' ').count())
+        }
+        _ => None,
+    }
+}
+
+/// Closes open list levels (and their last item) until `keep` remain.
+fn close_lists(html: &mut String, open: &mut Vec<BlockKind>, keep: usize) {
+    while open.len() > keep {
+        let kind = open.pop().expect("length checked above");
         html.push_str(if kind == BlockKind::Bullet {
-            "</ul>"
+            "</li></ul>"
         } else {
-            "</ol>"
+            "</li></ol>"
         });
     }
 }
-
 fn append_inline_html(
     output: &mut String,
     text: &str,
@@ -1568,6 +1692,40 @@ mod tests {
         let numbered = document.synchronize("3. Third\n", 9, 9);
         assert_eq!(document.text(), "3. Third\n4. ");
         assert_eq!(numbered, ComposeSelection { start: 12, end: 12 });
+    }
+
+    #[test]
+    fn list_items_indent_outdent_and_nest_in_html() {
+        let mut document = RichComposeDocument::default();
+        let text = "• One\n• Two\nplain";
+        document.synchronize(text, 0, 0);
+        let selection = document.format("indent", text, 12, 12);
+        assert_eq!(document.text(), "• One\n    • Two\nplain");
+        assert_eq!(selection, ComposeSelection { start: 16, end: 16 });
+        assert_eq!(
+            document.body_html().unwrap(),
+            "<ul><li>One<ul><li>Two</li></ul></li></ul><div>plain</div>"
+        );
+
+        let text = document.text().to_owned();
+        let selection = document.format("outdent", &text, 16, 16);
+        assert_eq!(document.text(), "• One\n• Two\nplain");
+        assert_eq!(selection, ComposeSelection { start: 12, end: 12 });
+
+        // Plain lines are not indented.
+        let text = document.text().to_owned();
+        document.format("indent", &text, 18, 18);
+        assert_eq!(document.text(), "• One\n• Two\nplain");
+    }
+
+    #[test]
+    fn enter_in_an_indented_item_keeps_the_level_and_empty_steps_out() {
+        let mut document = RichComposeDocument::default();
+        document.synchronize("• One\n    • Two", 0, 0);
+        document.synchronize("• One\n    • Two\n", 0, 0);
+        assert_eq!(document.text(), "• One\n    • Two\n    • ");
+        document.synchronize("• One\n    • Two\n    • \n", 0, 0);
+        assert_eq!(document.text(), "• One\n    • Two\n• ");
     }
 
     #[test]

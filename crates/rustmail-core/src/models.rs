@@ -54,6 +54,9 @@ pub enum MailProtocol {
     /// Usenet news over NNTP (read and post). Stored as `imap`; the account's
     /// `connection.news` flag marks it.
     News,
+    /// POP3 download (optionally leaving mail on the server) plus SMTP.
+    /// Stored as `imap`; the account's `connection.pop3` flag marks it.
+    Pop3,
 }
 
 impl MailProtocol {
@@ -63,6 +66,7 @@ impl MailProtocol {
             Self::Imap => "imap",
             Self::Local => "local",
             Self::News => "news",
+            Self::Pop3 => "pop3",
         }
     }
 
@@ -70,7 +74,7 @@ impl MailProtocol {
     pub const fn storage_str(self) -> &'static str {
         match self {
             Self::Jmap => "jmap",
-            Self::Imap | Self::Local | Self::News => "imap",
+            Self::Imap | Self::Local | Self::News | Self::Pop3 => "imap",
         }
     }
 
@@ -81,6 +85,8 @@ impl MailProtocol {
             Self::Local
         } else if value.eq_ignore_ascii_case("news") {
             Self::News
+        } else if value.eq_ignore_ascii_case("pop3") {
+            Self::Pop3
         } else {
             Self::Imap
         }
@@ -414,6 +420,35 @@ pub struct MailConnectionSettings {
     pub news: bool,
     /// Subscribed newsgroups, separated by commas, spaces or new lines.
     pub news_groups: String,
+    /// Marks a POP3 account; the server is the account's IMAP host/port and
+    /// `imap_security` selects TLS, STLS or none.
+    pub pop3: bool,
+    /// Keep downloaded mail on the server. When false, mail is deleted from
+    /// the server after it has been stored locally.
+    pub pop3_leave_on_server: bool,
+    /// With "leave on server": delete a message from the server this many
+    /// days after it was downloaded; 0 keeps it forever.
+    pub pop3_delete_after_days: u32,
+    /// Messages larger than this many KiB are not downloaded (only their
+    /// headers are imported and the message stays on the server); 0 = no limit.
+    pub pop3_max_size_kb: u32,
+    /// Log in to the POP3 server before every send (POP-before-SMTP).
+    pub pop3_before_smtp: bool,
+    pub pop3_auth: Pop3Auth,
+}
+
+/// How a POP3 login is made.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Pop3Auth {
+    /// APOP when the server offers it on an unencrypted connection (so the
+    /// password is not sent in the clear), otherwise USER/PASS.
+    #[default]
+    Auto,
+    /// USER/PASS only.
+    Plain,
+    /// APOP only (refused when the server gives no timestamp).
+    Apop,
 }
 
 /// On-disk layout of a local mail account.
@@ -2518,6 +2553,7 @@ mod tests {
             MailProtocol::Jmap,
             MailProtocol::Local,
             MailProtocol::News,
+            MailProtocol::Pop3,
         ] {
             assert_eq!(MailProtocol::from_storage(protocol.as_str()), protocol);
         }

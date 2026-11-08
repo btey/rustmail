@@ -25,6 +25,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/020_task_quick_capture.sql"),
     include_str!("migrations/021_task_co_assignees.sql"),
     include_str!("migrations/022_task_percent.sql"),
+    include_str!("migrations/023_pop3.sql"),
 ];
 pub const LATEST_VERSION: i64 = MIGRATIONS.len() as i64;
 
@@ -150,6 +151,7 @@ mod tests {
             "nntp_groups",
             "notification_outbox",
             "pending_actions",
+            "pop3_seen",
             "route_cache",
             "sender_identities",
             "snippets",

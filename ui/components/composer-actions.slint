@@ -24,6 +24,8 @@ export component ComposerToolbar inherits Rectangle {
     in property <bool> code-active: false;
     in property <bool> link-active: false;
     in property <bool> can-link: false;
+    // Not enough width for every tool in one row.
+    property <bool> narrow: root.width < 640px;
     callback apply-format(string);
     callback open-templates();
     callback undo();
@@ -60,19 +62,49 @@ export component ComposerToolbar inherits Rectangle {
 
             IconButton { icon: @image-url("../icons/lucide/outline/list-unordered.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Bulleted list"); clicked => { root.apply-format("bullet"); } }
             IconButton { icon: @image-url("../icons/lucide/outline/list-ordered.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Numbered list"); clicked => { root.apply-format("number"); } }
-            IconButton { icon: @image-url("../icons/lucide/outline/quote.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Quote"); clicked => { root.apply-format("quote"); } }
-            IconButton { icon: root.code-active ? @image-url("../icons/lucide/filled/code.svg") : @image-url("../icons/lucide/outline/code.svg"); icon-color: root.code-active ? root.accent-color : root.secondary-color; active: root.code-active; hover-background: root.control-hover-color; active-background: root.accent-background; tooltip-text: @tr("Inline code"); clicked => { root.apply-format("code"); } }
+            IconButton { icon: @image-url("../icons/lucide/outline/chevron-left.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Decrease list indent · Ctrl+["); clicked => { root.apply-format("outdent"); } }
+            IconButton { icon: @image-url("../icons/lucide/outline/chevron-right.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Increase list indent · Ctrl+]"); clicked => { root.apply-format("indent"); } }
+            if !root.narrow : IconButton { icon: @image-url("../icons/lucide/outline/quote.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Quote"); clicked => { root.apply-format("quote"); } }
+            if !root.narrow : IconButton { icon: root.code-active ? @image-url("../icons/lucide/filled/code.svg") : @image-url("../icons/lucide/outline/code.svg"); icon-color: root.code-active ? root.accent-color : root.secondary-color; active: root.code-active; hover-background: root.control-hover-color; active-background: root.accent-background; tooltip-text: @tr("Inline code"); clicked => { root.apply-format("code"); } }
             IconButton { icon: root.link-active ? @image-url("../icons/lucide/filled/link.svg") : @image-url("../icons/lucide/outline/link.svg"); icon-color: root.link-active ? root.accent-color : root.secondary-color; active: root.link-active; active-background: root.accent-background; interactive: root.can-link; hover-background: root.control-hover-color; tooltip-text: root.can-link ? @tr("Add or edit link") : @tr("Select text to add a link"); clicked => { root.apply-format("link"); } }
 
-            Rectangle { width: 1px; height: 18px; background: root.subtle-border-color; }
+            if !root.narrow : Rectangle { width: 1px; height: 18px; background: root.subtle-border-color; }
 
-            IconButton { icon: @image-url("../icons/lucide/outline/book.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Email templates"); clicked => { root.open-templates(); } }
-            if UserActions.editor-available : IconButton { icon: @image-url("../icons/lucide/outline/pencil.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Edit in external editor"); clicked => { UserActions.edit-externally(); } }
+            if !root.narrow : IconButton { icon: @image-url("../icons/lucide/outline/book.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Email templates"); clicked => { root.open-templates(); } }
+            if !root.narrow && UserActions.editor-available : IconButton { icon: @image-url("../icons/lucide/outline/pencil.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Edit in external editor"); clicked => { UserActions.edit-externally(); } }
+
+            // On a narrow composer the less used tools move into one menu.
+            if root.narrow : ActionMenu {
+                width: 32px;
+                height: 32px;
+                icon: @image-url("../icons/lucide/outline/kebab-horizontal.svg");
+                entries: [
+                    { id: "quote", title: @tr("Quote") },
+                    { id: "code", title: @tr("Inline code") },
+                    { id: "templates", title: @tr("Email templates") },
+                    { id: "undo", title: @tr("Undo · Ctrl+Z") },
+                    { id: "redo", title: @tr("Redo · Ctrl+Shift+Z") },
+                ];
+                menu-width: 220px;
+                align-right: true;
+                tooltip-text: @tr("More tools");
+                activated(id) => {
+                    if id == "quote" || id == "code" {
+                        root.apply-format(id);
+                    } else if id == "templates" {
+                        root.open-templates();
+                    } else if id == "undo" {
+                        root.undo();
+                    } else {
+                        root.redo();
+                    }
+                }
+            }
 
             Rectangle { horizontal-stretch: 1; }
 
-            IconButton { icon: @image-url("../icons/lucide/outline/undo.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Undo · Ctrl+Z"); clicked => { root.undo(); } }
-            IconButton { icon: @image-url("../icons/lucide/outline/redo.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Redo · Ctrl+Shift+Z"); clicked => { root.redo(); } }
+            if !root.narrow : IconButton { icon: @image-url("../icons/lucide/outline/undo.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Undo · Ctrl+Z"); clicked => { root.undo(); } }
+            if !root.narrow : IconButton { icon: @image-url("../icons/lucide/outline/redo.svg"); icon-color: root.secondary-color; hover-background: root.control-hover-color; tooltip-text: @tr("Redo · Ctrl+Shift+Z"); clicked => { root.redo(); } }
         }
     }
 }
@@ -180,8 +212,6 @@ component TaskOptionMenu inherits Rectangle {
     in property <[ActionMenuEntry]> entries;
     in property <string> tooltip;
     callback picked(string);
-    height: 30px;
-    y: 1px;
     border-radius: 6px;
     border-width: 1px;
     border-color: AppTheme.border;
@@ -209,47 +239,119 @@ component TaskOptionMenu inherits Rectangle {
     }
 }
 
+// One icon row of the task options card: icon, label, then the control.
+component TaskOptionRow inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <length> control-width: 150px;
+    height: 38px;
+    Image {
+        x: 12px;
+        y: (parent.height - self.height) / 2;
+        width: 16px;
+        height: 16px;
+        source: root.icon;
+        colorize: AppTheme.accent;
+    }
+    Text {
+        x: 38px;
+        width: max(0px, parent.width - 38px - root.control-width - 18px);
+        height: parent.height;
+        text: root.label;
+        color: AppTheme.heading;
+        font-size: TypeScale.caption;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    // The control fills the row height minus a 4px margin; the layout keeps
+    // it centred whatever the control's own height.
+    HorizontalLayout {
+        x: parent.width - root.control-width - 8px;
+        y: 4px;
+        width: root.control-width;
+        height: parent.height - 9px;
+        spacing: 4px;
+        @children
+    }
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: AppTheme.border;
+    }
+}
+
+// The note under the header of a mail written from a task.
+export component TaskLinkBanner inherits Rectangle {
+    in property <color> accent-background;
+    in property <color> accent-color;
+    visible: TaskComposeUi.active;
+    height: TaskComposeUi.active ? 36px : 0px;
+    if TaskComposeUi.active : Rectangle {
+        x: 12px;
+        y: 4px;
+        width: parent.width - 24px;
+        height: 28px;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: root.accent-color.with-alpha(0.35);
+        background: root.accent-background;
+        Image {
+            x: 10px;
+            y: 6px;
+            width: 16px;
+            height: 16px;
+            source: @image-url("../icons/lucide/outline/link.svg");
+            colorize: root.accent-color;
+        }
+        Text {
+            x: 34px;
+            width: parent.width - 44px;
+            height: parent.height;
+            text: @tr("This email and every reply in its thread will be linked to the task.");
+            color: root.accent-color;
+            font-size: TypeScale.caption;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
 export component ComposerNotice inherits Rectangle {
     in property <string> notice: "";
     in property <bool> notice-is-error: false;
     in property <color> accent-background;
     in property <color> accent-color;
 
-            visible: root.notice != "" || TaskComposeUi.active;
-            height: TaskComposeUi.active
-                ? 24px + 32px * (2 + (TaskComposeUi.follow-up != 3 ? 1 : 0)
-                    + (TaskComposeUi.follow-up != 3 && TaskComposeUi.follow-up-event && TaskComposeUi.calendar-menu.length > 1 ? 1 : 0)
-                    + (TaskComposeUi.checklist-menu.length > 0 ? 1 : 0)) + (root.notice == "" ? 0px : 26px)
-                : root.notice == "" ? 0px : 24px;
-            background: root.notice-is-error ? #d73a4920 : root.accent-background;
+    property <int> rows: 2 + (TaskComposeUi.follow-up != 3 ? 1 : 0)
+        + (TaskComposeUi.follow-up != 3 && TaskComposeUi.follow-up-event && TaskComposeUi.calendar-menu.length > 1 ? 1 : 0)
+        + (TaskComposeUi.checklist-menu.length > 0 ? 1 : 0);
 
-            if TaskComposeUi.active: VerticalLayout {
-                padding-left: 14px;
-                padding-right: 14px;
-                padding-top: 4px;
+    visible: root.notice != "" || TaskComposeUi.active;
+    height: TaskComposeUi.active
+        ? 14px + 38px * root.rows + (root.notice == "" ? 0px : 26px)
+        : root.notice == "" ? 0px : 24px;
+    background: TaskComposeUi.active ? transparent : root.notice-is-error ? #d73a4920 : root.accent-background;
+
+    if TaskComposeUi.active: VerticalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        spacing: 0px;
+        Rectangle {
+            height: 38px * root.rows;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            background: AppTheme.surface;
+            clip: true;
+            VerticalLayout {
                 spacing: 0px;
-                Text {
-                    height: 24px;
-                    text: @tr("This email and every reply in its thread will be linked to the task.");
-                    color: root.accent-color;
-                    font-size: TypeScale.caption;
-                    vertical-alignment: center;
-                    overflow: elide;
-                }
-                HorizontalLayout {
-                    height: 32px;
-                    spacing: 8px;
-                    Text {
-                        horizontal-stretch: 1;
-                        text: @tr("After sending, move task to");
-                        color: root.accent-color;
-                        font-size: TypeScale.caption;
-                        font-weight: 600;
-                        vertical-alignment: center;
-                        overflow: elide;
-                    }
+                TaskOptionRow {
+                    icon: @image-url("../icons/lucide/outline/history.svg");
+                    label: @tr("After sending, move task to");
                     TaskOptionMenu {
-                        width: 170px;
+                        horizontal-stretch: 1;
                         value: TaskComposeUi.after == 0 ? @tr("Waiting for") : TaskComposeUi.after == 1 ? @tr("Stay in place") : @tr("Done");
                         entries: [
                             { id: "0", title: @tr("Waiting for") },
@@ -260,20 +362,11 @@ export component ComposerNotice inherits Rectangle {
                         picked(id) => { TaskComposeUi.choose-after(id == "1" ? 1 : id == "2" ? 2 : 0); }
                     }
                 }
-                HorizontalLayout {
-                    height: 32px;
-                    spacing: 8px;
-                    Text {
-                        horizontal-stretch: 1;
-                        text: TaskComposeUi.follow-up == 3 || TaskComposeUi.follow-up-date == "" ? @tr("If there's no reply, add a follow-up in") : @tr("If there's no reply, add a follow-up in") + " · " + TaskComposeUi.follow-up-date;
-                        color: root.accent-color;
-                        font-size: TypeScale.caption;
-                        font-weight: 600;
-                        vertical-alignment: center;
-                        overflow: elide;
-                    }
+                TaskOptionRow {
+                    icon: @image-url("../icons/lucide/outline/calendar.svg");
+                    label: TaskComposeUi.follow-up == 3 || TaskComposeUi.follow-up-date == "" ? @tr("If there's no reply, add a follow-up in") : @tr("If there's no reply, add a follow-up in") + " · " + TaskComposeUi.follow-up-date;
                     TaskOptionMenu {
-                        width: 170px;
+                        horizontal-stretch: 1;
                         value: TaskComposeUi.follow-up == 0 ? @tr("4 days") : TaskComposeUi.follow-up == 1 ? @tr("2 days") : TaskComposeUi.follow-up == 2 ? @tr("1 week") : @tr("Never");
                         entries: [
                             { id: "0", title: @tr("4 days") },
@@ -285,86 +378,58 @@ export component ComposerNotice inherits Rectangle {
                         picked(id) => { TaskComposeUi.choose-follow-up(id == "1" ? 1 : id == "2" ? 2 : id == "3" ? 3 : 0); }
                     }
                 }
-                if TaskComposeUi.follow-up != 3 : HorizontalLayout {
-                    height: 32px;
-                    spacing: 8px;
-                    Text {
-                        horizontal-stretch: 1;
-                        text: @tr("Add the follow-up to the Calendar");
-                        color: root.accent-color;
-                        font-size: TypeScale.caption;
-                        font-weight: 600;
-                        vertical-alignment: center;
-                        overflow: elide;
-                    }
+                if TaskComposeUi.follow-up != 3 : TaskOptionRow {
+                    icon: @image-url("../icons/lucide/outline/calendar.svg");
+                    label: @tr("Add the follow-up to the Calendar");
                     Button {
-                        y: 2px;
-                        height: 28px;
                         text: TaskComposeUi.follow-up-event ? @tr("Yes") : @tr("No");
                         selected: TaskComposeUi.follow-up-event;
-                        width: 170px;
+                        horizontal-stretch: 1;
                         clicked => { TaskComposeUi.follow-up-event = !TaskComposeUi.follow-up-event; }
                     }
                 }
-                if TaskComposeUi.follow-up != 3 && TaskComposeUi.follow-up-event && TaskComposeUi.calendar-menu.length > 1 : HorizontalLayout {
-                    height: 32px;
-                    spacing: 8px;
-                    Text {
-                        horizontal-stretch: 1;
-                        text: @tr("Calendar");
-                        color: root.accent-color;
-                        font-size: TypeScale.caption;
-                        font-weight: 600;
-                        vertical-alignment: center;
-                        overflow: elide;
-                    }
+                if TaskComposeUi.follow-up != 3 && TaskComposeUi.follow-up-event && TaskComposeUi.calendar-menu.length > 1 : TaskOptionRow {
+                    icon: @image-url("../icons/lucide/outline/calendar.svg");
+                    label: @tr("Calendar");
                     TaskOptionMenu {
-                        width: 170px;
+                        horizontal-stretch: 1;
                         value: TaskComposeUi.calendar-name;
                         entries: TaskComposeUi.calendar-menu;
                         tooltip: @tr("Calendar");
                         picked(id) => { TaskComposeUi.choose-calendar(id); }
                     }
                 }
-                if TaskComposeUi.checklist-menu.length > 0 : HorizontalLayout {
-                    height: 32px;
-                    spacing: 8px;
-                    Text {
-                        horizontal-stretch: 1;
-                        text: @tr("Tick off a checklist step once sent");
-                        color: root.accent-color;
-                        font-size: TypeScale.caption;
-                        font-weight: 600;
-                        vertical-alignment: center;
-                        overflow: elide;
-                    }
+                if TaskComposeUi.checklist-menu.length > 0 : TaskOptionRow {
+                    icon: @image-url("../icons/lucide/outline/check.svg");
+                    label: @tr("Tick off a checklist step once sent");
                     TaskOptionMenu {
-                        width: TaskComposeUi.tick-item >= 0 ? 134px : 170px;
+                        horizontal-stretch: 1;
                         value: TaskComposeUi.tick-item >= 0 ? TaskComposeUi.tick-name : @tr("None");
                         entries: TaskComposeUi.checklist-menu;
                         tooltip: @tr("Tick off a checklist step once sent");
                         picked(id) => { TaskComposeUi.choose-tick(id); }
                     }
                     if TaskComposeUi.tick-item >= 0 : IconButton {
-                        y: 2px;
                         width: 28px;
-                        height: 28px;
                         icon: @image-url("../icons/lucide/outline/x.svg");
                         icon-color: root.accent-color;
                         tooltip-text: @tr("No checklist step");
                         clicked => { TaskComposeUi.choose-tick("-1"); }
                     }
                 }
-                if root.notice != "" : Text {
-                    height: 26px;
-                    text: root.notice;
-                    color: root.notice-is-error ? #d73a49 : root.accent-color;
-                    font-size: TypeScale.caption;
-                    font-weight: 600;
-                    vertical-alignment: center;
-                    overflow: elide;
-                }
             }
+        }
+        if root.notice != "" : Text {
+            height: 26px;
+            text: root.notice;
+            color: root.notice-is-error ? #d73a49 : root.accent-color;
+            font-size: TypeScale.caption;
+            font-weight: 600;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
 
             if !TaskComposeUi.active: Text {
                 x: 14px;
@@ -474,7 +539,7 @@ export component ComposerFooter inherits Rectangle {
                 width: root.compact ? 44px : 32px;
                 height: root.compact ? 44px : 32px;
                 compact: root.compact;
-                icon: @image-url("../icons/lucide/outline/chevron-down.svg");
+                icon: TaskComposeUi.active ? @image-url("../icons/lucide/outline/history.svg") : @image-url("../icons/lucide/outline/chevron-down.svg");
                 entries: [
                     { id: "1h", title: @tr("Send in 1 hour") },
                     { id: "4h", title: @tr("Send in 4 hours") },
@@ -515,7 +580,8 @@ export component ComposerFooter inherits Rectangle {
             }
 
             Text {
-                visible: !root.compact && root.attachment-picker-supported;
+                visible: !root.compact && root.attachment-picker-supported
+                    && (!TaskComposeUi.active || root.attachment-summary != "");
                 x: attach-button.x + attach-button.width + 8px;
                 width: max(0px, save-draft.x - self.x - 42px);
                 height: parent.height;

@@ -970,6 +970,12 @@ async fn send_action(
         };
         let hydrated = secrets::hydrate_account(&ctx.credentials, config).await;
         let config = &hydrated;
+        // POP-before-SMTP: a POP login first, so the SMTP server accepts us.
+        if config.mail_protocol == crate::models::MailProtocol::Pop3
+            && config.settings.connection.pop3_before_smtp
+        {
+            crate::pop3::authorize_smtp(ctx, config).await?;
+        }
 
         let recipients: Vec<String> = detail
             .to

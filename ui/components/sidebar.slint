@@ -259,7 +259,9 @@ export component MailSidebar inherits CollapsibleWorkspaceSidebar {
                         interactive: entry.show_row;
                         y: 0px;
                         width: parent.width;
-                        label: entry.mailbox.label;
+                        label: entry.mailbox.context == "Tasks"
+                            ? (entry.mailbox.label == "With tasks" ? @tr("With tasks") : @tr("Waiting on reply"))
+                            : entry.mailbox.label;
                         count: entry.mailbox.count;
                         scope: entry.mailbox.scope;
                         account-id: entry.mailbox.account_id;

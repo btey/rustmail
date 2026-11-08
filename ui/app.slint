@@ -967,6 +967,9 @@ export component AppWindow inherits Window {
     in-out property <length> compose_editor_viewport_height;
     in-out property <length> compose_editor_scroll_y;
     in-out property <string> compose_editor_preedit_text;
+    // The editor is painted outside Slint; it takes its size from the same
+    // type step as the "Write your message…" placeholder and the subject.
+    out property <length> compose_editor_font_size: compose-font-probe.font-size;
     out property <color> compose_editor_text_color: root.body-text;
     out property <color> compose_editor_link_color: root.accent;
     out property <color> compose_editor_selection_color: root.accent;
@@ -1266,6 +1269,8 @@ export component AppWindow inherits Window {
         WindowChrome.top-bar = root.top-bar;
         TabsUi.enabled = root.top-bar;
     }
+
+    compose-font-probe := Text { visible: false; width: 0px; height: 0px; font-size: TypeScale.body-large; text: ""; }
 
     // Seeds WindowChrome once; the handlers above keep it current. A child
     // element runs this so AppWindow's own init stays free for tooling.

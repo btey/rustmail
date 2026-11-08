@@ -29,6 +29,7 @@ pub mod mime;
 pub mod models;
 pub mod nntp;
 pub mod oauth;
+pub mod pop3;
 pub mod queue;
 pub mod route;
 pub mod scheduler;
@@ -950,7 +951,7 @@ impl Core {
                         repo::folders::reopen_backfill_for_account(&transaction, account_id)?;
                     }
                     // Local mail is always read in full.
-                    (_, MailProtocol::Local | MailProtocol::News) => {}
+                    (_, MailProtocol::Local | MailProtocol::News | MailProtocol::Pop3) => {}
                 }
                 transaction.commit()?;
                 Ok(Some(config.settings))
@@ -1038,7 +1039,12 @@ impl Core {
                 },
             };
         }
-        match self.check_imap_smtp(&args).await {
+        let checked = if args.mail_protocol == MailProtocol::Pop3 {
+            self.check_pop3(&args).await
+        } else {
+            self.check_imap_smtp(&args).await
+        };
+        match checked {
             Ok(()) => ConnectionTestResult {
                 ok: true,
                 error: None,
@@ -1048,6 +1054,58 @@ impl Core {
                 error: Some(e.to_string()),
             },
         }
+    }
+
+    /// Log in to the POP3 server, then (when an SMTP server is set) check the
+    /// SMTP login. Nothing is downloaded or deleted.
+    async fn check_pop3(&self, args: &AddPasswordAccountArgs) -> Result<()> {
+        let host = args.imap_host.trim();
+        if host.is_empty() || host.len() > 253 || args.imap_port == 0 {
+            return Err(CoreError::Other(
+                "enter the POP3 server name and port".into(),
+            ));
+        }
+        let mut connection = args.connection.clone();
+        connection.pop3 = true;
+        connection.client_key_pem =
+            models::SecretString::new(args.client_key_pem.clone().unwrap_or_default());
+        let login = pop3::client::Login {
+            user: args.username.trim().to_owned(),
+            password: args.password.clone(),
+        };
+        let mut client =
+            pop3::client::Pop3Client::connect(host, args.imap_port, &connection, &login).await?;
+        let stat = client.stat().await;
+        client.quit_quietly().await;
+        stat?;
+        if args.smtp_host.trim().is_empty() {
+            return Ok(());
+        }
+        let config = AccountConfig {
+            id: 0,
+            email: args.email.clone(),
+            display_name: None,
+            avatar_url: None,
+            provider: Provider::Imap,
+            auth_kind: AuthKind::Password,
+            mail_protocol: MailProtocol::Pop3,
+            username: args.username.clone(),
+            jmap_url: String::new(),
+            jmap_account_id: None,
+            imap_host: args.imap_host.clone(),
+            imap_port: args.imap_port,
+            smtp_host: args.smtp_host.clone(),
+            smtp_port: args.smtp_port,
+            settings: AccountSettings {
+                connection,
+                ..Default::default()
+            },
+        };
+        let smtp_password = args
+            .smtp_password
+            .clone()
+            .unwrap_or_else(|| args.password.clone());
+        smtp::test_connection(&config, &smtp::SmtpAuth::Password(smtp_password)).await
     }
 
     async fn check_imap_smtp(&self, args: &AddPasswordAccountArgs) -> Result<()> {
@@ -1665,6 +1723,21 @@ impl Core {
         {
             return Err(CoreError::Auth("an account field is too long".into()));
         }
+        let args = if args.mail_protocol == MailProtocol::Pop3 {
+            let mut args = args;
+            // The marker the account loader uses to tell POP3 from IMAP.
+            args.connection.pop3 = true;
+            args
+        } else {
+            args
+        };
+        if args.mail_protocol == MailProtocol::Pop3
+            && (args.imap_host.trim().is_empty() || args.imap_port == 0)
+        {
+            return Err(CoreError::Auth(
+                "the POP3 server host and port are required".into(),
+            ));
+        }
         if args.mail_protocol == MailProtocol::Imap
             && (args.imap_host.is_empty()
                 || args.smtp_host.is_empty()
@@ -1702,6 +1775,9 @@ impl Core {
                 .await?
                 .account_id,
             )
+        } else if args.mail_protocol == MailProtocol::Pop3 {
+            self.check_pop3(&args).await?;
+            None
         } else {
             self.check_imap_smtp(&args).await?;
             None

@@ -15,8 +15,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-const FONT_SIZE_LOGICAL: f32 = 13.0;
-const LINE_HEIGHT_LOGICAL: f32 = 18.0;
+const FONT_SIZE_LOGICAL: f32 = 15.0;
+const LINE_HEIGHT_LOGICAL: f32 = 22.0;
+
+/// Line height that goes with a font size (the same ratio as the defaults).
+fn line_height_for(font_size: f32) -> f32 {
+    (font_size * LINE_HEIGHT_LOGICAL / FONT_SIZE_LOGICAL).round()
+}
 pub(crate) const UI_FONT_FAMILY: &str = "Google Sans Flex";
 pub(crate) const UI_FONT_DATA: &[u8] = include_bytes!(
     "../resources/fonts/google-sans-flex/GoogleSansFlex-VariableFont_GRAD,ROND,opsz,slnt,wdth,wght.ttf"
@@ -33,6 +38,7 @@ const TRAILING_LINE_SENTINEL: &str = "\u{200b}";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ComposeEditorStyle {
+    pub font_size: f32,
     pub text: Color,
     pub link: Color,
     pub selection: Color,
@@ -61,6 +67,7 @@ struct LayoutKey {
     scale_bits: u32,
     text_color: u32,
     link_color: u32,
+    font_bits: u32,
 }
 
 /// Retained cosmic-text layout and raster cache for the composer body.
@@ -79,6 +86,7 @@ pub struct CosmicComposeEditor {
     visual_text: String,
     rendered_selection: Option<(i32, i32)>,
     content_height_physical: f32,
+    line_height_logical: f32,
     tiles: BTreeMap<u32, RenderedComposeTile>,
     pointer_down: bool,
     last_pointer_down: Option<(Instant, f32, f32)>,
@@ -138,6 +146,7 @@ impl Default for CosmicComposeEditor {
             visual_text: String::new(),
             rendered_selection: None,
             content_height_physical: LINE_HEIGHT_LOGICAL,
+            line_height_logical: LINE_HEIGHT_LOGICAL,
             tiles: BTreeMap::new(),
             pointer_down: false,
             last_pointer_down: None,
@@ -420,6 +429,7 @@ impl CosmicComposeEditor {
             scale_bits: scale_factor.to_bits(),
             text_color: style.text.as_argb_encoded(),
             link_color: style.link.as_argb_encoded(),
+            font_bits: style.font_size.to_bits(),
         };
         let preedit_offset = valid_offset(document.text(), selection.end);
         if self.layout_key == Some(key)
@@ -429,9 +439,10 @@ impl CosmicComposeEditor {
             return false;
         }
 
+        self.line_height_logical = line_height_for(style.font_size);
         let metrics = Metrics::new(
-            FONT_SIZE_LOGICAL * scale_factor,
-            LINE_HEIGHT_LOGICAL * scale_factor,
+            style.font_size * scale_factor,
+            self.line_height_logical * scale_factor,
         );
         let default_attrs = Attrs::new()
             .family(Family::Name(UI_FONT_FAMILY))
@@ -638,7 +649,7 @@ impl CosmicComposeEditor {
 
     fn caret_geometry(&self, scale_factor: f32) -> (f32, f32, f32) {
         let Some((x, y)) = self.editor.cursor_position() else {
-            return (0.0, 0.0, LINE_HEIGHT_LOGICAL);
+            return (0.0, 0.0, self.line_height_logical);
         };
         let cursor = self.editor.cursor();
         let line_height = self.editor.with_buffer(|buffer| {
@@ -649,7 +660,7 @@ impl CosmicComposeEditor {
                         && run.cursor_position(&cursor).is_some()
                         && (run.line_top - y as f32).abs() < 0.5
                 })
-                .map_or(LINE_HEIGHT_LOGICAL * scale_factor, |run| run.line_height)
+                .map_or(self.line_height_logical * scale_factor, |run| run.line_height)
         });
         (
             x as f32 / scale_factor,
@@ -1015,6 +1026,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn plain_left_arrow_at_the_end_moves_the_caret_without_selecting() {
+        let mut document = RichComposeDocument::default();
+        let text = "Hello World\nmore text";
+        document.synchronize(text, text.len() as i32, text.len() as i32);
+        let mut surface = CosmicComposeEditor::default();
+        let style = ComposeEditorStyle {
+            font_size: FONT_SIZE_LOGICAL,
+            text: Color::from_rgb_u8(30, 30, 30),
+            link: Color::from_rgb_u8(0, 90, 180),
+            selection: Color::from_argb_u8(140, 60, 120, 220),
+            selected_text: Color::from_rgb_u8(255, 255, 255),
+        };
+        let mut selection = document.selection();
+        for step in 0..3 {
+            let next = surface
+                .handle_navigation(
+                    &document, selection, 520.0, 1.0, style, "", "\u{f702}", false, false, false,
+                    false,
+                )
+                .unwrap();
+            assert_eq!(next.start, next.end, "step {step} selected text");
+            assert_eq!(next.end, text.len() as i32 - 1 - step);
+            selection = document.update_selection(next.start, next.end);
+        }
+    }
+
+    #[test]
     fn global_offsets_round_trip_across_unicode_lines() {
         let text = "héllo\n世界";
         for offset in [0, 1, 3, 6, 7, text.len() as i32] {
@@ -1077,6 +1115,7 @@ mod tests {
         let mut document = RichComposeDocument::default();
         document.synchronize("selected phrase and more", 0, 15);
         let base = ComposeEditorStyle {
+            font_size: FONT_SIZE_LOGICAL,
             text: Color::from_rgb_u8(30, 30, 30),
             link: Color::from_rgb_u8(0, 90, 180),
             selection: Color::from_argb_u8(140, 60, 120, 220),
@@ -1169,6 +1208,7 @@ mod tests {
         let start = text.find("Line 95").unwrap() as i32;
         let end = start + "Line 95 with".len() as i32;
         let style = ComposeEditorStyle {
+            font_size: FONT_SIZE_LOGICAL,
             text: Color::from_rgb_u8(30, 30, 30),
             link: Color::from_rgb_u8(0, 90, 180),
             selection: Color::from_argb_u8(140, 60, 120, 220),
@@ -1304,6 +1344,7 @@ mod tests {
     fn wrapped_selection_tiles_match_full_render() {
         let text = "wideword ".repeat(450);
         let style = ComposeEditorStyle {
+            font_size: FONT_SIZE_LOGICAL,
             text: Color::from_rgb_u8(30, 30, 30),
             link: Color::from_rgb_u8(0, 90, 180),
             selection: Color::from_argb_u8(140, 60, 120, 220),
@@ -1371,6 +1412,7 @@ mod tests {
         let start = text.find("Row 6:").unwrap() as i32;
         let end = text.find("Row 12:").unwrap() as i32;
         let style = ComposeEditorStyle {
+            font_size: FONT_SIZE_LOGICAL,
             text: Color::from_rgb_u8(30, 30, 30),
             link: Color::from_rgb_u8(0, 90, 180),
             selection: Color::from_argb_u8(140, 60, 120, 220),
@@ -1455,6 +1497,7 @@ mod tests {
             0.0,
             1.0,
             ComposeEditorStyle {
+                font_size: FONT_SIZE_LOGICAL,
                 text: Color::from_rgb_u8(240, 240, 240),
                 link: Color::from_rgb_u8(90, 150, 255),
                 selection: Color::from_argb_u8(140, 60, 120, 220),
@@ -1495,6 +1538,7 @@ mod tests {
             0.0,
             1.0,
             ComposeEditorStyle {
+                font_size: FONT_SIZE_LOGICAL,
                 text: Color::from_rgb_u8(240, 240, 240),
                 link: Color::from_rgb_u8(90, 150, 255),
                 selection: Color::from_argb_u8(140, 60, 120, 220),
@@ -1515,6 +1559,7 @@ mod tests {
     #[test]
     fn line_breaks_render_at_every_caret_position() {
         let style = ComposeEditorStyle {
+            font_size: FONT_SIZE_LOGICAL,
             text: Color::from_rgb_u8(240, 240, 240),
             link: Color::from_rgb_u8(90, 150, 255),
             selection: Color::from_argb_u8(140, 60, 120, 220),
@@ -1573,6 +1618,7 @@ mod tests {
             0.0,
             1.0,
             ComposeEditorStyle {
+                font_size: FONT_SIZE_LOGICAL,
                 text: Color::from_rgb_u8(240, 240, 240),
                 link: Color::from_rgb_u8(90, 150, 255),
                 selection: Color::from_argb_u8(140, 60, 120, 220),

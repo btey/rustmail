@@ -21,6 +21,13 @@ fn protocol_from_row(row: &Row) -> rusqlite::Result<MailProtocol> {
     if news {
         return Ok(MailProtocol::News);
     }
+    if settings
+        .as_ref()
+        .and_then(|value| value["connection"]["pop3"].as_bool())
+        .unwrap_or(false)
+    {
+        return Ok(MailProtocol::Pop3);
+    }
     let local = settings
         .and_then(|value| {
             value["connection"]["localPath"]

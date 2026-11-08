@@ -534,6 +534,7 @@ pub(super) fn apply_rendered_compose_editor(app: &AppWindow, rendered: RenderedC
 pub(super) fn compose_editor_style(app: &AppWindow) -> ComposeEditorStyle {
     let selection = app.get_compose_editor_selection_color();
     ComposeEditorStyle {
+        font_size: app.get_compose_editor_font_size().max(8.0),
         text: app.get_compose_editor_text_color(),
         link: app.get_compose_editor_link_color(),
         selection: slint::Color::from_argb_u8(

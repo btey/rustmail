@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-07 13:43+0000\n"
+"POT-Creation-Date: 2026-11-08 12:44+0000\n"
 "PO-Revision-Date: 2026-09-15 12:00+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Turkish\n"
@@ -261,15 +261,15 @@ msgstr "Görev ayarları kaydedildi."
 
 #: ui/app.slint:193
 msgid "Select conversations first."
-msgstr ""
+msgstr "Önce konuşmaları seçin."
 
 #: ui/app.slint:194
 msgid "Could not create the tasks: {}"
-msgstr ""
+msgstr "Görevler oluşturulamadı: {}"
 
 #: ui/app.slint:195
 msgid "Tasks created: {}. Already had a task: {}"
-msgstr ""
+msgstr "Oluşturulan görev: {}. Zaten görevi olan: {}"
 
 #: ui/app.slint:196
 msgid "Could not save message-opening preference: {}"
@@ -317,15 +317,15 @@ msgstr "Tema tercihi kaydedildi."
 
 #: ui/app.slint:207
 msgid "Message appearance updated for this session."
-msgstr ""
+msgstr "İleti görünümü bu oturum için güncellendi."
 
 #: ui/app.slint:208
 msgid "Message appearance preference saved."
-msgstr ""
+msgstr "İleti görünümü tercihi kaydedildi."
 
 #: ui/app.slint:209
 msgid "Could not save message appearance: {}"
-msgstr ""
+msgstr "İleti görünümü kaydedilemedi: {}"
 
 #: ui/app.slint:210
 msgid "Could not save theme: {}"
@@ -381,19 +381,19 @@ msgstr "Kenar çubuğu simge tercihi kaydedilemedi: {}"
 
 #: ui/app.slint:223
 msgid "Message scheduled for {}."
-msgstr ""
+msgstr "İleti {} için zamanlandı."
 
 #: ui/app.slint:224
 msgid "Scroll direction saved."
-msgstr ""
+msgstr "Kaydırma yönü kaydedildi."
 
 #: ui/app.slint:225
 msgid "Scroll direction changed for this session."
-msgstr ""
+msgstr "Kaydırma yönü bu oturum için değiştirildi."
 
 #: ui/app.slint:226
 msgid "Could not save the scroll direction: {}"
-msgstr ""
+msgstr "Kaydırma yönü kaydedilemedi: {}"
 
 #: ui/app.slint:227
 msgid "Avatar preference updated for this session."
@@ -421,19 +421,19 @@ msgstr "Pencere çerçevesi tercihi kaydedilemedi: {}"
 
 #: ui/app.slint:233
 msgid "At most {} tabs can be open. Close a tab to open another."
-msgstr ""
+msgstr "En fazla {} sekme açık olabilir. Başka açmak için bir sekmeyi kapatın."
 
 #: ui/app.slint:234
 msgid "Mail grouping is active for this session."
-msgstr ""
+msgstr "E-posta gruplama bu oturum için etkin."
 
 #: ui/app.slint:235
 msgid "Mail grouping preference saved."
-msgstr ""
+msgstr "E-posta gruplama tercihi kaydedildi."
 
 #: ui/app.slint:236
 msgid "Could not save mail grouping preference: {}"
-msgstr ""
+msgstr "E-posta gruplama tercihi kaydedilemedi: {}"
 
 #: ui/app.slint:237
 msgid "Profile changes require local mail data."
@@ -922,15 +922,15 @@ msgstr "Etkinlik silinemedi: {}"
 
 #: ui/app.slint:380
 msgid "That event is no longer in the calendar."
-msgstr ""
+msgstr "Bu etkinlik artık takvimde yok."
 
 #: ui/app.slint:381
 msgid "Task created from the event."
-msgstr ""
+msgstr "Etkinlikten görev oluşturuldu."
 
 #: ui/app.slint:382
 msgid "Could not create the task: {}"
-msgstr ""
+msgstr "Görev oluşturulamadı: {}"
 
 #: ui/app.slint:383
 msgid "Event deleted, but refresh failed: {}"
@@ -1091,64 +1091,66 @@ msgstr "Hesaplar eşitleniyor…"
 
 #: ui/app.slint:437
 msgid "Select a message first."
-msgstr ""
+msgstr "Önce bir ileti seçin."
 
 #: ui/app.slint:438
 msgid "Running action “{}”…"
-msgstr ""
+msgstr "“{}” eylemi çalışıyor…"
 
 #: ui/app.slint:439
 msgid "Action “{}” finished."
-msgstr ""
+msgstr "“{}” eylemi tamamlandı."
 
 #: ui/app.slint:440
 msgid "Action “{}” finished: {}"
-msgstr ""
+msgstr "“{}” eylemi tamamlandı: {}"
 
 #: ui/app.slint:441
 msgid "Action “{}” failed: {}"
-msgstr ""
+msgstr "“{}” eylemi başarısız: {}"
 
 #: ui/app.slint:442
 msgid "Action “{}” failed (exit {}): {}"
-msgstr ""
+msgstr "“{}” eylemi başarısız (çıkış {}): {}"
 
 #: ui/app.slint:443
 msgid "Action “{}” ran on {} messages: {}"
-msgstr ""
+msgstr "“{}” eylemi {} iletide çalıştı: {}"
 
 #: ui/app.slint:444
 msgid "Action “{}” could not run: {}"
-msgstr ""
+msgstr "“{}” eylemi çalıştırılamadı: {}"
 
 #: ui/app.slint:445
 msgid ""
 "Editing in your external editor. Save and close it to bring the text back."
 msgstr ""
+"Harici düzenleyicinizde düzenleniyor. Metni geri getirmek için kaydedip "
+"kapatın."
 
 #: ui/app.slint:446
 msgid "Text updated from your editor."
-msgstr ""
+msgstr "Metin düzenleyicinizden güncellendi."
 
 #: ui/app.slint:447
 msgid "External editor: {}"
-msgstr ""
+msgstr "Harici düzenleyici: {}"
 
 #: ui/app.slint:448
 msgid "Connection timeout must be between 1 and 600 seconds."
-msgstr ""
+msgstr "Bağlantı zaman aşımı 1 ile 600 saniye arasında olmalı."
 
 #: ui/app.slint:449
 msgid "Maximum connections must be between 1 and 20."
-msgstr ""
+msgstr "En fazla bağlantı sayısı 1 ile 20 arasında olmalı."
 
 #: ui/app.slint:450
 msgid "Proxy port must be between 1 and 65535."
-msgstr ""
+msgstr "Vekil sunucu portu 1 ile 65535 arasında olmalı."
 
 #: ui/app.slint:451
 msgid "Enter the proxy host and port, or set the proxy to None."
-msgstr ""
+msgstr "Vekil sunucu adresini ve portunu girin ya da vekili Yok yapın."
 
 #: ui/app.slint:456
 msgid "Message action completed."
@@ -1157,15 +1159,15 @@ msgstr "İleti işlemi tamamlandı."
 #: ui/app.slint:457
 msgid ""
 "Permanent deletion queued. Mail will disappear after the server confirms."
-msgstr ""
+msgstr "Kalıcı silme kuyruğa alındı. Sunucu onaylayınca ileti kaybolacak."
 
 #: ui/app.slint:458
 msgid "Sent and linked to the task: {}"
-msgstr ""
+msgstr "Gönderildi ve göreve bağlandı: {}"
 
 #: ui/app.slint:459
 msgid "Undo send failed: {}"
-msgstr ""
+msgstr "Göndermeyi geri alma başarısız: {}"
 
 #: ui/app.slint:460
 msgid "Message action failed: {}"
@@ -1341,11 +1343,11 @@ msgstr "İleti gönderildi."
 
 #: ui/app.slint:506
 msgid "Send cancelled."
-msgstr ""
+msgstr "Gönderim iptal edildi."
 
 #: ui/app.slint:507
 msgid "Send cancelled. Your message is back in the editor."
-msgstr ""
+msgstr "Gönderim iptal edildi. İletiniz düzenleyiciye geri döndü."
 
 #: ui/app.slint:508
 msgid "Message was not sent: {} Your draft is preserved."
@@ -1417,7 +1419,7 @@ msgstr "IMAP bağlantı noktası 1 ile 65535 arasında olmalıdır."
 
 #: ui/app.slint:525
 msgid "News server port must be between 1 and 65535."
-msgstr ""
+msgstr "Haber sunucusu portu 1 ile 65535 arasında olmalı."
 
 #: ui/app.slint:526
 msgid "SMTP port must be between 1 and 65535."
@@ -1461,11 +1463,11 @@ msgstr "IMAP ve SMTP bağlantıları sınanıyor…"
 
 #: ui/app.slint:535
 msgid "Checking the mail folder…"
-msgstr ""
+msgstr "Posta klasörü denetleniyor…"
 
 #: ui/app.slint:536
 msgid "Connecting to the news server…"
-msgstr ""
+msgstr "Haber sunucusuna bağlanılıyor…"
 
 #: ui/app.slint:541
 msgid ""
@@ -1553,156 +1555,158 @@ msgstr "İleti yükleniyor…"
 msgid "Rustmail"
 msgstr "Rustmail"
 
-#: ui/app.slint:1170 ui/app.slint:1183
+#: ui/app.slint:1173 ui/app.slint:1186
 msgid "Global Labels (local only)"
 msgstr "Genel Etiketler (yalnızca yerel)"
 
-#: ui/app.slint:2082
+#: ui/app.slint:2087
 msgid "Empty Trash?"
-msgstr ""
+msgstr "Çöp kutusu boşaltılsın mı?"
 
-#: ui/app.slint:2082 ui/views/files-view.slint:539
+#: ui/app.slint:2087 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr "Kalıcı olarak silinsin mi?"
 
-#: ui/app.slint:2086
+#: ui/app.slint:2091
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
+"Bağlı tüm hesaplardaki Çöp kutusunda bulunan iletiler kalıcı olarak silinsin "
+"mi?"
 
-#: ui/app.slint:2087
+#: ui/app.slint:2092
 msgid "Permanently delete all messages in this account’s Trash?"
-msgstr ""
+msgstr "Bu hesabın Çöp kutusundaki tüm iletiler kalıcı olarak silinsin mi?"
 
-#: ui/app.slint:2089
+#: ui/app.slint:2094
 msgid "Permanently delete the selected conversations from Trash?"
-msgstr ""
+msgstr "Seçili konuşmalar Çöp kutusundan kalıcı olarak silinsin mi?"
 
-#: ui/app.slint:2090
+#: ui/app.slint:2095
 msgid "Permanently delete this conversation from Trash?"
-msgstr ""
+msgstr "Bu konuşma Çöp kutusundan kalıcı olarak silinsin mi?"
 
-#: ui/app.slint:2091 ui/components/calendar.slint:951
+#: ui/app.slint:2096 ui/components/calendar.slint:951
 msgid "This action cannot be undone."
 msgstr "Bu işlem geri alınamaz."
 
-#: ui/app.slint:2092
+#: ui/app.slint:2097
 msgid "Empty Trash"
-msgstr ""
+msgstr "Çöp kutusunu boşalt"
 
-#: ui/app.slint:2092 ui/views/files-view.slint:621
+#: ui/app.slint:2097 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr "Kalıcı olarak sil"
 
-#: ui/app.slint:2274
+#: ui/app.slint:2279
 msgid "Mailbox startup failed"
 msgstr "Posta kutusu başlatılamadı"
 
-#: ui/app.slint:2280
+#: ui/app.slint:2285
 msgid "Rustmail could not open local storage"
 msgstr "Rustmail yerel depolamayı açamadı"
 
-#: ui/app.slint:2293
+#: ui/app.slint:2298
 msgid "Diagnostic ID: {}"
 msgstr "Tanılama kimliği: {}"
 
-#: ui/app.slint:2296
+#: ui/app.slint:2301
 msgid "Diagnostic ID {}"
 msgstr "Tanılama kimliği {}"
 
-#: ui/app.slint:2301
+#: ui/app.slint:2306
 msgid "Retry"
 msgstr "Yeniden dene"
 
-#: ui/app.slint:2309 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2314 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr "Tanılama bilgilerini kopyala"
 
-#: ui/app.slint:2375 ui/app.slint:2460 ui/app.slint:2518
+#: ui/app.slint:2380 ui/app.slint:2465 ui/app.slint:2523
 msgid "Dismiss"
 msgstr "Yoksay"
 
-#: ui/app.slint:2395 ui/app.slint:2400
+#: ui/app.slint:2400 ui/app.slint:2405
 msgid "Sent and linked"
 msgstr "Gönderildi ve bağlandı"
 
-#: ui/app.slint:2418
+#: ui/app.slint:2423
 msgid "Task moved to Waiting for"
 msgstr "Görev Beklenenler'e taşındı"
 
-#: ui/app.slint:2418
+#: ui/app.slint:2423
 msgid "Task marked as done"
 msgstr "Görev tamamlandı olarak işaretlendi"
 
-#: ui/app.slint:2427
+#: ui/app.slint:2432
 msgid "Follow-up in {} days"
 msgstr "{} gün içinde takip"
 
-#: ui/app.slint:2436
+#: ui/app.slint:2441
 msgid "Follow-up added to the calendar"
 msgstr "Takip takvime eklendi"
 
-#: ui/app.slint:2446
+#: ui/app.slint:2451
 msgid "Back to board"
 msgstr "Panoya dön"
 
-#: ui/app.slint:2505 ui/components/linked-task-banner.slint:116
+#: ui/app.slint:2510 ui/components/linked-task-banner.slint:116
 #: ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr "Görevi aç"
 
-#: ui/app.slint:2551 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2556 ui/components/workspace-navigation.slint:126
 #: ui/dialogs/settings-dialog.slint:2127
 msgid "Tasks"
 msgstr "Görevler"
 
 #: ui/components/account-mail-preferences.slint:107
 msgid "Server allows any address at this domain"
-msgstr ""
+msgstr "Sunucu bu alan adındaki her adrese izin verir"
 
 #: ui/components/account-mail-preferences.slint:110
 msgid "Awaiting verification by the provider; cannot be selected yet"
-msgstr ""
+msgstr "Sağlayıcının doğrulaması bekleniyor; henüz seçilemez"
 
 #: ui/components/account-mail-preferences.slint:113
 msgid "The server refused the last message from this address: {}"
-msgstr ""
+msgstr "Sunucu bu adresten son iletiyi reddetti: {}"
 
 #: ui/components/account-mail-preferences.slint:113
 msgid "The server refused the last message from this address"
-msgstr ""
+msgstr "Sunucu bu adresten son iletiyi reddetti"
 
 #: ui/components/account-mail-preferences.slint:116
 msgid "Sign-in address · replies go to {}"
-msgstr ""
+msgstr "Oturum açma adresi · yanıtlar {} adresine gider"
 
 #: ui/components/account-mail-preferences.slint:116
 msgid "Sign-in address"
-msgstr ""
+msgstr "Oturum açma adresi"
 
 #: ui/components/account-mail-preferences.slint:120
 msgid "Added by you · accepted by the server · replies go to {}"
-msgstr ""
+msgstr "Siz eklediniz · sunucu kabul etti · yanıtlar {} adresine gider"
 
 #: ui/components/account-mail-preferences.slint:120
 msgid "Added by you · accepted by the server"
-msgstr ""
+msgstr "Siz eklediniz · sunucu kabul etti"
 
 #: ui/components/account-mail-preferences.slint:122
 msgid "Added by you · not used yet · replies go to {}"
-msgstr ""
+msgstr "Siz eklediniz · henüz kullanılmadı · yanıtlar {} adresine gider"
 
 #: ui/components/account-mail-preferences.slint:122
 msgid "Added by you · not used yet"
-msgstr ""
+msgstr "Siz eklediniz · henüz kullanılmadı"
 
 #: ui/components/account-mail-preferences.slint:124
 msgid "Provided by the server · replies go to {}"
-msgstr ""
+msgstr "Sunucu sağlar · yanıtlar {} adresine gider"
 
 #: ui/components/account-mail-preferences.slint:124
 msgid "Provided by the server"
-msgstr ""
+msgstr "Sunucu sağlar"
 
 #: ui/components/account-mail-preferences.slint:128
 msgid "Sender identities, signatures & OpenPGP"
@@ -1754,20 +1758,25 @@ msgid ""
 "Gmail decides which addresses you can send from. Add an address in Gmail "
 "settings under Accounts › Send mail as, then refresh sender identities."
 msgstr ""
+"Hangi adreslerden gönderebileceğinizi Gmail belirler. Gmail ayarlarında "
+"Hesaplar › Şu adresten posta gönder bölümünden adres ekleyin, sonra gönderen "
+"kimliklerini yenileyin."
 
 #: ui/components/account-mail-preferences.slint:170
 msgid "Edit sender address"
-msgstr ""
+msgstr "Gönderen adresini düzenle"
 
 #: ui/components/account-mail-preferences.slint:170
 msgid "Add a sender address"
-msgstr ""
+msgstr "Gönderen adresi ekle"
 
 #: ui/components/account-mail-preferences.slint:174
 msgid ""
 "Your server lets you send from any address at the domains shown as "
 "wildcards. Add the addresses you want to choose from."
 msgstr ""
+"Sunucunuz, joker olarak gösterilen alan adlarındaki her adresten "
+"göndermenize izin verir. Aralarından seçmek istediğiniz adresleri ekleyin."
 
 #: ui/components/account-mail-preferences.slint:175
 msgid ""
@@ -1775,6 +1784,9 @@ msgid ""
 "server decides when you send; Rustmail shows whether it accepted the last "
 "message."
 msgstr ""
+"Posta sunucunuzun göndermenize izin verdiği bir takma ad veya başka bir "
+"adres ekleyin. Kararı gönderirken sunucu verir; Rustmail son iletiyi kabul "
+"edip etmediğini gösterir."
 
 #: ui/components/account-mail-preferences.slint:177
 msgid "Email address"
@@ -1782,31 +1794,31 @@ msgstr "E-posta adresi"
 
 #: ui/components/account-mail-preferences.slint:177
 msgid "alias@example.com"
-msgstr ""
+msgstr "takmaad@example.com"
 
 #: ui/components/account-mail-preferences.slint:178
 msgid "Sender name"
-msgstr ""
+msgstr "Gönderen adı"
 
 #: ui/components/account-mail-preferences.slint:178
 msgid "Name shown to recipients (optional)"
-msgstr ""
+msgstr "Alıcılara gösterilen ad (isteğe bağlı)"
 
 #: ui/components/account-mail-preferences.slint:179
 msgid "Reply-to address"
-msgstr ""
+msgstr "Yanıt adresi"
 
 #: ui/components/account-mail-preferences.slint:179
 msgid "Where replies should go (optional)"
-msgstr ""
+msgstr "Yanıtların gideceği yer (isteğe bağlı)"
 
 #: ui/components/account-mail-preferences.slint:183
 msgid "Save sender address"
-msgstr ""
+msgstr "Gönderen adresini kaydet"
 
 #: ui/components/account-mail-preferences.slint:183
 msgid "Add sender address"
-msgstr ""
+msgstr "Gönderen adresi ekle"
 
 #: ui/components/account-mail-preferences.slint:184
 #: ui/components/filter-rules.slint:375 ui/dialogs/folder-dialog.slint:128
@@ -1843,11 +1855,11 @@ msgstr "Metin"
 
 #: ui/components/account-mail-preferences.slint:199
 msgid "Text file"
-msgstr ""
+msgstr "Metin dosyası"
 
 #: ui/components/account-mail-preferences.slint:199
 msgid "Command output"
-msgstr ""
+msgstr "Komut çıktısı"
 
 #: ui/components/account-mail-preferences.slint:203
 msgid ""
@@ -1861,31 +1873,35 @@ msgstr ""
 
 #: ui/components/account-mail-preferences.slint:204
 msgid "File path"
-msgstr ""
+msgstr "Dosya yolu"
 
 #: ui/components/account-mail-preferences.slint:204
 msgid "Command"
-msgstr ""
+msgstr "Komut"
 
 #: ui/components/account-mail-preferences.slint:204
 msgid "~/.signature"
-msgstr ""
+msgstr "~/.signature"
 
 #: ui/components/account-mail-preferences.slint:204
 msgid "fortune -s"
-msgstr ""
+msgstr "fortune -s"
 
 #: ui/components/account-mail-preferences.slint:205
 msgid ""
 "The file is read again each time you write a message. Use plain text up to "
 "32 KiB."
 msgstr ""
+"Dosya her ileti yazışınızda yeniden okunur. En fazla 32 KiB düz metin "
+"kullanın."
 
 #: ui/components/account-mail-preferences.slint:205
 msgid ""
 "The command runs through your shell each time you write a message, with no "
 "input and a 3 second limit. Only enter commands you trust."
 msgstr ""
+"Komut her ileti yazışınızda kabuğunuzdan, girdisiz ve 3 saniye sınırıyla "
+"çalışır. Yalnızca güvendiğiniz komutları girin."
 
 #: ui/components/account-mail-preferences.slint:206
 msgid ""
@@ -1989,7 +2005,7 @@ msgstr ""
 
 #: ui/components/account-mail-preferences.slint:243
 msgid "Privacy system"
-msgstr ""
+msgstr "Gizlilik sistemi"
 
 #: ui/components/account-mail-preferences.slint:243
 msgid ""
@@ -1998,30 +2014,34 @@ msgid ""
 "gpgsm keybox; enter certificate fingerprints below. Revocation is not "
 "checked."
 msgstr ""
+"Bu hesap için varsayılan. Satır içi PGP imzayı veya şifreli metni ileti "
+"gövdesine koyar (ek veya HTML olmaz). S/MIME, GnuPG'nin gpgsm anahtar "
+"kutusundaki sertifikaları kullanır; sertifika parmak izlerini aşağıya girin. "
+"İptal denetlenmez."
 
 #: ui/components/account-mail-preferences.slint:244
 msgid "OpenPGP (PGP/MIME)"
-msgstr ""
+msgstr "OpenPGP (PGP/MIME)"
 
 #: ui/components/account-mail-preferences.slint:244
 msgid "OpenPGP (inline)"
-msgstr ""
+msgstr "OpenPGP (satır içi)"
 
 #: ui/components/account-mail-preferences.slint:244
 msgid "S/MIME"
-msgstr ""
+msgstr "S/MIME"
 
 #: ui/components/account-mail-preferences.slint:249
 msgid "Sign replies to signed mail"
-msgstr ""
+msgstr "İmzalı iletilere yanıtları imzala"
 
 #: ui/components/account-mail-preferences.slint:249
 msgid "Replies to a signed or encrypted message are signed."
-msgstr ""
+msgstr "İmzalı veya şifreli iletilere verilen yanıtlar imzalanır."
 
 #: ui/components/account-mail-preferences.slint:254
 msgid "Encrypt replies to encrypted mail"
-msgstr ""
+msgstr "Şifreli iletilere yanıtları şifrele"
 
 #: ui/components/account-mail-preferences.slint:258
 msgid "Verified recipient keys"
@@ -2074,6 +2094,8 @@ msgid ""
 "Subjects and addresses remain visible. Protected drafts stay on this device. "
 "Existing server drafts are not retroactively protected."
 msgstr ""
+"Konular ve adresler görünür kalır. Korunan taslaklar bu cihazda kalır. "
+"Sunucudaki mevcut taslaklar geriye dönük korunmaz."
 
 #: ui/components/account-mail-preferences.slint:279
 msgid "Working…"
@@ -2108,19 +2130,19 @@ msgstr "Hesap"
 
 #: ui/components/account-setup-form.slint:47
 msgid "Security"
-msgstr ""
+msgstr "Güvenlik"
 
 #: ui/components/account-setup-form.slint:47
 msgid "Sign-in"
-msgstr ""
+msgstr "Oturum açma"
 
 #: ui/components/account-setup-form.slint:47
 msgid "Network"
-msgstr ""
+msgstr "Ağ"
 
 #: ui/components/account-setup-form.slint:48
 msgid "Identity"
-msgstr ""
+msgstr "Kimlik"
 
 #: ui/components/account-setup-form.slint:48 ui/views/files-view.slint:542
 msgid "Folders"
@@ -2137,7 +2159,7 @@ msgstr "Kullanıcı adı"
 
 #: ui/components/account-setup-form.slint:131
 msgid "Empty for anonymous access"
-msgstr ""
+msgstr "Anonim erişim için boş bırakın"
 
 #: ui/components/account-setup-form.slint:131
 msgid "Usually your email address"
@@ -2149,11 +2171,11 @@ msgstr "Parola, uygulama parolası veya API belirteci"
 
 #: ui/components/account-setup-form.slint:161
 msgid "SMTP password · Optional"
-msgstr ""
+msgstr "SMTP parolası · İsteğe bağlı"
 
 #: ui/components/account-setup-form.slint:161
 msgid "Password · Optional"
-msgstr ""
+msgstr "Parola · İsteğe bağlı"
 
 #: ui/components/account-setup-form.slint:161
 msgid "Password or app password"
@@ -2161,15 +2183,15 @@ msgstr "Parola veya uygulama parolası"
 
 #: ui/components/account-setup-form.slint:164
 msgid "Only needed to send mail"
-msgstr ""
+msgstr "Yalnızca ileti göndermek için gerekir"
 
 #: ui/components/account-setup-form.slint:164
 msgid "Only if the server asks for a login"
-msgstr ""
+msgstr "Yalnızca sunucu oturum isterse"
 
 #: ui/components/account-setup-form.slint:172
 msgid "IMAP"
-msgstr ""
+msgstr "IMAP"
 
 #: ui/components/account-setup-form.slint:173
 msgid "JMAP"
@@ -2181,63 +2203,72 @@ msgstr "Yerel"
 
 #: ui/components/account-setup-form.slint:175
 msgid "News"
-msgstr ""
+msgstr "Haberler"
 
 #: ui/components/account-setup-form.slint:181
 msgid "Mail folder"
-msgstr ""
+msgstr "Posta klasörü"
 
 #: ui/components/account-setup-form.slint:181
 msgid "/home/you/Mail"
-msgstr ""
+msgstr "/home/siz/Mail"
 
 #: ui/components/account-setup-form.slint:186
 msgid "Choose file…"
-msgstr ""
+msgstr "Dosya seç…"
 
 #: ui/components/account-setup-form.slint:186
 msgid "Choose folder…"
-msgstr ""
+msgstr "Klasör seç…"
 
 #: ui/components/account-setup-form.slint:193
 msgid "Maildir"
-msgstr ""
+msgstr "Maildir"
 
 #: ui/components/account-setup-form.slint:194
 msgid "MH"
-msgstr ""
+msgstr "MH"
 
 #: ui/components/account-setup-form.slint:195
 msgid "mbox"
-msgstr ""
+msgstr "mbox"
 
 #: ui/components/account-setup-form.slint:198
 msgid ""
 "mbox files. Read and starred marks, moves and deletions rewrite the whole "
 "file, so close other mail programs that use it first."
 msgstr ""
+"mbox dosyaları. Okundu ve yıldız işaretleri, taşıma ve silme tüm dosyayı "
+"yeniden yazar; önce bunu kullanan diğer posta programlarını kapatın."
 
 #: ui/components/account-setup-form.slint:198
 msgid ""
 "MH folders with numbered message files. Moves and deletions are written to "
 "the files; read and starred marks go in each folder's .mh_sequences file."
 msgstr ""
+"Numaralı ileti dosyaları olan MH klasörleri. Taşıma ve silme dosyalara "
+"yazılır; okundu ve yıldız işaretleri her klasörün .mh_sequences dosyasına "
+"gider."
 
 #: ui/components/account-setup-form.slint:198
 msgid ""
 "Maildir or Maildir++ folders. Flags, moves and deletions are written back to "
 "the files, so other mail programs stay in sync."
 msgstr ""
+"Maildir veya Maildir++ klasörleri. İşaretler, taşıma ve silme dosyalara geri "
+"yazılır; böylece diğer posta programları eşgüdümlü kalır."
 
 #: ui/components/account-setup-form.slint:202
 msgid ""
 "Sending is optional: enter an SMTP server below to send mail from this "
 "account."
 msgstr ""
+"Gönderme isteğe bağlıdır: bu hesaptan ileti göndermek için aşağıya bir SMTP "
+"sunucusu girin."
 
 #: ui/components/account-setup-form.slint:209
 msgid "SMTP server · Optional"
-msgstr ""
+msgstr "SMTP sunucusu · İsteğe bağlı"
 
 #: ui/components/account-setup-form.slint:209
 msgid "smtp.example.com"
@@ -2253,29 +2284,31 @@ msgstr "465"
 
 #: ui/components/account-setup-form.slint:216
 msgid "News server"
-msgstr ""
+msgstr "Haber sunucusu"
 
 #: ui/components/account-setup-form.slint:216
 msgid "news.example.com"
-msgstr ""
+msgstr "news.example.com"
 
 #: ui/components/account-setup-form.slint:217
 msgid "563"
-msgstr ""
+msgstr "563"
 
 #: ui/components/account-setup-form.slint:222
 msgid "Newsgroups"
-msgstr ""
+msgstr "Haber grupları"
 
 #: ui/components/account-setup-form.slint:224
 msgid "comp.lang.rust, alt.test"
-msgstr ""
+msgstr "comp.lang.rust, alt.test"
 
 #: ui/components/account-setup-form.slint:229
 msgid ""
 "Separate groups with commas or spaces. To start a new discussion, address "
 "the message to group.name@news; replies go to the group they answer."
 msgstr ""
+"Grupları virgül veya boşlukla ayırın. Yeni tartışma başlatmak için iletiyi "
+"grup.adi@news adresine gönderin; yanıtlar yanıtladıkları gruba gider."
 
 #: ui/components/account-setup-form.slint:235
 msgid "Server address · Optional"
@@ -2549,238 +2582,250 @@ msgstr "Etkinliği sil"
 msgid "Keep event"
 msgstr "Etkinliği koru"
 
-#: ui/components/composer-actions.slint:54
+#: ui/components/composer-actions.slint:56
 msgid "Bold · Ctrl+B"
 msgstr "Kalın · Ctrl+B"
 
-#: ui/components/composer-actions.slint:55
+#: ui/components/composer-actions.slint:57
 msgid "Italic · Ctrl+I"
 msgstr "İtalik · Ctrl+I"
 
-#: ui/components/composer-actions.slint:56
+#: ui/components/composer-actions.slint:58
 msgid "Underline · Ctrl+U"
 msgstr "Altı çizili · Ctrl+U"
 
-#: ui/components/composer-actions.slint:57
+#: ui/components/composer-actions.slint:59
 msgid "Strikethrough"
 msgstr "Üstü çizili"
 
-#: ui/components/composer-actions.slint:61
+#: ui/components/composer-actions.slint:63
 msgid "Bulleted list"
 msgstr "Madde işaretli liste"
 
-#: ui/components/composer-actions.slint:62
+#: ui/components/composer-actions.slint:64
 msgid "Numbered list"
 msgstr "Numaralı liste"
 
-#: ui/components/composer-actions.slint:63
+#: ui/components/composer-actions.slint:65
+msgid "Decrease list indent · Ctrl+["
+msgstr "Liste girintisini azalt · Ctrl+["
+
+#: ui/components/composer-actions.slint:66
+msgid "Increase list indent · Ctrl+]"
+msgstr "Liste girintisini artır · Ctrl+]"
+
+#: ui/components/composer-actions.slint:67
 msgid "Quote"
 msgstr "Alıntı"
 
-#: ui/components/composer-actions.slint:64
+#: ui/components/composer-actions.slint:68
 msgid "Inline code"
 msgstr "Satır içi kod"
 
-#: ui/components/composer-actions.slint:65
+#: ui/components/composer-actions.slint:69
 msgid "Add or edit link"
 msgstr "Bağlantı ekle veya düzenle"
 
-#: ui/components/composer-actions.slint:65
+#: ui/components/composer-actions.slint:69
 msgid "Select text to add a link"
 msgstr "Bağlantı eklemek için metin seçin"
 
-#: ui/components/composer-actions.slint:69
+#: ui/components/composer-actions.slint:73
 msgid "Email templates"
 msgstr "E-posta şablonları"
 
-#: ui/components/composer-actions.slint:70
+#: ui/components/composer-actions.slint:74
 msgid "Edit in external editor"
 msgstr "Harici düzenleyicide düzenle"
 
-#: ui/components/composer-actions.slint:74
+#: ui/components/composer-actions.slint:85
 msgid "Undo · Ctrl+Z"
 msgstr "Geri al · Ctrl+Z"
 
-#: ui/components/composer-actions.slint:75
+#: ui/components/composer-actions.slint:86
 msgid "Redo · Ctrl+Shift+Z"
 msgstr "Yinele · Ctrl+Shift+Z"
 
-#: ui/components/composer-actions.slint:169
+#: ui/components/composer-actions.slint:90
+msgid "More tools"
+msgstr "Daha fazla araç"
+
+#: ui/components/composer-actions.slint:201
 msgid "Remove attachment"
 msgstr "Eki kaldır"
 
-#: ui/components/composer-actions.slint:233
+#: ui/components/composer-actions.slint:310
 msgid "This email and every reply in its thread will be linked to the task."
 msgstr "Bu e-posta ve konuşmasındaki her yanıt göreve bağlanır."
 
-#: ui/components/composer-actions.slint:244
+#: ui/components/composer-actions.slint:352
 msgid "After sending, move task to"
 msgstr "Gönderdikten sonra görevi şuraya taşı"
 
-#: ui/components/composer-actions.slint:253
+#: ui/components/composer-actions.slint:355
 #: ui/dialogs/settings-dialog.slint:551 ui/views/tasks-view.slint:482
 msgid "Waiting for"
 msgstr "Yanıt bekleniyor"
 
-#: ui/components/composer-actions.slint:253
+#: ui/components/composer-actions.slint:355
 msgid "Stay in place"
 msgstr "Yerinde bırak"
 
-#: ui/components/composer-actions.slint:253 ui/views/tasks-view.slint:1343
+#: ui/components/composer-actions.slint:355 ui/views/tasks-view.slint:1343
 #: ui/views/tasks-view.slint:2889 ui/views/tasks-view.slint:3018
 #: ui/views/tasks-view.slint:3062
 msgid "Done"
 msgstr "Bitti"
 
-#: ui/components/composer-actions.slint:268
+#: ui/components/composer-actions.slint:367
 msgid "If there's no reply, add a follow-up in"
 msgstr "Yanıt yoksa şu sürede takip ekle"
 
-#: ui/components/composer-actions.slint:277
+#: ui/components/composer-actions.slint:370
 msgid "4 days"
 msgstr "4 gün"
 
-#: ui/components/composer-actions.slint:277
+#: ui/components/composer-actions.slint:370
 msgid "2 days"
 msgstr "2 gün"
 
-#: ui/components/composer-actions.slint:277
+#: ui/components/composer-actions.slint:370
 msgid "1 week"
 msgstr "1 hafta"
 
-#: ui/components/composer-actions.slint:277
+#: ui/components/composer-actions.slint:370
 msgid "Never"
 msgstr "Hiçbir zaman"
 
-#: ui/components/composer-actions.slint:293
+#: ui/components/composer-actions.slint:383
 msgid "Add the follow-up to the Calendar"
 msgstr "Takibi Takvim'e ekle"
 
-#: ui/components/composer-actions.slint:303
+#: ui/components/composer-actions.slint:385
 msgid "Yes"
 msgstr "Evet"
 
-#: ui/components/composer-actions.slint:303
+#: ui/components/composer-actions.slint:385
 msgid "No"
 msgstr "Hayır"
 
-#: ui/components/composer-actions.slint:334
+#: ui/components/composer-actions.slint:404
 msgid "Tick off a checklist step once sent"
 msgstr "Gönderince bir kontrol listesi adımını işaretle"
 
-#: ui/components/composer-actions.slint:343
+#: ui/components/composer-actions.slint:407
 msgid "None"
 msgstr "Yok"
 
-#: ui/components/composer-actions.slint:354
+#: ui/components/composer-actions.slint:416
 msgid "No checklist step"
 msgstr "Kontrol listesi adımı yok"
 
-#: ui/components/composer-actions.slint:428 ui/views/contacts-view.slint:691
+#: ui/components/composer-actions.slint:493 ui/views/contacts-view.slint:691
 msgid "YYYY-MM-DD"
 msgstr "YYYY-AA-GG"
 
-#: ui/components/composer-actions.slint:429
+#: ui/components/composer-actions.slint:494
 msgid "Send date"
 msgstr "Gönderim tarihi"
 
-#: ui/components/composer-actions.slint:434
+#: ui/components/composer-actions.slint:499
 msgid "HH:MM"
 msgstr "SS:DD"
 
-#: ui/components/composer-actions.slint:435
+#: ui/components/composer-actions.slint:500
 msgid "Send time"
 msgstr "Gönderim saati"
 
-#: ui/components/composer-actions.slint:440 ui/views/tasks-view.slint:3264
+#: ui/components/composer-actions.slint:505 ui/views/tasks-view.slint:3264
 msgid "Schedule"
 msgstr "Planla"
 
-#: ui/components/composer-actions.slint:463
+#: ui/components/composer-actions.slint:528
 msgid "Sending…"
 msgstr "Gönderiliyor…"
 
-#: ui/components/composer-actions.slint:463
+#: ui/components/composer-actions.slint:528
 msgid "Send and link"
 msgstr "Gönder ve bağla"
 
-#: ui/components/composer-actions.slint:463
+#: ui/components/composer-actions.slint:528
 msgid "Send"
 msgstr "Gönder"
 
-#: ui/components/composer-actions.slint:479
+#: ui/components/composer-actions.slint:544
 msgid "Send in 1 hour"
 msgstr "1 saat sonra gönder"
 
-#: ui/components/composer-actions.slint:480
+#: ui/components/composer-actions.slint:545
 msgid "Send in 4 hours"
 msgstr "4 saat sonra gönder"
 
-#: ui/components/composer-actions.slint:481
+#: ui/components/composer-actions.slint:546
 msgid "Send tomorrow morning"
 msgstr "Yarın sabah gönder"
 
-#: ui/components/composer-actions.slint:482
+#: ui/components/composer-actions.slint:547
 msgid "Send Monday morning"
 msgstr "Pazartesi sabahı gönder"
 
-#: ui/components/composer-actions.slint:483
+#: ui/components/composer-actions.slint:548
 msgid "Pick a date and time…"
 msgstr "Tarih ve saat seç…"
 
-#: ui/components/composer-actions.slint:484
+#: ui/components/composer-actions.slint:549
 msgid "Scheduled messages…"
 msgstr "Zamanlanmış iletiler…"
 
-#: ui/components/composer-actions.slint:488
+#: ui/components/composer-actions.slint:553
 msgid "Send later"
 msgstr "Daha sonra gönder"
 
-#: ui/components/composer-actions.slint:513
+#: ui/components/composer-actions.slint:578
 msgid "Attach files"
 msgstr "Dosya ekle"
 
-#: ui/components/composer-actions.slint:534
+#: ui/components/composer-actions.slint:600
 msgid "Save draft"
 msgstr "Taslağı kaydet"
 
-#: ui/components/composer-actions.slint:547
+#: ui/components/composer-actions.slint:613
 msgid "Discard"
 msgstr "At"
 
-#: ui/components/composer-actions.slint:595
+#: ui/components/composer-actions.slint:661
 msgid "Edit link"
 msgstr "Bağlantıyı düzenle"
 
-#: ui/components/composer-actions.slint:595
+#: ui/components/composer-actions.slint:661
 msgid "Add link"
 msgstr "Bağlantı ekle"
 
-#: ui/components/composer-actions.slint:606
+#: ui/components/composer-actions.slint:672
 msgid "The selected text will open this address."
 msgstr "Seçili metin bu adresi açacak."
 
-#: ui/components/composer-actions.slint:627 ui/views/contacts-view.slint:710
+#: ui/components/composer-actions.slint:693 ui/views/contacts-view.slint:710
 msgid "https://example.com"
 msgstr "https://ornek.com"
 
-#: ui/components/composer-actions.slint:663 ui/views/tasks-view.slint:3158
+#: ui/components/composer-actions.slint:729 ui/views/tasks-view.slint:3158
 msgid "Remove link"
 msgstr "Bağlantıyı kaldır"
 
-#: ui/components/composer-actions.slint:681
+#: ui/components/composer-actions.slint:747
 msgid "Apply"
 msgstr "Uygula"
 
-#: ui/components/composer-actions.slint:719
+#: ui/components/composer-actions.slint:785
 msgid "Discard this draft?"
 msgstr "Bu taslak atılsın mı?"
 
-#: ui/components/composer-actions.slint:730
+#: ui/components/composer-actions.slint:796
 msgid "The message and its attachments will be removed from this composer."
 msgstr "İleti ve ekleri bu oluşturucudan kaldırılacak."
 
-#: ui/components/composer-actions.slint:741
+#: ui/components/composer-actions.slint:807
 msgid "Keep"
 msgstr "Koru"
 
@@ -2815,35 +2860,35 @@ msgstr "Yeni ileti"
 msgid "Open in its own window"
 msgstr "Kendi penceresinde aç"
 
-#: ui/components/composer-fields.slint:348 ui/components/filter-rules.slint:80
+#: ui/components/composer-fields.slint:345 ui/components/filter-rules.slint:80
 msgid "To"
 msgstr "Kime"
 
-#: ui/components/composer-fields.slint:349
+#: ui/components/composer-fields.slint:346
 msgid "name@example.com · separate with commas"
 msgstr "ad@ornek.com · virgülle ayırın"
 
-#: ui/components/composer-fields.slint:383 ui/components/filter-rules.slint:80
+#: ui/components/composer-fields.slint:380 ui/components/filter-rules.slint:80
 msgid "Cc"
 msgstr "Cc"
 
-#: ui/components/composer-fields.slint:393
+#: ui/components/composer-fields.slint:390
 msgid "Bcc"
 msgstr "Bcc"
 
-#: ui/components/composer-fields.slint:408
+#: ui/components/composer-fields.slint:405
 msgid "Carbon copy"
 msgstr "Karbon kopya"
 
-#: ui/components/composer-fields.slint:422
+#: ui/components/composer-fields.slint:419
 msgid "Blind carbon copy"
 msgstr "Gizli karbon kopya"
 
-#: ui/components/composer-fields.slint:480 ui/components/filter-rules.slint:80
+#: ui/components/composer-fields.slint:477 ui/components/filter-rules.slint:80
 msgid "Subject"
 msgstr "Konu"
 
-#: ui/components/composer-fields.slint:492
+#: ui/components/composer-fields.slint:489
 msgid "What is this email about?"
 msgstr "Bu e-posta ne hakkında?"
 
@@ -2880,23 +2925,19 @@ msgstr "Sayfa {} / {}"
 msgid "Next page"
 msgstr "Sonraki sayfa"
 
-#: ui/components/email-composer.slint:246 ui/components/filter-rules.slint:80
+#: ui/components/email-composer.slint:253 ui/components/filter-rules.slint:80
 msgid "From"
 msgstr "Kimden"
 
-#: ui/components/email-composer.slint:247
-msgid "Verified sender identity"
-msgstr "Doğrulanmış gönderen kimliği"
-
-#: ui/components/email-composer.slint:260
+#: ui/components/email-composer.slint:270
 msgid "Signature"
 msgstr "İmza"
 
-#: ui/components/email-composer.slint:354
+#: ui/components/email-composer.slint:369
 msgid "Write your message…"
 msgstr "İletinizi yazın…"
 
-#: ui/components/email-composer.slint:628
+#: ui/components/email-composer.slint:667
 msgid "Undo send"
 msgstr "Göndermeyi geri al"
 
@@ -2974,15 +3015,15 @@ msgstr "Bu şablon bu cihazdan silinsin mi?"
 
 #: ui/components/filter-rules.slint:80
 msgid "Header"
-msgstr ""
+msgstr "Üstbilgi"
 
 #: ui/components/filter-rules.slint:80
 msgid "Body"
-msgstr ""
+msgstr "Gövde"
 
 #: ui/components/filter-rules.slint:80
 msgid "Age"
-msgstr ""
+msgstr "Yaş"
 
 #: ui/components/filter-rules.slint:80 ui/views/files-view.slint:543
 msgid "Size"
@@ -2990,95 +3031,95 @@ msgstr "Boyut"
 
 #: ui/components/filter-rules.slint:80
 msgid "Is read"
-msgstr ""
+msgstr "Okunmuş"
 
 #: ui/components/filter-rules.slint:80
 msgid "Is starred"
-msgstr ""
+msgstr "Yıldızlı"
 
 #: ui/components/filter-rules.slint:80
 msgid "Has attachment"
-msgstr ""
+msgstr "Eki var"
 
 #: ui/components/filter-rules.slint:80
 msgid "Mailing list"
-msgstr ""
+msgstr "Posta listesi"
 
 #: ui/components/filter-rules.slint:89
 msgid "contains"
-msgstr ""
+msgstr "içerir"
 
 #: ui/components/filter-rules.slint:89
 msgid "does not contain"
-msgstr ""
+msgstr "içermez"
 
 #: ui/components/filter-rules.slint:89
 msgid "is exactly"
-msgstr ""
+msgstr "tam olarak"
 
 #: ui/components/filter-rules.slint:89
 msgid "starts with"
-msgstr ""
+msgstr "ile başlar"
 
 #: ui/components/filter-rules.slint:89
 msgid "ends with"
-msgstr ""
+msgstr "ile biter"
 
 #: ui/components/filter-rules.slint:89
 msgid "matches regex"
-msgstr ""
+msgstr "düzenli ifadeyle eşleşir"
 
 #: ui/components/filter-rules.slint:98
 msgid "older than (days)"
-msgstr ""
+msgstr "şundan eski (gün)"
 
 #: ui/components/filter-rules.slint:98
 msgid "newer than (days)"
-msgstr ""
+msgstr "şundan yeni (gün)"
 
 #: ui/components/filter-rules.slint:98
 msgid "larger than (KB)"
-msgstr ""
+msgstr "şundan büyük (KB)"
 
 #: ui/components/filter-rules.slint:98
 msgid "smaller than (KB)"
-msgstr ""
+msgstr "şundan küçük (KB)"
 
 #: ui/components/filter-rules.slint:107
 msgid "yes"
-msgstr ""
+msgstr "evet"
 
 #: ui/components/filter-rules.slint:107
 msgid "no"
-msgstr ""
+msgstr "hayır"
 
 #: ui/components/filter-rules.slint:117
 msgid "Header name"
-msgstr ""
+msgstr "Üstbilgi adı"
 
 #: ui/components/filter-rules.slint:118
 msgid "Header, e.g. X-Spam-Flag"
-msgstr ""
+msgstr "Üstbilgi, örn. X-Spam-Flag"
 
 #: ui/components/filter-rules.slint:127
 msgid "Condition value"
-msgstr ""
+msgstr "Koşul değeri"
 
 #: ui/components/filter-rules.slint:128
 msgid "Number of days"
-msgstr ""
+msgstr "Gün sayısı"
 
 #: ui/components/filter-rules.slint:128
 msgid "Size in KB"
-msgstr ""
+msgstr "KB cinsinden boyut"
 
 #: ui/components/filter-rules.slint:128
 msgid "Regular expression"
-msgstr ""
+msgstr "Düzenli ifade"
 
 #: ui/components/filter-rules.slint:128
 msgid "Text to look for"
-msgstr ""
+msgstr "Aranacak metin"
 
 #: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:498
 #: ui/views/mail-reading-pane.slint:386 ui/views/mail-reading-pane.slint:774
@@ -3092,7 +3133,7 @@ msgstr "Okunmadı olarak işaretle"
 
 #: ui/components/filter-rules.slint:161
 msgid "Star"
-msgstr ""
+msgstr "Yıldızla"
 
 #: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:1017
 #: ui/views/mail-reading-pane.slint:406
@@ -3115,7 +3156,7 @@ msgstr "Klasöre taşı"
 
 #: ui/components/filter-rules.slint:161
 msgid "Add label"
-msgstr ""
+msgstr "Etiket ekle"
 
 #: ui/components/filter-rules.slint:161 ui/views/files-view.slint:539
 msgid "Copy to folder"
@@ -3123,11 +3164,11 @@ msgstr "Klasöre kopyala"
 
 #: ui/components/filter-rules.slint:161
 msgid "Forward to address"
-msgstr ""
+msgstr "Adrese ilet"
 
 #: ui/components/filter-rules.slint:161
 msgid "Run command"
-msgstr ""
+msgstr "Komut çalıştır"
 
 #: ui/components/filter-rules.slint:161 ui/views/mail-reading-pane.slint:387
 #: ui/views/mail-reading-pane.slint:792
@@ -3149,11 +3190,11 @@ msgstr "Planlandı"
 
 #: ui/components/filter-rules.slint:198
 msgid "Action value"
-msgstr ""
+msgstr "Eylem değeri"
 
 #: ui/components/filter-rules.slint:199
 msgid "Folder name, for example Receipts"
-msgstr ""
+msgstr "Klasör adı, örn. Makbuzlar"
 
 #: ui/components/filter-rules.slint:199 ui/views/mail-reading-pane.slint:1984
 #: ui/views/tasks-view.slint:2600
@@ -3162,15 +3203,15 @@ msgstr "Etiket adı"
 
 #: ui/components/filter-rules.slint:199
 msgid "Address, for example me@example.org"
-msgstr ""
+msgstr "Adres, örn. ben@example.org"
 
 #: ui/components/filter-rules.slint:199
 msgid "Command; %f is the message file"
-msgstr ""
+msgstr "Komut; %f ileti dosyasıdır"
 
 #: ui/components/filter-rules.slint:222
 msgid "Your filters"
-msgstr ""
+msgstr "Süzgeçleriniz"
 
 #: ui/components/filter-rules.slint:228
 msgid ""
@@ -3179,22 +3220,26 @@ msgid ""
 "run-command act on the message itself. Mail already in your account is not "
 "changed unless you run the filters by hand."
 msgstr ""
+"Süzgeçler, bir Gelen Kutusuna ulaşan yeni iletilerde gösterilen sırayla "
+"çalışır. Taşıma, etiket ve işaret eylemleri tüm konuşmaya uygulanır; "
+"kopyalama, iletme ve komut çalıştırma iletinin kendisine uygulanır. "
+"Hesabınızdaki mevcut iletiler, süzgeçleri elle çalıştırmadıkça değişmez."
 
 #: ui/components/filter-rules.slint:236
 msgid "No filters yet."
-msgstr ""
+msgstr "Henüz süzgeç yok."
 
 #: ui/components/filter-rules.slint:261
 msgid "Turn off"
-msgstr ""
+msgstr "Kapat"
 
 #: ui/components/filter-rules.slint:261
 msgid "Turn on"
-msgstr ""
+msgstr "Aç"
 
 #: ui/components/filter-rules.slint:271
 msgid "Run filters on the Inboxes now"
-msgstr ""
+msgstr "Süzgeçleri Gelen Kutularında şimdi çalıştır"
 
 #: ui/components/filter-rules.slint:287
 msgid "Edit filter"
@@ -3202,47 +3247,47 @@ msgstr "Filtreyi düzenle"
 
 #: ui/components/filter-rules.slint:287
 msgid "New filter"
-msgstr ""
+msgstr "Yeni süzgeç"
 
 #: ui/components/filter-rules.slint:296
 msgid "Filter name"
-msgstr ""
+msgstr "Süzgeç adı"
 
 #: ui/components/filter-rules.slint:297
 msgid "Name, for example Receipts"
-msgstr ""
+msgstr "Ad, örn. Makbuzlar"
 
 #: ui/components/filter-rules.slint:304
 msgid "Apply when"
-msgstr ""
+msgstr "Şu durumda uygula"
 
 #: ui/components/filter-rules.slint:308
 msgid "all"
-msgstr ""
+msgstr "tümü"
 
 #: ui/components/filter-rules.slint:308
 msgid "any"
-msgstr ""
+msgstr "herhangi biri"
 
 #: ui/components/filter-rules.slint:312
 msgid "of these match:"
-msgstr ""
+msgstr "şunlarla eşleşirse:"
 
 #: ui/components/filter-rules.slint:327
 msgid "Add condition"
-msgstr ""
+msgstr "Koşul ekle"
 
 #: ui/components/filter-rules.slint:334
 msgid "Then:"
-msgstr ""
+msgstr "Sonra:"
 
 #: ui/components/filter-rules.slint:351 ui/components/user-actions.slint:147
 msgid "Add action"
-msgstr ""
+msgstr "Eylem ekle"
 
 #: ui/components/filter-rules.slint:357
 msgid "Stop: skip the filters below when this one matches"
-msgstr ""
+msgstr "Dur: bu eşleşirse aşağıdaki süzgeçleri atla"
 
 #: ui/components/filter-rules.slint:369
 msgid "Save changes"
@@ -3290,7 +3335,7 @@ msgstr "Otomatik"
 
 #: ui/components/mail-security-fields.slint:44
 msgid "None (unencrypted)"
-msgstr ""
+msgstr "Yok (şifresiz)"
 
 #: ui/components/mail-security-fields.slint:53
 msgid "SMTP encryption"
@@ -3298,7 +3343,7 @@ msgstr "SMTP şifrelemesi"
 
 #: ui/components/mail-security-fields.slint:65
 msgid "Automatic: STARTTLS on port 119, SSL/TLS otherwise (usually 563)."
-msgstr ""
+msgstr "Otomatik: 119 portunda STARTTLS, aksi halde SSL/TLS (genelde 563)."
 
 #: ui/components/mail-security-fields.slint:69
 msgid ""
@@ -3310,7 +3355,7 @@ msgstr ""
 
 #: ui/components/mail-security-fields.slint:73
 msgid "Accept untrusted certificate (insecure)"
-msgstr ""
+msgstr "Güvenilmeyen sertifikayı kabul et (güvensiz)"
 
 #: ui/components/mail-security-fields.slint:79
 msgid ""
@@ -3319,6 +3364,10 @@ msgid ""
 "for a server you control, such as localhost or a self-signed server; for "
 "Proton Bridge, importing its certificate is safer."
 msgstr ""
+"Uyarı: sunucunun kimliği doğrulanmaz; ağdaki herkes onun yerine geçip "
+"iletilerinizi ve parolanızı okuyabilir. Bunu yalnızca localhost veya "
+"kendinden imzalı sunucu gibi denetiminizdeki sunucular için kullanın; Proton "
+"Bridge için sertifikasını içe aktarmak daha güvenlidir."
 
 #: ui/components/mail-security-fields.slint:83
 msgid ""
@@ -3326,6 +3375,9 @@ msgid ""
 "readable form. Use this only on a trusted local network or with a server "
 "that cannot offer TLS."
 msgstr ""
+"Uyarı: şifreleme olmadan parolanız ve iletileriniz ağda okunabilir biçimde "
+"geçer. Bunu yalnızca güvenilir bir yerel ağda veya TLS sunamayan bir "
+"sunucuyla kullanın."
 
 #: ui/components/mail-security-fields.slint:88
 msgid "Manage trusted certificate"
@@ -3363,109 +3415,117 @@ msgstr "Bu hesap için özel sertifika eklendi."
 
 #: ui/components/mail-security-fields.slint:108
 msgid "Client certificate (PEM) for servers that require one"
-msgstr ""
+msgstr "Gerektiren sunucular için istemci sertifikası (PEM)"
 
 #: ui/components/mail-security-fields.slint:110
 msgid ""
 "Client private key (PEM, without passphrase). It is stored in the system "
 "keychain; enter it again when editing this account."
 msgstr ""
+"İstemci özel anahtarı (PEM, parolasız). Sistem anahtarlığında saklanır; bu "
+"hesabı düzenlerken yeniden girin."
 
 #: ui/components/mail-security-fields.slint:116
 msgid ""
 "News servers use the account login (AUTHINFO). Leave the username empty for "
 "anonymous access."
 msgstr ""
+"Haber sunucuları hesap oturumunu (AUTHINFO) kullanır. Anonim erişim için "
+"kullanıcı adını boş bırakın."
 
 #: ui/components/mail-security-fields.slint:117
 msgid "IMAP authentication"
-msgstr ""
+msgstr "IMAP kimlik doğrulaması"
 
 #: ui/components/mail-security-fields.slint:122
 msgid "Automatic (LOGIN)"
-msgstr ""
+msgstr "Otomatik (LOGIN)"
 
 #: ui/components/mail-security-fields.slint:126
 msgid "SMTP authentication"
-msgstr ""
+msgstr "SMTP kimlik doğrulaması"
 
 #: ui/components/mail-security-fields.slint:131
 msgid "None (no authentication)"
-msgstr ""
+msgstr "Yok (kimlik doğrulaması yok)"
 
 #: ui/components/mail-security-fields.slint:135
 msgid "SMTP user name (leave empty to use the account login)"
-msgstr ""
+msgstr "SMTP kullanıcı adı (hesap oturumu için boş bırakın)"
 
 #: ui/components/mail-security-fields.slint:137
 msgid "SMTP password (leave empty to use the account password)"
-msgstr ""
+msgstr "SMTP parolası (hesap parolası için boş bırakın)"
 
 #: ui/components/mail-security-fields.slint:143
 msgid "Your name (shown as the sender and account label)"
-msgstr ""
+msgstr "Adınız (gönderen ve hesap etiketi olarak gösterilir)"
 
 #: ui/components/mail-security-fields.slint:145
 msgid "Organization header"
-msgstr ""
+msgstr "Kuruluş üstbilgisi"
 
 #: ui/components/mail-security-fields.slint:147
 msgid "Message-ID domain (empty = sender's domain)"
-msgstr ""
+msgstr "Message-ID alan adı (boş = gönderenin alan adı)"
 
 #: ui/components/mail-security-fields.slint:149
 msgid "Extra headers added to outgoing mail, one \"Name: value\" per line"
-msgstr ""
+msgstr "Giden iletilere eklenen ek üstbilgiler, satır başına bir \"Ad: değer\""
 
 #: ui/components/mail-security-fields.slint:155
 msgid ""
 "Type an existing IMAP folder name to override automatic detection, e.g. "
 "\"INBOX.Sent\". Leave empty to detect automatically."
 msgstr ""
+"Otomatik algılamayı geçersiz kılmak için mevcut bir IMAP klasör adı yazın, "
+"örn. \"INBOX.Sent\". Otomatik algılama için boş bırakın."
 
 #: ui/components/mail-security-fields.slint:156
 msgid "Sent folder"
-msgstr ""
+msgstr "Gönderilenler klasörü"
 
 #: ui/components/mail-security-fields.slint:158
 msgid "Drafts folder"
-msgstr ""
+msgstr "Taslaklar klasörü"
 
 #: ui/components/mail-security-fields.slint:160
 msgid "Trash folder"
-msgstr ""
+msgstr "Çöp kutusu klasörü"
 
 #: ui/components/mail-security-fields.slint:162
 msgid "Junk/Spam folder"
-msgstr ""
+msgstr "İstenmeyen klasörü"
 
 #: ui/components/mail-security-fields.slint:164
 msgid "Archive folder"
-msgstr ""
+msgstr "Arşiv klasörü"
 
 #: ui/components/mail-security-fields.slint:170
 msgid "Connection timeout in seconds (empty = 30)"
-msgstr ""
+msgstr "Bağlantı zaman aşımı, saniye (boş = 30)"
 
 #: ui/components/mail-security-fields.slint:172
 msgid "Maximum simultaneous IMAP connections (empty = unlimited; 1–20)"
-msgstr ""
+msgstr "En fazla eşzamanlı IMAP bağlantısı (boş = sınırsız; 1–20)"
 
 #: ui/components/mail-security-fields.slint:174
 msgid "Proxy"
-msgstr ""
+msgstr "Vekil sunucu"
 
 #: ui/components/mail-security-fields.slint:183
 msgid "Proxy host"
-msgstr ""
+msgstr "Vekil sunucu adresi"
 
 #: ui/components/mail-security-fields.slint:185
 msgid "Proxy port"
-msgstr ""
+msgstr "Vekil sunucu portu"
 
 #: ui/components/mail-security-fields.slint:187
 msgid "The proxy applies to IMAP and SMTP only, and must not require a login."
 msgstr ""
+"Vekil sunucu yalnızca IMAP ve SMTP için geçerlidir ve oturum "
+"gerektirmemelidir."
 
 #: ui/components/oauth-browser-help.slint:43
 msgid "Browser did not open — show sign-in help"
@@ -3520,11 +3580,11 @@ msgstr "Oturum açmayı bitir"
 
 #: ui/components/sidebar-controls.slint:171
 msgid "Collapse label"
-msgstr ""
+msgstr "Etiketi daralt"
 
 #: ui/components/sidebar-controls.slint:171
 msgid "Expand label"
-msgstr ""
+msgstr "Etiketi genişlet"
 
 #: ui/components/sidebar-controls.slint:172
 msgid "Collapse folder"
@@ -3548,11 +3608,11 @@ msgstr "Klasörü sil"
 
 #: ui/components/sidebar-controls.slint:212
 msgid "Empty Trash…"
-msgstr ""
+msgstr "Çöp kutusunu boşalt…"
 
 #: ui/components/sidebar-controls.slint:224
 msgid "New nested label"
-msgstr ""
+msgstr "Yeni iç içe etiket"
 
 #: ui/components/sidebar-controls.slint:230
 msgid "Rename global label"
@@ -3595,45 +3655,53 @@ msgstr "TÜM HESAPLAR"
 msgid "All Inboxes"
 msgstr "Tüm Gelen Kutuları"
 
-#: ui/components/sidebar.slint:303
+#: ui/components/sidebar.slint:263
+msgid "With tasks"
+msgstr "Görevli"
+
+#: ui/components/sidebar.slint:263
+msgid "Waiting on reply"
+msgstr "Yanıt bekleniyor"
+
+#: ui/components/sidebar.slint:305
 msgid "Categories"
 msgstr "Kategoriler"
 
-#: ui/components/sidebar.slint:321
+#: ui/components/sidebar.slint:323
 msgid "Important"
 msgstr "Önemli"
 
-#: ui/components/sidebar.slint:341 ui/dialogs/settings-dialog.slint:296
+#: ui/components/sidebar.slint:343 ui/dialogs/settings-dialog.slint:296
 msgid "Other"
 msgstr "Diğer"
 
-#: ui/components/sidebar.slint:384 ui/components/sidebar.slint:539
+#: ui/components/sidebar.slint:386 ui/components/sidebar.slint:541
 #: ui/views/tasks-view.slint:2459
 msgid "Labels"
 msgstr "Etiketler"
 
-#: ui/components/sidebar.slint:403
+#: ui/components/sidebar.slint:405
 msgid "Global label {}"
 msgstr "Genel etiket {}"
 
-#: ui/components/sidebar.slint:435 ui/views/contacts-view.slint:208
+#: ui/components/sidebar.slint:437 ui/views/contacts-view.slint:208
 msgid "ACCOUNTS"
 msgstr "HESAPLAR"
 
-#: ui/components/sidebar.slint:559
+#: ui/components/sidebar.slint:561
 msgid "{} label, {} account"
 msgstr "{} etiket, {} hesap"
 
-#: ui/components/sidebar.slint:601 ui/dialogs/folder-dialog.slint:27
+#: ui/components/sidebar.slint:603 ui/dialogs/folder-dialog.slint:27
 #: ui/views/files-view.slint:336
 msgid "New folder"
 msgstr "Yeni klasör"
 
-#: ui/components/sidebar.slint:618 ui/dialogs/folder-dialog.slint:26
+#: ui/components/sidebar.slint:620 ui/dialogs/folder-dialog.slint:26
 msgid "New label"
 msgstr "Yeni etiket"
 
-#: ui/components/sidebar.slint:638
+#: ui/components/sidebar.slint:640
 msgid "No folders found"
 msgstr "Klasör bulunamadı"
 
@@ -3824,15 +3892,15 @@ msgstr "Paleti kaydet"
 
 #: ui/components/user-actions.slint:49
 msgid "External editor"
-msgstr ""
+msgstr "Harici düzenleyici"
 
 #: ui/components/user-actions.slint:58
 msgid "Editor command"
-msgstr ""
+msgstr "Düzenleyici komutu"
 
 #: ui/components/user-actions.slint:59
 msgid "alacritty -e nvim %f"
-msgstr ""
+msgstr "alacritty -e nvim %f"
 
 #: ui/components/user-actions.slint:62
 msgid ""
@@ -3841,14 +3909,18 @@ msgid ""
 "graphical editors so the command stays running until you close them. Leave "
 "empty to hide the composer button."
 msgstr ""
+"İleti metnini oluşturucudan düzenleyicinizde açar. %f düzenlenecek dosyadır; "
+"terminal düzenleyiciler için terminal komutu, grafik düzenleyiciler için "
+"kapatana dek komutun çalışmasını sağlayan --wait seçeneği kullanın. "
+"Oluşturucu düğmesini gizlemek için boş bırakın."
 
 #: ui/components/user-actions.slint:74
 msgid "Save editor command"
-msgstr ""
+msgstr "Düzenleyici komutunu kaydet"
 
 #: ui/components/user-actions.slint:83
 msgid "Message actions"
-msgstr ""
+msgstr "İleti eylemleri"
 
 #: ui/components/user-actions.slint:89
 msgid ""
@@ -3857,22 +3929,27 @@ msgid ""
 "and sender are available as $RUSTMAIL_SUBJECT and $RUSTMAIL_FROM; quote them "
 "in your command. Commands stop after 60 seconds. Only add commands you trust."
 msgstr ""
+"Okuyucudaki Eylemler düğmesinden açık iletide çalıştırabileceğiniz komutlar. "
+"%f iletinin özel geçici kopyasıdır (.eml). Konu ve gönderen "
+"$RUSTMAIL_SUBJECT ve $RUSTMAIL_FROM olarak kullanılabilir; komutunuzda "
+"tırnak içine alın. Komutlar 60 saniye sonra durdurulur. Yalnızca "
+"güvendiğiniz komutları ekleyin."
 
 #: ui/components/user-actions.slint:97
 msgid "No actions yet."
-msgstr ""
+msgstr "Henüz eylem yok."
 
 #: ui/components/user-actions.slint:130
 msgid "Action name"
-msgstr ""
+msgstr "Eylem adı"
 
 #: ui/components/user-actions.slint:131
 msgid "Name, for example Open in Thunderbird"
-msgstr ""
+msgstr "Ad, örn. Thunderbird'de aç"
 
 #: ui/components/user-actions.slint:138
 msgid "thunderbird -file %f"
-msgstr ""
+msgstr "thunderbird -file %f"
 
 #: ui/components/workspace-navigation.slint:104
 #: ui/dialogs/settings-dialog.slint:2252 ui/views/tasks-view.slint:3097
@@ -3899,15 +3976,15 @@ msgstr "Birincil gezinme"
 
 #: ui/components/workspace-navigation.slint:430
 msgid "New tab"
-msgstr ""
+msgstr "Yeni sekme"
 
 #: ui/components/workspace-navigation.slint:559
 msgid "Close tab"
-msgstr ""
+msgstr "Sekmeyi kapat"
 
 #: ui/components/workspace-navigation.slint:603
 msgid "Tabs"
-msgstr ""
+msgstr "Sekmeler"
 
 #: ui/components/zoom-controls.slint:20
 msgid "Zoom out"
@@ -4089,10 +4166,11 @@ msgstr "Klasör silinsin mi?"
 msgid ""
 "Delete “{}” and all nested labels from “{}”? Messages will not be deleted."
 msgstr ""
+"“{}” ve iç içe tüm etiketler “{}” içinden silinsin mi? İletiler silinmez."
 
 #: ui/dialogs/folder-dialog.slint:74
 msgid "Delete “{}” from “{}”? Messages will not be deleted."
-msgstr ""
+msgstr "“{}”, “{}” içinden silinsin mi? İletiler silinmez."
 
 #: ui/dialogs/folder-dialog.slint:75
 msgid "Delete “{}” and its contents from the mail server?"
@@ -4440,11 +4518,11 @@ msgstr "Ctrl+Shift+T"
 
 #: ui/dialogs/settings-dialog.slint:560
 msgid "All columns"
-msgstr ""
+msgstr "Tüm sütunlar"
 
 #: ui/dialogs/settings-dialog.slint:561
 msgid "Simple (no Scheduled or Someday)"
-msgstr ""
+msgstr "Basit (Planlanan ve Bir gün yok)"
 
 #: ui/dialogs/settings-dialog.slint:564
 msgid "System language"
@@ -4468,6 +4546,9 @@ msgid ""
 "title bar renderer privacy remote images sync group messages date inbox tray "
 "background startup sign in login"
 msgstr ""
+"genel tema görünüm palet dil çalışma alanı düzen pencere çerçevesiz başlık "
+"çubuğu oluşturucu gizlilik uzak görseller eşitleme grup iletiler tarih gelen "
+"kutusu tepsi arka plan başlangıç oturum aç giriş"
 
 #: ui/dialogs/settings-dialog.slint:601
 msgid ""
@@ -4498,11 +4579,15 @@ msgid ""
 "filters rules mail incoming move label star archive trash spam sender "
 "subject automatic"
 msgstr ""
+"süzgeçler kurallar posta gelen taşı etiket yıldız arşiv çöp istenmeyen "
+"gönderen konu otomatik"
 
 #: ui/dialogs/settings-dialog.slint:611
 msgid ""
 "actions external editor commands scripts run message open editor compose"
 msgstr ""
+"eylemler harici düzenleyici komutlar betikler çalıştır ileti aç düzenleyici "
+"oluştur"
 
 #: ui/dialogs/settings-dialog.slint:613
 msgid ""
@@ -4546,12 +4631,12 @@ msgstr "Kısayollar"
 #: ui/dialogs/settings-dialog.slint:866 ui/dialogs/settings-dialog.slint:2042
 #: ui/dialogs/settings-dialog.slint:2483
 msgid "Filters"
-msgstr ""
+msgstr "Süzgeçler"
 
 #: ui/dialogs/settings-dialog.slint:867 ui/dialogs/settings-dialog.slint:2073
 #: ui/dialogs/settings-dialog.slint:2484
 msgid "Actions"
-msgstr ""
+msgstr "Eylemler"
 
 #: ui/dialogs/settings-dialog.slint:868 ui/dialogs/settings-dialog.slint:2105
 #: ui/dialogs/settings-dialog.slint:2485
@@ -4569,15 +4654,15 @@ msgstr "Görünüm, gizlilik ve eşitlemeyi yönetin."
 
 #: ui/dialogs/settings-dialog.slint:905
 msgid "Message appearance"
-msgstr ""
+msgstr "İleti görünümü"
 
 #: ui/dialogs/settings-dialog.slint:906
 msgid "Choose the background and text colors used to read messages."
-msgstr ""
+msgstr "İletileri okurken kullanılan arka plan ve metin renklerini seçin."
 
 #: ui/dialogs/settings-dialog.slint:907
 msgid "Follow app theme"
-msgstr ""
+msgstr "Uygulama temasını izle"
 
 #: ui/dialogs/settings-dialog.slint:964
 msgid "Interface"
@@ -4601,11 +4686,11 @@ msgstr "Gönderen görsellerini ileti listesinde ve okuyucuda gizler."
 
 #: ui/dialogs/settings-dialog.slint:993
 msgid "Reverse scroll direction"
-msgstr ""
+msgstr "Kaydırma yönünü ters çevir"
 
 #: ui/dialogs/settings-dialog.slint:994
 msgid "Flip the mouse wheel and touchpad direction in this window."
-msgstr ""
+msgstr "Bu pencerede fare tekerleği ve dokunmatik yüzey yönünü ters çevirir."
 
 #: ui/dialogs/settings-dialog.slint:1006
 msgid "Frameless window"
@@ -4658,11 +4743,11 @@ msgstr "Bağlı tüm hesaplardan gelen iletileri birleştirir."
 
 #: ui/dialogs/settings-dialog.slint:1082
 msgid "Group messages by date"
-msgstr ""
+msgstr "İletileri tarihe göre grupla"
 
 #: ui/dialogs/settings-dialog.slint:1083
 msgid "Show collapsible date sections in the mail list."
-msgstr ""
+msgstr "Posta listesinde daraltılabilir tarih bölümlerini göster."
 
 #: ui/dialogs/settings-dialog.slint:1100
 msgid "Mark messages as read when opened"
@@ -4701,27 +4786,27 @@ msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:1163
 msgid "Default list for a new task"
-msgstr ""
+msgstr "Yeni görev için varsayılan liste"
 
 #: ui/dialogs/settings-dialog.slint:1164
 msgid "Where “New task from email” puts the task."
-msgstr ""
+msgstr "“E-postadan yeni görev” görevi nereye koyar."
 
 #: ui/dialogs/settings-dialog.slint:1174
 msgid "Default project"
-msgstr ""
+msgstr "Varsayılan proje"
 
 #: ui/dialogs/settings-dialog.slint:1175
 msgid "The project a task made from email starts in."
-msgstr ""
+msgstr "E-postadan oluşturulan görevin başlayacağı proje."
 
 #: ui/dialogs/settings-dialog.slint:1185
 msgid "Default context"
-msgstr ""
+msgstr "Varsayılan bağlam"
 
 #: ui/dialogs/settings-dialog.slint:1186
 msgid "The context a task made from email starts with."
-msgstr ""
+msgstr "E-postadan oluşturulan görevin başlayacağı bağlam."
 
 #: ui/dialogs/settings-dialog.slint:1196
 msgid "Shortcut for a new task from email"
@@ -4734,11 +4819,11 @@ msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:1207
 msgid "Columns of a new project"
-msgstr ""
+msgstr "Yeni projenin sütunları"
 
 #: ui/dialogs/settings-dialog.slint:1208
 msgid "Which columns a project starts with when you create it."
-msgstr ""
+msgstr "Bir proje oluştururken hangi sütunlarla başlayacağı."
 
 #: ui/dialogs/settings-dialog.slint:1232
 msgid "Remote images"
@@ -5197,10 +5282,14 @@ msgid ""
 "Sort incoming mail automatically: mark, star, archive or move it by sender, "
 "recipient, subject or size."
 msgstr ""
+"Gelen iletileri otomatik sıralayın: gönderen, alıcı, konu veya boyuta göre "
+"işaretleyin, yıldızlayın, arşivleyin veya taşıyın."
 
 #: ui/dialogs/settings-dialog.slint:2076
 msgid "Run your own commands on messages and write in the editor you prefer."
 msgstr ""
+"İletilerde kendi komutlarınızı çalıştırın ve tercih ettiğiniz düzenleyicide "
+"yazın."
 
 #: ui/dialogs/settings-dialog.slint:2108
 msgid "See what Rustmail stores locally and manage the data on this device."
@@ -5372,18 +5461,20 @@ msgid ""
 "A modified version of Flectar Mail, copyright © Flectar and contributors. "
 "Changes by Rustmail contributors."
 msgstr ""
+"Flectar Mail'in değiştirilmiş sürümü, telif hakkı © Flectar ve katkıda "
+"bulunanlar. Değişiklikler Rustmail katkıda bulunanlarına aittir."
 
 #: ui/dialogs/settings-dialog.slint:2348
 msgid "Source code of this version"
-msgstr ""
+msgstr "Bu sürümün kaynak kodu"
 
 #: ui/dialogs/settings-dialog.slint:2358
 msgid "Flectar Mail"
-msgstr ""
+msgstr "Flectar Mail"
 
 #: ui/dialogs/settings-dialog.slint:2359
 msgid "Original project, © Flectar and contributors"
-msgstr ""
+msgstr "Özgün proje, © Flectar ve katkıda bulunanlar"
 
 #: ui/dialogs/settings-dialog.slint:2368
 msgid "Open-source contributors"
@@ -5412,6 +5503,8 @@ msgid ""
 "This program comes with ABSOLUTELY NO WARRANTY. Third-party components "
 "retain their own licenses and notices."
 msgstr ""
+"Bu programın KESİNLİKLE HİÇBİR GARANTİSİ yoktur. Üçüncü taraf bileşenler "
+"kendi lisans ve bildirimlerini korur."
 
 #: ui/dialogs/settings-dialog.slint:2417
 msgid "Settings sections"
@@ -5481,6 +5574,8 @@ msgstr "Otomatik keşifle eşitleme ve gönderme için JMAP kullanır."
 msgid ""
 "Reads mail stored on this computer. An SMTP server is only needed to send."
 msgstr ""
+"Bu bilgisayarda saklanan postayı okur. SMTP sunucusu yalnızca göndermek için "
+"gerekir."
 
 #: ui/dialogs/settings-dialog.slint:2679
 msgid "Uses separate IMAP and SMTP servers for mail sync and sending."
@@ -6317,36 +6412,36 @@ msgstr "Tamamlandı olarak incelendi"
 #: ui/views/mail-list-pane.slint:76
 msgid "{n} message"
 msgid_plural "{n} messages"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{n} ileti"
+msgstr[1] "{n} ileti"
 
 #: ui/views/mail-list-pane.slint:321 ui/views/mail-list-pane.slint:334
 msgid "Earlier"
-msgstr ""
+msgstr "Daha önce"
 
 #: ui/views/mail-list-pane.slint:326
 msgid "Yesterday"
-msgstr ""
+msgstr "Dün"
 
 #: ui/views/mail-list-pane.slint:327
 msgid "This week"
-msgstr ""
+msgstr "Bu hafta"
 
 #: ui/views/mail-list-pane.slint:328
 msgid "Last week"
-msgstr ""
+msgstr "Geçen hafta"
 
 #: ui/views/mail-list-pane.slint:329
 msgid "This month"
-msgstr ""
+msgstr "Bu ay"
 
 #: ui/views/mail-list-pane.slint:330
 msgid "Last month"
-msgstr ""
+msgstr "Geçen ay"
 
 #: ui/views/mail-list-pane.slint:332
 msgid "{} {}"
-msgstr ""
+msgstr "{} {}"
 
 #: ui/views/mail-list-pane.slint:366
 msgid "Show folders"
@@ -6399,7 +6494,7 @@ msgstr "İstenmeyene taşı"
 
 #: ui/views/mail-list-pane.slint:479
 msgid "Delete selected permanently"
-msgstr ""
+msgstr "Seçilenleri kalıcı olarak sil"
 
 #: ui/views/mail-list-pane.slint:492 ui/views/mail-reading-pane.slint:1024
 msgid "More message actions"
@@ -6417,7 +6512,7 @@ msgstr "Yıldızı kaldır"
 
 #: ui/views/mail-list-pane.slint:502
 msgid "Create tasks"
-msgstr ""
+msgstr "Görev oluştur"
 
 #: ui/views/mail-list-pane.slint:594
 msgid "{}, {}"
@@ -6449,12 +6544,12 @@ msgstr "Seçimini kaldır: {}"
 
 #: ui/views/mail-list-pane.slint:1012
 msgid "Open in new tab"
-msgstr ""
+msgstr "Yeni sekmede aç"
 
 #: ui/views/mail-list-pane.slint:1019 ui/views/mail-reading-pane.slint:371
 #: ui/views/mail-reading-pane.slint:408
 msgid "Delete permanently…"
-msgstr ""
+msgstr "Kalıcı olarak sil…"
 
 #: ui/views/mail-list-pane.slint:1076 ui/views/onboarding-view.slint:141
 msgid "Opening your mailbox…"
@@ -6520,12 +6615,12 @@ msgstr "Düz metni görüntüle"
 #: ui/views/mail-reading-pane.slint:370 ui/views/mail-reading-pane.slint:385
 #: ui/views/mail-reading-pane.slint:1267
 msgid "Use message appearance"
-msgstr ""
+msgstr "İleti görünümünü kullan"
 
 #: ui/views/mail-reading-pane.slint:370 ui/views/mail-reading-pane.slint:385
 #: ui/views/mail-reading-pane.slint:1267
 msgid "Show original colors"
-msgstr ""
+msgstr "Özgün renkleri göster"
 
 #: ui/views/mail-reading-pane.slint:378 ui/views/mail-reading-pane.slint:397
 #: ui/views/tasks-view.slint:2430
@@ -6773,7 +6868,7 @@ msgstr "Eşitleme ve gönderme için JMAP kullanarak bağlanın."
 
 #: ui/views/onboarding-view.slint:256
 msgid "Read mail stored on this computer in Maildir or mbox folders."
-msgstr ""
+msgstr "Bu bilgisayarda Maildir veya mbox klasörlerinde saklanan postayı oku."
 
 #: ui/views/onboarding-view.slint:256
 msgid "Connect using IMAP and SMTP. POP3 is not supported."
@@ -7518,6 +7613,9 @@ msgstr "Önceki boyuta getir"
 #: ui/window-chrome.slint:205 ui/window-chrome.slint:242
 msgid "Maximize"
 msgstr "Ekranı kapla"
+
+#~ msgid "Verified sender identity"
+#~ msgstr "Doğrulanmış gönderen kimliği"
 
 #~ msgid ""
 #~ "Status: inbox, next, waiting or scheduled; then ;project and ;context"

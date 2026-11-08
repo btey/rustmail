@@ -104,45 +104,42 @@ export component ComposerFromRow inherits Rectangle {
         account-popup.close();
     }
 
-            height: 42px;
+            height: 40px;
             background: root.background-color;
 
             account-label := Text {
                 x: 12px;
-                width: max(60px, self.preferred-width);
+                width: 72px;
                 height: parent.height;
                 text: @tr("Account");
                 color: root.muted-color;
-                font-size: TypeScale.caption;
+                font-size: TypeScale.secondary;
                 font-weight: 600;
                 vertical-alignment: center;
+                overflow: elide;
             }
 
             trigger := Rectangle {
                 x: account-label.x + account-label.width + 4px;
-                y: 5px;
-                width: min(410px, parent.width - self.x - 12px);
-                height: 32px;
-                border-radius: 7px;
-                border-width: 1px;
-                border-color: account-popup.is-open ? root.secondary-color : root.frame-border-color;
-                background: account-hit.has-hover ? root.hover-color : root.background-color;
+                width: parent.width - self.x - 8px;
+                height: parent.height;
+                border-radius: 6px;
+                background: account-hit.has-hover || account-popup.is-open ? root.hover-color : transparent;
 
                 Text {
-                    x: 10px;
-                    width: parent.width - 36px;
+                    x: 6px;
+                    width: parent.width - 34px;
                     height: parent.height;
                     text: root.from-label;
                     color: root.accounts.length > 0 ? root.title-color : root.muted-color;
-                    font-size: TypeScale.caption;
-                    font-weight: root.accounts.length > 0 ? 600 : 500;
+                    font-size: TypeScale.body;
                     vertical-alignment: center;
                     overflow: elide;
                 }
 
                 Image {
-                    x: parent.width - 25px;
-                    y: 9px;
+                    x: parent.width - 22px;
+                    y: (parent.height - self.height) / 2;
                     width: 14px;
                     height: 14px;
                     source: @image-url("../icons/lucide/outline/chevron-down.svg");
@@ -184,9 +181,9 @@ export component ComposerFromRow inherits Rectangle {
             account-email-probe := Text { visible: false; text: "Ag"; font-size: TypeScale.caption; }
 
             account-popup := PopupWindow {
-                x: 50px;
+                x: 80px;
                 y: 38px;
-                width: min(410px, root.width - 62px);
+                width: min(410px, root.width - 92px);
                 height: max(52px, min(5, root.accounts.length) * root.account-pitch + 8px);
                 close-policy: close-on-click-outside;
                 forward-focus: account-list;
@@ -475,7 +472,7 @@ export component ComposerSubject inherits Rectangle {
 
             subject-label := Text {
                 x: 12px;
-                width: max(46px, self.preferred-width);
+                width: max(72px, self.preferred-width);
                 height: parent.height;
                 text: @tr("Subject");
                 color: subject-input.has-focus ? root.accent-color : root.muted-color;
@@ -485,7 +482,7 @@ export component ComposerSubject inherits Rectangle {
             }
 
             Text {
-                x: subject-label.x + subject-label.width + 12px;
+                x: subject-label.x + subject-label.width + 4px;
                 width: parent.width - self.x - 12px;
                 height: parent.height;
                 visible: root.subject == "";
@@ -497,7 +494,7 @@ export component ComposerSubject inherits Rectangle {
             }
 
             subject-input := TextInput {
-                x: subject-label.x + subject-label.width + 12px;
+                x: subject-label.x + subject-label.width + 4px;
                 width: parent.width - self.x - 12px;
                 height: parent.height;
                 text <=> root.subject;
@@ -509,4 +506,147 @@ export component ComposerSubject inherits Rectangle {
                 single-line: true;
                 vertical-alignment: center;
             }
+}
+
+// A labelled row whose value is picked from a list; it lines up with the To,
+// Cc and Subject rows (label column, then the value).
+export component ComposerChoiceRow inherits Rectangle {
+    in property <string> label;
+    in property <string> description;
+    in property <[string]> choices;
+    in-out property <int> selected-index: 0;
+    in property <color> background-color;
+    in property <color> frame-border-color;
+    in property <color> hover-color;
+    in property <color> muted-color;
+    in property <color> selected-background;
+    in property <color> title-color;
+    callback selected(int, string);
+
+    height: 40px;
+    background: root.background-color;
+
+    row-label := Text {
+        x: 12px;
+        width: 72px;
+        height: parent.height;
+        text: root.label;
+        color: root.muted-color;
+        font-size: TypeScale.secondary;
+        font-weight: 600;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    value-area := Rectangle {
+        x: row-label.x + row-label.width + 4px;
+        width: parent.width - self.x - 8px;
+        height: parent.height;
+        background: choice-hit.has-hover || choice-popup.is-open ? root.hover-color : transparent;
+        border-radius: 6px;
+
+        Text {
+            x: 6px;
+            width: max(0px, parent.width - 30px - (root.description == "" ? 0px : min(150px, parent.width * 0.4)));
+            height: parent.height;
+            text: root.selected-index >= 0 && root.selected-index < root.choices.length ? root.choices[root.selected-index] : "";
+            color: root.title-color;
+            font-size: TypeScale.body;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        Text {
+            x: parent.width - self.width - 28px;
+            width: root.description == "" ? 0px : min(150px, parent.width * 0.4);
+            height: parent.height;
+            text: root.description;
+            color: root.muted-color;
+            font-size: TypeScale.caption;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        Image {
+            x: parent.width - 22px;
+            y: (parent.height - self.height) / 2;
+            width: 14px;
+            height: 14px;
+            source: @image-url("../icons/lucide/outline/chevron-down.svg");
+            colorize: root.muted-color;
+            image-fit: contain;
+            accessible-role: none;
+        }
+
+        choice-focus := FocusScope {
+            key-pressed(event) => {
+                if (event.text == Key.Return || event.text == Key.Space || event.text == Key.DownArrow) {
+                    if (root.choices.length > 0) {
+                        choice-popup.show();
+                    }
+                    return accept;
+                }
+                reject
+            }
+
+            choice-hit := TouchArea {
+                enabled: root.choices.length > 0;
+                mouse-cursor: pointer;
+                accessible-role: button;
+                accessible-label: root.label;
+                clicked => {
+                    choice-focus.focus();
+                    choice-popup.show();
+                }
+            }
+        }
+    }
+
+    choice-popup := PopupWindow {
+        x: value-area.x;
+        y: parent.height - 2px;
+        width: min(380px, root.width - self.x - 8px);
+        height: min(6, root.choices.length) * 32px + 8px;
+        close-policy: close-on-click-outside;
+
+        Rectangle {
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: root.frame-border-color;
+            background: root.background-color;
+            drop-shadow-blur: 18px;
+            drop-shadow-offset-y: 5px;
+            drop-shadow-color: #0000002e;
+            clip: true;
+
+            for choice[index] in root.choices : Rectangle {
+                x: 4px;
+                y: 4px + index * 32px;
+                width: parent.width - 8px;
+                height: 32px;
+                border-radius: 6px;
+                background: index == root.selected-index || choice-row-hit.has-hover ? root.selected-background : transparent;
+
+                Text {
+                    x: 10px;
+                    width: parent.width - 20px;
+                    height: parent.height;
+                    text: choice;
+                    color: root.title-color;
+                    font-size: TypeScale.body;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+
+                choice-row-hit := TouchArea {
+                    clicked => {
+                        root.selected-index = index;
+                        root.selected(index, choice);
+                        choice-popup.close();
+                    }
+                }
+            }
+        }
+    }
 }
