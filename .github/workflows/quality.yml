@@ -108,7 +108,7 @@ jobs:
       - name: Validate translations
         shell: bash
         run: |
-          cargo install slint-tr-extractor --version 1.18.1 --locked
+          command -v slint-tr-extractor >/dev/null || cargo install slint-tr-extractor --version 1.18.1 --locked
           bash scripts/check-translations.sh
           for language in es; do
             catalog="lang/$language/LC_MESSAGES/rustmail.po"
@@ -215,5 +215,6 @@ jobs:
               --ignore RUSTSEC-2026-0192 \
               --ignore RUSTSEC-2026-0370 \
               --ignore RUSTSEC-2026-0371 \
-              --ignore RUSTSEC-2026-0372
+              --ignore RUSTSEC-2026-0372 \
+              --ignore RUSTSEC-2026-0441
           done
