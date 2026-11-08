@@ -141,6 +141,8 @@ def build(sources):
             "Custom tapered tray; softly rounded outline and curved shoulders around an open well."),
         "inbox-rustmail-old": Recipe(None, inbox_rustmail_old,
             "Preserved earlier Rustmail tray opening."),
+        "project-dot": Recipe(None, solid(ET.Element("rect", x="5", y="5", width="14", height="14", rx="3.5")),
+            "Custom rounded square marking a project in the Tasks sidebar."),
         "tasks": Recipe("circle-check", cut(
             solid(p("circle-check", 0)), lines("circle-check", 1)),
             "Solid circle; check mark cutout."),
