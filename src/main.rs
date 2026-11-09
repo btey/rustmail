@@ -6577,6 +6577,9 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 .map(|at| at.timestamp_millis());
             schedule.set_when("".into());
             let scheduled_for = send_at;
+            // The task-link waiter spawns onto the ambient runtime, and this
+            // handler runs on the UI thread, which has none.
+            let _runtime_guard = runtime_for_compose.enter();
             match runtime_for_compose.block_on(core.send_new_message_at(ComposeMessage {
                 draft_id: intent.draft_id,
                 account_id: i64::from(account_id),
