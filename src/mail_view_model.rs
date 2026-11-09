@@ -639,7 +639,7 @@ fn make_thread_rows(
                     .unwrap_or_default(),
                 has_favicon: favicon.is_some(),
                 preview: display_preview(&message.preview).into(),
-                time: message.time.clone().into(),
+                time: crate::mail::detail_time(message.date_ms).into(),
                 to: message.to.clone().into(),
                 unread: message.unread,
                 outgoing: message.is_outgoing,

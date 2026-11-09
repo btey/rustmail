@@ -2424,6 +2424,14 @@ fn initials(name: &str) -> String {
     letters
 }
 
+/// Exact local date and time for the detail views ("Nov 9, 2026, 14:32").
+pub(crate) fn detail_time(timestamp_ms: i64) -> String {
+    DateTime::<Utc>::from_timestamp_millis(timestamp_ms)
+        .filter(|_| timestamp_ms > 0)
+        .map(|date| date.with_timezone(&Local).format("%b %-d, %Y, %H:%M").to_string())
+        .unwrap_or_else(|| relative_time(timestamp_ms))
+}
+
 fn relative_time(timestamp_ms: i64) -> String {
     relative_time_at(timestamp_ms, Local::now())
 }
