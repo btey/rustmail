@@ -2232,6 +2232,23 @@ async fn store_headers(
                     Some(mid) => repo::messages::by_message_id(&tx, account_id, mid)?,
                     None => None,
                 };
+                // A message sent to one of the account's own addresses has one
+                // Message-ID but two server copies: Sent and Inbox. The Inbox
+                // copy is a separate message, not a duplicate to skip.
+                if folder_role.as_deref() == Some(roles::INBOX)
+                    && let Some(found) = existing.as_ref()
+                    && found.uid.is_some()
+                    && found.folder_id != Some(folder_id)
+                    && let Some(other) = found.folder_id
+                    && tx
+                        .query_row("SELECT role FROM folders WHERE id=?1", [other], |r| {
+                            r.get::<_, Option<String>>(0)
+                        })?
+                        .as_deref()
+                        == Some(roles::SENT)
+                {
+                    existing = None;
+                }
                 // A stable client marker survives providers rewriting Message-ID.
                 // Never guess identity from a subject or a timestamp.
                 if existing.is_none()
