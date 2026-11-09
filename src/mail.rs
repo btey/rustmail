@@ -65,7 +65,10 @@ pub struct MailMessage {
     pub time: String,
     /// Milliseconds since the Unix epoch, used for local-date list sections.
     pub date_ms: i64,
+    /// Short "a, b, c …" summary of the recipients for the header line.
     pub to: String,
+    /// Full To/Cc/Bcc lists of the message, shown in the recipients popup.
+    pub recipients: Vec<RecipientList>,
     pub label: String,
     pub unread: bool,
     pub starred: bool,
@@ -83,6 +86,46 @@ pub struct MailMessage {
     /// Empty, or the strongest receiver-reported authentication kind:
     /// domain, microsoft, bimi, or brand.
     pub sender_verification: String,
+}
+
+/// One of the To (0), Cc (1) or Bcc (2) lists of a message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecipientList {
+    pub kind: i32,
+    pub addresses: Vec<Address>,
+}
+
+/// Recipients shown in the header line before it ends in an ellipsis.
+const RECIPIENT_SUMMARY_LIMIT: usize = 3;
+
+fn recipient_lists(message: &MessageDetail) -> Vec<RecipientList> {
+    [(0, &message.to), (1, &message.cc), (2, &message.bcc)]
+        .into_iter()
+        .filter(|(_, addresses)| !addresses.is_empty())
+        .map(|(kind, addresses)| RecipientList {
+            kind,
+            addresses: addresses.clone(),
+        })
+        .collect()
+}
+
+fn recipient_summary(message: &MessageDetail) -> String {
+    let primary = if message.to.is_empty() {
+        &message.cc
+    } else {
+        &message.to
+    };
+    let mut summary = primary
+        .iter()
+        .take(RECIPIENT_SUMMARY_LIMIT)
+        .map(|address| address.email.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let total = message.to.len() + message.cc.len() + message.bcc.len();
+    if total > primary.len().min(RECIPIENT_SUMMARY_LIMIT) {
+        summary.push_str(" …");
+    }
+    summary
 }
 
 impl MailMessage {
@@ -118,6 +161,7 @@ impl MailMessage {
             text: None,
             body_pending: false,
             sender_verification: String::new(),
+            recipients: Vec::new(),
         }
     }
 }
@@ -2222,6 +2266,7 @@ fn summary_to_message(
         text: None,
         body_pending: true,
         sender_verification: String::new(),
+        recipients: Vec::new(),
     })
 }
 
@@ -2294,11 +2339,8 @@ fn detail_to_message(row: &MailMessage, message: &MessageDetail, body_loaded: bo
         preview: message.snippet.clone(),
         time: relative_time(message.date),
         date_ms: message.date,
-        to: message
-            .to
-            .first()
-            .map(|address| address.email.clone())
-            .unwrap_or_default(),
+        to: recipient_summary(message),
+        recipients: recipient_lists(message),
         label: if message.is_draft {
             "DRAFT".to_owned()
         } else if message.is_outgoing {

@@ -130,6 +130,7 @@ impl From<WarmStartMessage> for mail::MailMessage {
             attachments: Vec::new(),
             body_pending: true,
             sender_verification: message.sender_verification,
+            recipients: Vec::new(),
         }
     }
 }
@@ -1235,6 +1236,7 @@ mod warm_start_tests {
             attachments: Vec::new(),
             body_pending: false,
             sender_verification: "domain".into(),
+            recipients: Vec::new(),
         }
     }
 

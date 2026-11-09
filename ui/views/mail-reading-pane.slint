@@ -3,7 +3,7 @@ import { ActionMenu, ActionMenuEntry } from "../components/action-menu.slint";
 import { UserActions } from "../components/user-actions.slint";
 import { ZoomControls } from "../components/zoom-controls.slint";
 import { CheckBox, HorizontalBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
-import { MailAttachments, EmailReader, EmailLink, EmailTile, MailLabelRow, ThreadMessageRow } from "../models.slint";
+import { MailAttachments, EmailReader, EmailLink, EmailTile, MailLabelRow, ThreadMessageRow, RecipientGroup } from "../models.slint";
 import { Avatar } from "../components/avatar.slint";
 import { Button } from "../components/button.slint";
 import { IconButton, LineEdit, TextEdit, ToolbarIconButton } from "../components/controls.slint";
@@ -193,6 +193,64 @@ component MessageLoadingSkeleton inherits Rectangle {
     }
 }
 
+// One address in the recipients popup. The copy icon only shows while the
+// pointer is over the row.
+component RecipientLine inherits Rectangle {
+    in property <string> name;
+    in property <string> email;
+    // Non-zero on the closing row of a long list: how many addresses it omits.
+    in property <int> hidden: 0;
+    in property <color> text-color;
+    in property <color> muted-color;
+    in property <color> hover-color;
+    in property <color> accent;
+    callback copy();
+    private property <bool> over: line-hit.has-hover || copy-hit.has-hover;
+    private property <bool> copied: false;
+
+    height: 28px;
+    border-radius: 6px;
+    background: root.over && root.hidden == 0 ? root.hover-color : transparent;
+    changed over => { if !root.over { root.copied = false; } }
+
+    line-hit := TouchArea { }
+    Text {
+        x: 10px;
+        width: max(0px, parent.width - 48px);
+        height: parent.height;
+        text: root.hidden > 0
+            ? @tr("…and {} more", root.hidden)
+            : root.name == "" ? root.email : root.name + "  ·  " + root.email;
+        color: root.hidden > 0 ? root.muted-color : root.text-color;
+        font-size: TypeScale.secondary;
+        overflow: elide;
+        vertical-alignment: center;
+    }
+    copy-hit := TouchArea {
+        x: parent.width - 32px;
+        y: 2px;
+        width: 28px;
+        height: parent.height - 4px;
+        enabled: root.hidden == 0;
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: @tr("Copy address");
+        clicked => {
+            root.copy();
+            root.copied = true;
+        }
+        Image {
+            visible: root.over && root.hidden == 0;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 14px;
+            height: 14px;
+            source: root.copied ? @image-url("../icons/lucide/outline/check.svg") : @image-url("../icons/lucide/outline/copy.svg");
+            colorize: root.copied ? root.accent : root.muted-color;
+        }
+    }
+}
+
 // One conversation message header. The selected row becomes the open
 // accordion section; every other row remains a compact, directly selectable
 // summary in chronological order.
@@ -205,6 +263,7 @@ component ThreadMessageHeader inherits Rectangle {
     in property <string> preview;
     in property <string> time;
     in property <string> to;
+    in property <[RecipientGroup]> recipients: [];
     in property <bool> outgoing: false;
     in property <bool> unread: false;
     in property <bool> body-pending: false;
@@ -222,6 +281,7 @@ component ThreadMessageHeader inherits Rectangle {
     in property <length> sender-height: 23px;
     in property <length> detail-height: 24px;
     callback open;
+    callback copy-text(string);
 
     height: 17px + root.sender-height + root.detail-height;
     border-radius: 8px;
@@ -301,7 +361,7 @@ component ThreadMessageHeader inherits Rectangle {
         text: root.selected
             ? root.address + (root.to == "" ? "" : " · " + @tr("to {}", root.to))
             : root.body-pending ? @tr("Loading message…") : root.preview;
-        color: root.body-pending ? root.accent : root.secondary-text;
+        color: root.body-pending || (root.selected && recipients-hit.has-hover) ? root.accent : root.secondary-text;
         font-size: TypeScale.secondary;
         overflow: elide;
         vertical-alignment: center;
@@ -317,6 +377,114 @@ component ThreadMessageHeader inherits Rectangle {
         enabled: root.thread-interactive;
         mouse-cursor: pointer;
         clicked => { root.open(); }
+    }
+    // The address line opens the full To / Cc / Bcc lists.
+    recipients-hit := TouchArea {
+        enabled: root.selected && root.recipients.length > 0;
+        x: root.content-x;
+        y: 17px / 2 + root.sender-height;
+        width: max(0px, parent.width - self.x - 12px);
+        height: root.detail-height + 4px;
+        mouse-cursor: root.recipients.length > 0 ? pointer : default;
+        accessible-role: button;
+        accessible-label: @tr("Show all recipients");
+        clicked => { recipients-popup.show(); }
+    }
+    recipients-popup := PopupWindow {
+        x: root.content-x - 4px;
+        y: parent.height + 2px;
+        width: min(max(240px, parent.width - root.content-x - 4px), 460px);
+        height: min(380px, recipient-list.preferred-height + 16px);
+        close-policy: close-on-click-outside;
+
+        Rectangle {
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: root.border;
+            background: AppTheme.surface-raised;
+            drop-shadow-blur: 18px;
+            drop-shadow-offset-y: 5px;
+            drop-shadow-color: #0000002e;
+            clip: true;
+
+            ScrollView {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: parent.height;
+                content-width: self.visible-width;
+                content-height: recipient-list.preferred-height + 16px;
+
+                recipient-list := VerticalLayout {
+                    x: 8px;
+                    y: 8px;
+                    width: parent.visible-width - 16px;
+                    spacing: 0px;
+
+                    for group[group-index] in root.recipients : VerticalLayout {
+                        spacing: 0px;
+                        if group-index > 0 : Rectangle {
+                            height: 9px;
+                            Rectangle {
+                                y: 4px;
+                                height: 1px;
+                                background: root.border;
+                            }
+                        }
+                        Rectangle {
+                            height: 30px;
+                            group-label := Text {
+                                x: 10px;
+                                height: parent.height;
+                                text: (group.kind == 0 ? @tr("To") : group.kind == 1 ? @tr("Cc") : @tr("Bcc")) + "  (" + group.count + ")";
+                                color: root.heading;
+                                font-size: TypeScale.secondary;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                            copy-group := TouchArea {
+                                x: group-label.x + group-label.preferred-width + 6px;
+                                y: 3px;
+                                width: 24px;
+                                height: parent.height - 6px;
+                                mouse-cursor: pointer;
+                                accessible-role: button;
+                                accessible-label: group.kind == 0 ? @tr("Copy all To addresses")
+                                    : group.kind == 1 ? @tr("Copy all Cc addresses") : @tr("Copy all Bcc addresses");
+                                clicked => {
+                                    root.copy-text(group.copy_all);
+                                    group-copied = true;
+                                }
+                                private property <bool> group-copied: false;
+                                changed has-hover => { if !self.has-hover { self.group-copied = false; } }
+                                Rectangle {
+                                    border-radius: 6px;
+                                    background: copy-group.has-hover ? root.control-bg : transparent;
+                                }
+                                Image {
+                                    x: (parent.width - self.width) / 2;
+                                    y: (parent.height - self.height) / 2;
+                                    width: 14px;
+                                    height: 14px;
+                                    source: copy-group.group-copied ? @image-url("../icons/lucide/outline/check.svg") : @image-url("../icons/lucide/outline/copy.svg");
+                                    colorize: copy-group.group-copied ? root.accent : root.secondary-text;
+                                }
+                            }
+                        }
+                        for row in group.rows : RecipientLine {
+                            name: row.name;
+                            email: row.email;
+                            hidden: row.hidden;
+                            text-color: root.heading;
+                            muted-color: root.secondary-text;
+                            hover-color: root.control-bg;
+                            accent: root.accent;
+                            copy => { root.copy-text(row.email); }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -341,6 +509,7 @@ export component MailReadingPane inherits Rectangle {
     in property <string> selected_subject: "";
     in property <string> selected_time: "";
     in property <string> selected_to: "";
+    in property <[RecipientGroup]> selected_recipients: [];
     in property <string> selected_label: "";
     in property <string> selected_initials: "?";
     in property <image> selected_favicon;
@@ -1184,6 +1353,12 @@ export component MailReadingPane inherits Rectangle {
                                     preview: root.selected_plain_text;
                                     time: root.selected_time;
                                     to: root.selected_to;
+                                    recipients: root.selected_recipients;
+                                    copy-text(text) => {
+                                        clipboard-source.text = text;
+                                        clipboard-source.select-all();
+                                        clipboard-source.copy();
+                                    }
                                     selected: true;
                                     thread-interactive: false;
                                     sender-verification: root.selected_sender_verification;
@@ -1212,6 +1387,12 @@ export component MailReadingPane inherits Rectangle {
                                     preview: row.preview;
                                     time: row.time;
                                     to: row.to;
+                                    recipients: row.selected ? root.selected_recipients : [];
+                                    copy-text(text) => {
+                                        clipboard-source.text = text;
+                                        clipboard-source.select-all();
+                                        clipboard-source.copy();
+                                    }
                                     outgoing: row.outgoing;
                                     unread: row.unread;
                                     body-pending: row.body_pending;

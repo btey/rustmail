@@ -1120,6 +1120,7 @@ pub struct MessageDetail {
     pub from: Address,
     pub to: Vec<Address>,
     pub cc: Vec<Address>,
+    pub bcc: Vec<Address>,
     pub subject: String,
     pub date: i64,
     pub is_read: bool,

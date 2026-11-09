@@ -22,7 +22,7 @@ import { Button } from "components/button.slint";
 import { ScheduledUi, TaskComposeUi } from "components/task-compose.slint";
 import { TaskReplyUi } from "components/task-reply.slint";
 import { LoadingSkeletonBlock } from "components/loading-skeleton.slint";
-import { AccountRow, AdvancedOptions, CalendarAgendaRow, CalendarAgendaFilterRow, CalendarDay, CalendarEventRow, CalendarSourceRow, CalendarWeekDay, ComposeAttachment, ComposeContact, ComposeEditorTile, ContactSidebarRow, ContactRow, EmailLink, EmailRow, EmailTemplateRow, EmailTile, LocalizedMessage, MailListEntry, MailProfileRow, SidebarRow, MailLabelRow, StorageUsageRow, ThreadMessageRow } from "models.slint";
+import { AccountRow, AdvancedOptions, CalendarAgendaRow, CalendarAgendaFilterRow, CalendarDay, CalendarEventRow, CalendarSourceRow, CalendarWeekDay, ComposeAttachment, ComposeContact, ComposeEditorTile, ContactSidebarRow, ContactRow, EmailLink, EmailRow, EmailTemplateRow, EmailTile, LocalizedMessage, MailListEntry, MailProfileRow, SidebarRow, MailLabelRow, StorageUsageRow, ThreadMessageRow, RecipientGroup } from "models.slint";
 export { EmailReader, ReaderCaret, ReaderImage, ReaderItem, MailDragApi } from "models.slint";
 export { MailListNavigation, MailNavigationTarget } from "models.slint";
 export { ThreadMessageRow, StorageUsageRow } from "models.slint";
@@ -832,6 +832,7 @@ export component AppWindow inherits Window {
     in property <string> selected_subject: "";
     in property <string> selected_time: "";
     in property <string> selected_to: "";
+    in property <[RecipientGroup]> selected_recipients: [];
     in property <string> selected_label: "";
     in property <bool> selected_is_draft: false;
     in property <string> selected_initials: "?";
@@ -1408,6 +1409,7 @@ export component AppWindow inherits Window {
             selected_subject: root.selected_subject;
             selected_time: root.selected_time;
             selected_to: root.selected_to;
+            selected_recipients: root.selected_recipients;
             selected_label: root.selected_label;
             selected_is_draft: root.selected_is_draft;
             selected_initials: root.selected_initials;

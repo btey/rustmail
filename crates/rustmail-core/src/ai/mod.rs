@@ -1428,6 +1428,7 @@ mod tests {
             },
             to: vec![],
             cc: vec![],
+            bcc: vec![],
             subject: "S".into(),
             date,
             is_read: true,

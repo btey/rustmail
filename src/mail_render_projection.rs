@@ -148,6 +148,7 @@ pub(super) fn apply_email(
     app.set_selected_subject(email.subject.clone().into());
     app.set_selected_time(crate::mail::detail_time(email.date_ms).into());
     app.set_selected_to(email.to.clone().into());
+    app.set_selected_recipients(recipient_groups(&email.recipients));
     app.set_selected_label(email.label.clone().into());
     app.set_selected_is_draft(email.folder == "Drafts" || email.label == "DRAFT");
     app.set_selected_initials(email.initials.clone().into());
@@ -391,4 +392,46 @@ pub(super) fn sync_reader_metadata(app: &AppWindow, renderer: &Rc<RefCell<GpuEma
     if !plain.is_empty() {
         app.set_selected_plain_text(plain.into());
     }
+}
+
+/// Rows shown per recipient list before the popup ends in "and N more".
+const RECIPIENT_ROW_LIMIT: usize = 50;
+
+fn recipient_groups(lists: &[mail::RecipientList]) -> ModelRc<RecipientGroup> {
+    let groups = lists
+        .iter()
+        .map(|list| {
+            let mut rows = list
+                .addresses
+                .iter()
+                .take(RECIPIENT_ROW_LIMIT)
+                .map(|address| RecipientRow {
+                    name: address.name.clone().unwrap_or_default().into(),
+                    email: address.email.clone().into(),
+                    hidden: 0,
+                })
+                .collect::<Vec<_>>();
+            if list.addresses.len() > RECIPIENT_ROW_LIMIT {
+                rows.push(RecipientRow {
+                    name: "".into(),
+                    email: "".into(),
+                    hidden: i32::try_from(list.addresses.len() - RECIPIENT_ROW_LIMIT)
+                        .unwrap_or(i32::MAX),
+                });
+            }
+            RecipientGroup {
+                kind: list.kind,
+                count: i32::try_from(list.addresses.len()).unwrap_or(i32::MAX),
+                copy_all: list
+                    .addresses
+                    .iter()
+                    .map(|address| address.email.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+                    .into(),
+                rows: ModelRc::new(VecModel::from(rows)),
+            }
+        })
+        .collect::<Vec<_>>();
+    ModelRc::new(VecModel::from(groups))
 }

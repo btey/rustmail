@@ -771,6 +771,7 @@ fn detail_from_row(row: &rusqlite::Row) -> rusqlite::Result<MessageDetail> {
         },
         to: parse_addrs(&row.get::<_, String>("to_json")?, 5)?,
         cc: parse_addrs(&row.get::<_, String>("cc_json")?, 6)?,
+        bcc: parse_addrs(&row.get::<_, String>("bcc_json")?, 7)?,
         subject: if prefix.is_empty() {
             subject
         } else {
@@ -823,7 +824,7 @@ const SEND_STATE_COLS: &str = "
 const DETAIL_MESSAGE_COLS: &str = "
     m.id AS id, m.thread_id AS thread_id, m.account_id AS account_id,
     m.from_name AS from_name, m.from_addr AS from_addr, m.to_json AS to_json,
-    m.cc_json AS cc_json, m.subject AS subject,
+    m.cc_json AS cc_json, m.bcc_json AS bcc_json, m.subject AS subject,
     m.local_subject_prefix AS local_subject_prefix, m.date AS date,
     m.is_read AS is_read, m.is_starred AS is_starred, m.is_draft AS is_draft,
     m.is_outgoing AS is_outgoing, m.snippet AS snippet, m.body_state AS body_state,

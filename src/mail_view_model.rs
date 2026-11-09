@@ -566,6 +566,7 @@ pub(super) fn render_current(
         });
         app.set_selected_time("".into());
         app.set_selected_to("".into());
+        app.set_selected_recipients(ModelRc::new(VecModel::default()));
         app.set_selected_label("".into());
         app.set_selected_is_draft(false);
         app.set_selected_initials("?".into());
@@ -1674,6 +1675,7 @@ mod tests {
             attachments: Vec::new(),
             body_pending: true,
             sender_verification: String::new(),
+            recipients: Vec::new(),
         }
     }
 

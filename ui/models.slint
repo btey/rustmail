@@ -159,6 +159,23 @@ export struct MailProfileRow {
     account_count: int,
 }
 
+// One address in the recipients popup. `hidden` is non-zero only on the last
+// row of an over-long list, where it counts the addresses left out.
+export struct RecipientRow {
+    name: string,
+    email: string,
+    hidden: int,
+}
+
+// The To (0), Cc (1) or Bcc (2) list of the selected message. `copy_all` holds
+// every address, including those cut from `rows`.
+export struct RecipientGroup {
+    kind: int,
+    count: int,
+    copy_all: string,
+    rows: [RecipientRow],
+}
+
 // Messages remain separate inside a conversation. The native side keeps the
 // bodies and renderer state; this lightweight model is safe to virtualize even
 // for long threads.
