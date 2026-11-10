@@ -262,6 +262,9 @@ pub fn spawn_account(ctx: SyncCtx, config: AccountConfig) -> AccountHandle {
             MailProtocol::News => true,
             // POP3 accounts send only when an SMTP server is configured.
             MailProtocol::Pop3 => !config.smtp_host.trim().is_empty(),
+            // Exchange Online sends through Microsoft Graph via the same
+            // durable dispatcher.
+            MailProtocol::Exchange => true,
             MailProtocol::Jmap => false,
         };
     let (tx, rx) = mpsc::channel(SYNC_COMMAND_QUEUE_CAPACITY);
@@ -297,6 +300,16 @@ pub fn spawn_account(ctx: SyncCtx, config: AccountConfig) -> AccountHandle {
                 tx.clone(),
             )));
         }
+        tasks
+    } else if config.mail_protocol == MailProtocol::Exchange {
+        let mut tasks =
+            crate::exchange::sync::spawn(ctx.clone(), config.clone(), rx, body_rx, settings_rx);
+        tasks.push(tokio::spawn(run_send_dispatcher(
+            ctx,
+            config,
+            send_rx,
+            tx.clone(),
+        )));
         tasks
     } else if config.mail_protocol == MailProtocol::News {
         let mut tasks = crate::nntp::spawn(ctx.clone(), config.clone(), rx, body_rx, settings_rx);

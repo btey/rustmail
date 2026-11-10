@@ -93,7 +93,11 @@ impl Core {
             }
             (
                 Provider::Microsoft | Provider::Imap,
-                MailProtocol::Imap | MailProtocol::Local | MailProtocol::News | MailProtocol::Pop3,
+                MailProtocol::Imap
+                | MailProtocol::Local
+                | MailProtocol::News
+                | MailProtocol::Pop3
+                | MailProtocol::Exchange,
             ) => {
                 vec![primary_identity(&account)]
             }
@@ -379,7 +383,11 @@ pub fn manual_identity_policy(account: &AccountConfig) -> ManualIdentityPolicy {
         (_, MailProtocol::Jmap) => ManualIdentityPolicy::WithinWildcard,
         (
             Provider::Imap | Provider::Microsoft,
-            MailProtocol::Imap | MailProtocol::Local | MailProtocol::News | MailProtocol::Pop3,
+            MailProtocol::Imap
+            | MailProtocol::Local
+            | MailProtocol::News
+            | MailProtocol::Pop3
+            | MailProtocol::Exchange,
         ) => ManualIdentityPolicy::Any,
     }
 }

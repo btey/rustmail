@@ -14,6 +14,7 @@ pub mod db;
 pub mod embed;
 pub mod error;
 pub mod events;
+pub mod exchange;
 mod file_io;
 pub mod files;
 pub mod filters;
@@ -951,7 +952,13 @@ impl Core {
                         repo::folders::reopen_backfill_for_account(&transaction, account_id)?;
                     }
                     // Local mail is always read in full.
-                    (_, MailProtocol::Local | MailProtocol::News | MailProtocol::Pop3) => {}
+                    (
+                        _,
+                        MailProtocol::Local
+                        | MailProtocol::News
+                        | MailProtocol::Pop3
+                        | MailProtocol::Exchange,
+                    ) => {}
                 }
                 transaction.commit()?;
                 Ok(Some(config.settings))
@@ -2034,6 +2041,239 @@ impl Core {
                 "could not remove incomplete account row"
             );
         }
+    }
+
+    /// Exchange Online: sign in with the system browser (authorization code +
+    /// PKCE over a loopback redirect). Nothing is stored; pass the tokens to
+    /// [`Core::add_exchange_account`].
+    pub async fn exchange_sign_in(
+        &self,
+        settings: &exchange::ExchangeSettings,
+        login_hint: Option<&str>,
+        open_url: impl FnOnce(String) -> std::result::Result<(), String> + Send,
+    ) -> Result<exchange::auth::TokenSet> {
+        tokio::select! {
+            r = exchange::auth::authorize_browser(
+                settings,
+                login_hint,
+                self.oauth_redirects.clone(),
+                open_url,
+            ) => r,
+            _ = self.oauth_cancel.notified() => Err(CoreError::Auth("sign-in cancelled".into())),
+        }
+    }
+
+    /// Device-code sign-in, step 1: the code and address to show the user.
+    pub async fn exchange_begin_device_code(
+        &self,
+        settings: &exchange::ExchangeSettings,
+    ) -> Result<exchange::auth::DeviceCode> {
+        exchange::auth::start_device_code(settings).await
+    }
+
+    /// Device-code sign-in, step 2: wait until the user has finished.
+    pub async fn exchange_finish_device_code(
+        &self,
+        settings: &exchange::ExchangeSettings,
+        device: &exchange::auth::DeviceCode,
+    ) -> Result<exchange::auth::TokenSet> {
+        tokio::select! {
+            r = exchange::auth::poll_device_code(settings, device, None) => r,
+            _ = self.oauth_cancel.notified() => Err(CoreError::Auth("sign-in cancelled".into())),
+        }
+    }
+
+    /// Manual sign-in, step 1: the address to open in any browser.
+    pub fn exchange_begin_manual(
+        &self,
+        settings: &exchange::ExchangeSettings,
+        login_hint: Option<&str>,
+    ) -> Result<exchange::auth::AuthorizationRequest> {
+        settings.validate()?;
+        exchange::auth::build_authorization_request(
+            settings,
+            settings.redirect_uri(),
+            login_hint,
+            None,
+        )
+    }
+
+    /// Manual sign-in, step 2: the address (or code) the browser ended on.
+    pub async fn exchange_finish_manual(
+        &self,
+        settings: &exchange::ExchangeSettings,
+        request: &exchange::auth::AuthorizationRequest,
+        pasted: &str,
+    ) -> Result<exchange::auth::TokenSet> {
+        let code = exchange::auth::code_from_pasted(pasted, &request.state)?;
+        exchange::auth::exchange_code(settings, &code, &request.verifier, &request.redirect_uri)
+            .await
+    }
+
+    /// Add (or reconnect) an Exchange Online account after a successful
+    /// sign-in. The sign-in is verified against Microsoft Graph first; the
+    /// refresh token goes to the credential store only.
+    pub async fn add_exchange_account(
+        &self,
+        args: exchange::AddExchangeAccountArgs,
+        tokens: exchange::auth::TokenSet,
+    ) -> Result<Account> {
+        let email = normalize_account_email(&args.email)
+            .ok_or_else(|| CoreError::Auth("enter a valid email address".into()))?;
+        let mut settings = args.exchange.clone();
+        settings.enabled = true;
+        settings.validate()?;
+        if tokens.refresh_token.is_none() {
+            return Err(CoreError::Auth(
+                "the sign-in did not return a refresh token; sign in again".into(),
+            ));
+        }
+        secrets::check_available_async(self.credentials.clone()).await?;
+        self.recover_incomplete_account_credentials().await?;
+
+        // Prove the sign-in works and may read this mailbox before saving.
+        exchange::client::GraphMail::new(
+            &settings,
+            std::sync::Arc::new(exchange::client::FixedToken(tokens.access_token.clone())),
+        )?
+        .probe()
+        .await?;
+
+        let connection = MailConnectionSettings {
+            exchange: settings.clone(),
+            ..Default::default()
+        };
+        let name = args
+            .display_name
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty());
+        let existing = self
+            .db
+            .read({
+                let email = email.clone();
+                move |conn| repo::accounts::find_by_email(conn, &email)
+            })
+            .await?;
+        let is_new = existing.is_none();
+        let id = if let Some(existing) = existing {
+            if existing.mail_protocol != MailProtocol::Exchange {
+                return Err(CoreError::Auth(format!(
+                    "{} is already connected through {}; remove it first",
+                    existing.email,
+                    existing.provider.as_str()
+                )));
+            }
+            if let Some(handle) = self.handles.write().await.remove(&existing.id) {
+                handle.abort();
+            }
+            let id = existing.id;
+            let (a_email, a_name, a_connection) = (email.clone(), name.clone(), connection.clone());
+            self.db
+                .write(move |conn| {
+                    let transaction = conn.transaction()?;
+                    repo::accounts::update_password(
+                        &transaction,
+                        id,
+                        &repo::accounts::NewAccount {
+                            email: &a_email,
+                            display_name: a_name.as_deref(),
+                            avatar_url: None,
+                            provider: Provider::Imap,
+                            auth_kind: AuthKind::Password,
+                            mail_protocol: MailProtocol::Exchange,
+                            username: &a_email,
+                            jmap_url: "",
+                            jmap_account_id: None,
+                            imap_host: "",
+                            imap_port: 0,
+                            smtp_host: "",
+                            smtp_port: 0,
+                        },
+                    )?;
+                    let mut stored = repo::accounts::get_config(&transaction, id)?
+                        .ok_or_else(|| CoreError::NotFound("account".into()))?
+                        .settings;
+                    stored.connection = a_connection;
+                    repo::accounts::set_settings(&transaction, id, &stored)?;
+                    // A different registration or tenant has different delta state.
+                    transaction.execute(
+                        "UPDATE exchange_folders SET delta_link = NULL WHERE account_id = ?1",
+                        rusqlite::params![id],
+                    )?;
+                    transaction.commit()?;
+                    Ok(())
+                })
+                .await?;
+            id
+        } else {
+            let (a_email, a_name, a_connection) = (email.clone(), name.clone(), connection.clone());
+            self.db
+                .write(move |conn| {
+                    let transaction = conn.transaction()?;
+                    let id = repo::accounts::insert_with_sync_state(
+                        &transaction,
+                        &repo::accounts::NewAccount {
+                            email: &a_email,
+                            display_name: a_name.as_deref(),
+                            avatar_url: None,
+                            provider: Provider::Imap,
+                            auth_kind: AuthKind::Password,
+                            mail_protocol: MailProtocol::Exchange,
+                            username: &a_email,
+                            jmap_url: "",
+                            jmap_account_id: None,
+                            imap_host: "",
+                            imap_port: 0,
+                            smtp_host: "",
+                            smtp_port: 0,
+                        },
+                        repo::accounts::CREDENTIAL_SETUP_STATE,
+                    )?;
+                    let stored = AccountSettings {
+                        connection: a_connection,
+                        ..Default::default()
+                    };
+                    repo::accounts::set_settings(&transaction, id, &stored)?;
+                    transaction.commit()?;
+                    Ok(id)
+                })
+                .await?
+        };
+
+        let stored = exchange::tokens_for(id, &settings, &self.credentials)
+            .store_initial(&tokens)
+            .await;
+        if let Err(error) = stored {
+            if is_new {
+                self.rollback_incomplete_account_credentials(id).await;
+            } else if let Ok(Some(cfg)) = self
+                .db
+                .read(move |conn| repo::accounts::get_config(conn, id))
+                .await
+            {
+                self.spawn_actor(cfg).await;
+            }
+            return Err(error);
+        }
+        if is_new
+            && let Err(error) = self
+                .db
+                .write(move |conn| repo::accounts::set_sync_state(conn, id, "idle"))
+                .await
+        {
+            self.rollback_incomplete_account_credentials(id).await;
+            return Err(error);
+        }
+        let cfg = self
+            .db
+            .read(move |conn| repo::accounts::get_config(conn, id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound("account".into()))?;
+        self.spawn_actor(cfg).await;
+        self.db
+            .read(move |conn| repo::accounts::get(conn, id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound("account".into()))
     }
 
     pub async fn start_oauth(

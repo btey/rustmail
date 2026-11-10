@@ -959,6 +959,16 @@ async fn send_action(
         // Sent copy.
         crate::file_io::write_atomic(&raw_path, &posted, "outgoing MIME snapshot").await?;
         tracing::info!(account_id = config.id, "news post: accepted by server");
+    } else if config.mail_protocol == crate::models::MailProtocol::Exchange {
+        if detail.to.is_empty() && detail.cc.is_empty() && bcc.is_empty() {
+            return Err(CoreError::Other("no recipients".into()));
+        }
+        // Microsoft 365 files the Sent Items copy itself.
+        crate::exchange::send_raw(ctx, config, &raw).await?;
+        tracing::info!(
+            account_id = config.id,
+            "exchange send: accepted by Microsoft 365"
+        );
     } else {
         let auth = match config.auth_kind {
             AuthKind::Password => smtp::SmtpAuth::Password(
@@ -1075,10 +1085,11 @@ async fn send_action(
             // latest policy at completion instead of its startup snapshot.
             let current = repo::accounts::get_config(&tx, account_id)?
                 .ok_or_else(|| CoreError::NotFound(format!("account {account_id}")))?;
-            let should_append_sent = current
-                .settings
-                .sent_copy_policy
-                .should_append(current.provider);
+            let should_append_sent = current.mail_protocol != crate::models::MailProtocol::Exchange
+                && current
+                    .settings
+                    .sent_copy_policy
+                    .should_append(current.provider);
 
             tx.execute(
                 "UPDATE messages SET is_draft = 0, is_outgoing = 1, is_read = 1,

@@ -26,6 +26,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/021_task_co_assignees.sql"),
     include_str!("migrations/022_task_percent.sql"),
     include_str!("migrations/023_pop3.sql"),
+    include_str!("migrations/024_exchange.sql"),
 ];
 pub const LATEST_VERSION: i64 = MIGRATIONS.len() as i64;
 
@@ -131,6 +132,8 @@ mod tests {
             "cross_store_operations",
             "draft_attachments",
             "drafts_meta",
+            "exchange_folders",
+            "exchange_messages",
             "folders",
             "gmail_labels",
             "gmail_sync_state",

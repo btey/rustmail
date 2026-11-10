@@ -57,6 +57,9 @@ pub enum MailProtocol {
     /// POP3 download (optionally leaving mail on the server) plus SMTP.
     /// Stored as `imap`; the account's `connection.pop3` flag marks it.
     Pop3,
+    /// Exchange Online (Microsoft 365) through Microsoft Graph, with no IMAP
+    /// or SMTP. Stored as `imap`; `connection.exchange.enabled` marks it.
+    Exchange,
 }
 
 impl MailProtocol {
@@ -67,6 +70,7 @@ impl MailProtocol {
             Self::Local => "local",
             Self::News => "news",
             Self::Pop3 => "pop3",
+            Self::Exchange => "exchange",
         }
     }
 
@@ -74,7 +78,7 @@ impl MailProtocol {
     pub const fn storage_str(self) -> &'static str {
         match self {
             Self::Jmap => "jmap",
-            Self::Imap | Self::Local | Self::News | Self::Pop3 => "imap",
+            Self::Imap | Self::Local | Self::News | Self::Pop3 | Self::Exchange => "imap",
         }
     }
 
@@ -87,6 +91,8 @@ impl MailProtocol {
             Self::News
         } else if value.eq_ignore_ascii_case("pop3") {
             Self::Pop3
+        } else if value.eq_ignore_ascii_case("exchange") {
+            Self::Exchange
         } else {
             Self::Imap
         }
@@ -435,6 +441,9 @@ pub struct MailConnectionSettings {
     /// Log in to the POP3 server before every send (POP-before-SMTP).
     pub pop3_before_smtp: bool,
     pub pop3_auth: Pop3Auth,
+    /// Exchange Online over Microsoft Graph; `exchange.enabled` marks the
+    /// account. Public configuration only, tokens live in the credential store.
+    pub exchange: crate::exchange::ExchangeSettings,
 }
 
 /// How a POP3 login is made.
@@ -2555,6 +2564,7 @@ mod tests {
             MailProtocol::Local,
             MailProtocol::News,
             MailProtocol::Pop3,
+            MailProtocol::Exchange,
         ] {
             assert_eq!(MailProtocol::from_storage(protocol.as_str()), protocol);
         }
