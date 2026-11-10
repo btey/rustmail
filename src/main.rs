@@ -1,4 +1,5 @@
 mod account_controller;
+mod exchange_controller;
 mod account_mail_preferences;
 mod filter_rules_controller;
 mod user_actions_controller;
@@ -6838,6 +6839,13 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
     );
     mail_setup::register(&app, &runtime);
     mail_setup::register_local_folder(&app, &runtime);
+    let begin_exchange = exchange_controller::register(
+        &app,
+        &state,
+        &runtime,
+        &ui_task_tx,
+        &platform.external_urls,
+    );
 
     let suggestion_app = app.as_weak();
     let suggestion_state = Rc::clone(&state);
@@ -6927,6 +6935,10 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 return;
             };
             if app.get_account_setup_in_progress() {
+                return;
+            }
+            if protocol.as_str() == "exchange" {
+                begin_exchange(&app, email.as_str());
                 return;
             }
             let mail_protocol = MailProtocol::from_storage(protocol.as_str());

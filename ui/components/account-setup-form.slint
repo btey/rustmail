@@ -2,6 +2,7 @@ import { VerticalBox, HorizontalBox, ScrollView, ComboBox } from "std-widgets.sl
 import { Button } from "button.slint";
 import { FormField, SettingsNavItem } from "settings-components.slint";
 import { MailSecurityFields } from "mail-security-fields.slint";
+import { ExchangeSetupFields } from "exchange-setup.slint";
 import { AdvancedOptions } from "../models.slint";
 import { AppTheme } from "../design-system.slint";
 import { TypeScale } from "../typography.slint";
@@ -47,13 +48,24 @@ export component AccountSetupForm inherits Rectangle {
         ? [@tr("Account"), @tr("Security"), @tr("Sign-in"), @tr("Network")]
         : [@tr("Account"), @tr("Security"), @tr("Sign-in"), @tr("Identity"), @tr("Folders"), @tr("Network")];
     // JMAP discovers everything itself, so only the account group applies.
-    private property <bool> grouped: root.account-protocol != "jmap";
+    private property <bool> grouped: root.account-protocol != "jmap" && root.account-protocol != "exchange";
+    private property <bool> exchange: root.account-protocol == "exchange";
     private property <bool> local: root.account-protocol == "local";
     private property <bool> news: root.account-protocol == "news";
     private property <string> section: root.grouped ? root.picked : "account";
     private property <int> picked-index: root.section == "security" ? 1 : root.section == "sign-in" ? 2
         : root.limited ? (root.section == "network" ? 3 : 0)
         : root.section == "identity" ? 3 : root.section == "folders" ? 4 : root.section == "network" ? 5 : 0;
+
+    // Copies through the platform clipboard, as the reading pane does.
+    copy-source := TextInput {
+        x: -10000px;
+        y: -10000px;
+        width: 1px;
+        height: 1px;
+        visible: false;
+        enabled: false;
+    }
 
     HorizontalBox {
         padding: 0px;
@@ -110,7 +122,7 @@ export component AccountSetupForm inherits Rectangle {
                     if root.section == "account" : VerticalBox {
                         padding: 0px;
                         spacing: 10px;
-                            if !root.compact : HorizontalBox {
+                            if !root.compact && !root.exchange : HorizontalBox {
                             padding: 0px;
                             height: root.field-height;
                             spacing: 10px;
@@ -133,7 +145,7 @@ export component AccountSetupForm inherits Rectangle {
                                 edited(value) => { root.account-username = value; }
                             }
                         }
-                        if root.compact : VerticalBox {
+                        if root.compact && !root.exchange : VerticalBox {
                             padding: 0px;
                             spacing: 10px;
                             FormField {
@@ -155,7 +167,16 @@ export component AccountSetupForm inherits Rectangle {
                                 edited(value) => { root.account-username = value; }
                             }
                         }
-                        FormField {
+                        if root.exchange : FormField {
+                            enabled: root.enabled;
+                            height: root.field-height;
+                            label: @tr("Email address");
+                            value: root.account-email;
+                            placeholder: @tr("name@example.com");
+                            label-color: root.label-color;
+                            edited(value) => { root.account-email = value; root.email-edited(value); }
+                        }
+                        if !root.exchange : FormField {
                             enabled: root.enabled;
                             height: root.field-height;
                             label: root.account-protocol == "jmap" ? @tr("Password, app password, or API token") : root.local ? @tr("SMTP password · Optional") : root.news ? @tr("Password · Optional") : @tr("Password or app password");
@@ -173,6 +194,22 @@ export component AccountSetupForm inherits Rectangle {
                             Button { horizontal-stretch: 1; height: 40px; text: @tr("JMAP"); enabled: root.enabled; primary: root.account-protocol == "jmap"; clicked => { root.account-protocol = "jmap"; } }
                             Button { horizontal-stretch: 1; height: 40px; text: @tr("Local"); enabled: root.enabled; primary: root.local; clicked => { root.account-protocol = "local"; } }
                             Button { horizontal-stretch: 1; height: 40px; text: @tr("News"); enabled: root.enabled; primary: root.news; clicked => { root.account-protocol = "news"; if root.imap-port == "993" { root.imap-port = "563"; } } }
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("Exchange"); enabled: root.enabled; primary: root.exchange; clicked => { root.account-protocol = "exchange"; } }
+                        }
+                        if root.exchange : ExchangeSetupFields {
+                            enabled: root.enabled;
+                            label-color: root.label-color;
+                            body-text: root.body-text;
+                            muted-text: root.muted-text;
+                            accent: root.accent;
+                            field-height: root.field-height;
+                            display-name: root.advanced.display-name;
+                            display-name-edited(value) => { root.advanced.display-name = value; }
+                            copy-text(text) => {
+                                copy-source.text = text;
+                                copy-source.select-all();
+                                copy-source.copy();
+                            }
                         }
                         if root.local : HorizontalBox {
                             padding: 0px;

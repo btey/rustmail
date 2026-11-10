@@ -28,9 +28,9 @@ use i_slint_core::window::WindowInner;
 use rustmail::{
     AccountRow, ActionMenuEntry, ActivityRow, AppTheme, AppWindow, CalendarAgendaRow, CalendarDay,
     CalendarEventRow, CalendarSourceRow, CalendarWeekDay, ContactAccountRow, ContactRow,
-    ContactSidebarRow, ContactSidebarRowKind, EmailRow, LinkRow, LinkedTask, LocalizedMessage,
-    MailAttachment, MailAttachments, MailLabelRow, MailListEntry, MailProfileRow, MailboxRow,
-    MotionSettings, ScheduledRow, ScheduledUi, SendUndoUi, SidebarRow, SidebarRowKind,
+    ContactSidebarRow, ContactSidebarRowKind, EmailRow, ExchangeSetupUi, LinkRow, LinkedTask,
+    LocalizedMessage, MailAttachment, MailAttachments, MailLabelRow, MailListEntry, MailProfileRow,
+    MailboxRow, MotionSettings, ScheduledRow, ScheduledUi, SendUndoUi, SidebarRow, SidebarRowKind,
     StorageUsageRow, TaskCardRow, TaskChipEntry, TaskChipRow, TaskChips, TaskColumnRow,
     TaskComposeUi, TaskDetailRow, TaskFromMail, TaskNavRow, TaskReplyUi, TasksUi, ThreadMessageRow,
     TimelineBarRow, TimelineDayRow, TimelineEdgeRow, TimelineEventRow, TimelineLinkRow,
@@ -953,7 +953,35 @@ fn states() -> Vec<State> {
         }),
         state("onboarding mail account", |app| {
             app.set_connected_accounts(model(Vec::new()));
+            app.set_account_protocol("imap".into());
+            let exchange = app.global::<ExchangeSetupUi>();
+            exchange.set_step("".into());
+            exchange.set_sign_in("manual".into());
             press(app, "Connect another provider");
+        }),
+        state("onboarding exchange account", |app| {
+            app.set_connected_accounts(model(Vec::new()));
+            app.set_account_protocol("exchange".into());
+        }),
+        state("onboarding exchange paste address", |app| {
+            app.set_connected_accounts(model(Vec::new()));
+            app.set_account_protocol("exchange".into());
+            let exchange = app.global::<ExchangeSetupUi>();
+            exchange.set_step("paste".into());
+            exchange.set_link(
+                "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=d3590ed6"
+                    .into(),
+            );
+        }),
+        state("onboarding exchange device code", |app| {
+            app.set_connected_accounts(model(Vec::new()));
+            app.set_account_protocol("exchange".into());
+            app.global::<ExchangeSetupUi>()
+                .set_sign_in("device-code".into());
+            let exchange = app.global::<ExchangeSetupUi>();
+            exchange.set_step("device".into());
+            exchange.set_device_code("ABCD1234".into());
+            exchange.set_link("https://login.microsoft.com/device".into());
         }),
         state("calendar week", |app| {
             app.set_active_view("calendar".into());

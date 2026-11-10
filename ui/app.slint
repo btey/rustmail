@@ -48,6 +48,7 @@ import { FilesView, FilesUi } from "views/files-view.slint";
 export { ComposeScheduleUi, ScheduledRow, ScheduledUi, TaskComposeUi, TaskSettingsUi } from "components/task-compose.slint";
 export { TaskReplyUi } from "components/task-reply.slint";
 export { SendUndoUi } from "components/send-undo.slint";
+export { ExchangeSetupUi } from "components/exchange-setup.slint";
 export { TasksUi, TaskCardRow, TaskColumnRow, TaskNavRow, TaskDetailRow, TaskLabelRow, ChipPos, ChecklistRow, LinkRow, ActivityRow } from "views/tasks-view.slint";
 import { TasksView, TasksUi } from "views/tasks-view.slint";
 import { ContactsView } from "views/contacts-view.slint";
@@ -542,6 +543,12 @@ export global I18n {
         if (key == "Add app keys in Sign-in settings to enable this provider.") { return @tr("Add app keys in Sign-in settings to enable this provider."); }
         if (key == "Choose Gmail or Outlook OAuth.") { return @tr("Choose Gmail or Outlook OAuth."); }
         if (key == "Complete sign-in in your browser, or choose Cancel here.") { return @tr("Complete sign-in in your browser, or choose Cancel here."); }
+        if (key == "Enter the Exchange mailbox address first.") { return @tr("Enter the Exchange mailbox address first."); }
+        if (key == "Open the sign-in address, then paste the address the browser ends on.") { return @tr("Open the sign-in address, then paste the address the browser ends on."); }
+        if (key == "Enter the code at the sign-in address, then wait here.") { return @tr("Enter the code at the sign-in address, then wait here."); }
+        if (key == "Checking the sign-in with Microsoft Graph…") { return @tr("Checking the sign-in with Microsoft Graph…"); }
+        if (key == "Exchange sign-in failed: {}") { return @tr("Exchange sign-in failed: {}", argument); }
+        if (key == "Exchange sign-in cancelled.") { return @tr("Exchange sign-in cancelled."); }
         if (key == "Cancelling browser sign-in…") { return @tr("Cancelling browser sign-in…"); }
         if (key == "Finishing browser sign-in…") { return @tr("Finishing browser sign-in…"); }
         if (key == "Could not use that browser address: {}") { return @tr("Could not use that browser address: {}", argument); }

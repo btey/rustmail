@@ -687,9 +687,10 @@ export component SettingsDialog inherits Rectangle {
         );
     }
 
+    // Exchange signs in with OAuth: no password, no server fields.
     private property <bool> imap_form_valid: root.account_email != ""
-        && root.account_password != ""
-        && (root.account_protocol == "jmap" || (
+        && (root.account_protocol == "exchange" || root.account_password != "")
+        && (root.account_protocol == "jmap" || root.account_protocol == "exchange" || (
             root.imap_host != ""
             && root.imap_port != ""
             && root.smtp_host != ""

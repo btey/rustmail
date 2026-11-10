@@ -66,9 +66,10 @@ export component OnboardingView inherits Rectangle {
     callback cancel-oauth();
     callback import-account-backup();
 
+    // Exchange signs in with OAuth: no password, no server fields.
     private property <bool> imap-form-valid: root.account-email != ""
-        && root.account-password != ""
-        && (root.account-protocol == "jmap" || (
+        && (root.account-protocol == "exchange" || root.account-password != "")
+        && (root.account-protocol == "jmap" || root.account-protocol == "exchange" || (
             root.imap-host != ""
             && root.imap-port != ""
             && root.smtp-host != ""

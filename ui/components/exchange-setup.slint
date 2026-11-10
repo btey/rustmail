@@ -1,0 +1,272 @@
+import { VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { Button } from "button.slint";
+import { FormField } from "settings-components.slint";
+import { AppTheme } from "../design-system.slint";
+import { TypeScale } from "../typography.slint";
+
+// Exchange Online (Microsoft 365) sign-in settings and progress. The fields
+// live in a global so the account form of the first-run screen and of
+// Settings share them without more properties along the way. Empty fields
+// select the defaults of the engine: the Microsoft Office client ID, the
+// tenant "common", the out-of-band redirect and the default scopes.
+export global ExchangeSetupUi {
+    // "manual" (paste the address), "device-code" or "browser".
+    in-out property <string> sign-in: "manual";
+    in-out property <string> client-id;
+    in-out property <string> tenant;
+    in-out property <string> redirect-uri;
+    in-out property <string> scopes;
+    // "auto" (Resource with the built-in client ID, Scopes with your own),
+    // "resource" or "scopes".
+    in-out property <string> endpoint: "auto";
+    out property <bool> resource-style: self.endpoint == "resource" || (self.endpoint == "auto" && self.client-id == "");
+    // "worldwide", "us-government", "china", "germany" or "custom".
+    in-out property <string> cloud: "worldwide";
+    in-out property <string> login-url;
+    in-out property <string> graph-url;
+    in-out property <string> mailbox;
+    // "" (nothing running), "paste", "device" or "browser".
+    in-out property <string> step;
+    // The sign-in address (paste) or the verification address (device code).
+    in-out property <string> link;
+    in-out property <string> device-code;
+    in-out property <string> pasted;
+    callback submit-pasted(string);
+    callback open-link();
+    callback cancel();
+}
+
+component MethodButtons inherits HorizontalBox {
+    in property <bool> enabled: true;
+    padding: 0px;
+    height: 40px;
+    spacing: 8px;
+    Button { horizontal-stretch: 1; height: 40px; text: @tr("Paste address"); enabled: root.enabled; primary: ExchangeSetupUi.sign-in == "manual"; clicked => {
+        ExchangeSetupUi.sign-in = "manual";
+        if ExchangeSetupUi.redirect-uri == "http://localhost" { ExchangeSetupUi.redirect-uri = ""; }
+    } }
+    Button { horizontal-stretch: 1; height: 40px; text: @tr("Device code"); enabled: root.enabled; primary: ExchangeSetupUi.sign-in == "device-code"; clicked => {
+        ExchangeSetupUi.sign-in = "device-code";
+        if ExchangeSetupUi.redirect-uri == "http://localhost" { ExchangeSetupUi.redirect-uri = ""; }
+    } }
+    Button { horizontal-stretch: 1; height: 40px; text: @tr("Browser"); enabled: root.enabled; primary: ExchangeSetupUi.sign-in == "browser"; clicked => {
+        ExchangeSetupUi.sign-in = "browser";
+        // The browser returns to a listener inside Rustmail.
+        ExchangeSetupUi.redirect-uri = "http://localhost";
+    } }
+}
+
+component StyleButtons inherits HorizontalBox {
+    in property <bool> enabled: true;
+    padding: 0px;
+    spacing: 8px;
+    height: 40px;
+    Button { horizontal-stretch: 1; height: 40px; text: @tr("Resource"); enabled: root.enabled; primary: ExchangeSetupUi.resource-style; clicked => { ExchangeSetupUi.endpoint = "resource"; } }
+    Button { horizontal-stretch: 1; height: 40px; text: @tr("Scopes"); enabled: root.enabled; primary: !ExchangeSetupUi.resource-style; clicked => { ExchangeSetupUi.endpoint = "scopes"; } }
+}
+
+component CloudButtons inherits HorizontalBox {
+    in property <bool> enabled: true;
+    padding: 0px;
+    height: 40px;
+    spacing: 8px;
+    Button { horizontal-stretch: 1; height: 40px; text: @tr("Worldwide"); enabled: root.enabled; primary: ExchangeSetupUi.cloud == "worldwide"; clicked => { ExchangeSetupUi.cloud = "worldwide"; } }
+    Button { horizontal-stretch: 1; height: 40px; text: @tr("US Gov."); enabled: root.enabled; primary: ExchangeSetupUi.cloud == "us-government"; clicked => { ExchangeSetupUi.cloud = "us-government"; } }
+    Button { horizontal-stretch: 1; height: 40px; text: @tr("China"); enabled: root.enabled; primary: ExchangeSetupUi.cloud == "china"; clicked => { ExchangeSetupUi.cloud = "china"; } }
+    Button { horizontal-stretch: 1; height: 40px; text: @tr("Germany"); enabled: root.enabled; primary: ExchangeSetupUi.cloud == "germany"; clicked => { ExchangeSetupUi.cloud = "germany"; } }
+    Button { horizontal-stretch: 1; height: 40px; text: @tr("Other"); enabled: root.enabled; primary: ExchangeSetupUi.cloud == "custom"; clicked => { ExchangeSetupUi.cloud = "custom"; } }
+}
+
+// The fields of an Exchange Online account, shown in place of the password
+// and server fields.
+export component ExchangeSetupFields inherits VerticalBox {
+    in property <bool> enabled: true;
+    in property <color> label-color;
+    in property <color> body-text;
+    in property <color> muted-text;
+    in property <color> accent;
+    in property <length> field-height: 58px;
+    in property <string> display-name;
+    callback display-name-edited(string);
+    // The form's hidden text field copies through the platform clipboard.
+    callback copy-text(string);
+
+    padding: 0px;
+    spacing: 10px;
+
+    Text {
+        text: @tr("Signs in to Microsoft 365 directly with OAuth, with no IMAP, SMTP or proxy. No password is typed here or stored.");
+        color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+    }
+    Text {
+        text: @tr("Sign-in method");
+        color: root.label-color; font-size: TypeScale.caption; font-weight: 600; height: self.preferred-height;
+    }
+    MethodButtons { enabled: root.enabled && ExchangeSetupUi.step == ""; }
+    Text {
+        text: ExchangeSetupUi.sign-in == "manual"
+            ? @tr("Paste address: Rustmail shows a sign-in address. Open it in any browser, sign in, then paste the address the browser ends on (or its code) here.")
+            : ExchangeSetupUi.sign-in == "device-code"
+            ? @tr("Device code: Rustmail shows a short code. Enter it at the Microsoft address on any device, then wait here.")
+            : @tr("Browser: Rustmail opens your browser and waits for it to return to this computer. This needs a client ID of your own app registration with a http://localhost redirect.");
+        color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+    }
+    FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Display name · Optional");
+        value: root.display-name;
+        placeholder: @tr("Shown in the account list");
+        label-color: root.label-color;
+        edited(value) => { root.display-name-edited(value); }
+    }
+    FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Client ID · Optional");
+        value: ExchangeSetupUi.client-id;
+        placeholder: @tr("Built-in: Microsoft Office client");
+        label-color: root.label-color;
+        edited(value) => { ExchangeSetupUi.client-id = value; }
+    }
+    Text {
+        text: ExchangeSetupUi.client-id == ""
+            ? @tr("The built-in client ID is Microsoft's own Office app, not Rustmail's. It signs in with the Resource style below. Your organization's sign-in log shows it as Microsoft Office, an administrator can block it, and Microsoft may change what it allows. If sign-in fails, enter the client ID of your own app registration in Microsoft Entra ID.")
+            : @tr("Using the client ID of your own app registration. Allow public client flows for it in Microsoft Entra ID.");
+        color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+    }
+    FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Tenant · Optional");
+        value: ExchangeSetupUi.tenant;
+        placeholder: @tr("common, organizations, a tenant ID or contoso.com");
+        label-color: root.label-color;
+        edited(value) => { ExchangeSetupUi.tenant = value; }
+    }
+    FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Redirect URI · Optional");
+        value: ExchangeSetupUi.redirect-uri;
+        placeholder: ExchangeSetupUi.sign-in == "browser" ? @tr("http://localhost") : @tr("urn:ietf:wg:oauth:2.0:oob");
+        label-color: root.label-color;
+        edited(value) => { ExchangeSetupUi.redirect-uri = value; }
+    }
+    Text {
+        text: @tr("Sign-in style");
+        color: root.label-color; font-size: TypeScale.caption; font-weight: 600; height: self.preferred-height;
+    }
+    StyleButtons { enabled: root.enabled && ExchangeSetupUi.step == ""; }
+    Text {
+        text: ExchangeSetupUi.resource-style
+            ? @tr("Resource: Microsoft gives the permissions already approved for the app, so no scopes are asked for (the classic sign-in, as DavMail does). Needed for Microsoft's built-in Office client.")
+            : @tr("Scopes: Rustmail asks Microsoft for the permissions listed below. This needs your own app registration with those permissions.");
+        color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+    }
+    if !ExchangeSetupUi.resource-style : FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Scopes · Optional");
+        value: ExchangeSetupUi.scopes;
+        placeholder: @tr("Default: mail, calendar and contacts");
+        label-color: root.label-color;
+        edited(value) => { ExchangeSetupUi.scopes = value; }
+    }
+    Text {
+        text: @tr("Cloud");
+        color: root.label-color; font-size: TypeScale.caption; font-weight: 600; height: self.preferred-height;
+    }
+    CloudButtons { enabled: root.enabled; }
+    if ExchangeSetupUi.cloud == "custom" : FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Login address");
+        value: ExchangeSetupUi.login-url;
+        placeholder: @tr("https://login.example.org");
+        label-color: root.label-color;
+        edited(value) => { ExchangeSetupUi.login-url = value; }
+    }
+    if ExchangeSetupUi.cloud == "custom" : FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Graph address");
+        value: ExchangeSetupUi.graph-url;
+        placeholder: @tr("https://graph.example.org");
+        label-color: root.label-color;
+        edited(value) => { ExchangeSetupUi.graph-url = value; }
+    }
+    FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Shared mailbox · Optional");
+        value: ExchangeSetupUi.mailbox;
+        placeholder: @tr("shared@example.com");
+        label-color: root.label-color;
+        edited(value) => { ExchangeSetupUi.mailbox = value; }
+    }
+
+    if ExchangeSetupUi.step == "paste" : VerticalBox {
+        padding: 0px;
+        spacing: 8px;
+        Text {
+            text: @tr("1. Open this address and sign in. 2. Copy the address of the page you end on and paste it below.");
+            color: root.body-text; font-size: TypeScale.secondary; wrap: word-wrap; height: self.preferred-height;
+        }
+        HorizontalBox {
+            padding: 0px;
+            height: 36px;
+            spacing: 8px;
+            Button { horizontal-stretch: 1; height: 36px; text: @tr("Open in browser"); clicked => { ExchangeSetupUi.open-link(); } }
+            Button { horizontal-stretch: 1; height: 36px; text: @tr("Copy address"); clicked => { root.copy-text(ExchangeSetupUi.link); } }
+        }
+        FormField {
+            height: root.field-height;
+            label: @tr("Address or code from the browser");
+            value: ExchangeSetupUi.pasted;
+            placeholder: @tr("Paste it here");
+            label-color: root.label-color;
+            edited(value) => { ExchangeSetupUi.pasted = value; }
+        }
+        HorizontalBox {
+            padding: 0px;
+            height: 36px;
+            spacing: 8px;
+            Button { horizontal-stretch: 1; height: 36px; primary: true; text: @tr("Finish sign-in"); enabled: ExchangeSetupUi.pasted != ""; clicked => { ExchangeSetupUi.submit-pasted(ExchangeSetupUi.pasted); } }
+            Button { horizontal-stretch: 1; height: 36px; text: @tr("Cancel"); clicked => { ExchangeSetupUi.cancel(); } }
+        }
+    }
+    if ExchangeSetupUi.step == "device" : VerticalBox {
+        padding: 0px;
+        spacing: 8px;
+        Text {
+            text: @tr("Go to the address below on any device and enter this code:");
+            color: root.body-text; font-size: TypeScale.secondary; wrap: word-wrap; height: self.preferred-height;
+        }
+        Text {
+            text: ExchangeSetupUi.device-code;
+            color: root.accent; font-size: TypeScale.title; font-weight: 700; height: self.preferred-height;
+        }
+        Text {
+            text: ExchangeSetupUi.link;
+            color: root.body-text; font-size: TypeScale.secondary; wrap: word-wrap; height: self.preferred-height;
+        }
+        HorizontalBox {
+            padding: 0px;
+            height: 36px;
+            spacing: 8px;
+            Button { horizontal-stretch: 1; height: 36px; text: @tr("Open address"); clicked => { ExchangeSetupUi.open-link(); } }
+            Button { horizontal-stretch: 1; height: 36px; text: @tr("Copy code"); clicked => { root.copy-text(ExchangeSetupUi.device-code); } }
+            Button { horizontal-stretch: 1; height: 36px; text: @tr("Cancel"); clicked => { ExchangeSetupUi.cancel(); } }
+        }
+    }
+    if ExchangeSetupUi.step == "browser" : VerticalBox {
+        padding: 0px;
+        spacing: 8px;
+        Text {
+            text: @tr("Complete sign-in in your browser, or choose Cancel here.");
+            color: root.body-text; font-size: TypeScale.secondary; wrap: word-wrap; height: self.preferred-height;
+        }
+        Button { height: 36px; text: @tr("Cancel"); clicked => { ExchangeSetupUi.cancel(); } }
+    }
+}
