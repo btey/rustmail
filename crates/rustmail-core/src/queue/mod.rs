@@ -964,7 +964,7 @@ async fn send_action(
             return Err(CoreError::Other("no recipients".into()));
         }
         // Microsoft 365 files the Sent Items copy itself.
-        crate::exchange::send_raw(ctx, config, &raw).await?;
+        crate::exchange::send_raw(ctx, config, draft_id, &raw).await?;
         tracing::info!(
             account_id = config.id,
             "exchange send: accepted by Microsoft 365"

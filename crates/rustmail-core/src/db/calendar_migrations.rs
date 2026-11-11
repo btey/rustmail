@@ -3,7 +3,8 @@
 use crate::error::{CoreError, Result};
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[r#"
+const MIGRATIONS: &[&str] = &[
+    r#"
 CREATE TABLE calendars (
   id INTEGER PRIMARY KEY,
   account_id INTEGER NOT NULL,
@@ -126,7 +127,26 @@ CREATE TABLE pending_actions (
 );
 CREATE INDEX idx_calendar_actions_due
   ON pending_actions(account_id, state, not_before, created_at);
-"#];
+"#,
+    r#"
+-- Exchange Online (Microsoft Graph) calendars use the shared calendar task.
+CREATE TABLE caldav_config_v2 (
+  account_id INTEGER PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('google','generic','microsoft','exchange')),
+  base_url TEXT NOT NULL,
+  username TEXT,
+  principal_url TEXT,
+  home_set_url TEXT,
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  last_error TEXT
+);
+INSERT INTO caldav_config_v2
+  SELECT account_id, kind, base_url, username, principal_url, home_set_url, enabled, last_error
+  FROM caldav_config;
+DROP TABLE caldav_config;
+ALTER TABLE caldav_config_v2 RENAME TO caldav_config;
+"#,
+];
 pub const LATEST_VERSION: i64 = MIGRATIONS.len() as i64;
 
 pub fn run(conn: &mut Connection) -> Result<()> {
@@ -189,7 +209,7 @@ mod tests {
         assert_eq!(
             conn.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
                 .unwrap(),
-            1
+            2
         );
         let violations = conn
             .prepare("PRAGMA foreign_key_check")
@@ -280,13 +300,13 @@ mod tests {
     #[test]
     fn pre_release_profiles_are_rejected_without_mutation() {
         let mut conn = Connection::open_in_memory().unwrap();
-        conn.pragma_update(None, "user_version", 2).unwrap();
+        conn.pragma_update(None, "user_version", 3).unwrap();
         let error = run(&mut conn).unwrap_err().to_string();
         assert!(error.contains("recreate the development profile"));
         assert_eq!(
             conn.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
                 .unwrap(),
-            2
+            3
         );
     }
 }

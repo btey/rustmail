@@ -179,6 +179,10 @@ pub struct ExchangeSettings {
     /// Address of a shared or delegated mailbox to open instead of the
     /// signed-in user's own; empty = own mailbox.
     pub shared_mailbox: String,
+    /// HTTP proxy for every request of the account (`http://host:port`),
+    /// taken from the account's proxy setting at run time; never stored here.
+    #[serde(skip)]
+    pub proxy_url: String,
 }
 
 impl Default for ExchangeSettings {
@@ -195,6 +199,7 @@ impl Default for ExchangeSettings {
             sign_in: ExchangeSignIn::Manual,
             endpoint: ExchangeEndpoint::Auto,
             shared_mailbox: String::new(),
+            proxy_url: String::new(),
         }
     }
 }
@@ -271,6 +276,25 @@ fn mailbox_is_valid(address: &str) -> bool {
 }
 
 impl ExchangeSettings {
+    /// The proxy to use, if the account has one.
+    pub fn proxy(&self) -> Option<&str> {
+        Some(self.proxy_url.as_str()).filter(|url| !url.is_empty())
+    }
+
+    /// Whether `other` needs a new sign-in: any value that decides which app,
+    /// tenant, cloud or permissions the stored refresh token was issued for.
+    pub fn sign_in_differs(&self, other: &Self) -> bool {
+        self.client_id() != other.client_id()
+            || self.tenant() != other.tenant()
+            || self.redirect_uri() != other.redirect_uri()
+            || (!self.uses_resource_endpoint()
+                && self.effective_scopes() != other.effective_scopes())
+            || self.cloud != other.cloud
+            || self.custom_login_url.trim() != other.custom_login_url.trim()
+            || self.custom_graph_url.trim() != other.custom_graph_url.trim()
+            || self.uses_resource_endpoint() != other.uses_resource_endpoint()
+    }
+
     pub fn tenant(&self) -> &str {
         let tenant = self.tenant.trim();
         if tenant.is_empty() {

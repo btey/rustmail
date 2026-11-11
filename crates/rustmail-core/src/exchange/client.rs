@@ -24,6 +24,14 @@ const MAX_FOLDERS: usize = 5_000;
 const MAX_FOLDER_DEPTH: usize = 24;
 const MAX_LISTED_IDS: usize = 200_000;
 const BATCH_SIZE: usize = 20;
+/// Messages up to this size go to Graph as one MIME request; larger ones use
+/// a JSON draft with upload sessions for their attachments.
+pub const MAX_SIMPLE_MIME_BYTES: usize = 3 * 1024 * 1024;
+/// An attachment up to this size is added in one request; larger ones use an
+/// upload session.
+pub const MAX_INLINE_ATTACHMENT_BYTES: u64 = 3 * 1024 * 1024;
+/// Upload session chunk: a multiple of 320 KiB, as Graph requires.
+const UPLOAD_CHUNK: usize = 12 * 320 * 1024;
 /// Message properties the sync reads from `delta`.
 const MESSAGE_SELECT: &str = "id,internetMessageId,subject,isRead,isDraft,flag,categories,receivedDateTime,hasAttachments,parentFolderId";
 
@@ -113,12 +121,19 @@ pub struct GraphMail {
     retry_cap: Duration,
 }
 
-fn http_client() -> Result<reqwest::Client> {
-    reqwest::Client::builder()
+fn http_client(proxy: Option<&str>) -> Result<reqwest::Client> {
+    let mut builder = reqwest::Client::builder()
         .user_agent(concat!("Rustmail/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(60))
-        .redirect(reqwest::redirect::Policy::none())
+        .redirect(reqwest::redirect::Policy::none());
+    if let Some(proxy) = proxy {
+        builder = builder.proxy(
+            reqwest::Proxy::all(proxy)
+                .map_err(|error| CoreError::Network(format!("proxy setting: {error}")))?,
+        );
+    }
+    builder
         .build()
         .map_err(|error| CoreError::Network(format!("Graph HTTP client: {error}")))
 }
@@ -181,7 +196,7 @@ impl GraphMail {
             None => vec!["me".to_owned()],
         };
         Ok(Self {
-            http: http_client()?,
+            http: http_client(settings.proxy())?,
             base,
             mailbox,
             tokens,
@@ -790,6 +805,551 @@ impl GraphMail {
     }
 }
 
+/// A contact as the sync stores it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct GraphContact {
+    pub id: String,
+    pub change_key: Option<String>,
+    pub name: String,
+    pub emails: Vec<String>,
+    pub phone: String,
+    pub company: String,
+    pub job_title: String,
+    pub website: String,
+    pub birthday: String,
+    pub address: String,
+    pub notes: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContactChange {
+    Upsert(Box<GraphContact>),
+    Removed(String),
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ContactPage {
+    pub items: Vec<ContactChange>,
+    pub next_link: Option<String>,
+    pub delta_link: Option<String>,
+}
+
+/// The answer to a meeting invitation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventResponse {
+    Accept,
+    Tentative,
+    Decline,
+}
+
+impl EventResponse {
+    fn action(self) -> &'static str {
+        match self {
+            Self::Accept => "accept",
+            Self::Tentative => "tentativelyAccept",
+            Self::Decline => "decline",
+        }
+    }
+}
+
+/// Where an attachment upload session sends its bytes. The address comes from
+/// Microsoft (it may be on another host than Graph), so it must be https
+/// (or loopback for tests) without credentials; no bearer token is sent to it.
+fn checked_upload_url(value: &str) -> Result<url::Url> {
+    let url = url::Url::parse(value)
+        .map_err(|_| CoreError::Network("Microsoft Graph sent an invalid upload address".into()))?;
+    let loopback = url
+        .host_str()
+        .is_some_and(|host| matches!(host, "localhost" | "127.0.0.1" | "[::1]"));
+    if value.len() > MAX_NEXT_LINK_BYTES
+        || !(url.scheme() == "https" || (url.scheme() == "http" && loopback))
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(CoreError::Network(
+            "refusing an upload address that is not a plain https address".into(),
+        ));
+    }
+    Ok(url)
+}
+
+impl GraphMail {
+    /// Server-side search (`$search`) over the whole mailbox. The newest hits
+    /// are not guaranteed to come first; Graph does not sort a search.
+    pub async fn search_messages(&self, query: &str, limit: usize) -> Result<Vec<GraphMessage>> {
+        let cleaned: String = query
+            .chars()
+            .filter(|c| !c.is_control() && *c != '"' && *c != '\\')
+            .take(200)
+            .collect();
+        let cleaned = cleaned.trim();
+        if cleaned.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut url = self.endpoint(&["messages"]);
+        url.query_pairs_mut()
+            .append_pair("$search", &format!("\"{cleaned}\""))
+            .append_pair("$top", &limit.clamp(1, 100).to_string())
+            .append_pair("$select", MESSAGE_SELECT);
+        let value = self
+            .json(
+                reqwest::Method::GET,
+                url,
+                None,
+                &[("Prefer", "IdType=\"ImmutableId\"")],
+            )
+            .await?;
+        Ok(value["value"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|item| item["id"].as_str().map(|id| parse_message(item, id)))
+            .collect())
+    }
+
+    /// Create a draft from a complete RFC 5322 message (headers such as
+    /// `Message-ID` and `References` are kept). Returns the draft's id.
+    pub async fn create_draft_mime(&self, raw_message: &[u8]) -> Result<String> {
+        let encoded = base64::engine::general_purpose::STANDARD.encode(raw_message);
+        let url = self.endpoint(&["messages"]);
+        let raw = self
+            .send(
+                reqwest::Method::POST,
+                url,
+                Some(("text/plain", encoded.into_bytes())),
+                &[("Prefer", "IdType=\"ImmutableId\"")],
+                MAX_JSON_BYTES,
+                false,
+            )
+            .await?;
+        if !(200..300).contains(&raw.status) {
+            return Err(status_error(raw.status, &raw.body));
+        }
+        let value: Value = serde_json::from_slice(&raw.body).map_err(|error| {
+            CoreError::Network(format!("Microsoft Graph reply was not JSON: {error}"))
+        })?;
+        value["id"]
+            .as_str()
+            .map(str::to_owned)
+            .ok_or_else(|| CoreError::Network("Microsoft Graph returned no draft id".into()))
+    }
+
+    /// Create a draft from a JSON message (for a message whose attachments
+    /// are added separately). Returns the draft's id.
+    pub async fn create_draft_json(&self, message: &Value) -> Result<String> {
+        let url = self.endpoint(&["messages"]);
+        let value = self
+            .json(
+                reqwest::Method::POST,
+                url,
+                Some(message),
+                &[("Prefer", "IdType=\"ImmutableId\"")],
+            )
+            .await?;
+        value["id"]
+            .as_str()
+            .map(str::to_owned)
+            .ok_or_else(|| CoreError::Network("Microsoft Graph returned no draft id".into()))
+    }
+
+    /// Attach a file of up to a few MiB to a draft in one request.
+    pub async fn add_attachment(
+        &self,
+        draft_id: &str,
+        name: &str,
+        content_type: &str,
+        bytes: &[u8],
+    ) -> Result<()> {
+        let url = self.endpoint(&["messages", draft_id, "attachments"]);
+        self.json(
+            reqwest::Method::POST,
+            url,
+            Some(&json!({
+                "@odata.type": "#microsoft.graph.fileAttachment",
+                "name": name,
+                "contentType": content_type,
+                "contentBytes": base64::engine::general_purpose::STANDARD.encode(bytes),
+            })),
+            &[],
+        )
+        .await
+        .map(|_| ())
+    }
+
+    /// Attach a large file to a draft through an upload session: the bytes go
+    /// to the address Microsoft names, in chunks that are a multiple of
+    /// 320 KiB, and nothing but the chunk is sent there (no bearer token).
+    pub async fn upload_attachment(
+        &self,
+        draft_id: &str,
+        name: &str,
+        content_type: &str,
+        path: &std::path::Path,
+    ) -> Result<()> {
+        use tokio::io::AsyncReadExt;
+        let size = tokio::fs::metadata(path).await?.len();
+        if size == 0 {
+            return self.add_attachment(draft_id, name, content_type, &[]).await;
+        }
+        let url = self.endpoint(&["messages", draft_id, "attachments", "createUploadSession"]);
+        let session = self
+            .json(
+                reqwest::Method::POST,
+                url,
+                Some(&json!({ "AttachmentItem": {
+                    "attachmentType": "file",
+                    "name": name,
+                    "size": size,
+                    "contentType": content_type,
+                }})),
+                &[],
+            )
+            .await?;
+        let upload_url = checked_upload_url(session["uploadUrl"].as_str().ok_or_else(|| {
+            CoreError::Network("Microsoft Graph returned no upload address".into())
+        })?)?;
+        let mut file = tokio::fs::File::open(path).await?;
+        let mut offset: u64 = 0;
+        while offset < size {
+            let length = (size - offset).min(UPLOAD_CHUNK as u64) as usize;
+            let mut chunk = vec![0u8; length];
+            file.read_exact(&mut chunk).await?;
+            let range = format!("bytes {}-{}/{}", offset, offset + length as u64 - 1, size);
+            let mut attempts = 0;
+            loop {
+                attempts += 1;
+                let response = self
+                    .http
+                    .put(upload_url.clone())
+                    .header(reqwest::header::CONTENT_RANGE, &range)
+                    .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
+                    .body(chunk.clone())
+                    .send()
+                    .await
+                    .map_err(|error| {
+                        CoreError::Network(format!(
+                            "uploading an attachment failed: {}",
+                            error.without_url()
+                        ))
+                    })?;
+                let status = response.status().as_u16();
+                if (200..300).contains(&status) {
+                    break;
+                }
+                if matches!(status, 429 | 500 | 502 | 503 | 504) && attempts < MAX_ATTEMPTS {
+                    tokio::time::sleep(Duration::from_millis(250 * attempts as u64)).await;
+                    continue;
+                }
+                return Err(CoreError::Network(format!(
+                    "Microsoft 365 refused an attachment chunk (HTTP {status})"
+                )));
+            }
+            offset += length as u64;
+        }
+        Ok(())
+    }
+
+    /// Send a draft that exists on the server. A lost connection is reported
+    /// as `SendUncertain` and never retried.
+    pub async fn send_draft(&self, draft_id: &str) -> Result<()> {
+        let url = self.endpoint(&["messages", draft_id, "send"]);
+        let raw = self
+            .send(reqwest::Method::POST, url, None, &[], MAX_JSON_BYTES, true)
+            .await?;
+        if matches!(raw.status, 200 | 202 | 204) {
+            return Ok(());
+        }
+        Err(status_error(raw.status, &raw.body))
+    }
+
+    /// The contact folders of the mailbox (the default "Contacts" included).
+    pub async fn contact_folders(&self) -> Result<Vec<(String, String)>> {
+        let mut url = self.endpoint(&["contactFolders"]);
+        url.query_pairs_mut()
+            .append_pair("$select", "id,displayName")
+            .append_pair("$top", "100");
+        let mut link = Some(url);
+        let mut out = Vec::new();
+        let mut pages = 0;
+        while let Some(url) = link.take() {
+            pages += 1;
+            if pages > MAX_PAGES {
+                return Err(CoreError::Network("too many contact folder pages".into()));
+            }
+            let value = self.json(reqwest::Method::GET, url, None, &[]).await?;
+            for item in value["value"].as_array().into_iter().flatten() {
+                if let Some(id) = item["id"].as_str() {
+                    out.push((
+                        id.to_owned(),
+                        item["displayName"]
+                            .as_str()
+                            .unwrap_or("Contacts")
+                            .to_owned(),
+                    ));
+                }
+            }
+            if let Some(next) = value["@odata.nextLink"].as_str() {
+                link = Some(self.trusted_link(next)?);
+            }
+        }
+        Ok(out)
+    }
+
+    /// One page of contact changes in a folder; `Ok(None)` when the saved
+    /// delta link has expired (`410`).
+    pub async fn contacts_delta(
+        &self,
+        folder_id: &str,
+        link: Option<&str>,
+    ) -> Result<Option<ContactPage>> {
+        let url = match link {
+            Some(link) => self.trusted_link(link)?,
+            None => self.endpoint(&["contactFolders", folder_id, "contacts", "delta"]),
+        };
+        let raw = self
+            .send(
+                reqwest::Method::GET,
+                url,
+                None,
+                &[("Prefer", "odata.maxpagesize=100")],
+                MAX_JSON_BYTES,
+                false,
+            )
+            .await?;
+        if raw.status == 410 {
+            return Ok(None);
+        }
+        if !(200..300).contains(&raw.status) {
+            return Err(status_error(raw.status, &raw.body));
+        }
+        let value: Value = serde_json::from_slice(&raw.body).map_err(|error| {
+            CoreError::Network(format!("Microsoft Graph reply was not JSON: {error}"))
+        })?;
+        let mut page = ContactPage::default();
+        for item in value["value"].as_array().into_iter().flatten() {
+            let Some(id) = item["id"].as_str() else {
+                continue;
+            };
+            if item.get("@removed").is_some() {
+                page.items.push(ContactChange::Removed(id.to_owned()));
+            } else {
+                page.items
+                    .push(ContactChange::Upsert(Box::new(parse_contact(item, id))));
+            }
+        }
+        page.next_link = value["@odata.nextLink"].as_str().map(str::to_owned);
+        page.delta_link = value["@odata.deltaLink"].as_str().map(str::to_owned);
+        if let Some(link) = page.next_link.as_deref().or(page.delta_link.as_deref()) {
+            self.trusted_link(link)?;
+        }
+        Ok(Some(page))
+    }
+
+    /// The mailbox's calendars.
+    pub async fn calendars(&self) -> Result<Vec<crate::graph::GraphCalendar>> {
+        let mut url = self.endpoint(&["calendars"]);
+        url.query_pairs_mut()
+            .append_pair("$select", "id,name,hexColor,isDefaultCalendar,canEdit")
+            .append_pair("$top", "100");
+        let mut link = Some(url);
+        let mut out = Vec::new();
+        let mut pages = 0;
+        while let Some(url) = link.take() {
+            pages += 1;
+            if pages > MAX_PAGES {
+                return Err(CoreError::Network("too many calendar pages".into()));
+            }
+            let value = self.json(reqwest::Method::GET, url, None, &[]).await?;
+            for c in value["value"].as_array().into_iter().flatten() {
+                let Some(id) = c["id"].as_str() else {
+                    continue;
+                };
+                out.push(crate::graph::GraphCalendar {
+                    id: id.to_owned(),
+                    name: c["name"].as_str().map(str::to_owned),
+                    hex_color: c["hexColor"]
+                        .as_str()
+                        .filter(|color| color.starts_with('#'))
+                        .map(str::to_owned),
+                    is_default: c["isDefaultCalendar"].as_bool().unwrap_or(false),
+                    can_edit: c["canEdit"].as_bool().unwrap_or(true),
+                });
+            }
+            if let Some(next) = value["@odata.nextLink"].as_str() {
+                link = Some(self.trusted_link(next)?);
+            }
+        }
+        Ok(out)
+    }
+
+    /// One page of `calendarView/delta` for a calendar and window; `Ok(None)`
+    /// when the saved link has expired (`410`).
+    pub async fn calendar_delta(
+        &self,
+        calendar_id: &str,
+        link: Option<&str>,
+        window_ms: (i64, i64),
+    ) -> Result<Option<crate::graph::DeltaPage>> {
+        let url = match link {
+            Some(link) => self.trusted_link(link)?,
+            None => {
+                let utc_z = |ms: i64| {
+                    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
+                        .map(|date| date.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+                        .ok_or_else(|| CoreError::Other("invalid timestamp".into()))
+                };
+                let mut url = self.endpoint(&["calendars", calendar_id, "calendarView", "delta"]);
+                url.query_pairs_mut()
+                    .append_pair("startDateTime", &utc_z(window_ms.0)?)
+                    .append_pair("endDateTime", &utc_z(window_ms.1)?);
+                url
+            }
+        };
+        let raw = self
+            .send(
+                reqwest::Method::GET,
+                url,
+                None,
+                &[("Prefer", "odata.maxpagesize=100")],
+                MAX_JSON_BYTES,
+                false,
+            )
+            .await?;
+        if raw.status == 410 {
+            return Ok(None);
+        }
+        if !(200..300).contains(&raw.status) {
+            return Err(status_error(raw.status, &raw.body));
+        }
+        let value: Value = serde_json::from_slice(&raw.body).map_err(|error| {
+            CoreError::Network(format!("Microsoft Graph reply was not JSON: {error}"))
+        })?;
+        let page = crate::graph::DeltaPage {
+            events: value["value"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(crate::graph::parse_delta_event)
+                .collect(),
+            next_link: value["@odata.nextLink"].as_str().map(str::to_owned),
+            delta_link: value["@odata.deltaLink"].as_str().map(str::to_owned),
+        };
+        if let Some(link) = page.next_link.as_deref().or(page.delta_link.as_deref()) {
+            self.trusted_link(link)?;
+        }
+        Ok(Some(page))
+    }
+
+    /// Create an event (in a calendar when given, else the default one).
+    /// Returns the event id.
+    pub async fn create_event(&self, calendar_id: Option<&str>, event: &Value) -> Result<String> {
+        let url = match calendar_id {
+            Some(id) => self.endpoint(&["calendars", id, "events"]),
+            None => self.endpoint(&["events"]),
+        };
+        let value = self
+            .json(reqwest::Method::POST, url, Some(event), &[])
+            .await?;
+        value["id"]
+            .as_str()
+            .map(str::to_owned)
+            .ok_or_else(|| CoreError::Network("Microsoft Graph returned no event id".into()))
+    }
+
+    pub async fn update_event(&self, event_id: &str, event: &Value) -> Result<()> {
+        let url = self.endpoint(&["events", event_id]);
+        self.json(reqwest::Method::PATCH, url, Some(event), &[])
+            .await
+            .map(|_| ())
+    }
+
+    /// Delete an event; one that is already gone counts as deleted.
+    pub async fn delete_event(&self, event_id: &str) -> Result<()> {
+        let url = self.endpoint(&["events", event_id]);
+        self.expect_gone(reqwest::Method::DELETE, url, None).await
+    }
+
+    /// Answer a meeting invitation (the organizer is told).
+    pub async fn respond_to_event(
+        &self,
+        event_id: &str,
+        response: EventResponse,
+        comment: &str,
+    ) -> Result<()> {
+        let url = self.endpoint(&["events", event_id, response.action()]);
+        self.json(
+            reqwest::Method::POST,
+            url,
+            Some(&json!({ "comment": comment, "sendResponse": true })),
+            &[],
+        )
+        .await
+        .map(|_| ())
+    }
+}
+
+fn parse_contact(item: &Value, id: &str) -> GraphContact {
+    let text = |key: &str| item[key].as_str().unwrap_or_default().trim().to_owned();
+    let phone = item["mobilePhone"]
+        .as_str()
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            item["businessPhones"]
+                .as_array()
+                .and_then(|phones| phones.iter().find_map(Value::as_str))
+        })
+        .or_else(|| {
+            item["homePhones"]
+                .as_array()
+                .and_then(|phones| phones.iter().find_map(Value::as_str))
+        })
+        .unwrap_or_default()
+        .trim()
+        .to_owned();
+    let address = ["businessAddress", "homeAddress", "otherAddress"]
+        .iter()
+        .find_map(|key| {
+            let parts: Vec<&str> = ["street", "city", "state", "postalCode", "countryOrRegion"]
+                .iter()
+                .filter_map(|part| item[*key][*part].as_str())
+                .filter(|part| !part.trim().is_empty())
+                .collect();
+            (!parts.is_empty()).then(|| parts.join(", "))
+        })
+        .unwrap_or_default();
+    GraphContact {
+        id: id.to_owned(),
+        change_key: item["changeKey"].as_str().map(str::to_owned),
+        name: text("displayName"),
+        emails: item["emailAddresses"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|entry| entry["address"].as_str())
+            .map(|address| address.trim().to_owned())
+            .filter(|address| address.contains('@'))
+            .collect(),
+        phone,
+        company: text("companyName"),
+        job_title: text("jobTitle"),
+        website: item["businessHomePage"]
+            .as_str()
+            .unwrap_or_default()
+            .trim()
+            .to_owned(),
+        birthday: item["birthday"]
+            .as_str()
+            .unwrap_or_default()
+            .split('T')
+            .next()
+            .unwrap_or_default()
+            .to_owned(),
+        address,
+        notes: text("personalNotes"),
+    }
+}
+
 fn parse_message(item: &Value, id: &str) -> GraphMessage {
     GraphMessage {
         id: id.to_owned(),
@@ -1076,6 +1636,136 @@ mod tests {
             matches!(&error, CoreError::Auth(text) if text.contains("did not accept")),
             "{error}"
         );
+    }
+
+    #[tokio::test]
+    async fn requests_go_through_the_account_proxy() {
+        let proxy = FakeServer::start(|_| Reply::json(200, r#"{"id":"INBOX1"}"#)).await;
+        let settings = ExchangeSettings {
+            enabled: true,
+            client_id: "facd6cff-a294-4415-b59f-c5b01937d7bd".into(),
+            cloud: ExchangeCloud::Custom,
+            custom_login_url: "http://127.0.0.1:9".into(),
+            custom_graph_url: "http://127.0.0.1:9/graph".into(),
+            proxy_url: proxy.url(),
+            ..ExchangeSettings::default()
+        };
+        let client = GraphMail::new(&settings, Arc::new(StaticToken("TOKEN"))).unwrap();
+        assert_eq!(client.probe().await.unwrap(), "INBOX1");
+        let seen = proxy.requests();
+        assert!(
+            seen[0]
+                .path
+                .starts_with("http://127.0.0.1:9/graph/v1.0/me/mailFolders/inbox"),
+            "{}",
+            seen[0].path
+        );
+    }
+
+    #[test]
+    fn upload_addresses_must_be_plain_https_or_loopback() {
+        assert!(checked_upload_url("https://outlook.office.com/api/upload/abc?x=1").is_ok());
+        assert!(checked_upload_url("http://127.0.0.1:8080/upload/abc").is_ok());
+        for bad in [
+            "http://example.org/upload",
+            "https://user@example.org/upload",
+            "https://example.org/upload#frag",
+            "file:///etc/passwd",
+            "not a url",
+        ] {
+            assert!(checked_upload_url(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[tokio::test]
+    async fn an_attachment_upload_sends_ranges_without_the_bearer_token() {
+        let ranges = Arc::new(std::sync::Mutex::new(Vec::<(String, bool)>::new()));
+        let seen = ranges.clone();
+        let server = FakeServer::start(move |request| {
+            if request.method == "PUT" {
+                seen.lock().unwrap().push((
+                    request
+                        .header("content-range")
+                        .unwrap_or_default()
+                        .to_owned(),
+                    request.header("authorization").is_some(),
+                ));
+                return Reply::json(200, "{}");
+            }
+            let base = request.header("host").unwrap_or_default().to_owned();
+            Reply::json(
+                200,
+                &format!(r#"{{"uploadUrl":"http://{base}/put/session"}}"#),
+            )
+        })
+        .await;
+        let dir = std::env::temp_dir().join(format!("rustmail-upload-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("big.bin");
+        std::fs::write(&file, vec![1u8; UPLOAD_CHUNK + 1000]).unwrap();
+        client_for(&server, "")
+            .upload_attachment("D1", "big.bin", "application/octet-stream", &file)
+            .await
+            .unwrap();
+        std::fs::remove_dir_all(&dir).ok();
+        let ranges = ranges.lock().unwrap().clone();
+        let total = UPLOAD_CHUNK + 1000;
+        assert_eq!(
+            ranges,
+            vec![
+                (format!("bytes 0-{}/{total}", UPLOAD_CHUNK - 1), false),
+                (format!("bytes {UPLOAD_CHUNK}-{}/{total}", total - 1), false),
+            ]
+        );
+        assert_eq!(UPLOAD_CHUNK % (320 * 1024), 0);
+    }
+
+    #[tokio::test]
+    async fn a_search_quotes_the_text_and_reads_the_hits() {
+        let server = FakeServer::start(|request| {
+            assert!(
+                request.query.contains("%24search=%22tax+return%22"),
+                "{}",
+                request.query
+            );
+            Reply::json(
+                200,
+                r#"{"value":[{"id":"M1","subject":"Tax return","parentFolderId":"inbox"}]}"#,
+            )
+        })
+        .await;
+        let hits = client_for(&server, "")
+            .search_messages("tax \"return\"", 10)
+            .await
+            .unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].subject, "Tax return");
+        assert!(
+            client_for(&server, "")
+                .search_messages("  ", 10)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_contact_keeps_its_addresses_phone_and_address() {
+        let contact = parse_contact(
+            &json!({
+                "displayName": " Ann Lee ",
+                "emailAddresses": [{"address": "ann@example.org"}, {"address": "no-at-sign"}],
+                "businessPhones": ["+41 1"],
+                "birthday": "1990-05-04T00:00:00Z",
+                "businessAddress": {"street": "Main St 1", "city": "Zurich", "countryOrRegion": "CH"},
+            }),
+            "C1",
+        );
+        assert_eq!(contact.name, "Ann Lee");
+        assert_eq!(contact.emails, vec!["ann@example.org"]);
+        assert_eq!(contact.phone, "+41 1");
+        assert_eq!(contact.birthday, "1990-05-04");
+        assert_eq!(contact.address, "Main St 1, Zurich, CH");
     }
 
     #[tokio::test]

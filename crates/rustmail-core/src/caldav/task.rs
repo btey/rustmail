@@ -161,6 +161,18 @@ async fn run_cycle(
     // everything else goes through the DAV transport.
     let result = if cfg.kind == "microsoft" {
         crate::graphcal::sync_account(db, bus, tokens, account_id).await
+    } else if cfg.kind == "exchange" {
+        // Exchange Online: the mail account's own sign-in, through its Graph client.
+        let mail = mail_db
+            .read(move |conn| repo::accounts::get_config(conn, account_id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound("account".into()))?;
+        let settings = crate::exchange::settings_for(&mail)?;
+        let client = crate::exchange::client::GraphMail::new(
+            &settings,
+            crate::exchange::tokens_for(account_id, &settings, &credential_store),
+        )?;
+        crate::exchange::calendar::sync_account(db, bus, &client, account_id).await
     } else if cfg.kind == "google" {
         let token = tokens.access_token(account_id, Provider::Gmail).await?;
         if refresh_collections {

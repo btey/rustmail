@@ -31,6 +31,12 @@ export global ExchangeSetupUi {
     in-out property <string> link;
     in-out property <string> device-code;
     in-out property <string> pasted;
+    // The account being edited in Settings (0 when adding one) and whether
+    // the sign-in must be repeated even if no setting changed (reconnect).
+    in-out property <int> edit-account-id: 0;
+    in-out property <bool> force-sign-in: false;
+    // Load the account's settings into the fields: (account id, reconnect).
+    callback edit-account(int, bool);
     callback submit-pasted(string);
     callback open-link();
     callback cancel();

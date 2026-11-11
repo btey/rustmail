@@ -135,6 +135,13 @@ pub(crate) async fn cycle(
 ) -> Result<bool> {
     let folders = sync_folders(ctx, config, client).await?;
     run_due_actions(ctx, config, client).await?;
+    // Contacts have their own permission; a failure there never stops mail.
+    if let Err(error) = super::contacts::sync_contacts(ctx, config, client).await {
+        if matches!(error, CoreError::NeedsReauth | CoreError::Auth(_)) {
+            return Err(error);
+        }
+        tracing::debug!(account_id = config.id, %error, "exchange contacts not synced");
+    }
     let mut budget = CYCLE_NEW_MESSAGES;
     let mut more = false;
     // Inbox first so new mail shows up before a large archive is read.
@@ -380,6 +387,97 @@ async fn save_link(
             Ok(())
         })
         .await
+}
+
+/// Ask Microsoft 365 to search the whole mailbox and bring the hits that are
+/// not cached yet into the local database, where the normal search then finds
+/// them. Returns how many messages were added.
+pub(crate) async fn search_on_server(
+    ctx: &SyncCtx,
+    config: &AccountConfig,
+    client: &GraphMail,
+    query: &str,
+) -> Result<usize> {
+    let account_id = config.id;
+    let hits = client.search_messages(query, 25).await?;
+    if hits.is_empty() {
+        return Ok(0);
+    }
+    let ids: Vec<String> = hits.iter().map(|hit| hit.id.clone()).collect();
+    let cached: HashSet<String> = ctx
+        .db
+        .read(move |conn| {
+            let mut stmt = conn.prepare_cached(
+                "SELECT 1 FROM exchange_messages WHERE account_id=?1 AND graph_id=?2",
+            )?;
+            let mut out = HashSet::new();
+            for id in ids {
+                if stmt.exists(params![account_id, id])? {
+                    out.insert(id);
+                }
+            }
+            Ok(out)
+        })
+        .await?;
+    // Group the new hits by the folder they live in.
+    let mut by_folder: HashMap<String, Vec<DeltaItem>> = HashMap::new();
+    for hit in hits {
+        if cached.contains(&hit.id) {
+            continue;
+        }
+        if let Some(parent) = hit.parent_folder_id.clone() {
+            by_folder
+                .entry(parent)
+                .or_default()
+                .push(DeltaItem::Upsert(hit));
+        }
+    }
+    let mut added = 0;
+    let mut changed: HashSet<i64> = HashSet::new();
+    for (parent, items) in by_folder {
+        let mapped: Option<(i64, Option<String>)> = ctx
+            .db
+            .read({
+                let parent = parent.clone();
+                move |conn| {
+                    Ok(conn
+                        .query_row(
+                            "SELECT x.folder_id, f.role FROM exchange_folders x
+                             JOIN folders f ON f.id = x.folder_id
+                             WHERE x.account_id=?1 AND x.graph_id=?2",
+                            params![account_id, parent],
+                            |row| Ok((row.get(0)?, row.get(1)?)),
+                        )
+                        .optional()?)
+                }
+            })
+            .await?;
+        // A folder the sync has not mapped yet is picked up by the next sync.
+        let Some((folder_id, role)) = mapped else {
+            continue;
+        };
+        let folder = FolderMap {
+            graph_id: parent,
+            folder_id,
+            role: WELL_KNOWN
+                .iter()
+                .map(|(_, known)| *known)
+                .find(|known| Some(*known) == role.as_deref()),
+        };
+        let mut budget = items.len();
+        let plans = prepare(ctx, config, client, &folder, &items, &mut budget).await?;
+        added += plans
+            .iter()
+            .filter(|plan| matches!(plan, Plan::New(_)))
+            .count();
+        changed.extend(apply(ctx, config, &folder, plans).await?);
+    }
+    if !changed.is_empty() {
+        ctx.bus.emit(CoreEvent::MailUpdated {
+            thread_ids: changed.into_iter().collect(),
+        });
+    }
+    Ok(added)
 }
 
 /// Sync one folder. Returns whether the cycle stopped before the end of it.
@@ -955,8 +1053,20 @@ async fn execute(
                 other => other,
             }
         }
-        // Drafts and snoozes stay in the app database (see the roadmap).
-        "save_draft" | "delete_draft" | "snooze" | "unsnooze" => Ok(()),
+        "save_draft" => {
+            let Some(draft_id) = action.payload["draftId"].as_i64().or(action.message_id) else {
+                return Ok(());
+            };
+            super::draft::push_draft(ctx, config, client, draft_id).await
+        }
+        "delete_draft" => match action.payload["graphId"].as_str() {
+            Some(graph_id) => {
+                super::draft::delete_remote_draft(ctx, account_id, client, graph_id).await
+            }
+            None => Ok(()),
+        },
+        // Snoozes stay in the app database (see the roadmap).
+        "snooze" | "unsnooze" => Ok(()),
         other => {
             tracing::warn!("exchange: unsupported queued action {other}");
             Ok(())

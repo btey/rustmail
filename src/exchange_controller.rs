@@ -4,6 +4,7 @@
 //! the sign-in. The tokens only ever go to the core, which stores them in the
 //! credential store.
 use super::*;
+use std::sync::{Arc, Mutex};
 use rustmail_core::exchange::{
     AddExchangeAccountArgs, ExchangeCloud, ExchangeEndpoint, ExchangeSettings, ExchangeSignIn,
     auth::{AuthorizationRequest, TokenSet},
@@ -17,9 +18,15 @@ pub(super) struct PendingManual {
     request: AuthorizationRequest,
     email: String,
     display_name: Option<String>,
+    /// The account being edited or reconnected; `None` adds a new one.
+    edit: Option<i64>,
 }
 
 pub(super) type Pending = Rc<RefCell<Option<PendingManual>>>;
+
+/// The settings the edit form was filled from (account id and values), so
+/// "Save" can tell whether a new sign-in is needed.
+type Original = Arc<Mutex<Option<(i64, ExchangeSettings)>>>;
 
 /// The settings typed into the form. Empty fields keep the engine defaults.
 pub(super) fn settings_from_form(app: &AppWindow) -> ExchangeSettings {
@@ -41,6 +48,7 @@ pub(super) fn settings_from_form(app: &AppWindow) -> ExchangeSettings {
         sign_in,
         endpoint: ExchangeEndpoint::from_str_lossy(ui.get_endpoint().as_str()),
         shared_mailbox: ui.get_mailbox().trim().to_owned(),
+        ..ExchangeSettings::default()
     }
 }
 
@@ -69,10 +77,27 @@ fn reset_steps(app: slint::Weak<AppWindow>) {
     });
 }
 
-/// Verify the sign-in with Graph, store the tokens and add the account.
+fn done(core_message: UiMessage, accounts: Option<mail::AccountSnapshot>, clear: bool) -> UiTaskUpdate {
+    UiTaskUpdate {
+        message: core_message,
+        accounts,
+        calendar_connections: None,
+        carddav_connections: None,
+        calendar_error: None,
+        account_removal: None,
+        clear_account_form: clear,
+        finishes_account_setup: true,
+        finishes_oauth: false,
+        close_to_tray: None,
+    }
+}
+
+/// Verify the sign-in with Graph, store the tokens and add the account (or,
+/// when `edit` names one, save the new settings and sign-in on it).
 async fn finish(
     core: CoreMailSource,
     args: AddExchangeAccountArgs,
+    edit: Option<i64>,
     tokens: TokenSet,
     app: slint::Weak<AppWindow>,
     updates: UiSender<UiTaskUpdate>,
@@ -83,6 +108,33 @@ async fn finish(
             "Checking the sign-in with Microsoft Graph…",
         ));
     });
+    if let Some(account_id) = edit {
+        let result = core
+            .file_core()
+            .update_exchange_account(
+                account_id,
+                args.display_name.clone(),
+                args.exchange.clone(),
+                Some(tokens),
+            )
+            .await;
+        let update = match result {
+            Ok(account) => done(
+                UiMessage::detail(
+                    "Reconnected {}. Synchronization is resuming.",
+                    account.email,
+                ),
+                core.load_account_snapshot().await.ok(),
+                true,
+            ),
+            Err(error) => failed(error),
+        };
+        let _ = app.upgrade_in_event_loop(|app| {
+            app.global::<ExchangeSetupUi>().set_edit_account_id(0);
+        });
+        let _ = updates.send(update).await;
+        return;
+    }
     let update = match core.file_core().add_exchange_account(args, tokens).await {
         Ok(account) => UiTaskUpdate {
             message: UiMessage::detail(
@@ -112,6 +164,7 @@ fn open_in_thread(opener: ExternalUrlOpener, url: String) {
 
 /// Start the sign-in chosen in the form. Called by the account form's add
 /// button when the Exchange type is selected.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn begin(
     app: &AppWindow,
     state: &Rc<RefCell<InboxState>>,
@@ -119,6 +172,7 @@ pub(super) fn begin(
     updates: &UiSender<UiTaskUpdate>,
     opener: &ExternalUrlOpener,
     pending: &Pending,
+    original: &Original,
     email: &str,
 ) {
     if app.get_account_setup_in_progress() {
@@ -143,6 +197,46 @@ pub(super) fn begin(
     let display_name = Some(app.get_advanced().display_name.trim().to_owned())
         .filter(|name| !name.is_empty());
     let ui = app.global::<ExchangeSetupUi>();
+    let edit = Some(ui.get_edit_account_id())
+        .filter(|id| *id != 0)
+        .map(i64::from);
+    // Editing an account: settings that do not change what the sign-in was
+    // issued for are saved at once, with no new sign-in.
+    if let Some(account_id) = edit {
+        let unchanged = !ui.get_force_sign_in()
+            && original
+                .lock()
+                .ok()
+                .and_then(|original| original.clone())
+                .is_some_and(|(id, old)| id == account_id && !old.sign_in_differs(&settings));
+        if unchanged {
+            app.set_account_setup_in_progress(true);
+            app.set_sync_status(UiMessage::plain("Checking the sign-in with Microsoft Graph…"));
+            let (weak, updates) = (app.as_weak(), updates.clone());
+            runtime.spawn(async move {
+                let update = match core
+                    .file_core()
+                    .update_exchange_account(account_id, display_name, settings, None)
+                    .await
+                {
+                    Ok(account) => done(
+                        UiMessage::detail(
+                            "Reconnected {}. Synchronization is resuming.",
+                            account.email,
+                        ),
+                        core.load_account_snapshot().await.ok(),
+                        true,
+                    ),
+                    Err(error) => failed(error),
+                };
+                let _ = weak.upgrade_in_event_loop(|app| {
+                    app.global::<ExchangeSetupUi>().set_edit_account_id(0);
+                });
+                let _ = updates.send(update).await;
+            });
+            return;
+        }
+    }
     app.set_account_setup_in_progress(true);
     match settings.sign_in {
         ExchangeSignIn::Manual => match core.file_core().exchange_begin_manual(&settings, Some(&email)) {
@@ -159,6 +253,7 @@ pub(super) fn begin(
                     request,
                     email,
                     display_name,
+                    edit,
                 });
             }
             Err(error) => {
@@ -195,7 +290,7 @@ pub(super) fn begin(
                             display_name,
                             exchange: settings,
                         };
-                        finish(core, args, tokens, weak, updates).await;
+                        finish(core, args, edit, tokens, weak, updates).await;
                     }
                     Err(error) => {
                         reset_steps(weak);
@@ -232,7 +327,7 @@ pub(super) fn begin(
                             display_name,
                             exchange: settings,
                         };
-                        finish(core, args, tokens, weak, updates).await;
+                        finish(core, args, edit, tokens, weak, updates).await;
                     }
                     Err(error) => {
                         reset_steps(weak);
@@ -252,7 +347,55 @@ pub(super) fn register(
     opener: &ExternalUrlOpener,
 ) -> impl Fn(&AppWindow, &str) + 'static {
     let pending: Pending = Rc::new(RefCell::new(None));
+    let original: Original = Arc::new(Mutex::new(None));
     let ui = app.global::<ExchangeSetupUi>();
+
+    // Fill the form from an existing account (Settings > Accounts > Edit).
+    let weak = app.as_weak();
+    let (state_for_edit, runtime_for_edit, original_for_edit) =
+        (Rc::clone(state), runtime.clone(), original.clone());
+    ui.on_edit_account(move |account_id, force| {
+        let Some(core) = state_for_edit.borrow().core.clone() else {
+            return;
+        };
+        let (weak, original) = (weak.clone(), original_for_edit.clone());
+        runtime_for_edit.spawn(async move {
+            let settings = match core
+                .file_core()
+                .exchange_account_settings(i64::from(account_id))
+                .await
+            {
+                Ok(settings) => settings,
+                Err(error) => {
+                    let _ = weak.upgrade_in_event_loop(move |app| {
+                        app.set_sync_status(UiMessage::detail(
+                            "Exchange sign-in failed: {}",
+                            error,
+                        ));
+                    });
+                    return;
+                }
+            };
+            if let Ok(mut slot) = original.lock() {
+                *slot = Some((i64::from(account_id), settings.clone()));
+            }
+            let _ = weak.upgrade_in_event_loop(move |app| {
+                let ui = app.global::<ExchangeSetupUi>();
+                ui.set_sign_in(settings.sign_in.as_str().into());
+                ui.set_client_id(settings.client_id.into());
+                ui.set_tenant(settings.tenant.into());
+                ui.set_redirect_uri(settings.redirect_uri.into());
+                ui.set_scopes(settings.scopes.into());
+                ui.set_endpoint(settings.endpoint.as_str().into());
+                ui.set_cloud(settings.cloud.as_str().into());
+                ui.set_login_url(settings.custom_login_url.into());
+                ui.set_graph_url(settings.custom_graph_url.into());
+                ui.set_mailbox(settings.shared_mailbox.into());
+                ui.set_force_sign_in(force);
+                ui.set_edit_account_id(account_id);
+            });
+        });
+    });
 
     let weak = app.as_weak();
     let (pending_for_submit, runtime_for_submit, updates_for_submit) =
@@ -276,6 +419,7 @@ pub(super) fn register(
                 request,
                 email,
                 display_name,
+                edit,
             } = manual;
             match core
                 .file_core()
@@ -288,7 +432,7 @@ pub(super) fn register(
                         display_name,
                         exchange: settings,
                     };
-                    finish(core, args, tokens, weak, updates).await;
+                    finish(core, args, edit, tokens, weak, updates).await;
                 }
                 Err(error) => {
                     reset_steps(weak);
@@ -335,6 +479,8 @@ pub(super) fn register(
         opener.clone(),
     );
     move |app: &AppWindow, email: &str| {
-        begin(app, &state, &runtime, &updates, &opener, &pending, email);
+        begin(
+            app, &state, &runtime, &updates, &opener, &pending, &original, email,
+        );
     }
 }

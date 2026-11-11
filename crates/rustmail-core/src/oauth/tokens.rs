@@ -518,7 +518,18 @@ mod platform_marker_tests {
 /// proxy support and a hard deadline instead of waiting forever on a silent
 /// identity endpoint.
 pub async fn post_form(url: &str, form: &[(String, String)]) -> Result<String> {
+    post_form_via(url, form, None).await
+}
+
+/// [`post_form`] through an HTTP proxy (`http://host:port`, CONNECT for
+/// https) when one is given.
+pub async fn post_form_via(
+    url: &str,
+    form: &[(String, String)],
+    proxy: Option<&str>,
+) -> Result<String> {
     const MAX_OAUTH_RESPONSE_BODY_BYTES: usize = 1024 * 1024;
+    let proxied;
     static HTTP: once_cell::sync::Lazy<std::result::Result<reqwest::Client, String>> =
         once_cell::sync::Lazy::new(|| {
             reqwest::Client::builder()
@@ -529,9 +540,25 @@ pub async fn post_form(url: &str, form: &[(String, String)]) -> Result<String> {
                 .build()
                 .map_err(|error| format!("OAuth HTTP client configuration failed: {error}"))
         });
-    let http = HTTP
-        .as_ref()
-        .map_err(|message| CoreError::Network(message.clone()))?;
+    let http = if let Some(proxy) = proxy {
+        proxied = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(15))
+            .timeout(std::time::Duration::from_secs(30))
+            .redirect(reqwest::redirect::Policy::none())
+            .user_agent(concat!("Rustmail/", env!("CARGO_PKG_VERSION")))
+            .proxy(
+                reqwest::Proxy::all(proxy)
+                    .map_err(|error| CoreError::Network(format!("proxy setting: {error}")))?,
+            )
+            .build()
+            .map_err(|error| {
+                CoreError::Network(format!("OAuth HTTP client configuration failed: {error}"))
+            })?;
+        &proxied
+    } else {
+        HTTP.as_ref()
+            .map_err(|message| CoreError::Network(message.clone()))?
+    };
     let response = http.post(url).form(form).send().await.map_err(|error| {
         if error.is_timeout() || error.is_connect() {
             CoreError::Offline

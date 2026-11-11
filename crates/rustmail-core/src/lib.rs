@@ -2193,7 +2193,8 @@ impl Core {
                     let mut stored = repo::accounts::get_config(&transaction, id)?
                         .ok_or_else(|| CoreError::NotFound("account".into()))?
                         .settings;
-                    stored.connection = a_connection;
+                    // Keep the account's other connection settings (proxy, ...).
+                    stored.connection.exchange = a_connection.exchange;
                     repo::accounts::set_settings(&transaction, id, &stored)?;
                     // A different registration or tenant has different delta state.
                     transaction.execute(
@@ -2270,10 +2271,234 @@ impl Core {
             .await?
             .ok_or_else(|| CoreError::NotFound("account".into()))?;
         self.spawn_actor(cfg).await;
+        // The calendars use the same sign-in; an account without the
+        // Calendars permission just has none.
+        if let Err(error) = self.connect_exchange_calendar(id).await {
+            tracing::info!(account_id = id, %error, "exchange calendar not connected");
+        }
         self.db
             .read(move |conn| repo::accounts::get(conn, id))
             .await?
             .ok_or_else(|| CoreError::NotFound("account".into()))
+    }
+
+    /// The Exchange settings of an account, for the edit form.
+    pub async fn exchange_account_settings(
+        &self,
+        account_id: i64,
+    ) -> Result<exchange::ExchangeSettings> {
+        let config = self
+            .db
+            .read(move |conn| repo::accounts::get_config(conn, account_id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound("account".into()))?;
+        if config.mail_protocol != MailProtocol::Exchange {
+            return Err(CoreError::Other(
+                "this account is not a Microsoft 365 account".into(),
+            ));
+        }
+        Ok(config.settings.connection.exchange)
+    }
+
+    /// Change the settings of an existing Exchange account, or reconnect it
+    /// after its refresh token was revoked (pass the new sign-in's tokens
+    /// with unchanged settings). Changes to the client ID, tenant, redirect
+    /// address, scopes, cloud or sign-in style need a new sign-in (`tokens`);
+    /// the display name and a changed mailbox do not. A different mailbox
+    /// clears the cached mail, because its ids belong to the old one.
+    pub async fn update_exchange_account(
+        &self,
+        account_id: i64,
+        display_name: Option<String>,
+        settings: exchange::ExchangeSettings,
+        tokens: Option<exchange::auth::TokenSet>,
+    ) -> Result<Account> {
+        let config = self
+            .db
+            .read(move |conn| repo::accounts::get_config(conn, account_id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound("account".into()))?;
+        if config.mail_protocol != MailProtocol::Exchange {
+            return Err(CoreError::Other(
+                "this account is not a Microsoft 365 account".into(),
+            ));
+        }
+        let old = config.settings.connection.exchange.clone();
+        let mut new = settings;
+        new.enabled = true;
+        new.validate()?;
+        let mailbox_changed =
+            old.shared_mailbox.trim().to_lowercase() != new.shared_mailbox.trim().to_lowercase();
+        if tokens.is_none() && old.sign_in_differs(&new) {
+            return Err(CoreError::Auth(
+                "These changes need a new sign-in. Sign in again to apply them.".into(),
+            ));
+        }
+        if let Some(tokens) = &tokens
+            && tokens.refresh_token.is_none()
+        {
+            return Err(CoreError::Auth(
+                "the sign-in did not return a refresh token; sign in again".into(),
+            ));
+        }
+        // Prove the (new) sign-in reaches the (new) mailbox before saving.
+        let mut probe_settings = new.clone();
+        probe_settings.proxy_url = exchange::settings_for(&AccountConfig {
+            settings: AccountSettings {
+                connection: MailConnectionSettings {
+                    exchange: new.clone(),
+                    ..config.settings.connection.clone()
+                },
+                ..config.settings.clone()
+            },
+            ..config.clone()
+        })?
+        .proxy_url;
+        let source: std::sync::Arc<dyn exchange::client::AccessTokenSource> = match &tokens {
+            Some(tokens) => {
+                std::sync::Arc::new(exchange::client::FixedToken(tokens.access_token.clone()))
+            }
+            None => exchange::tokens_for(account_id, &probe_settings, &self.credentials),
+        };
+        exchange::client::GraphMail::new(&probe_settings, source)?
+            .probe()
+            .await?;
+
+        if let Some(handle) = self.handles.write().await.remove(&account_id) {
+            handle.abort();
+        }
+        let name = display_name
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty());
+        let saved = new.clone();
+        let reset_delta = mailbox_changed || tokens.is_some();
+        self.db
+            .write(move |conn| {
+                let tx = conn.transaction()?;
+                let mut stored = repo::accounts::get_config(&tx, account_id)?
+                    .ok_or_else(|| CoreError::NotFound("account".into()))?
+                    .settings;
+                stored.connection.exchange = saved;
+                repo::accounts::set_settings(&tx, account_id, &stored)?;
+                if let Some(name) = name {
+                    tx.execute(
+                        "UPDATE accounts SET display_name=?2 WHERE id=?1",
+                        rusqlite::params![account_id, name],
+                    )?;
+                }
+                if mailbox_changed {
+                    let ids: Vec<i64> = {
+                        let mut stmt = tx.prepare(
+                            "SELECT message_id FROM exchange_messages WHERE account_id=?1",
+                        )?;
+                        stmt.query_map([account_id], |row| row.get(0))?
+                            .collect::<rusqlite::Result<_>>()?
+                    };
+                    for id in ids {
+                        repo::messages::delete(&tx, id)?;
+                    }
+                    tx.execute(
+                        "DELETE FROM exchange_messages WHERE account_id=?1",
+                        [account_id],
+                    )?;
+                }
+                if reset_delta {
+                    // A different mailbox or registration has other delta state.
+                    tx.execute(
+                        "UPDATE exchange_folders SET delta_link = NULL WHERE account_id = ?1",
+                        [account_id],
+                    )?;
+                }
+                tx.commit()?;
+                Ok(())
+            })
+            .await?;
+        if let Some(tokens) = &tokens {
+            let stored = exchange::tokens_for(account_id, &new, &self.credentials)
+                .store_initial(tokens)
+                .await;
+            if let Err(error) = stored {
+                if let Ok(Some(cfg)) = self
+                    .db
+                    .read(move |conn| repo::accounts::get_config(conn, account_id))
+                    .await
+                {
+                    self.spawn_actor(cfg).await;
+                }
+                return Err(error);
+            }
+        }
+        let cfg = self
+            .db
+            .read(move |conn| repo::accounts::get_config(conn, account_id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound("account".into()))?;
+        self.spawn_actor(cfg).await;
+        self.db
+            .read(move |conn| repo::accounts::get(conn, account_id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound("account".into()))
+    }
+
+    async fn exchange_client(
+        &self,
+        account_id: i64,
+    ) -> Result<(AccountConfig, exchange::client::GraphMail)> {
+        let config = self
+            .db
+            .read(move |conn| repo::accounts::get_config(conn, account_id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound("account".into()))?;
+        if config.mail_protocol != MailProtocol::Exchange {
+            return Err(CoreError::Other(
+                "this account is not a Microsoft 365 account".into(),
+            ));
+        }
+        let client = exchange::graph_for(&self.sync_ctx(), &config)?;
+        Ok((config, client))
+    }
+
+    /// Search the whole Microsoft 365 mailbox on the server and cache the
+    /// hits that are not stored yet, so the normal search finds them. Returns
+    /// how many messages were added. Needs a connection.
+    pub async fn exchange_search(&self, account_id: i64, query: &str) -> Result<usize> {
+        let (config, client) = self.exchange_client(account_id).await?;
+        exchange::sync::search_on_server(&self.sync_ctx(), &config, &client, query).await
+    }
+
+    /// Connect the calendars of a Microsoft 365 account (the shared calendar
+    /// task then keeps them in sync). Needs the Calendars permission.
+    pub async fn connect_exchange_calendar(&self, account_id: i64) -> Result<Vec<Calendar>> {
+        let (config, client) = self.exchange_client(account_id).await?;
+        let base = config.settings.connection.exchange.graph_base()?;
+        exchange::calendar::connect(&self.calendar_db, &client, account_id, &base).await?;
+        self.spawn_cal_task(account_id).await;
+        self.nudge_cal(Some(account_id)).await;
+        self.calendar_db
+            .read(move |conn| repo::caldav::list_calendars(conn, Some(account_id)))
+            .await
+    }
+
+    /// Answer a meeting invitation of a Microsoft 365 calendar (the
+    /// organizer is told).
+    pub async fn exchange_respond_to_event(
+        &self,
+        event_id: i64,
+        response: exchange::client::EventResponse,
+        comment: &str,
+    ) -> Result<()> {
+        let account_id = self
+            .calendar_db
+            .read(
+                move |conn| Ok(repo::calendar::get(conn, event_id)?.map(|event| event.account_id)),
+            )
+            .await?
+            .ok_or_else(|| CoreError::NotFound("event".into()))?;
+        let (_, client) = self.exchange_client(account_id).await?;
+        exchange::calendar::respond(&self.calendar_db, &client, event_id, response, comment)
+            .await?;
+        self.bus.emit(CoreEvent::CalendarUpdated { account_id });
+        Ok(())
     }
 
     pub async fn start_oauth(
@@ -4657,10 +4882,12 @@ impl Core {
                     repo::threads::recompute(&tx, tid)?;
                 }
                 repo::search::index_message(&tx, draft_id)?;
-                let security = repo::accounts::get_config(&tx, args.account_id)?.ok_or_else(|| CoreError::NotFound("account".into()))?.settings.security;
+                let account_config = repo::accounts::get_config(&tx, args.account_id)?.ok_or_else(|| CoreError::NotFound("account".into()))?;
+                let is_exchange = account_config.mail_protocol == MailProtocol::Exchange;
+                let security = account_config.settings.security;
                 // Protected drafts stay local until explicit Send. Even incomplete
                 // recipient lists must never cause a plaintext server upload.
-                let sync_remote_account = if !security.enabled() && (provider == "gmail" || mail_protocol == "jmap") {
+                let sync_remote_account = if !security.enabled() && (provider == "gmail" || mail_protocol == "jmap" || is_exchange) {
                     tx.execute(
                         "UPDATE pending_actions SET state='cancelled',finished_at=?2
                          WHERE message_id=?1 AND kind='save_draft' AND state='pending'",
@@ -4863,7 +5090,40 @@ impl Core {
 
                 let mut nudge_account = None;
                 let mut staged_paths = Vec::new();
-                if row.9 == "jmap" {
+                let is_exchange = repo::accounts::get_config(conn, row.0)?
+                    .is_some_and(|config| config.mail_protocol == MailProtocol::Exchange);
+                if is_exchange {
+                    // Stop queued saves, then delete the server copy (if one
+                    // was ever pushed) with an action that outlives the row.
+                    conn.execute(
+                        "UPDATE pending_actions SET state='cancelled',finished_at=?2
+                         WHERE message_id=?1 AND kind='save_draft'
+                           AND state IN ('pending','inflight')",
+                        rusqlite::params![draft_id, now_ms()],
+                    )?;
+                    let graph_id: Option<String> = conn
+                        .query_row(
+                            "SELECT graph_id FROM exchange_messages
+                             WHERE account_id=?1 AND message_id=?2",
+                            rusqlite::params![row.0, draft_id],
+                            |r| r.get(0),
+                        )
+                        .optional()?;
+                    if let Some(graph_id) = graph_id {
+                        repo::actions::enqueue(
+                            conn,
+                            row.0,
+                            "delete_draft",
+                            None,
+                            row.1,
+                            &serde_json::json!({ "graphId": graph_id }),
+                            None,
+                        )?;
+                        nudge_account = Some(row.0);
+                    }
+                    staged_paths = repo::messages::take_draft_attachment_paths(conn, draft_id)?;
+                    repo::messages::delete(conn, draft_id)?;
+                } else if row.9 == "jmap" {
                     conn.execute(
                         "UPDATE pending_actions SET state='cancelled',finished_at=?2
                          WHERE message_id=?1 AND kind='save_draft'
@@ -5811,6 +6071,32 @@ impl Core {
             .read(move |conn| repo::accounts::get(conn, account_id))
             .await?
             .ok_or_else(|| CoreError::NotFound("account".into()))?;
+
+        // An event of a Microsoft 365 calendar is answered on the server,
+        // which tells the organizer itself.
+        if account.mail_protocol == MailProtocol::Exchange {
+            let linked = self
+                .calendar_db
+                .read(move |conn| {
+                    Ok(repo::calendar::sync_row_for(conn, event_id)?
+                        .is_some_and(|row| row.caldav_href.is_some()))
+                })
+                .await?;
+            if linked {
+                let response = match partstat {
+                    "ACCEPTED" => exchange::client::EventResponse::Accept,
+                    "TENTATIVE" => exchange::client::EventResponse::Tentative,
+                    _ => exchange::client::EventResponse::Decline,
+                };
+                self.exchange_respond_to_event(event_id, response, "")
+                    .await?;
+                return self
+                    .calendar_db
+                    .read(move |conn| repo::calendar::get(conn, event_id))
+                    .await?
+                    .ok_or_else(|| CoreError::NotFound("event".into()));
+            }
+        }
 
         // Reply goes to the organizer; without one there is nobody to notify,
         // but we still record the response locally.
@@ -10083,7 +10369,7 @@ mod thread_read_tests {
             })
             .await
             .unwrap();
-        assert_eq!(calendar_contract, (1, 1, false, "ok".to_owned()));
+        assert_eq!(calendar_contract, (2, 1, false, "ok".to_owned()));
     }
 }
 

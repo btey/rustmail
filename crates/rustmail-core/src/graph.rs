@@ -193,7 +193,7 @@ pub async fn create_online_meeting(
     Ok(OnlineMeeting { join_url })
 }
 
-fn event_payload(ev: &GraphEvent<'_>) -> Result<serde_json::Value> {
+pub(crate) fn event_payload(ev: &GraphEvent<'_>) -> Result<serde_json::Value> {
     let attendees: Vec<serde_json::Value> = ev
         .attendees
         .iter()
@@ -426,7 +426,7 @@ pub async fn delta_page(access_token: &str, url: &str) -> Result<Option<DeltaPag
     }))
 }
 
-fn parse_delta_event(v: &serde_json::Value) -> Option<DeltaEvent> {
+pub(crate) fn parse_delta_event(v: &serde_json::Value) -> Option<DeltaEvent> {
     let id = v.get("id").and_then(|x| x.as_str())?.to_string();
     if v.get("@removed").is_some() {
         return Some(DeltaEvent {
@@ -499,8 +499,8 @@ fn parse_delta_event(v: &serde_json::Value) -> Option<DeltaEvent> {
         organizer_email: s(&["organizer", "emailAddress", "address"]),
         attendees,
         join_url: s(&["onlineMeeting", "joinUrl"]).or_else(|| s(&["onlineMeetingUrl"])),
-        start_ms: parse_graph_time(v.get("start")).unwrap_or(0),
-        end_ms: parse_graph_time(v.get("end")),
+        start_ms: parse_graph_time(v.get("start"), all_day).unwrap_or(0),
+        end_ms: parse_graph_time(v.get("end"), all_day),
         all_day,
         cancelled: v
             .get("isCancelled")
@@ -511,9 +511,11 @@ fn parse_delta_event(v: &serde_json::Value) -> Option<DeltaEvent> {
 }
 
 /// Parse a Graph `{ dateTime, timeZone }` pair into epoch ms. Graph returns
-/// UTC unless a Prefer header asks otherwise (we don't), so the local-style
-/// string is interpreted as UTC.
-fn parse_graph_time(v: Option<&serde_json::Value>) -> Option<i64> {
+/// the event's own zone unless a Prefer header asks otherwise (we don't): UTC
+/// is taken as is, a zone named in `exchange::zones` is converted, and any
+/// other zone is read as UTC. An all-day date is a calendar date, never moved
+/// by a zone.
+fn parse_graph_time(v: Option<&serde_json::Value>, all_day: bool) -> Option<i64> {
     let dt = v?.get("dateTime")?.as_str()?;
     let fmt = if dt.contains('.') {
         "%Y-%m-%dT%H:%M:%S%.f"
@@ -521,6 +523,13 @@ fn parse_graph_time(v: Option<&serde_json::Value>) -> Option<i64> {
         "%Y-%m-%dT%H:%M:%S"
     };
     let naive = chrono::NaiveDateTime::parse_from_str(dt, fmt).ok()?;
+    let zone = v?.get("timeZone").and_then(|z| z.as_str()).unwrap_or("UTC");
+    if !all_day
+        && !zone.eq_ignore_ascii_case("UTC")
+        && let Some(ms) = crate::exchange::zones::local_to_utc_ms(naive, zone)
+    {
+        return Some(ms);
+    }
     Some(naive.and_utc().timestamp_millis())
 }
 
@@ -650,6 +659,6 @@ mod tests {
     #[test]
     fn parses_time_without_fraction() {
         let v = serde_json::json!({ "dateTime": "2026-08-01T09:00:00", "timeZone": "UTC" });
-        assert_eq!(parse_graph_time(Some(&v)), Some(1_785_574_800_000));
+        assert_eq!(parse_graph_time(Some(&v), false), Some(1_785_574_800_000));
     }
 }

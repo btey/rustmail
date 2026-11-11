@@ -7,6 +7,7 @@ import { HorizontalBox, ScrollView, VerticalBox } from "std-widgets.slint";
 import { FilterRulesSettings } from "../components/filter-rules.slint";
 import { UserActionsSettings } from "../components/user-actions.slint";
 import { AccountSetupForm } from "../components/account-setup-form.slint";
+import { ExchangeSetupUi } from "../components/exchange-setup.slint";
 import { AccountRow, AdvancedOptions, MailProfileRow, StorageUsageRow } from "../models.slint";
 import { Avatar } from "../components/avatar.slint";
 import { Button } from "../components/button.slint";
@@ -630,6 +631,8 @@ export component SettingsDialog inherits Rectangle {
             root.close-account-profile-picker();
             root.imap_form_open = false;
             root.imap_editing = false;
+            ExchangeSetupUi.edit-account-id = 0;
+            ExchangeSetupUi.force-sign-in = false;
         }
     }
 
@@ -718,6 +721,11 @@ export component SettingsDialog inherits Rectangle {
             root.imap_editing = true;
             root.show_account_status = false;
             root.imap_form_open = true;
+            if account.mail_protocol == "exchange" {
+                ExchangeSetupUi.edit-account(account.id, account.status == "needs_reauth");
+            } else {
+                ExchangeSetupUi.edit-account-id = 0;
+            }
         } else {
             root.reauth_account(account.id);
         }
@@ -731,6 +739,8 @@ export component SettingsDialog inherits Rectangle {
     }
 
     function open_new_imap() {
+        ExchangeSetupUi.edit-account-id = 0;
+        ExchangeSetupUi.force-sign-in = false;
         root.imap_editing = false;
         root.account_email = "";
         root.account_username = "";

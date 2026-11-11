@@ -23,10 +23,10 @@ use crate::oauth::tokens::TokenProvider;
 /// Delta windows are fixed at first sync: 90 days back, ~13 months ahead.
 /// Events outside the window arrive when the token eventually expires (410)
 /// and the window is re-anchored to "now".
-const WINDOW_PAST_MS: i64 = 90 * 86_400_000;
-const WINDOW_FUTURE_MS: i64 = 400 * 86_400_000;
-const MAX_GRAPH_DELTA_PAGES: usize = 1_000;
-const MAX_NEW_EVENT_NOTIFICATIONS: usize = 1_000;
+pub(crate) const WINDOW_PAST_MS: i64 = 90 * 86_400_000;
+pub(crate) const WINDOW_FUTURE_MS: i64 = 400 * 86_400_000;
+pub(crate) const MAX_GRAPH_DELTA_PAGES: usize = 1_000;
+pub(crate) const MAX_NEW_EVENT_NOTIFICATIONS: usize = 1_000;
 
 /// One account's full Graph calendar cycle. Returns true when anything
 /// changed, mirroring `caldav::sync::sync_account`.
@@ -157,7 +157,7 @@ async fn push_row(db: &Db, token: &str, account_id: i64, row: &SyncRow) -> Resul
     Ok(())
 }
 
-fn graph_event<'a>(
+pub(crate) fn graph_event<'a>(
     subject: &'a str,
     ev: &'a crate::models::CalendarEvent,
 ) -> graph::GraphEvent<'a> {
@@ -319,7 +319,7 @@ async fn sync_calendar(
 /// and exceptions of a series all share one iCalUId, so their local uid is
 /// the (unique) Graph id instead - only single instances keep the iCalUId,
 /// which lets the row adopt an earlier mail-invite copy of the same event.
-fn ics_event(ev: &graph::DeltaEvent) -> IcsEvent {
+pub(crate) fn ics_event(ev: &graph::DeltaEvent) -> IcsEvent {
     let uid = match ev.event_type.as_deref() {
         Some("singleInstance") | None => ev.ical_uid.clone().unwrap_or_else(|| ev.id.clone()),
         _ => ev.id.clone(),

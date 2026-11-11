@@ -11,7 +11,7 @@ use super::settings::{ExchangeSettings, ExchangeSignIn};
 use crate::accounts::secrets::{CredentialStoreHandle, Slot};
 use crate::error::{CoreError, Result};
 use crate::oauth::redirect::{OAUTH_REDIRECT_TIMEOUT, OAuthRedirectBrokerHandle};
-use crate::oauth::tokens::post_form;
+use crate::oauth::tokens::post_form_via;
 use base64::Engine;
 use sha2::Digest;
 use std::sync::Arc;
@@ -145,7 +145,7 @@ async fn token_request(
     form: Vec<(String, String)>,
     sign_in: bool,
 ) -> Result<TokenSet> {
-    let body = post_form(&settings.token_url()?, &form).await?;
+    let body = post_form_via(&settings.token_url()?, &form, settings.proxy()).await?;
     parse_token_response(&body, sign_in)
 }
 
@@ -425,7 +425,7 @@ pub async fn start_device_code(settings: &ExchangeSettings) -> Result<DeviceCode
         ("client_id".into(), settings.client_id().to_owned()),
         audience(settings)?,
     ];
-    let body = post_form(&settings.device_code_url()?, &form).await?;
+    let body = post_form_via(&settings.device_code_url()?, &form, settings.proxy()).await?;
     let Ok(reply) = serde_json::from_str::<DeviceCodeResponse>(&body) else {
         return Err(explain_token_error(&body));
     };
@@ -480,7 +480,7 @@ pub async fn poll_device_code(
         } else {
             form.push(("device_code".into(), device.device_code.clone()));
         }
-        let body = post_form(&settings.token_url()?, &form).await?;
+        let body = post_form_via(&settings.token_url()?, &form, settings.proxy()).await?;
         let error = serde_json::from_str::<serde_json::Value>(&body)
             .ok()
             .and_then(|value| {

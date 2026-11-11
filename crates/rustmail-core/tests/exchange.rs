@@ -6,6 +6,7 @@
 use rustmail_core::Core;
 use rustmail_core::accounts::secrets::DevelopmentFileCredentialStore;
 use rustmail_core::config::Paths;
+use rustmail_core::error::CoreError;
 use rustmail_core::exchange::auth::TokenSet;
 use rustmail_core::exchange::{AddExchangeAccountArgs, ExchangeCloud, ExchangeSettings};
 use rustmail_core::models::*;
@@ -40,6 +41,18 @@ struct State {
     expired_delta: bool,
     /// Folder ids the listing leaves out (a folder deleted on the server).
     hidden_folders: Vec<&'static str>,
+    /// Draft ids the server holds, and counter for new ids.
+    drafts: Vec<String>,
+    next_id: usize,
+    /// Message ids a `$search` returns.
+    search_hits: Vec<&'static str>,
+    /// Contacts and events the first delta returns, then the changes.
+    contacts: Vec<String>,
+    contact_changes: Vec<String>,
+    events: Vec<String>,
+    event_changes: Vec<String>,
+    /// Bytes received by the upload session (Content-Range header values).
+    uploads: Vec<String>,
 }
 
 type Shared = Arc<Mutex<State>>;
@@ -123,6 +136,30 @@ async fn serve(shared: Shared) -> String {
                     body.extend_from_slice(&buf[..n]);
                 }
                 let body = String::from_utf8_lossy(&body).into_owned();
+                let range = head
+                    .split("\r\n")
+                    .find_map(|line| {
+                        line.to_ascii_lowercase()
+                            .starts_with("content-range:")
+                            .then(|| line.split_once(':').unwrap().1.trim().to_owned())
+                    })
+                    .unwrap_or_default();
+                if method == "PUT" && target.starts_with("/upload/") {
+                    shared.lock().unwrap().uploads.push(range.clone());
+                    let done = range
+                        .split_once('-')
+                        .and_then(|(_, rest)| rest.split_once('/'))
+                        .is_some_and(|(end, total)| {
+                            end.parse::<u64>().ok().map(|e| e + 1) == total.parse::<u64>().ok()
+                        });
+                    let status = if done { 201 } else { 200 };
+                    let head = format!(
+                        "HTTP/1.1 {status} X\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}"
+                    );
+                    let _ = stream.write_all(head.as_bytes()).await;
+                    let _ = stream.shutdown().await;
+                    return;
+                }
                 let (status, extra, payload, content_type) =
                     route(&shared, &root, &method, &target, &body);
                 let head = format!(
@@ -182,7 +219,10 @@ fn route(
             "application/json",
         );
     }
-    let Some(rest) = path.strip_prefix("/graph/v1.0/me") else {
+    let Some(rest) = path
+        .strip_prefix("/graph/v1.0/me")
+        .or_else(|| path.strip_prefix("/graph/v1.0/users/shared@example.org"))
+    else {
         return json(404, r#"{"error":{"code":"NotFound","message":"x"}}"#.into());
     };
     match (method, rest) {
@@ -312,6 +352,80 @@ fn route(
             json(201, format!(r#"{{"id":"{id}"}}"#))
         }
         ("POST", "/sendMail") => (202, String::new(), Vec::new(), "text/plain"),
+        ("GET", "/messages") if query.contains("search") => {
+            let hits = state.search_hits.clone();
+            let items: Vec<String> = state
+                .messages
+                .iter()
+                .filter(|m| hits.contains(&m.id.as_str()))
+                .map(message_json)
+                .collect();
+            json(200, format!(r#"{{"value":[{}]}}"#, items.join(",")))
+        }
+        ("POST", "/messages") => {
+            state.next_id += 1;
+            let id = format!("D{}", state.next_id);
+            state.drafts.push(id.clone());
+            json(201, format!(r#"{{"id":"{id}"}}"#))
+        }
+        ("POST", p) if p.ends_with("/permanentDelete") => {
+            let id = p
+                .trim_start_matches("/messages/")
+                .trim_end_matches("/permanentDelete")
+                .to_owned();
+            state.drafts.retain(|draft| *draft != id);
+            (204, String::new(), Vec::new(), "text/plain")
+        }
+        ("POST", p) if p.ends_with("/attachments") => json(201, "{}".into()),
+        ("POST", p) if p.ends_with("/createUploadSession") => {
+            json(200, format!(r#"{{"uploadUrl":"{root}/upload/session1"}}"#))
+        }
+        ("POST", p) if p.starts_with("/messages/") && p.ends_with("/send") => {
+            (202, String::new(), Vec::new(), "text/plain")
+        }
+        ("GET", "/contactFolders") => json(
+            200,
+            r#"{"value":[{"id":"CF1","displayName":"Contacts"}]}"#.into(),
+        ),
+        ("GET", "/contactFolders/CF1/contacts/delta") => {
+            let items: Vec<String> = if query.contains("deltatoken") {
+                std::mem::take(&mut state.contact_changes)
+            } else {
+                state.contacts.clone()
+            };
+            json(
+                200,
+                format!(
+                    r#"{{"value":[{}],"@odata.deltaLink":"{root}/graph/v1.0/me/contactFolders/CF1/contacts/delta?$deltatoken=C"}}"#,
+                    items.join(",")
+                ),
+            )
+        }
+        ("GET", "/calendars") => json(
+            200,
+            r#"{"value":[{"id":"CAL1","name":"Calendar","isDefaultCalendar":true,"canEdit":true}]}"#
+                .into(),
+        ),
+        ("GET", "/calendars/CAL1/calendarView/delta") => {
+            let items: Vec<String> = if query.contains("deltatoken") {
+                std::mem::take(&mut state.event_changes)
+            } else {
+                state.events.clone()
+            };
+            json(
+                200,
+                format!(
+                    r#"{{"value":[{}],"@odata.deltaLink":"{root}/graph/v1.0/me/calendars/CAL1/calendarView/delta?$deltatoken=E"}}"#,
+                    items.join(",")
+                ),
+            )
+        }
+        ("POST", "/calendars/CAL1/events") => json(201, r#"{"id":"EV-NEW"}"#.into()),
+        ("PATCH", p) if p.starts_with("/events/") => json(200, "{}".into()),
+        ("DELETE", p) if p.starts_with("/events/") => {
+            (204, String::new(), Vec::new(), "text/plain")
+        }
+        ("POST", p) if p.starts_with("/events/") => (202, String::new(), Vec::new(), "text/plain"),
         _ => json(
             404,
             r#"{"error":{"code":"NotFound","message":"unknown"}}"#.into(),
@@ -875,5 +989,461 @@ async fn a_sign_in_that_graph_rejects_creates_no_account() {
         )
         .await
         .is_err()
+    );
+}
+
+async fn wait_until(what: &str, mut check: impl AsyncFnMut() -> bool) {
+    for _ in 0..100 {
+        if check().await {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    panic!("timed out waiting for {what}");
+}
+
+fn new_draft(account_id: i64, draft_id: Option<i64>, subject: &str) -> SaveDraftArgs {
+    SaveDraftArgs {
+        draft_id,
+        account_id,
+        from: None,
+        to: vec![Address {
+            name: Some("Ann".into()),
+            email: "ann@example.com".into(),
+        }],
+        cc: vec![],
+        bcc: vec![],
+        subject: subject.into(),
+        body_text: "hello".into(),
+        body_html: None,
+        mode: "new".into(),
+        in_reply_to_message_id: None,
+        attachments: vec![],
+    }
+}
+
+#[tokio::test]
+async fn a_server_search_caches_the_hits_that_are_not_stored_yet() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    // A message the sync has not seen (it is not in any delta yet).
+    shared.lock().unwrap().messages.push(Msg {
+        id: "M9".into(),
+        folder: "inbox",
+        read: true,
+        flagged: false,
+        categories: "",
+        raw: mail("Old invoice", "billing@example.org"),
+    });
+    shared.lock().unwrap().search_hits = vec!["M1", "M9"];
+    let added = core.exchange_search(account.id, "invoice").await.unwrap();
+    assert_eq!(added, 1, "only the hit that was not cached is added");
+    let all = rows(&core).await;
+    assert!(
+        all.iter()
+            .any(|row| row.0 == "Old invoice" && row.1 == "inbox"),
+        "{all:?}"
+    );
+    assert!(
+        log_has(&shared, "search="),
+        "the server was asked to search"
+    );
+    // The same search again adds nothing.
+    assert_eq!(
+        core.exchange_search(account.id, "invoice").await.unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn a_draft_is_pushed_rebuilt_on_every_save_and_removed_when_deleted() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+
+    let draft = core
+        .save_draft(new_draft(account.id, None, "Plans v1"))
+        .await
+        .unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    wait_until("the draft on the server", async || {
+        shared.lock().unwrap().drafts == vec!["D1".to_string()]
+    })
+    .await;
+    // The draft went up as MIME (so its Message-ID and headers are kept).
+    use base64::Engine;
+    let body = shared
+        .lock()
+        .unwrap()
+        .log
+        .iter()
+        .find(|(l, _)| l.starts_with("POST /graph/v1.0/me/messages"))
+        .map(|(_, body)| body.clone())
+        .unwrap();
+    let raw = String::from_utf8(
+        base64::engine::general_purpose::STANDARD
+            .decode(body.trim())
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(
+        raw.contains("Subject: Plans v1") && raw.contains("Message-ID:"),
+        "{raw}"
+    );
+
+    // Saving again replaces the server copy.
+    core.save_draft(new_draft(account.id, Some(draft), "Plans v2"))
+        .await
+        .unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    wait_until("the replaced draft", async || {
+        shared.lock().unwrap().drafts == vec!["D2".to_string()]
+    })
+    .await;
+    assert!(log_has(
+        &shared,
+        "POST /graph/v1.0/me/messages/D1/permanentDelete"
+    ));
+    let mapped: String = core
+        .db
+        .read(move |conn| {
+            Ok(conn.query_row(
+                "SELECT graph_id FROM exchange_messages WHERE message_id=?1",
+                [draft],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(mapped, "D2");
+
+    // Deleting the local draft deletes the server copy.
+    core.delete_draft(draft).await.unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    wait_until("the server copy to go", async || {
+        shared.lock().unwrap().drafts.is_empty()
+    })
+    .await;
+    assert!(log_has(
+        &shared,
+        "POST /graph/v1.0/me/messages/D2/permanentDelete"
+    ));
+}
+
+#[tokio::test]
+async fn a_big_attachment_goes_through_an_upload_session_and_the_draft_is_sent() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    // 5 MiB: over the one-request limit, and 2 upload chunks.
+    let file = temp.path().join("big.bin");
+    std::fs::write(&file, vec![7u8; 5 * 1024 * 1024]).unwrap();
+    let mut args = new_draft(account.id, None, "With a big file");
+    args.attachments = vec![DraftAttachmentIn {
+        file_path: file.to_string_lossy().into_owned(),
+        filename: "big.bin".into(),
+    }];
+    let draft = core.save_draft(args).await.unwrap();
+    let queued = core
+        .queue_send(QueueSendArgs {
+            draft_id: draft,
+            send_at: None,
+        })
+        .await
+        .unwrap();
+    core.wait_for_send(queued.action_id).await.unwrap();
+    // JSON draft, upload session, ranges, then the send; never sendMail.
+    assert!(!log_has(&shared, "POST /graph/v1.0/me/sendMail"));
+    assert!(log_has(&shared, "createUploadSession"));
+    assert!(log_has(&shared, "/send"));
+    let uploads = shared.lock().unwrap().uploads.clone();
+    let total = 5 * 1024 * 1024;
+    assert_eq!(uploads.len(), 2, "{uploads:?}");
+    assert!(uploads[0].starts_with("bytes 0-") && uploads[0].ends_with(&format!("/{total}")));
+    assert!(uploads[1].ends_with(&format!("-{}/{total}", total - 1)));
+    let created = shared
+        .lock()
+        .unwrap()
+        .log
+        .iter()
+        .find(|(l, _)| l == "POST /graph/v1.0/me/messages")
+        .map(|(_, body)| body.clone())
+        .expect("a JSON draft was created");
+    assert!(
+        created.contains("\"subject\":\"With a big file\""),
+        "{created}"
+    );
+    assert!(created.contains("ann@example.com"));
+}
+
+#[tokio::test]
+async fn contacts_are_read_through_delta_and_removed_with_the_server_copy() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().contacts = vec![
+        r#"{"id":"C1","changeKey":"k1","displayName":"Ann Lee","emailAddresses":[{"address":"Ann@Example.org"}],"companyName":"Acme","mobilePhone":"+41 79 000","jobTitle":"CTO"}"#.into(),
+        r#"{"id":"C2","displayName":"Nobody","emailAddresses":[]}"#.into(),
+    ];
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let ann = |core: &Core| {
+        let db = core.db.clone();
+        async move {
+            db.read(|conn| {
+                Ok(conn
+                    .query_row(
+                        "SELECT name, company, phone, job_title FROM contacts WHERE email='ann@example.org'",
+                        [],
+                        |r| {
+                            Ok((
+                                r.get::<_, String>(0)?,
+                                r.get::<_, String>(1)?,
+                                r.get::<_, String>(2)?,
+                                r.get::<_, String>(3)?,
+                            ))
+                        },
+                    )
+                    .ok())
+            })
+            .await
+            .unwrap()
+        }
+    };
+    assert_eq!(
+        ann(&core).await,
+        Some((
+            "Ann Lee".into(),
+            "Acme".into(),
+            "+41 79 000".into(),
+            "CTO".into()
+        ))
+    );
+    // It is available to the composer's address completion.
+    let suggestions = core
+        .list_contacts("ann".into(), Some(account.id), 5)
+        .await
+        .unwrap();
+    assert!(suggestions.iter().any(|c| c.email == "ann@example.org"));
+
+    shared.lock().unwrap().contact_changes =
+        vec![r#"{"id":"C1","@removed":{"reason":"deleted"}}"#.into()];
+    core.sync_now(Some(account.id)).await.unwrap();
+    assert_eq!(ann(&core).await, None);
+}
+
+#[tokio::test]
+async fn calendar_events_arrive_with_zones_applied_and_local_changes_and_answers_go_back() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().events = vec![
+        r#"{"id":"EV1","iCalUId":"UID1","type":"singleInstance","subject":"Planning","isAllDay":false,"isCancelled":false,
+            "organizer":{"emailAddress":{"address":"boss@example.org","name":"Boss"}},
+            "attendees":[{"emailAddress":{"address":"me@example.org","name":"Me"},"status":{"response":"none"}}],
+            "start":{"dateTime":"2026-07-01T12:00:00.0000000","timeZone":"W. Europe Standard Time"},
+            "end":{"dateTime":"2026-07-01T13:00:00.0000000","timeZone":"W. Europe Standard Time"}}"#
+            .replace('\n', ""),
+        r#"{"id":"EV2","iCalUId":"UID2","type":"singleInstance","subject":"Holiday","isAllDay":true,"isCancelled":false,
+            "start":{"dateTime":"2026-08-03T00:00:00.0000000","timeZone":"W. Europe Standard Time"},
+            "end":{"dateTime":"2026-08-04T00:00:00.0000000","timeZone":"W. Europe Standard Time"}}"#
+            .replace('\n', ""),
+    ];
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    let calendars = core.list_calendars(Some(account.id)).await.unwrap();
+    assert_eq!(calendars.len(), 1, "the account's calendar was connected");
+    assert!(calendars[0].is_default);
+
+    let window = (
+        chrono::NaiveDate::from_ymd_opt(2026, 6, 1)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp_millis(),
+        chrono::NaiveDate::from_ymd_opt(2026, 9, 1)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp_millis(),
+    );
+    core.calendar_sync_now(Some(account.id)).await;
+    let mut events = Vec::new();
+    for _ in 0..100 {
+        events = core.list_events(window.0, window.1).await.unwrap();
+        if events.len() == 2 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert_eq!(events.len(), 2, "{events:?}");
+    let planning = events
+        .iter()
+        .find(|e| e.summary.as_deref() == Some("Planning"))
+        .unwrap();
+    // 12:00 in Berlin in July is 10:00 UTC.
+    assert_eq!(
+        planning.starts_at,
+        chrono::NaiveDate::from_ymd_opt(2026, 7, 1)
+            .unwrap()
+            .and_hms_opt(10, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp_millis()
+    );
+    let holiday = events
+        .iter()
+        .find(|e| e.summary.as_deref() == Some("Holiday"))
+        .unwrap();
+    assert!(holiday.all_day);
+    assert_eq!(
+        holiday.starts_at,
+        chrono::NaiveDate::from_ymd_opt(2026, 8, 3)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp_millis(),
+        "an all-day date is not moved by the zone"
+    );
+
+    // Answering the invitation goes to Microsoft 365, not by mail.
+    core.rsvp_event(RsvpEventArgs {
+        event_id: planning.id,
+        response: "accepted".into(),
+    })
+    .await
+    .unwrap();
+    assert!(log_has(&shared, "POST /graph/v1.0/me/events/EV1/accept"));
+    assert!(!log_has(&shared, "sendMail"));
+
+    // A new local event is created on the server.
+    core.create_event(CreateEventArgs {
+        account_id: account.id,
+        calendar_id: None,
+        summary: "Lunch".into(),
+        description: None,
+        location: None,
+        join_url: None,
+        starts_at: window.0 + 86_400_000 * 40,
+        ends_at: window.0 + 86_400_000 * 40 + 3_600_000,
+        all_day: false,
+        attendees: vec![],
+    })
+    .await
+    .unwrap();
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the event on the server", async || {
+        log_has(&shared, "POST /graph/v1.0/me/calendars/CAL1/events")
+    })
+    .await;
+
+    // Deleting a synced event deletes it there.
+    core.delete_event(holiday.id, false).await.unwrap();
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the delete on the server", async || {
+        log_has(&shared, "DELETE /graph/v1.0/me/events/EV2")
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn an_account_is_edited_and_reconnected_and_a_new_mailbox_clears_the_cache() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let current = core.exchange_account_settings(account.id).await.unwrap();
+    assert_eq!(current.client_id, "facd6cff-a294-4415-b59f-c5b01937d7bd");
+
+    // A different tenant needs a new sign-in.
+    let mut other_tenant = current.clone();
+    other_tenant.tenant = "organizations".into();
+    let refused = core
+        .update_exchange_account(account.id, None, other_tenant.clone(), None)
+        .await;
+    assert!(
+        matches!(&refused, Err(CoreError::Auth(text)) if text.contains("new sign-in")),
+        "{refused:?}"
+    );
+    // ... and with one it is saved, and the old delta state is dropped.
+    core.update_exchange_account(
+        account.id,
+        Some("Renamed".into()),
+        other_tenant,
+        Some(tokens()),
+    )
+    .await
+    .unwrap();
+    let saved = core.exchange_account_settings(account.id).await.unwrap();
+    assert_eq!(saved.tenant, "organizations");
+    let name: String = core
+        .db
+        .read(move |conn| {
+            Ok(conn.query_row(
+                "SELECT display_name FROM accounts WHERE id=?1",
+                [account.id],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(name, "Renamed");
+
+    // Reconnecting after a revoked refresh token: same settings, new tokens.
+    core.update_exchange_account(account.id, None, saved.clone(), Some(tokens()))
+        .await
+        .unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+
+    // A shared mailbox needs no new sign-in, but its mail is another set.
+    let fetched_before = shared
+        .lock()
+        .unwrap()
+        .log
+        .iter()
+        .filter(|(l, _)| l.contains("$value"))
+        .count();
+    let mut shared_box = saved;
+    shared_box.shared_mailbox = "shared@example.org".into();
+    // The shared-mailbox scopes were not consented to before.
+    assert!(
+        core.update_exchange_account(account.id, None, shared_box.clone(), None)
+            .await
+            .is_err()
+    );
+    core.update_exchange_account(account.id, None, shared_box, Some(tokens()))
+        .await
+        .unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    assert!(log_has(
+        &shared,
+        "/graph/v1.0/users/shared@example.org/mailFolders"
+    ));
+    let fetched_after = shared
+        .lock()
+        .unwrap()
+        .log
+        .iter()
+        .filter(|(l, _)| l.contains("$value"))
+        .count();
+    assert!(
+        fetched_after > fetched_before,
+        "the cache was cleared and read again ({fetched_before} -> {fetched_after})"
     );
 }
