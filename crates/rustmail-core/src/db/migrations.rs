@@ -27,6 +27,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/022_task_percent.sql"),
     include_str!("migrations/023_pop3.sql"),
     include_str!("migrations/024_exchange.sql"),
+    include_str!("migrations/025_contact_extras.sql"),
 ];
 pub const LATEST_VERSION: i64 = MIGRATIONS.len() as i64;
 
@@ -128,6 +129,7 @@ mod tests {
             "carddav_config",
             "carddav_objects",
             "contacts",
+            "contact_extras",
             "contact_learning_state",
             "cross_store_operations",
             "draft_attachments",

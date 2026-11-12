@@ -819,6 +819,10 @@ pub struct GraphContact {
     pub birthday: String,
     pub address: String,
     pub notes: String,
+    /// Phone numbers after the first (mobile, business, then home order).
+    pub more_phones: Vec<String>,
+    /// Postal addresses after the first (business, home, other order).
+    pub more_addresses: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1241,6 +1245,56 @@ impl GraphMail {
         Ok(Some(parse_contact(&value, contact_id)))
     }
 
+    /// The picture of a contact; `None` when it has none or it is too large.
+    pub async fn contact_photo(&self, contact_id: &str) -> Result<Option<Vec<u8>>> {
+        let url = self.endpoint(&["contacts", contact_id, "photo", "$value"]);
+        let raw = self
+            .send(
+                reqwest::Method::GET,
+                url,
+                None,
+                &[],
+                crate::models::MAX_CONTACT_PHOTO_BYTES,
+                false,
+            )
+            .await;
+        match raw {
+            Ok(raw) if (200..300).contains(&raw.status) && !raw.body.is_empty() => {
+                Ok(Some(raw.body.to_vec()))
+            }
+            Ok(raw) if raw.status == 404 || (200..300).contains(&raw.status) => Ok(None),
+            Ok(raw) => Err(status_error(raw.status, &raw.body)),
+            // Larger than the limit: the contact simply shows no picture.
+            Err(CoreError::Network(text)) if text.contains("response limit") => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Set the picture of a contact.
+    pub async fn set_contact_photo(&self, contact_id: &str, photo: &[u8]) -> Result<()> {
+        let url = self.endpoint(&["contacts", contact_id, "photo", "$value"]);
+        let content_type = if photo.starts_with(&[0x89, b'P', b'N', b'G']) {
+            "image/png"
+        } else {
+            "image/jpeg"
+        };
+        let raw = self
+            .send(
+                reqwest::Method::PUT,
+                url,
+                Some((content_type, photo.to_vec())),
+                &[],
+                MAX_JSON_BYTES,
+                false,
+            )
+            .await?;
+        if (200..300).contains(&raw.status) {
+            Ok(())
+        } else {
+            Err(status_error(raw.status, &raw.body))
+        }
+    }
+
     /// Change a contact; returns its new change key.
     pub async fn update_contact(&self, contact_id: &str, body: &Value) -> Result<Option<String>> {
         let url = self.endpoint(&["contacts", contact_id]);
@@ -1653,10 +1707,16 @@ impl GraphMail {
 pub(crate) fn contact_body(record: &crate::models::ContactRecord) -> Value {
     let mut body = serde_json::Map::new();
     body.insert("displayName".into(), Value::from(record.name.clone()));
-    body.insert(
-        "emailAddresses".into(),
-        serde_json::json!([{ "address": record.email, "name": record.name }]),
+    let mut emails = vec![serde_json::json!({ "address": record.email, "name": record.name })];
+    emails.extend(
+        record
+            .extras
+            .emails
+            .iter()
+            .take(2)
+            .map(|email| serde_json::json!({ "address": email, "name": record.name })),
     );
+    body.insert("emailAddresses".into(), Value::Array(emails));
     let text = |key: &str, value: &str| (key.to_owned(), Value::from(value.to_owned()));
     for (key, value) in [
         text("companyName", &record.company),
@@ -1686,30 +1746,54 @@ pub(crate) fn contact_body(record: &crate::models::ContactRecord) -> Value {
         "businessAddress".into(),
         serde_json::json!({ "street": record.postal_address }),
     );
+    // The kind of a value is not kept: more phones go to the business list,
+    // more addresses to the home and other address.
+    body.insert(
+        "businessPhones".into(),
+        Value::Array(
+            record
+                .extras
+                .phones
+                .iter()
+                .take(2)
+                .map(|phone| Value::from(phone.clone()))
+                .collect(),
+        ),
+    );
+    for (key, address) in ["homeAddress", "otherAddress"]
+        .into_iter()
+        .zip(record.extras.addresses.iter())
+    {
+        body.insert(key.into(), serde_json::json!({ "street": address }));
+    }
     Value::Object(body)
 }
 
 fn parse_contact(item: &Value, id: &str) -> GraphContact {
     let text = |key: &str| item[key].as_str().unwrap_or_default().trim().to_owned();
-    let phone = item["mobilePhone"]
-        .as_str()
-        .filter(|value| !value.is_empty())
-        .or_else(|| {
-            item["businessPhones"]
-                .as_array()
-                .and_then(|phones| phones.iter().find_map(Value::as_str))
-        })
-        .or_else(|| {
-            item["homePhones"]
-                .as_array()
-                .and_then(|phones| phones.iter().find_map(Value::as_str))
-        })
-        .unwrap_or_default()
-        .trim()
-        .to_owned();
-    let address = ["businessAddress", "homeAddress", "otherAddress"]
+    let mut phones: Vec<String> = Vec::new();
+    let mut add_phone = |value: &str| {
+        let value = value.trim();
+        if !value.is_empty() && !phones.iter().any(|seen| seen == value) {
+            phones.push(value.to_owned());
+        }
+    };
+    if let Some(mobile) = item["mobilePhone"].as_str() {
+        add_phone(mobile);
+    }
+    for key in ["businessPhones", "homePhones"] {
+        for phone in item[key]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+        {
+            add_phone(phone);
+        }
+    }
+    let mut addresses: Vec<String> = ["businessAddress", "homeAddress", "otherAddress"]
         .iter()
-        .find_map(|key| {
+        .filter_map(|key| {
             let parts: Vec<&str> = ["street", "city", "state", "postalCode", "countryOrRegion"]
                 .iter()
                 .filter_map(|part| item[*key][*part].as_str())
@@ -1717,7 +1801,17 @@ fn parse_contact(item: &Value, id: &str) -> GraphContact {
                 .collect();
             (!parts.is_empty()).then(|| parts.join(", "))
         })
-        .unwrap_or_default();
+        .collect();
+    let phone = if phones.is_empty() {
+        String::new()
+    } else {
+        phones.remove(0)
+    };
+    let address = if addresses.is_empty() {
+        String::new()
+    } else {
+        addresses.remove(0)
+    };
     GraphContact {
         id: id.to_owned(),
         change_key: item["changeKey"].as_str().map(str::to_owned),
@@ -1731,6 +1825,8 @@ fn parse_contact(item: &Value, id: &str) -> GraphContact {
             .filter(|address| address.contains('@'))
             .collect(),
         phone,
+        more_phones: phones,
+        more_addresses: addresses,
         company: text("companyName"),
         job_title: text("jobTitle"),
         website: item["businessHomePage"]

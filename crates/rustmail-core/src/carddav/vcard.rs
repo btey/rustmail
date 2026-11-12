@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 
 use crate::error::Result;
-use crate::models::ContactRecord;
+use crate::models::{ContactExtras, ContactRecord, MAX_CONTACT_PHOTO_BYTES};
 
 const MAX_VCARD_BYTES: usize = 2 * 1024 * 1024;
 
@@ -252,8 +252,65 @@ fn serialized_lines(record: &ContactRecord, uid: &str, version: &str) -> Vec<Cow
     if !record.postal_address.trim().is_empty() {
         lines.push(format!("ADR:;;{};;;;", escape(record.postal_address.trim())).into());
     }
+    for email in &record.extras.emails {
+        lines.push(format!("EMAIL:{}", escape(email)).into());
+    }
+    for phone in &record.extras.phones {
+        lines.push(format!("TEL:{}", escape(phone)).into());
+    }
+    for address in &record.extras.addresses {
+        lines.push(format!("ADR:;;{};;;;", escape(address)).into());
+    }
+    if let Some(photo) = record
+        .extras
+        .photo
+        .as_deref()
+        .filter(|photo| !photo.is_empty() && photo.len() <= MAX_CONTACT_PHOTO_BYTES)
+    {
+        use base64::Engine as _;
+        let encoded = base64::engine::general_purpose::STANDARD.encode(photo);
+        let head = if version == "3.0" {
+            format!("PHOTO;ENCODING=b;TYPE={}", image_type(photo))
+        } else {
+            format!("PHOTO;MEDIATYPE=image/{}", image_type(photo).to_lowercase())
+        };
+        lines.push(format!("{head}:{encoded}").into());
+    }
     lines.push("END:VCARD".into());
     lines
+}
+
+fn image_type(photo: &[u8]) -> &'static str {
+    if photo.starts_with(&[0x89, b'P', b'N', b'G']) {
+        "PNG"
+    } else if photo.starts_with(b"GIF8") {
+        "GIF"
+    } else {
+        "JPEG"
+    }
+}
+
+/// The picture of an inline PHOTO property (`ENCODING=b` or a `data:` URI);
+/// a link is not followed and a picture over the size limit is dropped.
+fn photo_from(head: &str, raw: &str) -> Option<Vec<u8>> {
+    use base64::Engine as _;
+    let encoded = if let Some((_, rest)) = raw.split_once(";base64,") {
+        rest
+    } else if contains_ascii_case(head, "ENCODING=b")
+        || contains_ascii_case(head, "ENCODING=BASE64")
+    {
+        raw
+    } else {
+        return None;
+    };
+    let compact: String = encoded.chars().filter(|c| !c.is_whitespace()).collect();
+    if compact.len() > MAX_CONTACT_PHOTO_BYTES * 4 / 3 + 8 {
+        return None;
+    }
+    base64::engine::general_purpose::STANDARD
+        .decode(compact)
+        .ok()
+        .filter(|bytes| !bytes.is_empty() && bytes.len() <= MAX_CONTACT_PHOTO_BYTES)
 }
 
 pub fn parse(input: &str) -> Result<ContactRecord> {
@@ -315,8 +372,14 @@ pub fn parse(input: &str) -> Result<ContactRecord> {
         last_interacted: None,
         account_ids: Vec::new(),
         is_managed: true,
+        extras: ContactExtras::default(),
+        has_photo: false,
     };
     let mut email: Option<(bool, String)> = None;
+    let mut emails: Vec<(bool, String)> = Vec::new();
+    let mut extra_phones: Vec<String> = Vec::new();
+    let mut extra_addresses: Vec<String> = Vec::new();
+    let mut seen_address = false;
     for line in lines {
         let Some((head, raw)) = line.split_once(':') else {
             continue;
@@ -340,15 +403,20 @@ pub fn parse(input: &str) -> Result<ContactRecord> {
             "ADR",
             "NOTE",
             "CATEGORIES",
+            "PHOTO",
         ]
         .into_iter()
         .find(|candidate| name.eq_ignore_ascii_case(candidate)) else {
             continue;
         };
-        if (name == "N" && !record.name.is_empty())
-            || (name == "TEL" && !record.phone.is_empty())
-            || (name == "URL" && !record.website.is_empty())
+        if (name == "N" && !record.name.is_empty()) || (name == "URL" && !record.website.is_empty())
         {
+            continue;
+        }
+        if name == "PHOTO" {
+            if record.extras.photo.is_none() {
+                record.extras.photo = photo_from(head, raw);
+            }
             continue;
         }
         let decoded = decoded_value(head, raw);
@@ -377,6 +445,7 @@ pub fn parse(input: &str) -> Result<ContactRecord> {
             "EMAIL" if !value.is_empty() => {
                 let preferred =
                     contains_ascii_case(head, "PREF=1") || contains_ascii_case(head, "TYPE=PREF");
+                emails.push((preferred, value.clone()));
                 if email
                     .as_ref()
                     .is_none_or(|(previous, _)| preferred && !previous)
@@ -384,7 +453,13 @@ pub fn parse(input: &str) -> Result<ContactRecord> {
                     email = Some((preferred, value));
                 }
             }
-            "TEL" if record.phone.is_empty() => record.phone = value,
+            "TEL" if !value.is_empty() => {
+                if record.phone.is_empty() {
+                    record.phone = value;
+                } else {
+                    extra_phones.push(value);
+                }
+            }
             "ORG" => {
                 record.company = split_escaped(decoded.trim(), ';')
                     .first()
@@ -395,16 +470,24 @@ pub fn parse(input: &str) -> Result<ContactRecord> {
             "URL" if record.website.is_empty() => record.website = value,
             "BDAY" => record.birthday = value,
             "ADR" => {
-                record.postal_address.clear();
+                let mut joined = String::new();
                 for part in split_escaped(decoded.trim(), ';') {
                     let unescaped = unescape(part);
                     let value = unescaped.trim();
                     if !value.is_empty() {
-                        if !record.postal_address.is_empty() {
-                            record.postal_address.push_str(", ");
+                        if !joined.is_empty() {
+                            joined.push_str(", ");
                         }
-                        record.postal_address.push_str(value);
+                        joined.push_str(value);
                     }
+                }
+                if joined.is_empty() {
+                    // keep the first non-empty one
+                } else if !seen_address {
+                    seen_address = true;
+                    record.postal_address = joined;
+                } else {
+                    extra_addresses.push(joined);
                 }
             }
             "NOTE" => record.notes = value,
@@ -415,6 +498,14 @@ pub fn parse(input: &str) -> Result<ContactRecord> {
     record.email = email
         .map(|(_, email)| email.trim().to_lowercase())
         .unwrap_or_default();
+    record.extras.emails = emails
+        .into_iter()
+        .map(|(_, value)| value.trim().to_lowercase())
+        .collect();
+    record.extras.phones = extra_phones;
+    record.extras.addresses = extra_addresses;
+    record.extras = record.extras.cleaned(&record.email);
+    record.has_photo = record.extras.photo.is_some();
     if record.email.is_empty() || !record.email.contains('@') {
         return Err(super::err("vCard has no valid email address"));
     }
@@ -507,21 +598,89 @@ pub fn update(existing: &str, record: &ContactRecord, fallback_uid: &str) -> Str
         .iter()
         .position(|line| property_name(line).is_some_and(|name| name.eq_ignore_ascii_case("URL")));
 
-    let mut lines: Vec<Cow<'_, str>> = serialized_lines(record, uid, version);
-    let end = lines.len() - 1;
-    for (index, line) in old.into_iter().enumerate() {
-        let Some(name) = property_name(&line) else {
+    // Old extra lines whose value is still in the record stay as they were
+    // (with their TYPE parameters); the rest of the extras are written new.
+    let value_of = |line: &str| {
+        line.split_once(':')
+            .map(|(head, raw)| unescape(&decoded_value(head, raw)).trim().to_lowercase())
+            .unwrap_or_default()
+    };
+    let mut kept_emails: Vec<String> = Vec::new();
+    let mut kept_phones: Vec<String> = Vec::new();
+    let mut keep = vec![false; old.len()];
+    for (index, line) in old.iter().enumerate() {
+        let Some(name) = property_name(line) else {
             continue;
         };
-        let preserve = match name.to_ascii_uppercase().as_str() {
+        match name.to_ascii_uppercase().as_str() {
+            "EMAIL" if Some(index) == primary_email => {}
+            "EMAIL" => {
+                let value = value_of(line);
+                if record
+                    .extras
+                    .emails
+                    .iter()
+                    .any(|e| e.to_lowercase() == value)
+                    && !kept_emails.contains(&value)
+                {
+                    kept_emails.push(value);
+                    keep[index] = true;
+                } else if record.extras.emails.is_empty() {
+                    // Not loaded into the record: leave the card's values alone.
+                    keep[index] = true;
+                }
+            }
+            "TEL" if Some(index) == first_tel => {}
+            "TEL" => {
+                let value = value_of(line);
+                if record
+                    .extras
+                    .phones
+                    .iter()
+                    .any(|p| p.to_lowercase() == value)
+                    && !kept_phones.contains(&value)
+                {
+                    kept_phones.push(value);
+                    keep[index] = true;
+                } else if record.extras.phones.is_empty() {
+                    keep[index] = true;
+                }
+            }
+            "PHOTO" => {
+                // Keep the card's own picture unless the record has another.
+                let old_photo = photo_from(
+                    line.split_once(':').map_or("", |(h, _)| h),
+                    line.split_once(':').map_or("", |(_, r)| r),
+                );
+                keep[index] = match (&record.extras.photo, old_photo) {
+                    (None, _) => !record.has_photo,
+                    (Some(new), Some(old)) => *new == old,
+                    (Some(_), None) => false,
+                };
+            }
+            "URL" => keep[index] = Some(index) != first_url,
             "BEGIN" | "END" | "VERSION" | "UID" | "FN" | "N" | "ORG" | "TITLE" | "BDAY" | "ADR"
-            | "NOTE" | "CATEGORIES" => false,
-            "EMAIL" => Some(index) != primary_email,
-            "TEL" => Some(index) != first_tel,
-            "URL" => Some(index) != first_url,
-            _ => true,
-        };
-        if preserve {
+            | "NOTE" | "CATEGORIES" => {}
+            _ => keep[index] = true,
+        }
+    }
+    let mut emit = record.clone();
+    emit.extras
+        .emails
+        .retain(|e| !kept_emails.contains(&e.to_lowercase()));
+    emit.extras
+        .phones
+        .retain(|p| !kept_phones.contains(&p.to_lowercase()));
+    let photo_kept = old.iter().enumerate().any(|(index, line)| {
+        keep[index] && property_name(line).is_some_and(|name| name.eq_ignore_ascii_case("PHOTO"))
+    });
+    if photo_kept {
+        emit.extras.photo = None;
+    }
+    let mut lines: Vec<Cow<'_, str>> = serialized_lines(&emit, uid, version);
+    let end = lines.len() - 1;
+    for (index, line) in old.into_iter().enumerate() {
+        if keep[index] {
             lines.insert(end, line);
         }
     }
@@ -539,6 +698,33 @@ mod tests {
         assert_eq!(parsed.email, "ada@example.test");
         assert_eq!(parsed.company, "Analytical Engines");
         assert!(parsed.postal_address.contains("London"));
+    }
+
+    #[test]
+    fn extra_values_and_an_inline_photo_are_read_written_and_kept_by_update() {
+        use base64::Engine as _;
+        let photo = b"\x89PNG-small-picture".to_vec();
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&photo);
+        let card = format!(
+            "BEGIN:VCARD\nVERSION:3.0\nUID:ada\nFN:Ada\nEMAIL;PREF=1:ada@example.test\nEMAIL:ADA@home.test\nTEL:+1 1\nTEL:+1 2\nADR:;;1 Main;Oslo\nADR:;;2 Side;Bergen\nPHOTO;ENCODING=b;TYPE=PNG:{encoded}\nEND:VCARD"
+        );
+        let record = parse(&card).unwrap();
+        assert_eq!(record.email, "ada@example.test");
+        assert_eq!(record.extras.emails, vec!["ada@home.test".to_owned()]);
+        assert_eq!(record.phone, "+1 1");
+        assert_eq!(record.extras.phones, vec!["+1 2".to_owned()]);
+        assert_eq!(record.postal_address, "1 Main, Oslo");
+        assert_eq!(record.extras.addresses, vec!["2 Side, Bergen".to_owned()]);
+        assert_eq!(record.extras.photo.as_deref(), Some(photo.as_slice()));
+        // A new card carries them all, and an update does not duplicate them.
+        let again = parse(&serialize(&record, "ada")).unwrap();
+        assert_eq!(again.extras, record.extras);
+        let updated = parse(&update(&card, &record, "ada")).unwrap();
+        assert_eq!(updated.extras, record.extras);
+        assert_eq!(update(&card, &record, "ada").matches("PHOTO").count(), 1);
+        // A picture over the limit or a link is not read.
+        let link = "BEGIN:VCARD\nVERSION:3.0\nUID:a\nFN:A\nEMAIL:a@example.test\nPHOTO;VALUE=uri:https://example.test/a.jpg\nEND:VCARD";
+        assert!(parse(link).unwrap().extras.photo.is_none());
     }
 
     #[test]

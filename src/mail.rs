@@ -1277,6 +1277,13 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    pub async fn contact_photo(&self, id: i64) -> Result<Option<Vec<u8>>, String> {
+        self.core
+            .contact_photo(id)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn delete_contact(&self, id: i64) -> Result<(), String> {
         self.core
             .delete_contact(id)

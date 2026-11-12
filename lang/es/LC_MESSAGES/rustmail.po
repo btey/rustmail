@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-12 16:03+0000\n"
+"POT-Creation-Date: 2026-11-12 20:17+0000\n"
 "PO-Revision-Date: 2026-09-20 23:21+0000\n"
 "Last-Translator: Admin <admin@rustmail.org>\n"
 "Language-Team: Spanish <https://translate.rustmail.org/projects/rustmail/"
@@ -186,7 +186,7 @@ msgstr "Historial de conversaciones disponible"
 msgid "New address-book entry"
 msgstr "Nueva entrada de contactos"
 
-#: ui/app.slint:137 ui/app.slint:970 ui/components/composer-fields.slint:80
+#: ui/app.slint:137 ui/app.slint:975 ui/components/composer-fields.slint:80
 #: ui/dialogs/compose-dialog.slint:39
 msgid "No connected account"
 msgstr "No hay ninguna cuenta conectada"
@@ -1535,7 +1535,7 @@ msgstr ""
 msgid "Choose Gmail or Outlook OAuth."
 msgstr "Elige OAuth de Gmail o Outlook."
 
-#: ui/app.slint:549 ui/components/exchange-setup.slint:285
+#: ui/app.slint:549 ui/components/exchange-setup.slint:307
 msgid "Complete sign-in in your browser, or choose Cancel here."
 msgstr ""
 "Completa el inicio de sesión en el navegador o selecciona Cancelar aquí."
@@ -1645,109 +1645,109 @@ msgstr "Cargando mensaje…"
 msgid "Rustmail"
 msgstr "Rustmail"
 
-#: ui/app.slint:1194 ui/app.slint:1207
+#: ui/app.slint:1199 ui/app.slint:1212
 msgid "Global Labels (local only)"
 msgstr "Etiquetas globales (solo locales)"
 
-#: ui/app.slint:2113
+#: ui/app.slint:2123
 msgid "Empty Trash?"
 msgstr "¿Vaciar la papelera?"
 
-#: ui/app.slint:2113 ui/views/files-view.slint:539
+#: ui/app.slint:2123 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr "¿Eliminar permanentemente?"
 
-#: ui/app.slint:2117
+#: ui/app.slint:2127
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 "¿Eliminar permanentemente todos los mensajes de la papelera de todas las "
 "cuentas conectadas?"
 
-#: ui/app.slint:2118
+#: ui/app.slint:2128
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr ""
 "¿Eliminar permanentemente todos los mensajes de la papelera de esta cuenta?"
 
-#: ui/app.slint:2120
+#: ui/app.slint:2130
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr ""
 "¿Eliminar permanentemente las conversaciones seleccionadas de la papelera?"
 
-#: ui/app.slint:2121
+#: ui/app.slint:2131
 msgid "Permanently delete this conversation from Trash?"
 msgstr "¿Eliminar permanentemente esta conversación de la papelera?"
 
-#: ui/app.slint:2122 ui/components/calendar.slint:951
+#: ui/app.slint:2132 ui/components/calendar.slint:951
 msgid "This action cannot be undone."
 msgstr "Esta acción no se puede deshacer."
 
-#: ui/app.slint:2123
+#: ui/app.slint:2133
 msgid "Empty Trash"
 msgstr "Vaciar la papelera"
 
-#: ui/app.slint:2123 ui/views/files-view.slint:621
+#: ui/app.slint:2133 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr "Eliminar permanentemente"
 
-#: ui/app.slint:2305
+#: ui/app.slint:2315
 msgid "Mailbox startup failed"
 msgstr "Error al iniciar el buzón"
 
-#: ui/app.slint:2311
+#: ui/app.slint:2321
 msgid "Rustmail could not open local storage"
 msgstr "Rustmail no pudo abrir el almacenamiento local"
 
-#: ui/app.slint:2324
+#: ui/app.slint:2334
 msgid "Diagnostic ID: {}"
 msgstr "ID de diagnóstico: {}"
 
-#: ui/app.slint:2327
+#: ui/app.slint:2337
 msgid "Diagnostic ID {}"
 msgstr "ID de diagnóstico {}"
 
-#: ui/app.slint:2332
+#: ui/app.slint:2342
 msgid "Retry"
 msgstr "Reintentar"
 
-#: ui/app.slint:2340 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2350 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr "Copiar datos de diagnóstico"
 
-#: ui/app.slint:2406 ui/app.slint:2491 ui/app.slint:2549
+#: ui/app.slint:2416 ui/app.slint:2501 ui/app.slint:2559
 msgid "Dismiss"
 msgstr "Descartar"
 
-#: ui/app.slint:2426 ui/app.slint:2431
+#: ui/app.slint:2436 ui/app.slint:2441
 msgid "Sent and linked"
 msgstr "Enviado y vinculado"
 
-#: ui/app.slint:2449
+#: ui/app.slint:2459
 msgid "Task moved to Waiting for"
 msgstr "Tarea movida a En espera"
 
-#: ui/app.slint:2449
+#: ui/app.slint:2459
 msgid "Task marked as done"
 msgstr "Tarea marcada como hecha"
 
-#: ui/app.slint:2458
+#: ui/app.slint:2468
 msgid "Follow-up in {} days"
 msgstr "Seguimiento en {} días"
 
-#: ui/app.slint:2467
+#: ui/app.slint:2477
 msgid "Follow-up added to the calendar"
 msgstr "Seguimiento añadido al calendario"
 
-#: ui/app.slint:2477
+#: ui/app.slint:2487
 msgid "Back to board"
 msgstr "Volver al tablero"
 
-#: ui/app.slint:2536 ui/components/linked-task-banner.slint:116
+#: ui/app.slint:2546 ui/components/linked-task-banner.slint:116
 #: ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr "Abrir tarea"
 
-#: ui/app.slint:2582 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2592 ui/components/workspace-navigation.slint:126
 #: ui/dialogs/settings-dialog.slint:2153
 msgid "Tasks"
 msgstr "Tareas"
@@ -1845,7 +1845,7 @@ msgid "Edit"
 msgstr "Editar"
 
 #: ui/components/account-mail-preferences.slint:164
-#: ui/views/contacts-view.slint:586
+#: ui/views/contacts-view.slint:591
 msgid "Remove"
 msgstr "Eliminar"
 
@@ -1919,7 +1919,7 @@ msgstr "Añadir dirección de remitente"
 #: ui/components/account-mail-preferences.slint:184
 #: ui/components/filter-rules.slint:375 ui/dialogs/folder-dialog.slint:128
 #: ui/dialogs/settings-dialog.slint:2049 ui/dialogs/settings-dialog.slint:2762
-#: ui/dialogs/settings-dialog.slint:2997 ui/views/contacts-view.slint:582
+#: ui/dialogs/settings-dialog.slint:2997 ui/views/contacts-view.slint:587
 #: ui/views/files-view.slint:620 ui/views/tasks-view.slint:2630
 msgid "Cancel"
 msgstr "Cancelar"
@@ -2012,7 +2012,7 @@ msgid "Save signature"
 msgstr "Guardar firma"
 
 #: ui/components/account-mail-preferences.slint:209
-#: ui/components/filter-rules.slint:262 ui/views/contacts-view.slint:586
+#: ui/components/filter-rules.slint:262 ui/views/contacts-view.slint:591
 #: ui/views/tasks-view.slint:2635
 msgid "Delete"
 msgstr "Eliminar"
@@ -2245,7 +2245,7 @@ msgstr "Identidad"
 msgid "Folders"
 msgstr "Carpetas"
 
-#: ui/components/account-setup-form.slint:134 ui/views/contacts-view.slint:679
+#: ui/components/account-setup-form.slint:134 ui/views/contacts-view.slint:686
 msgid "name@example.com"
 msgstr "nombre@ejemplo.com"
 
@@ -2829,7 +2829,7 @@ msgstr "Ninguno"
 msgid "No checklist step"
 msgstr "Ningún paso de la lista"
 
-#: ui/components/composer-actions.slint:493 ui/views/contacts-view.slint:691
+#: ui/components/composer-actions.slint:493 ui/views/contacts-view.slint:698
 msgid "YYYY-MM-DD"
 msgstr "AAAA-MM-DD"
 
@@ -2913,7 +2913,7 @@ msgstr "Añadir enlace"
 msgid "The selected text will open this address."
 msgstr "El texto seleccionado abrirá esta dirección."
 
-#: ui/components/composer-actions.slint:693 ui/views/contacts-view.slint:710
+#: ui/components/composer-actions.slint:693 ui/views/contacts-view.slint:717
 msgid "https://example.com"
 msgstr "https://ejemplo.com"
 
@@ -3121,47 +3121,47 @@ msgstr "¿Eliminar plantilla de correo?"
 msgid "Delete this template from this device?"
 msgstr "¿Eliminar esta plantilla de este dispositivo?"
 
-#: ui/components/exchange-setup.slint:52
+#: ui/components/exchange-setup.slint:55
 msgid "Paste address"
 msgstr "Pegar dirección"
 
-#: ui/components/exchange-setup.slint:56
+#: ui/components/exchange-setup.slint:59
 msgid "Device code"
 msgstr "Código de dispositivo"
 
-#: ui/components/exchange-setup.slint:60
+#: ui/components/exchange-setup.slint:63
 msgid "Browser"
 msgstr "Navegador"
 
-#: ui/components/exchange-setup.slint:72
+#: ui/components/exchange-setup.slint:75
 msgid "Resource"
 msgstr "Recurso"
 
-#: ui/components/exchange-setup.slint:73
+#: ui/components/exchange-setup.slint:76
 msgid "Scopes"
 msgstr "Ámbitos"
 
-#: ui/components/exchange-setup.slint:81
+#: ui/components/exchange-setup.slint:84
 msgid "Worldwide"
 msgstr "Global"
 
-#: ui/components/exchange-setup.slint:82
+#: ui/components/exchange-setup.slint:85
 msgid "US Gov."
 msgstr "EE. UU."
 
-#: ui/components/exchange-setup.slint:83
+#: ui/components/exchange-setup.slint:86
 msgid "China"
 msgstr "China"
 
-#: ui/components/exchange-setup.slint:84
+#: ui/components/exchange-setup.slint:87
 msgid "Germany"
 msgstr "Alemania"
 
-#: ui/components/exchange-setup.slint:85 ui/components/sidebar.slint:343
+#: ui/components/exchange-setup.slint:88 ui/components/sidebar.slint:343
 msgid "Other"
 msgstr "Otros"
 
-#: ui/components/exchange-setup.slint:106
+#: ui/components/exchange-setup.slint:109
 msgid ""
 "Signs in to Microsoft 365 directly with OAuth, with no IMAP, SMTP or proxy. "
 "No password is typed here or stored."
@@ -3169,11 +3169,11 @@ msgstr ""
 "Inicia sesión directamente en Microsoft 365 con OAuth, sin IMAP, SMTP ni "
 "proxy. Aquí no se escribe ni se guarda ninguna contraseña."
 
-#: ui/components/exchange-setup.slint:110
+#: ui/components/exchange-setup.slint:113
 msgid "Sign-in method"
 msgstr "Método de inicio de sesión"
 
-#: ui/components/exchange-setup.slint:116
+#: ui/components/exchange-setup.slint:119
 msgid ""
 "Paste address: Rustmail shows a sign-in address. Open it in any browser, "
 "sign in, then paste the address the browser ends on (or its code) here."
@@ -3182,7 +3182,7 @@ msgstr ""
 "en cualquier navegador, inicia sesión y pega aquí la dirección (o el código) "
 "en la que termina el navegador."
 
-#: ui/components/exchange-setup.slint:118
+#: ui/components/exchange-setup.slint:121
 msgid ""
 "Device code: Rustmail shows a short code. Enter it at the Microsoft address "
 "on any device, then wait here."
@@ -3190,7 +3190,7 @@ msgstr ""
 "Código de dispositivo: Rustmail muestra un código corto. Introdúcelo en la "
 "dirección de Microsoft desde cualquier dispositivo y espera aquí."
 
-#: ui/components/exchange-setup.slint:119
+#: ui/components/exchange-setup.slint:122
 msgid ""
 "Browser: Rustmail opens your browser and waits for it to return to this "
 "computer. This needs a client ID of your own app registration with a http://"
@@ -3200,23 +3200,23 @@ msgstr ""
 "Necesita el ID de cliente de un registro de aplicación propio con "
 "redirección http://localhost."
 
-#: ui/components/exchange-setup.slint:125
+#: ui/components/exchange-setup.slint:128
 msgid "Display name · Optional"
 msgstr "Nombre para mostrar · Opcional"
 
-#: ui/components/exchange-setup.slint:127
+#: ui/components/exchange-setup.slint:130
 msgid "Shown in the account list"
 msgstr "Se muestra en la lista de cuentas"
 
-#: ui/components/exchange-setup.slint:134
+#: ui/components/exchange-setup.slint:137
 msgid "Client ID · Optional"
 msgstr "ID de cliente · Opcional"
 
-#: ui/components/exchange-setup.slint:136
+#: ui/components/exchange-setup.slint:139
 msgid "Built-in: Microsoft Office client"
 msgstr "Integrado: cliente de Microsoft Office"
 
-#: ui/components/exchange-setup.slint:142
+#: ui/components/exchange-setup.slint:145
 msgid ""
 "The built-in client ID is Microsoft's own Office app, not Rustmail's. It "
 "signs in with the Resource style below. Your organization's sign-in log "
@@ -3231,7 +3231,7 @@ msgstr ""
 "el inicio de sesión falla, introduzca el ID de cliente de su propio registro "
 "de aplicación en Microsoft Entra ID."
 
-#: ui/components/exchange-setup.slint:143
+#: ui/components/exchange-setup.slint:146
 msgid ""
 "Using the client ID of your own app registration. Allow public client flows "
 "for it in Microsoft Entra ID."
@@ -3239,31 +3239,31 @@ msgstr ""
 "Se usa el ID de cliente de tu propio registro de aplicación. Permite los "
 "flujos de cliente público en Microsoft Entra ID."
 
-#: ui/components/exchange-setup.slint:149
+#: ui/components/exchange-setup.slint:152
 msgid "Tenant · Optional"
 msgstr "Inquilino · Opcional"
 
-#: ui/components/exchange-setup.slint:151
+#: ui/components/exchange-setup.slint:154
 msgid "common, organizations, a tenant ID or contoso.com"
 msgstr "common, organizations, un ID de inquilino o contoso.com"
 
-#: ui/components/exchange-setup.slint:158
+#: ui/components/exchange-setup.slint:161
 msgid "Redirect URI · Optional"
 msgstr "URI de redirección · Opcional"
 
-#: ui/components/exchange-setup.slint:160
+#: ui/components/exchange-setup.slint:163
 msgid "http://localhost"
 msgstr "http://localhost"
 
-#: ui/components/exchange-setup.slint:160
+#: ui/components/exchange-setup.slint:163
 msgid "urn:ietf:wg:oauth:2.0:oob"
 msgstr "urn:ietf:wg:oauth:2.0:oob"
 
-#: ui/components/exchange-setup.slint:165
+#: ui/components/exchange-setup.slint:168
 msgid "Sign-in style"
 msgstr "Estilo de inicio de sesión"
 
-#: ui/components/exchange-setup.slint:171
+#: ui/components/exchange-setup.slint:174
 msgid ""
 "Resource: Microsoft gives the permissions already approved for the app, so "
 "no scopes are asked for (the classic sign-in, as DavMail does). Needed for "
@@ -3273,7 +3273,7 @@ msgstr ""
 "lo que no se piden ámbitos (el inicio de sesión clásico, como hace DavMail). "
 "Necesario para el cliente Office integrado de Microsoft."
 
-#: ui/components/exchange-setup.slint:172
+#: ui/components/exchange-setup.slint:175
 msgid ""
 "Scopes: Rustmail asks Microsoft for the permissions listed below. This needs "
 "your own app registration with those permissions."
@@ -3281,54 +3281,70 @@ msgstr ""
 "Ámbitos: Rustmail pide a Microsoft los permisos indicados abajo. Esto "
 "requiere su propio registro de aplicación con esos permisos."
 
-#: ui/components/exchange-setup.slint:178
+#: ui/components/exchange-setup.slint:181
 msgid "Scopes · Optional"
 msgstr "Ámbitos · Opcional"
 
-#: ui/components/exchange-setup.slint:180
+#: ui/components/exchange-setup.slint:183
 msgid "Default: mail, calendar and contacts"
 msgstr "Predeterminado: correo, calendario y contactos"
 
-#: ui/components/exchange-setup.slint:185
+#: ui/components/exchange-setup.slint:188
 msgid "Cloud"
 msgstr "Nube"
 
-#: ui/components/exchange-setup.slint:192
+#: ui/components/exchange-setup.slint:195
 msgid "Login address"
 msgstr "Dirección de inicio de sesión"
 
-#: ui/components/exchange-setup.slint:194
+#: ui/components/exchange-setup.slint:197
 msgid "https://login.example.org"
 msgstr "https://login.example.org"
 
-#: ui/components/exchange-setup.slint:201
+#: ui/components/exchange-setup.slint:204
 msgid "Graph address"
 msgstr "Dirección de Graph"
 
-#: ui/components/exchange-setup.slint:203
+#: ui/components/exchange-setup.slint:206
 msgid "https://graph.example.org"
 msgstr "https://graph.example.org"
 
-#: ui/components/exchange-setup.slint:210
+#: ui/components/exchange-setup.slint:213
 msgid "Shared mailbox · Optional"
 msgstr "Buzón compartido · Opcional"
 
-#: ui/components/exchange-setup.slint:212
+#: ui/components/exchange-setup.slint:215
 msgid "shared@example.com"
 msgstr "shared@example.com"
 
-#: ui/components/exchange-setup.slint:219
+#: ui/components/exchange-setup.slint:222
 msgid "Work offline for this account"
 msgstr "Trabajar sin conexión con esta cuenta"
 
-#: ui/components/exchange-setup.slint:220
+#: ui/components/exchange-setup.slint:223
 msgid ""
 "No requests are made; changes wait and are sent when you go back online."
 msgstr ""
 "No se hacen solicitudes; los cambios esperan y se envían cuando vuelva a "
 "estar en línea."
 
-#: ui/components/exchange-setup.slint:231
+#: ui/components/exchange-setup.slint:233
+msgid "Calendar history in days · Optional"
+msgstr "Historial del calendario en días · Opcional"
+
+#: ui/components/exchange-setup.slint:235
+msgid "90"
+msgstr "90"
+
+#: ui/components/exchange-setup.slint:242
+msgid "Calendar ahead in days · Optional"
+msgstr "Calendario por adelantado en días · Opcional"
+
+#: ui/components/exchange-setup.slint:244
+msgid "400"
+msgstr "400"
+
+#: ui/components/exchange-setup.slint:253
 msgid ""
 "1. Open this address and sign in. 2. Copy the address of the page you end on "
 "and paste it below."
@@ -3336,37 +3352,37 @@ msgstr ""
 "1. Abre esta dirección e inicia sesión. 2. Copia la dirección de la página "
 "en la que terminas y pégala abajo."
 
-#: ui/components/exchange-setup.slint:238 ui/views/mail-reading-pane.slint:550
+#: ui/components/exchange-setup.slint:260 ui/views/mail-reading-pane.slint:550
 #: ui/views/mail-reading-pane.slint:2072
 msgid "Open in browser"
 msgstr "Abrir en el navegador"
 
-#: ui/components/exchange-setup.slint:239 ui/views/mail-reading-pane.slint:237
+#: ui/components/exchange-setup.slint:261 ui/views/mail-reading-pane.slint:237
 msgid "Copy address"
 msgstr "Copiar dirección"
 
-#: ui/components/exchange-setup.slint:243
+#: ui/components/exchange-setup.slint:265
 msgid "Address or code from the browser"
 msgstr "Dirección o código del navegador"
 
-#: ui/components/exchange-setup.slint:245
+#: ui/components/exchange-setup.slint:267
 msgid "Paste it here"
 msgstr "Pégalo aquí"
 
-#: ui/components/exchange-setup.slint:253
+#: ui/components/exchange-setup.slint:275
 msgid "Finish sign-in"
 msgstr "Finalizar inicio de sesión"
 
-#: ui/components/exchange-setup.slint:261
+#: ui/components/exchange-setup.slint:283
 msgid "Go to the address below on any device and enter this code:"
 msgstr ""
 "Ve a la dirección de abajo en cualquier dispositivo e introduce este código:"
 
-#: ui/components/exchange-setup.slint:276
+#: ui/components/exchange-setup.slint:298
 msgid "Open address"
 msgstr "Abrir dirección"
 
-#: ui/components/exchange-setup.slint:277
+#: ui/components/exchange-setup.slint:299
 msgid "Copy code"
 msgstr "Copiar código"
 
@@ -4040,7 +4056,7 @@ msgstr "Etiquetas"
 msgid "Global label {}"
 msgstr "Etiqueta global {}"
 
-#: ui/components/sidebar.slint:437 ui/views/contacts-view.slint:208
+#: ui/components/sidebar.slint:437 ui/views/contacts-view.slint:213
 msgid "ACCOUNTS"
 msgstr "CUENTAS"
 
@@ -4318,7 +4334,7 @@ msgstr "Archivos"
 
 #: ui/components/workspace-navigation.slint:148
 #: ui/dialogs/settings-dialog.slint:1436 ui/dialogs/settings-dialog.slint:2434
-#: ui/views/contacts-view.slint:236
+#: ui/views/contacts-view.slint:241
 msgid "Contacts"
 msgstr "Contactos"
 
@@ -6215,71 +6231,71 @@ msgstr "Mostrar Rustmail"
 msgid "Quit"
 msgstr "Salir"
 
-#: ui/views/contacts-view.slint:163 ui/views/contacts-view.slint:491
-#: ui/views/contacts-view.slint:634
+#: ui/views/contacts-view.slint:168 ui/views/contacts-view.slint:496
+#: ui/views/contacts-view.slint:641
 msgid "New contact"
 msgstr "Nuevo contacto"
 
-#: ui/views/contacts-view.slint:183 ui/views/contacts-view.slint:261
+#: ui/views/contacts-view.slint:188 ui/views/contacts-view.slint:266
 msgid ""
 "Suggested people stay local and separate until you save them as contacts."
 msgstr ""
 "Las personas sugeridas permanecen en este dispositivo y separadas hasta que "
 "las guardes como contactos."
 
-#: ui/views/contacts-view.slint:208 ui/views/files-view.slint:108
+#: ui/views/contacts-view.slint:213 ui/views/files-view.slint:108
 msgid "UNIFIED"
 msgstr "UNIFICADO"
 
-#: ui/views/contacts-view.slint:215
+#: ui/views/contacts-view.slint:220
 msgid "Unified contacts"
 msgstr "Contactos unificados"
 
-#: ui/views/contacts-view.slint:234 ui/views/contacts-view.slint:317
+#: ui/views/contacts-view.slint:239 ui/views/contacts-view.slint:322
 msgid "All contacts"
 msgstr "Todos los contactos"
 
-#: ui/views/contacts-view.slint:235 ui/views/contacts-view.slint:318
+#: ui/views/contacts-view.slint:240 ui/views/contacts-view.slint:323
 msgid "Favorites"
 msgstr "Favoritos"
 
-#: ui/views/contacts-view.slint:236 ui/views/contacts-view.slint:319
+#: ui/views/contacts-view.slint:241 ui/views/contacts-view.slint:324
 msgid "Suggested"
 msgstr "Sugeridos"
 
-#: ui/views/contacts-view.slint:312
+#: ui/views/contacts-view.slint:317
 msgid "Show contact groups"
 msgstr "Mostrar grupos de contactos"
 
-#: ui/views/contacts-view.slint:312
+#: ui/views/contacts-view.slint:317
 msgid "Hide contact groups"
 msgstr "Ocultar grupos de contactos"
 
-#: ui/views/contacts-view.slint:315
+#: ui/views/contacts-view.slint:320
 msgid "Search contacts"
 msgstr "Buscar contactos"
 
-#: ui/views/contacts-view.slint:322
+#: ui/views/contacts-view.slint:327
 msgid "Filter contacts"
 msgstr "Filtrar contactos"
 
-#: ui/views/contacts-view.slint:324
+#: ui/views/contacts-view.slint:329
 msgid "Reload contacts"
 msgstr "Recargar contactos"
 
-#: ui/views/contacts-view.slint:415
+#: ui/views/contacts-view.slint:420
 msgid "Suggested from mail"
 msgstr "Sugerido a partir del correo"
 
-#: ui/views/contacts-view.slint:426
+#: ui/views/contacts-view.slint:431
 msgid "Open {}"
 msgstr "Abrir {}"
 
-#: ui/views/contacts-view.slint:463
+#: ui/views/contacts-view.slint:468
 msgid "No contacts match this search."
 msgstr "Ningún contacto coincide con esta búsqueda."
 
-#: ui/views/contacts-view.slint:464
+#: ui/views/contacts-view.slint:469
 msgid ""
 "No suggested people yet. People you email can appear here for faster "
 "addressing."
@@ -6287,141 +6303,157 @@ msgstr ""
 "Aún no hay personas sugeridas. Las personas a quienes escribes pueden "
 "aparecer aquí para seleccionarlas más rápido."
 
-#: ui/views/contacts-view.slint:465
+#: ui/views/contacts-view.slint:470
 msgid "No contacts yet. Create one or connect an address book."
 msgstr "Aún no hay contactos. Crea uno o conecta una libreta de direcciones."
 
-#: ui/views/contacts-view.slint:508
+#: ui/views/contacts-view.slint:513
 msgid "Contact list width"
 msgstr "Ancho de la lista de contactos"
 
-#: ui/views/contacts-view.slint:547
+#: ui/views/contacts-view.slint:552
 msgid "Back to contacts"
 msgstr "Volver a contactos"
 
-#: ui/views/contacts-view.slint:555
+#: ui/views/contacts-view.slint:560
 msgid "Suggested person"
 msgstr "Persona sugerida"
 
-#: ui/views/contacts-view.slint:556
+#: ui/views/contacts-view.slint:561
 msgid "Contact details"
 msgstr "Detalles del contacto"
 
-#: ui/views/contacts-view.slint:571
+#: ui/views/contacts-view.slint:576
 msgid "Remove from favorites"
 msgstr "Quitar de favoritos"
 
-#: ui/views/contacts-view.slint:571
+#: ui/views/contacts-view.slint:576
 msgid "Add to favorites"
 msgstr "Añadir a favoritos"
 
-#: ui/views/contacts-view.slint:575
+#: ui/views/contacts-view.slint:580
 msgid "Remove this suggestion?"
 msgstr "¿Eliminar esta sugerencia?"
 
-#: ui/views/contacts-view.slint:575
+#: ui/views/contacts-view.slint:580
 msgid "Delete this contact?"
 msgstr "¿Eliminar este contacto?"
 
-#: ui/views/contacts-view.slint:598
+#: ui/views/contacts-view.slint:603
 msgid "Remove suggestion"
 msgstr "Eliminar sugerencia"
 
-#: ui/views/contacts-view.slint:598
+#: ui/views/contacts-view.slint:603
 msgid "Delete contact"
 msgstr "Eliminar contacto"
 
-#: ui/views/contacts-view.slint:668
+#: ui/views/contacts-view.slint:675
 msgid "Learned from mail. Save this person to add them to your address book."
 msgstr ""
 "Recordado a partir del correo. Guarda a esta persona para añadirla a tu "
 "libreta de direcciones."
 
-#: ui/views/contacts-view.slint:676
+#: ui/views/contacts-view.slint:683
 msgid "NAME"
 msgstr "NOMBRE"
 
-#: ui/views/contacts-view.slint:677
+#: ui/views/contacts-view.slint:684
 msgid "Full name"
 msgstr "Nombre completo"
 
-#: ui/views/contacts-view.slint:678
+#: ui/views/contacts-view.slint:685
 msgid "EMAIL"
 msgstr "CORREO"
 
-#: ui/views/contacts-view.slint:685
+#: ui/views/contacts-view.slint:692
 msgid "PHONE"
 msgstr "TELÉFONO"
 
-#: ui/views/contacts-view.slint:686
+#: ui/views/contacts-view.slint:693
 msgid "+1 555 0100"
 msgstr "+34 600 000 000"
 
-#: ui/views/contacts-view.slint:690
+#: ui/views/contacts-view.slint:697
 msgid "BIRTHDAY"
 msgstr "CUMPLEAÑOS"
 
-#: ui/views/contacts-view.slint:699
+#: ui/views/contacts-view.slint:706
 msgid "COMPANY"
 msgstr "EMPRESA"
 
-#: ui/views/contacts-view.slint:700
+#: ui/views/contacts-view.slint:707
 msgid "Company"
 msgstr "Empresa"
 
-#: ui/views/contacts-view.slint:704
+#: ui/views/contacts-view.slint:711
 msgid "JOB TITLE"
 msgstr "CARGO"
 
-#: ui/views/contacts-view.slint:705
+#: ui/views/contacts-view.slint:712
 msgid "Role"
 msgstr "Cargo"
 
-#: ui/views/contacts-view.slint:709
+#: ui/views/contacts-view.slint:716
 msgid "WEBSITE"
 msgstr "SITIO WEB"
 
-#: ui/views/contacts-view.slint:711
+#: ui/views/contacts-view.slint:718
 msgid "ADDRESS"
 msgstr "DIRECCIÓN"
 
-#: ui/views/contacts-view.slint:712
+#: ui/views/contacts-view.slint:719
 msgid "Postal address"
 msgstr "Dirección postal"
 
-#: ui/views/contacts-view.slint:713
+#: ui/views/contacts-view.slint:720
+msgid "MORE E-MAIL ADDRESSES"
+msgstr "MÁS DIRECCIONES DE CORREO"
+
+#: ui/views/contacts-view.slint:721 ui/views/contacts-view.slint:723
+msgid "One per line"
+msgstr "Una por línea"
+
+#: ui/views/contacts-view.slint:722
+msgid "MORE PHONE NUMBERS"
+msgstr "MÁS NÚMEROS DE TELÉFONO"
+
+#: ui/views/contacts-view.slint:724
+msgid "MORE ADDRESSES"
+msgstr "MÁS DIRECCIONES"
+
+#: ui/views/contacts-view.slint:726
 msgid "TAGS"
 msgstr "ETIQUETAS"
 
-#: ui/views/contacts-view.slint:714
+#: ui/views/contacts-view.slint:727
 msgid "customer, design, london"
 msgstr "cliente, diseño, madrid"
 
-#: ui/views/contacts-view.slint:715
+#: ui/views/contacts-view.slint:728
 msgid "NOTES"
 msgstr "NOTAS"
 
-#: ui/views/contacts-view.slint:716
+#: ui/views/contacts-view.slint:729
 msgid "Notes about this contact"
 msgstr "Notas sobre este contacto"
 
-#: ui/views/contacts-view.slint:730
+#: ui/views/contacts-view.slint:743
 msgid "Send email"
 msgstr "Enviar correo"
 
-#: ui/views/contacts-view.slint:737
+#: ui/views/contacts-view.slint:750
 msgid "Save to contacts"
 msgstr "Guardar en contactos"
 
-#: ui/views/contacts-view.slint:737
+#: ui/views/contacts-view.slint:750
 msgid "Save contact"
 msgstr "Guardar contacto"
 
-#: ui/views/contacts-view.slint:758
+#: ui/views/contacts-view.slint:771
 msgid "Select a contact"
 msgstr "Selecciona un contacto"
 
-#: ui/views/contacts-view.slint:759
+#: ui/views/contacts-view.slint:772
 msgid "View and edit contact details here."
 msgstr "Consulta y edita aquí los detalles del contacto."
 

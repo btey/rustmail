@@ -726,6 +726,8 @@ fn automatic_selection_hydrates_and_reader_controls_are_responsive_and_keyboard_
         // This assertion exercises the regular All contacts editor. Suggested
         // records are intentionally filtered into the Suggestions scope.
         is_managed: true,
+        extras: Default::default(),
+        has_photo: false,
     };
     let directory = Rc::new(RefCell::new(ContactDirectoryState::new(
         vec![contact],

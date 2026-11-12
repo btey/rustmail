@@ -967,6 +967,68 @@ pub struct ContactSuggestion {
 
 /// A complete address-book entry. Mail sync owns the interaction metadata;
 /// the remaining fields can be edited directly from the contacts workspace.
+/// The values of a contact beyond its first e-mail address, phone number and
+/// postal address, and its photo. `photo` is only filled when a record is read
+/// for one contact or comes from a card or Graph; lists carry `has_photo`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContactExtras {
+    #[serde(default)]
+    pub emails: Vec<String>,
+    #[serde(default)]
+    pub phones: Vec<String>,
+    #[serde(default)]
+    pub addresses: Vec<String>,
+    #[serde(skip)]
+    pub photo: Option<Vec<u8>>,
+}
+
+/// Largest contact photo kept locally or sent to a server.
+pub const MAX_CONTACT_PHOTO_BYTES: usize = 512 * 1024;
+/// Most extra values of one kind kept for a contact.
+pub const MAX_CONTACT_EXTRAS: usize = 20;
+
+impl ContactExtras {
+    pub fn is_empty(&self) -> bool {
+        self.emails.is_empty()
+            && self.phones.is_empty()
+            && self.addresses.is_empty()
+            && self.photo.is_none()
+    }
+
+    /// Trim, drop empty and repeated values, and cap the counts.
+    pub fn cleaned(&self, primary_email: &str) -> Self {
+        fn clean(values: &[String], skip: &str) -> Vec<String> {
+            let mut out: Vec<String> = Vec::new();
+            for value in values {
+                let value = value.trim();
+                if value.is_empty()
+                    || value.eq_ignore_ascii_case(skip)
+                    || out.iter().any(|seen| seen.eq_ignore_ascii_case(value))
+                {
+                    continue;
+                }
+                out.push(value.chars().take(512).collect());
+                if out.len() >= MAX_CONTACT_EXTRAS {
+                    break;
+                }
+            }
+            out
+        }
+        Self {
+            emails: clean(&self.emails, primary_email)
+                .into_iter()
+                .map(|email| email.to_lowercase())
+                .collect(),
+            phones: clean(&self.phones, ""),
+            addresses: clean(&self.addresses, ""),
+            photo: self
+                .photo
+                .clone()
+                .filter(|photo| !photo.is_empty() && photo.len() <= MAX_CONTACT_PHOTO_BYTES),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ContactRecord {
     pub id: i64,
@@ -990,6 +1052,12 @@ pub struct ContactRecord {
     /// by CardDAV. False identifies a mail-derived suggestion.
     #[serde(default)]
     pub is_managed: bool,
+    /// More e-mail addresses, phones and postal addresses, and the photo.
+    #[serde(default)]
+    pub extras: ContactExtras,
+    /// True when a photo is stored (the bytes are read with the contact).
+    #[serde(default)]
+    pub has_photo: bool,
 }
 
 /// One bounded page for the contacts workspace. Counts are scalar metadata;

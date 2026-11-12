@@ -1996,6 +1996,8 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
 
     let app_weak = app.as_weak();
     let contacts_for_select = Rc::clone(&contact_state);
+    let inbox_for_contact_select = Rc::clone(&state);
+    let runtime_for_contact_select = Rc::clone(&runtime);
     app.on_select_contact(move |id| {
         let Some(app) = app_weak.upgrade() else {
             return;
@@ -2003,7 +2005,23 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         let mut directory = contacts_for_select.borrow_mut();
         directory.selected_id = Some(i64::from(id));
         directory.editing_new = false;
+        // Read the picture once, when the contact is selected.
+        let has_photo = directory
+            .contacts
+            .iter()
+            .find(|contact| contact.id == i64::from(id))
+            .is_some_and(|contact| contact.has_photo);
+        directory.photo = None;
+        let using_core = directory.using_core;
         drop(directory);
+        if has_photo
+            && using_core
+            && let Some(core) = inbox_for_contact_select.borrow().core.clone()
+            && let Ok(Some(bytes)) = runtime_for_contact_select.block_on(core.contact_photo(i64::from(id)))
+            && let Some(image) = contacts::photo_image(&bytes)
+        {
+            contacts_for_select.borrow_mut().photo = Some((i64::from(id), image));
+        }
         app.set_contact_save_status(UiMessage::EMPTY);
         apply_contact_directory(&app, &contacts_for_select);
     });
@@ -2242,6 +2260,15 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                     .map(|contact| contact.account_ids.clone())
                     .unwrap_or(new_contact_accounts),
                 is_managed: true,
+                // The editor shows the extra values as lines; the picture is
+                // kept as stored (it is set with its own call).
+                extras: rustmail_core::models::ContactExtras {
+                    emails: contacts::lines_of(app.get_contact_more_emails().as_str()),
+                    phones: contacts::lines_of(app.get_contact_more_phones().as_str()),
+                    addresses: contacts::lines_of(app.get_contact_more_addresses().as_str()),
+                    photo: None,
+                },
+                has_photo: previous.as_ref().is_some_and(|contact| contact.has_photo),
             };
             let using_core = contacts_for_save.borrow().using_core;
             let core = if using_core {

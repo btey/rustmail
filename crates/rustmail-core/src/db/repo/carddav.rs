@@ -365,6 +365,12 @@ pub fn upsert_remote(
         [&record.email],
         |r| r.get(0),
     )?;
+    crate::db::repo::contacts::write_extras(
+        conn,
+        contact_id,
+        &record.extras.cleaned(&record.email),
+        true,
+    )?;
     conn.execute(
         "INSERT OR IGNORE INTO contact_accounts(contact_id,account_id) VALUES (?1,?2)",
         params![contact_id, account_id],

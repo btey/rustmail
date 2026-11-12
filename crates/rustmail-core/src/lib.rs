@@ -2530,6 +2530,38 @@ impl Core {
         Ok(())
     }
 
+    /// Set how many days of calendar an Exchange account keeps behind and
+    /// ahead (0 = the defaults, 90 and 400; at most 3650).
+    pub async fn set_exchange_calendar_window(
+        &self,
+        account_id: i64,
+        past_days: u32,
+        future_days: u32,
+    ) -> Result<()> {
+        let settings = self
+            .db
+            .write(move |conn| {
+                let tx = conn.transaction()?;
+                let mut config = repo::accounts::get_config(&tx, account_id)?
+                    .ok_or_else(|| CoreError::NotFound(format!("account {account_id}")))?;
+                if config.mail_protocol != MailProtocol::Exchange {
+                    return Err(CoreError::Other(
+                        "this account is not a Microsoft 365 account".into(),
+                    ));
+                }
+                config.settings.connection.exchange.calendar_past_days = past_days.min(3650);
+                config.settings.connection.exchange.calendar_future_days = future_days.min(3650);
+                repo::accounts::set_settings(&tx, account_id, &config.settings)?;
+                tx.commit()?;
+                Ok(config.settings)
+            })
+            .await?;
+        if let Some(handle) = self.handles.read().await.get(&account_id).cloned() {
+            handle.update_settings(settings);
+        }
+        Ok(())
+    }
+
     async fn wake_exchange_accounts(&self) {
         for handle in self.handles.read().await.values() {
             handle.send(SyncCmd::SyncNow { complete: None });
@@ -5785,6 +5817,38 @@ impl Core {
             .await?;
         self.nudge_card(None).await;
         Ok(saved)
+    }
+
+    /// The stored picture of a contact, if it has one.
+    pub async fn contact_photo(&self, id: i64) -> Result<Option<Vec<u8>>> {
+        self.db
+            .read(move |conn| repo::contacts::photo(conn, id))
+            .await
+    }
+
+    /// Set or remove the picture of a saved contact. A picture over
+    /// `MAX_CONTACT_PHOTO_BYTES` is refused.
+    pub async fn set_contact_photo(&self, id: i64, photo: Option<Vec<u8>>) -> Result<()> {
+        if photo
+            .as_ref()
+            .is_some_and(|bytes| bytes.len() > models::MAX_CONTACT_PHOTO_BYTES)
+        {
+            return Err(CoreError::Other(format!(
+                "the picture is larger than {} KiB",
+                models::MAX_CONTACT_PHOTO_BYTES / 1024
+            )));
+        }
+        self.db
+            .write(move |conn| {
+                let tx = conn.transaction()?;
+                repo::contacts::set_photo(&tx, id, photo.as_deref())?;
+                repo::carddav::mark_saved_contact_dirty(&tx, id)?;
+                tx.commit()?;
+                Ok(())
+            })
+            .await?;
+        self.nudge_card(None).await;
+        Ok(())
     }
 
     pub async fn delete_contact(&self, id: i64) -> Result<()> {

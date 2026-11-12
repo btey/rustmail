@@ -13,6 +13,28 @@ use std::{
     rc::Rc,
 };
 
+/// One value per non-empty line.
+pub(crate) fn lines_of(text: &str) -> Vec<String> {
+    text.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+/// A stored contact picture as a Slint image; `None` when it cannot be decoded.
+pub(crate) fn photo_image(bytes: &[u8]) -> Option<slint::Image> {
+    let decoded = image::load_from_memory(bytes).ok()?.into_rgba8();
+    let (width, height) = decoded.dimensions();
+    Some(slint::Image::from_rgba8(
+        slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(
+            decoded.as_raw(),
+            width,
+            height,
+        ),
+    ))
+}
+
 pub(crate) struct ContactDirectoryState {
     pub(crate) contacts: Vec<ContactRecord>,
     pub(crate) rows: Rc<VecModel<ContactRow>>,
@@ -29,6 +51,8 @@ pub(crate) struct ContactDirectoryState {
     pub(crate) account_counts: HashMap<i64, usize>,
     pub(crate) editing_new: bool,
     pub(crate) using_core: bool,
+    /// The picture of the selected contact, read when it was selected.
+    pub(crate) photo: Option<(i64, slint::Image)>,
 }
 
 impl ContactDirectoryState {
@@ -49,6 +73,7 @@ impl ContactDirectoryState {
             account_counts: HashMap::new(),
             editing_new: false,
             using_core,
+            photo: None,
         }
     }
 
@@ -306,6 +331,10 @@ pub(crate) fn clear_contact_form(app: &AppWindow) {
     app.set_contact_website("".into());
     app.set_contact_birthday("".into());
     app.set_contact_address("".into());
+    app.set_contact_more_emails("".into());
+    app.set_contact_more_phones("".into());
+    app.set_contact_more_addresses("".into());
+    app.set_contact_has_photo(false);
     app.set_contact_notes("".into());
     app.set_contact_tags("".into());
     app.set_contact_favorite(false);
@@ -325,6 +354,9 @@ fn apply_contact_form(app: &AppWindow, contact: &ContactRecord) {
     app.set_contact_website(contact.website.clone().into());
     app.set_contact_birthday(contact.birthday.clone().into());
     app.set_contact_address(contact.postal_address.clone().into());
+    app.set_contact_more_emails(contact.extras.emails.join("\n").into());
+    app.set_contact_more_phones(contact.extras.phones.join("\n").into());
+    app.set_contact_more_addresses(contact.extras.addresses.join("\n").into());
     app.set_contact_notes(contact.notes.clone().into());
     app.set_contact_tags(contact.tags.clone().into());
     app.set_contact_favorite(contact.is_favorite);
@@ -357,6 +389,9 @@ pub(crate) fn has_unsaved_edits(app: &AppWindow, state: &ContactDirectoryState) 
         || app.get_contact_website().as_str() != contact.website
         || app.get_contact_birthday().as_str() != contact.birthday
         || app.get_contact_address().as_str() != contact.postal_address
+        || app.get_contact_more_emails().as_str() != contact.extras.emails.join("\n")
+        || app.get_contact_more_phones().as_str() != contact.extras.phones.join("\n")
+        || app.get_contact_more_addresses().as_str() != contact.extras.addresses.join("\n")
         || app.get_contact_notes().as_str() != contact.notes
         || app.get_contact_tags().as_str() != contact.tags
         || app.get_contact_favorite() != contact.is_favorite
@@ -397,6 +432,13 @@ pub(crate) fn apply_contact_directory(app: &AppWindow, state: &Rc<RefCell<Contac
         .and_then(|id| directory.contacts.iter().find(|contact| contact.id == id))
     {
         apply_contact_form(app, contact);
+        match directory.photo.as_ref().filter(|(id, _)| *id == contact.id) {
+            Some((_, image)) => {
+                app.set_contact_photo(image.clone());
+                app.set_contact_has_photo(true);
+            }
+            None => app.set_contact_has_photo(false),
+        }
     } else {
         clear_contact_form(app);
         app.set_contact_has_selection(false);
@@ -556,6 +598,8 @@ mod tests {
             last_interacted: None,
             account_ids: Vec::new(),
             is_managed: false,
+            extras: Default::default(),
+            has_photo: false,
         }
     }
 

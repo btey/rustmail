@@ -55,6 +55,8 @@ struct State {
     event_changes: Vec<String>,
     /// Bytes received by the upload session (Content-Range header values).
     uploads: Vec<String>,
+    /// The picture of contact C1 (empty: none).
+    contact_photo: Vec<u8>,
 }
 
 type Shared = Arc<Mutex<State>>;
@@ -413,6 +415,17 @@ fn route(
                     r#"{{"id":"C1","changeKey":"{key}","displayName":"Ann Lee","emailAddresses":[{{"address":"ann@example.org"}}]}}"#
                 ),
             )
+        }
+        ("GET", "/contacts/C1/photo/$value") => {
+            if state.contact_photo.is_empty() {
+                json(404, r#"{"error":{"code":"ErrorItemNotFound"}}"#.into())
+            } else {
+                (200, String::new(), state.contact_photo.clone(), "image/jpeg")
+            }
+        }
+        ("PUT", "/contacts/C1/photo/$value") => {
+            state.contact_photo = body.as_bytes().to_vec();
+            (200, String::new(), Vec::new(), "text/plain")
         }
         ("PATCH", "/contacts/C1") => json(200, r#"{"id":"C1","changeKey":"k2"}"#.into()),
         ("DELETE", "/contacts/C1") => (204, String::new(), Vec::new(), "text/plain"),
@@ -1832,6 +1845,8 @@ async fn contact_edits_new_contacts_and_deletions_are_written_back() {
             last_interacted: None,
             account_ids: vec![account.id],
             is_managed: true,
+            extras: Default::default(),
+            has_photo: false,
         })
         .await
         .unwrap();
@@ -2206,4 +2221,93 @@ async fn a_task_linked_to_microsoft_365_mail_keeps_its_link_after_the_mail_moves
         linked.iter().any(|t| t.task_id == task.id),
         "the task still finds its conversation"
     );
+}
+
+#[tokio::test]
+async fn contact_extras_and_photo_round_trip_with_graph() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().contacts = vec![
+        r#"{"id":"C1","changeKey":"k1","displayName":"Ann Lee","emailAddresses":[{"address":"ann@example.org"},{"address":"ann.lee@home.example"}],"mobilePhone":"+1 555 0100","businessPhones":["+1 555 0101"],"homePhones":["+1 555 0102"],"businessAddress":{"street":"1 Main St","city":"Oslo"},"homeAddress":{"street":"2 Side Rd","city":"Bergen"}}"#.into(),
+    ];
+    shared.lock().unwrap().contact_photo =
+        b"\xFF\xD8JPEG-PICTURE".iter().map(|b| b & 0x7f).collect();
+    let picture = shared.lock().unwrap().contact_photo.clone();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+
+    let id = ann_id(&core).await;
+    let record = core
+        .list_contact_records("ann".into(), 5)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|c| c.id == id)
+        .unwrap();
+    assert_eq!(record.phone, "+1 555 0100");
+    assert_eq!(
+        record.extras.phones,
+        vec!["+1 555 0101".to_owned(), "+1 555 0102".to_owned()]
+    );
+    assert_eq!(
+        record.extras.emails,
+        vec!["ann.lee@home.example".to_owned()]
+    );
+    assert_eq!(record.postal_address, "1 Main St, Oslo");
+    assert_eq!(
+        record.extras.addresses,
+        vec!["2 Side Rd, Bergen".to_owned()]
+    );
+    assert!(record.has_photo);
+    assert_eq!(core.contact_photo(id).await.unwrap(), Some(picture.clone()));
+
+    // An edit keeps the extra values and the picture and sends them back.
+    let mut edited = record.clone();
+    edited.company = "Globex".into();
+    edited.extras.emails.push("ann@work.example".into());
+    edited.account_ids = vec![account.id];
+    core.save_contact(edited).await.unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    let patches = seen(&shared, "PATCH /graph/v1.0/me/contacts/C1");
+    assert_eq!(patches.len(), 1, "{:?}", shared.lock().unwrap().log);
+    for wanted in [
+        "ann.lee@home.example",
+        "ann@work.example",
+        "+1 555 0101",
+        "2 Side Rd, Bergen",
+    ] {
+        assert!(patches[0].contains(wanted), "{wanted} in {}", patches[0]);
+    }
+    assert_eq!(
+        seen(&shared, "PUT /graph/v1.0/me/contacts/C1/photo/$value").len(),
+        1
+    );
+    assert_eq!(core.contact_photo(id).await.unwrap(), Some(picture));
+
+    // Removing the picture locally clears it and marks the contact for upload.
+    core.set_contact_photo(id, None).await.unwrap();
+    assert_eq!(core.contact_photo(id).await.unwrap(), None);
+}
+
+#[tokio::test]
+async fn the_calendar_window_of_an_account_can_be_set_and_is_bounded() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.set_exchange_calendar_window(account.id, 30, 100_000)
+        .await
+        .unwrap();
+    let settings = core.exchange_account_settings(account.id).await.unwrap();
+    assert_eq!(settings.calendar_past_days, 30);
+    assert_eq!(settings.calendar_future_days, 3650);
+    // Editing the other settings keeps the window.
+    core.update_exchange_account(account.id, None, settings.clone(), None)
+        .await
+        .unwrap();
+    let again = core.exchange_account_settings(account.id).await.unwrap();
+    assert_eq!(again.calendar_past_days, 30);
 }

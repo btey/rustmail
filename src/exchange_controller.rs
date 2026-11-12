@@ -210,6 +210,8 @@ pub(super) fn begin(
                 .and_then(|original| original.clone())
                 .is_some_and(|(id, old)| id == account_id && !old.sign_in_differs(&settings));
         let offline = ui.get_work_offline();
+        let days = |text: slint::SharedString| text.trim().parse::<u32>().unwrap_or(0);
+        let (past_days, future_days) = (days(ui.get_calendar_past()), days(ui.get_calendar_future()));
         if unchanged {
             app.set_account_setup_in_progress(true);
             app.set_sync_status(UiMessage::plain("Checking the sign-in with Microsoft Graph…"));
@@ -222,6 +224,13 @@ pub(super) fn begin(
                     .await
                 {
                     tracing::warn!("could not save the offline switch: {error}");
+                }
+                if let Err(error) = core
+                    .file_core()
+                    .set_exchange_calendar_window(account_id, past_days, future_days)
+                    .await
+                {
+                    tracing::warn!("could not save the calendar window: {error}");
                 }
                 let update = match core
                     .file_core()
@@ -401,6 +410,9 @@ pub(super) fn register(
                 ui.set_graph_url(settings.custom_graph_url.into());
                 ui.set_mailbox(settings.shared_mailbox.into());
                 ui.set_work_offline(settings.work_offline);
+                let days = |days: u32| if days == 0 { String::new() } else { days.to_string() };
+                ui.set_calendar_past(days(settings.calendar_past_days).into());
+                ui.set_calendar_future(days(settings.calendar_future_days).into());
                 ui.set_force_sign_in(force);
                 ui.set_edit_account_id(account_id);
             });

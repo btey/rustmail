@@ -15,6 +15,8 @@ use crate::sync::engine::SyncCtx;
 
 const MAX_PAGES: usize = 2_000;
 const MAX_FOLDERS: usize = 200;
+/// Contact pictures read for one page of changes.
+const MAX_PHOTOS_PER_PAGE: usize = 100;
 
 /// Write local contact changes to Microsoft 365. Returns whether anything
 /// was sent. A folder that answers `403` is marked read only.
@@ -106,6 +108,9 @@ async fn push_contacts(ctx: &SyncCtx, config: &AccountConfig, client: &GraphMail
                     }
                     Some(_) => {
                         let key = client.update_contact(&object.href, &body).await?;
+                        if let Some(photo) = record.extras.photo.as_deref() {
+                            client.set_contact_photo(&object.href, photo).await?;
+                        }
                         ctx.db
                             .write(move |conn| {
                                 repo::carddav::clear_dirty(conn, id, key.as_deref(), &vcard)
@@ -115,6 +120,9 @@ async fn push_contacts(ctx: &SyncCtx, config: &AccountConfig, client: &GraphMail
                 }
             } else {
                 let (graph_id, key) = client.create_contact(&folder, &body).await?;
+                if let Some(photo) = record.extras.photo.as_deref() {
+                    client.set_contact_photo(&graph_id, photo).await?;
+                }
                 ctx.db
                     .write(move |conn| {
                         conn.execute(
@@ -143,8 +151,10 @@ async fn push_contacts(ctx: &SyncCtx, config: &AccountConfig, client: &GraphMail
     Ok(changed)
 }
 
-fn record_for(contact: &GraphContact) -> Option<ContactRecord> {
+fn record_for(contact: &GraphContact, photo: Option<Vec<u8>>) -> Option<ContactRecord> {
     let email = contact.emails.first()?.to_lowercase();
+    let email_for_extras = email.clone();
+    let has_photo = photo.is_some();
     let name = if contact.name.is_empty() {
         email.clone()
     } else {
@@ -167,6 +177,14 @@ fn record_for(contact: &GraphContact) -> Option<ContactRecord> {
         last_interacted: None,
         account_ids: Vec::new(),
         is_managed: true,
+        extras: crate::models::ContactExtras {
+            emails: contact.emails.iter().skip(1).cloned().collect(),
+            phones: contact.more_phones.clone(),
+            addresses: contact.more_addresses.clone(),
+            photo,
+        }
+        .cleaned(&email_for_extras),
+        has_photo,
     })
 }
 
@@ -267,6 +285,19 @@ async fn sync_folder(
         if !page.items.is_empty() {
             changed = true;
             let items = page.items.clone();
+            // Pictures are read before the database write, a few per page; a
+            // failed or missing one leaves the contact without a picture.
+            let mut photos: std::collections::HashMap<String, Vec<u8>> =
+                std::collections::HashMap::new();
+            for item in &items {
+                if let ContactChange::Upsert(contact) = item
+                    && photos.len() < MAX_PHOTOS_PER_PAGE
+                    && !contact.emails.is_empty()
+                    && let Ok(Some(bytes)) = client.contact_photo(&contact.id).await
+                {
+                    photos.insert(contact.id.clone(), bytes);
+                }
+            }
             ctx.db
                 .write(move |conn| {
                     let tx = conn.transaction()?;
@@ -277,7 +308,7 @@ async fn sync_folder(
                             }
                             ContactChange::Upsert(contact) => {
                                 let uid = format!("graph-{}", contact.id);
-                                match record_for(contact) {
+                                match record_for(contact, photos.get(&contact.id).cloned()) {
                                     Some(record) => {
                                         let vcard = crate::carddav::vcard::serialize(&record, &uid);
                                         repo::carddav::upsert_remote(
@@ -333,9 +364,9 @@ mod tests {
             name: "Ann Lee".into(),
             ..Default::default()
         };
-        assert!(record_for(&contact).is_none());
+        assert!(record_for(&contact, None).is_none());
         contact.emails = vec!["Ann@Example.org".into(), "second@example.org".into()];
-        let record = record_for(&contact).unwrap();
+        let record = record_for(&contact, None).unwrap();
         assert_eq!(record.email, "ann@example.org");
         assert_eq!(record.name, "Ann Lee");
     }

@@ -809,6 +809,11 @@ export component AppWindow inherits Window {
     in-out property <string> contact_website: "";
     in-out property <string> contact_birthday: "";
     in-out property <string> contact_address: "";
+    in-out property <string> contact_more_emails: "";
+    in-out property <string> contact_more_phones: "";
+    in-out property <string> contact_more_addresses: "";
+    in-out property <image> contact_photo;
+    in-out property <bool> contact_has_photo: false;
     in-out property <string> contact_notes: "";
     in-out property <string> contact_tags: "";
     in-out property <bool> contact_favorite: false;
@@ -1653,6 +1658,11 @@ export component AppWindow inherits Window {
             edit-website <=> root.contact_website;
             edit-birthday <=> root.contact_birthday;
             edit-postal-address <=> root.contact_address;
+            edit-more-emails <=> root.contact_more_emails;
+            edit-more-phones <=> root.contact_more_phones;
+            edit-more-addresses <=> root.contact_more_addresses;
+            edit-photo: root.contact_photo;
+            edit-has-photo: root.contact_has_photo;
             edit-notes <=> root.contact_notes;
             edit-tags <=> root.contact_tags;
             edit-favorite <=> root.contact_favorite;

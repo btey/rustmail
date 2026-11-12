@@ -41,6 +41,8 @@ fn record_from_row(row: &Row<'_>) -> rusqlite::Result<ContactRecord> {
         last_interacted: row.get(13)?,
         is_managed: row.get::<_, i64>(14)? != 0,
         account_ids,
+        extras: serde_json::from_str(&row.get::<_, String>(16)?).unwrap_or_default(),
+        has_photo: row.get(17)?,
     })
 }
 
@@ -412,7 +414,11 @@ pub fn list_records(conn: &Connection, query: &str, limit: i64) -> Result<Vec<Co
                 CASE WHEN {saved} THEN 1 ELSE 0 END,
                 COALESCE((SELECT GROUP_CONCAT(ca.account_id)
                           FROM contact_accounts ca
-                          WHERE ca.contact_id = contacts.id), '')
+                          WHERE ca.contact_id = contacts.id), ''),
+                COALESCE((SELECT ce.extras FROM contact_extras ce
+                          WHERE ce.contact_id = contacts.id), '{{}}'),
+                EXISTS(SELECT 1 FROM contact_extras ce
+                       WHERE ce.contact_id = contacts.id AND ce.photo IS NOT NULL)
          FROM contacts
          WHERE ({query_sql}) AND {saved}
          ORDER BY is_favorite DESC,
@@ -487,7 +493,11 @@ pub fn list_record_page(
                 CASE WHEN {saved} THEN 1 ELSE 0 END,
                 COALESCE((SELECT GROUP_CONCAT(ca.account_id)
                           FROM contact_accounts ca
-                          WHERE ca.contact_id = contacts.id), '')
+                          WHERE ca.contact_id = contacts.id), ''),
+                COALESCE((SELECT ce.extras FROM contact_extras ce
+                          WHERE ce.contact_id = contacts.id), '{{}}'),
+                EXISTS(SELECT 1 FROM contact_extras ce
+                       WHERE ce.contact_id = contacts.id AND ce.photo IS NOT NULL)
          FROM contacts
          WHERE {where_sql}
          ORDER BY is_favorite DESC,
@@ -685,6 +695,7 @@ pub fn save_record(
             |row| row.get(0),
         )?
     };
+    write_extras(conn, id, &record.extras.cleaned(&email), false)?;
     let address_book = saved_contact_predicate("contacts");
     let mut saved = conn.query_row(
         &format!(
@@ -694,7 +705,11 @@ pub fn save_record(
                 CASE WHEN {address_book} THEN 1 ELSE 0 END,
                 COALESCE((SELECT GROUP_CONCAT(ca.account_id)
                           FROM contact_accounts ca
-                          WHERE ca.contact_id = contacts.id), '')
+                          WHERE ca.contact_id = contacts.id), ''),
+                COALESCE((SELECT ce.extras FROM contact_extras ce
+                          WHERE ce.contact_id = contacts.id), '{{}}'),
+                EXISTS(SELECT 1 FROM contact_extras ce
+                       WHERE ce.contact_id = contacts.id AND ce.photo IS NOT NULL)
          FROM contacts WHERE id = ?1"
         ),
         [id],
@@ -702,6 +717,66 @@ pub fn save_record(
     )?;
     saved.email = email;
     Ok(saved)
+}
+
+/// Store the extra values of a contact. A photo is only replaced when one is
+/// given, unless `replace_photo` (a synced contact whose photo was removed).
+pub fn write_extras(
+    conn: &Connection,
+    contact_id: i64,
+    extras: &crate::models::ContactExtras,
+    replace_photo: bool,
+) -> Result<()> {
+    let json =
+        serde_json::to_string(extras).map_err(|e| crate::error::CoreError::Other(e.to_string()))?;
+    if extras.is_empty() && !replace_photo {
+        // Nothing to keep except possibly an existing photo.
+        conn.execute(
+            "UPDATE contact_extras SET extras = '{}' WHERE contact_id = ?1",
+            [contact_id],
+        )?;
+        conn.execute(
+            "DELETE FROM contact_extras WHERE contact_id = ?1 AND photo IS NULL",
+            [contact_id],
+        )?;
+        return Ok(());
+    }
+    if replace_photo || extras.photo.is_some() {
+        conn.execute(
+            "INSERT INTO contact_extras (contact_id, extras, photo) VALUES (?1, ?2, ?3)
+             ON CONFLICT(contact_id) DO UPDATE SET extras = excluded.extras, photo = excluded.photo",
+            params![contact_id, json, extras.photo],
+        )?;
+    } else {
+        conn.execute(
+            "INSERT INTO contact_extras (contact_id, extras) VALUES (?1, ?2)
+             ON CONFLICT(contact_id) DO UPDATE SET extras = excluded.extras",
+            params![contact_id, json],
+        )?;
+    }
+    Ok(())
+}
+
+pub fn photo(conn: &Connection, contact_id: i64) -> Result<Option<Vec<u8>>> {
+    Ok(conn
+        .query_row(
+            "SELECT photo FROM contact_extras WHERE contact_id = ?1",
+            [contact_id],
+            |row| row.get::<_, Option<Vec<u8>>>(0),
+        )
+        .optional()?
+        .flatten())
+}
+
+pub fn set_photo(conn: &Connection, contact_id: i64, photo: Option<&[u8]>) -> Result<()> {
+    let photo = photo
+        .filter(|bytes| !bytes.is_empty() && bytes.len() <= crate::models::MAX_CONTACT_PHOTO_BYTES);
+    conn.execute(
+        "INSERT INTO contact_extras (contact_id, extras, photo) VALUES (?1, '{}', ?2)
+         ON CONFLICT(contact_id) DO UPDATE SET photo = excluded.photo",
+        params![contact_id, photo],
+    )?;
+    Ok(())
 }
 
 pub fn delete_record(conn: &Connection, id: i64) -> Result<()> {
@@ -713,22 +788,32 @@ pub fn delete_record(conn: &Connection, id: i64) -> Result<()> {
 
 pub fn get_record(conn: &Connection, id: i64) -> Result<Option<ContactRecord>> {
     let address_book = saved_contact_predicate("contacts");
-    conn.query_row(
-        &format!(
-            "SELECT id, COALESCE(name, ''), email, phone, company, job_title,
+    let mut record = conn
+        .query_row(
+            &format!(
+                "SELECT id, COALESCE(name, ''), email, phone, company, job_title,
                 website, birthday, postal_address, notes, tags, is_favorite,
                 send_count * 3 + recv_count, last_interacted,
                 CASE WHEN {address_book} THEN 1 ELSE 0 END,
                 COALESCE((SELECT GROUP_CONCAT(ca.account_id)
                           FROM contact_accounts ca
-                          WHERE ca.contact_id = contacts.id), '')
+                          WHERE ca.contact_id = contacts.id), ''),
+                COALESCE((SELECT ce.extras FROM contact_extras ce
+                          WHERE ce.contact_id = contacts.id), '{{}}'),
+                EXISTS(SELECT 1 FROM contact_extras ce
+                       WHERE ce.contact_id = contacts.id AND ce.photo IS NOT NULL)
          FROM contacts WHERE id = ?1"
-        ),
-        [id],
-        record_from_row,
-    )
-    .optional()
-    .map_err(Into::into)
+            ),
+            [id],
+            record_from_row,
+        )
+        .optional()?;
+    if let Some(record) = record.as_mut()
+        && record.has_photo
+    {
+        record.extras.photo = photo(conn, id)?;
+    }
+    Ok(record)
 }
 
 /// Affinity score (send_count*3 + recv_count) per email, for the given
@@ -937,6 +1022,8 @@ mod tests {
                 last_interacted: None,
                 account_ids: Vec::new(),
                 is_managed: true,
+                extras: Default::default(),
+                has_photo: false,
             },
             100,
         )
@@ -1109,6 +1196,8 @@ mod tests {
                 last_interacted: None,
                 account_ids: vec![1],
                 is_managed: false,
+                extras: Default::default(),
+                has_photo: false,
             },
         )
         .unwrap();

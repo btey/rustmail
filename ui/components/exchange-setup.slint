@@ -27,6 +27,9 @@ export global ExchangeSetupUi {
     in-out property <string> mailbox;
     // Editing an existing account: no requests to Microsoft 365 for it.
     in-out property <bool> work-offline: false;
+    // Days of calendar kept behind and ahead ("" = the defaults).
+    in-out property <string> calendar-past;
+    in-out property <string> calendar-future;
     // "" (nothing running), "paste", "device" or "browser".
     in-out property <string> step;
     // The sign-in address (paste) or the verification address (device code).
@@ -222,6 +225,25 @@ export component ExchangeSetupFields inherits VerticalBox {
         title-color: root.label-color;
         description-color: root.body-text;
         toggled(value) => { ExchangeSetupUi.work-offline = value; }
+    }
+
+    if ExchangeSetupUi.edit-account-id != 0 : FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Calendar history in days · Optional");
+        value: ExchangeSetupUi.calendar-past;
+        placeholder: @tr("90");
+        label-color: root.label-color;
+        edited(value) => { ExchangeSetupUi.calendar-past = value; }
+    }
+    if ExchangeSetupUi.edit-account-id != 0 : FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Calendar ahead in days · Optional");
+        value: ExchangeSetupUi.calendar-future;
+        placeholder: @tr("400");
+        label-color: root.label-color;
+        edited(value) => { ExchangeSetupUi.calendar-future = value; }
     }
 
     if ExchangeSetupUi.step == "paste" : VerticalBox {

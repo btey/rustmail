@@ -58,6 +58,11 @@ export component ContactsView inherits Rectangle {
     in-out property <string> edit-website: "";
     in-out property <string> edit-birthday: "";
     in-out property <string> edit-postal-address: "";
+    in-out property <string> edit-more-emails: "";
+    in-out property <string> edit-more-phones: "";
+    in-out property <string> edit-more-addresses: "";
+    in property <image> edit-photo;
+    in property <bool> edit-has-photo: false;
     in-out property <string> edit-notes: "";
     in-out property <string> edit-tags: "";
     in-out property <bool> edit-favorite: false;
@@ -623,6 +628,8 @@ export component ContactsView inherits Rectangle {
                             spacing: 14px;
                             Avatar {
                                 size: 52px;
+                                source: root.edit-photo;
+                                has-source: root.edit-has-photo;
                                 fallback: root.edit-initials;
                                 background-color: root.accent-soft;
                                 foreground-color: root.accent;
@@ -710,6 +717,12 @@ export component ContactsView inherits Rectangle {
                         LineEdit { text <=> root.edit-website; placeholder-text: @tr("https://example.com"); }
                         FieldLabel { label: @tr("ADDRESS"); }
                         TextEdit { height: 72px; text <=> root.edit-postal-address; placeholder-text: @tr("Postal address"); }
+                        FieldLabel { label: @tr("MORE E-MAIL ADDRESSES"); }
+                        TextEdit { height: 56px; text <=> root.edit-more-emails; placeholder-text: @tr("One per line"); }
+                        FieldLabel { label: @tr("MORE PHONE NUMBERS"); }
+                        TextEdit { height: 56px; text <=> root.edit-more-phones; placeholder-text: @tr("One per line"); }
+                        FieldLabel { label: @tr("MORE ADDRESSES"); }
+                        TextEdit { height: 56px; text <=> root.edit-more-addresses; placeholder-text: @tr("One per line"); }
                         FieldLabel { label: @tr("TAGS"); }
                         LineEdit { text <=> root.edit-tags; placeholder-text: @tr("customer, design, london"); }
                         FieldLabel { label: @tr("NOTES"); }
