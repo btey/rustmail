@@ -1146,6 +1146,103 @@ impl GraphMail {
         Ok(Some(page))
     }
 
+    /// Create a contact in a folder; returns its id and change key.
+    pub async fn create_contact(
+        &self,
+        folder_id: &str,
+        body: &Value,
+    ) -> Result<(String, Option<String>)> {
+        let url = self.endpoint(&["contactFolders", folder_id, "contacts"]);
+        let value = self
+            .json(reqwest::Method::POST, url, Some(body), &[])
+            .await?;
+        let id = value["id"]
+            .as_str()
+            .ok_or_else(|| CoreError::Network("Microsoft Graph returned no contact id".into()))?;
+        Ok((
+            id.to_owned(),
+            value["changeKey"].as_str().map(str::to_owned),
+        ))
+    }
+
+    /// One contact as it is now on the server; `None` when it is gone.
+    pub async fn get_contact(&self, contact_id: &str) -> Result<Option<GraphContact>> {
+        let url = self.endpoint(&["contacts", contact_id]);
+        let raw = self
+            .send(reqwest::Method::GET, url, None, &[], MAX_JSON_BYTES, false)
+            .await?;
+        if raw.status == 404 {
+            return Ok(None);
+        }
+        if !(200..300).contains(&raw.status) {
+            return Err(status_error(raw.status, &raw.body));
+        }
+        let value: Value = serde_json::from_slice(&raw.body).map_err(|error| {
+            CoreError::Network(format!("Microsoft Graph reply was not JSON: {error}"))
+        })?;
+        Ok(Some(parse_contact(&value, contact_id)))
+    }
+
+    /// Change a contact; returns its new change key.
+    pub async fn update_contact(&self, contact_id: &str, body: &Value) -> Result<Option<String>> {
+        let url = self.endpoint(&["contacts", contact_id]);
+        let value = self
+            .json(reqwest::Method::PATCH, url, Some(body), &[])
+            .await?;
+        Ok(value["changeKey"].as_str().map(str::to_owned))
+    }
+
+    /// Delete a contact; one that is already gone counts as deleted.
+    pub async fn delete_contact(&self, contact_id: &str) -> Result<()> {
+        let url = self.endpoint(&["contacts", contact_id]);
+        let raw = self
+            .send(
+                reqwest::Method::DELETE,
+                url,
+                None,
+                &[],
+                MAX_JSON_BYTES,
+                false,
+            )
+            .await?;
+        if (200..300).contains(&raw.status) || raw.status == 404 {
+            return Ok(());
+        }
+        Err(status_error(raw.status, &raw.body))
+    }
+
+    /// People the signed-in user works with and the organization directory
+    /// (`/me/people`, read only; needs `People.Read`): (name, address).
+    pub async fn directory_search(
+        &self,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<(String, String)>> {
+        let query = query.trim();
+        if query.is_empty() || query.len() > 200 || query.chars().any(char::is_control) {
+            return Ok(Vec::new());
+        }
+        let mut url = self.endpoint(&["people"]);
+        url.query_pairs_mut()
+            .append_pair("$search", &format!("\"{}\"", query.replace('"', "")))
+            .append_pair("$select", "displayName,scoredEmailAddresses")
+            .append_pair("$top", &limit.clamp(1, 50).to_string());
+        let value = self.json(reqwest::Method::GET, url, None, &[]).await?;
+        let mut out = Vec::new();
+        for person in value["value"].as_array().into_iter().flatten() {
+            let name = person["displayName"].as_str().unwrap_or_default().trim();
+            let address = person["scoredEmailAddresses"]
+                .as_array()
+                .and_then(|list| list.iter().find_map(|entry| entry["address"].as_str()))
+                .map(str::trim)
+                .filter(|address| address.contains('@'));
+            if let Some(address) = address {
+                out.push((name.to_owned(), address.to_owned()));
+            }
+        }
+        Ok(out)
+    }
+
     /// The mailbox's calendars.
     pub async fn calendars(&self) -> Result<Vec<crate::graph::GraphCalendar>> {
         let mut url = self.endpoint(&["calendars"]);
@@ -1287,6 +1384,46 @@ impl GraphMail {
         .await
         .map(|_| ())
     }
+}
+
+/// The Graph fields for a contact record (only what the sync reads back).
+pub(crate) fn contact_body(record: &crate::models::ContactRecord) -> Value {
+    let mut body = serde_json::Map::new();
+    body.insert("displayName".into(), Value::from(record.name.clone()));
+    body.insert(
+        "emailAddresses".into(),
+        serde_json::json!([{ "address": record.email, "name": record.name }]),
+    );
+    let text = |key: &str, value: &str| (key.to_owned(), Value::from(value.to_owned()));
+    for (key, value) in [
+        text("companyName", &record.company),
+        text("jobTitle", &record.job_title),
+        text("businessHomePage", &record.website),
+        text("personalNotes", &record.notes),
+    ] {
+        body.insert(key, value);
+    }
+    body.insert(
+        "mobilePhone".into(),
+        if record.phone.is_empty() {
+            Value::Null
+        } else {
+            Value::from(record.phone.clone())
+        },
+    );
+    body.insert(
+        "birthday".into(),
+        if record.birthday.len() == 10 {
+            Value::from(format!("{}T00:00:00Z", record.birthday))
+        } else {
+            Value::Null
+        },
+    );
+    body.insert(
+        "businessAddress".into(),
+        serde_json::json!({ "street": record.postal_address }),
+    );
+    Value::Object(body)
 }
 
 fn parse_contact(item: &Value, id: &str) -> GraphContact {

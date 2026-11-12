@@ -511,6 +511,16 @@ pub fn attach_new_contact(conn: &Connection, account_id: i64, contact_id: i64) -
     let uid = crate::carddav::vcard::new_uid();
     let vcard = crate::carddav::vcard::serialize(&record, &uid);
     let resource_name = format!("{}.vcf", uid.trim_start_matches("urn:uuid:"));
+    // A Microsoft 365 folder (`graph:<id>`) has no resource path; the contact
+    // gets its server id when it is created there.
+    if book_url.starts_with("graph:") {
+        conn.execute(
+            "INSERT INTO carddav_objects(addressbook_id,contact_id,href,vcard_raw,remote_exists,dirty,owns_contact)
+             VALUES (?1,?2,?3,?4,0,1,1)",
+            params![book_id, contact_id, format!("new-{resource_name}"), vcard],
+        )?;
+        return Ok(true);
+    }
     let mut url =
         url::Url::parse(&book_url).map_err(|e| crate::error::CoreError::CardDav(e.to_string()))?;
     url.path_segments_mut()

@@ -2466,6 +2466,42 @@ impl Core {
         exchange::sync::search_on_server(&self.sync_ctx(), &config, &client, query).await
     }
 
+    /// How many local changes are waiting to reach their servers (queued mail
+    /// actions and edited contacts), for one account or all of them. A status
+    /// line such as "Offline · 3 changes waiting" reads this.
+    pub async fn pending_changes(&self, account_id: Option<i64>) -> Result<usize> {
+        self.db
+            .read(move |conn| {
+                let actions: i64 = conn.query_row(
+                    "SELECT COUNT(*) FROM pending_actions
+                     WHERE state IN ('pending','inflight') AND (?1 IS NULL OR account_id=?1)",
+                    [account_id],
+                    |row| row.get(0),
+                )?;
+                let contacts: i64 = conn.query_row(
+                    "SELECT COUNT(*) FROM carddav_objects o
+                     JOIN carddav_addressbooks b ON b.id=o.addressbook_id
+                     WHERE o.dirty=1 AND (?1 IS NULL OR b.account_id=?1)",
+                    [account_id],
+                    |row| row.get(0),
+                )?;
+                Ok(usize::try_from(actions + contacts).unwrap_or(usize::MAX))
+            })
+            .await
+    }
+
+    /// Look people up in the Microsoft 365 organization directory (read
+    /// only, needs `People.Read` and a connection): (name, address) pairs.
+    pub async fn exchange_directory_search(
+        &self,
+        account_id: i64,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<(String, String)>> {
+        let (_, client) = self.exchange_client(account_id).await?;
+        client.directory_search(query, limit).await
+    }
+
     /// Connect the calendars of a Microsoft 365 account (the shared calendar
     /// task then keeps them in sync). Needs the Calendars permission.
     pub async fn connect_exchange_calendar(&self, account_id: i64) -> Result<Vec<Calendar>> {

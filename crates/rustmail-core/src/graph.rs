@@ -530,6 +530,10 @@ fn parse_graph_time(v: Option<&serde_json::Value>, all_day: bool) -> Option<i64>
     {
         return Some(ms);
     }
+    if !all_day && !zone.eq_ignore_ascii_case("UTC") {
+        // The time is shown as UTC, which is wrong by the zone's offset.
+        tracing::warn!(zone, "calendar event in a time zone Rustmail does not know");
+    }
     Some(naive.and_utc().timestamp_millis())
 }
 

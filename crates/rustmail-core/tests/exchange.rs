@@ -49,6 +49,8 @@ struct State {
     /// Contacts and events the first delta returns, then the changes.
     contacts: Vec<String>,
     contact_changes: Vec<String>,
+    /// The change key the server reports for contact C1 (empty: "k1").
+    contact_key: String,
     events: Vec<String>,
     event_changes: Vec<String>,
     /// Bytes received by the upload session (Content-Range header values).
@@ -383,6 +385,28 @@ fn route(
         ("POST", p) if p.starts_with("/messages/") && p.ends_with("/send") => {
             (202, String::new(), Vec::new(), "text/plain")
         }
+        ("POST", "/contactFolders/CF1/contacts") => {
+            json(201, r#"{"id":"NEWC","changeKey":"n1"}"#.into())
+        }
+        ("GET", "/contacts/C1") => {
+            let key = if state.contact_key.is_empty() {
+                "k1".to_owned()
+            } else {
+                state.contact_key.clone()
+            };
+            json(
+                200,
+                format!(
+                    r#"{{"id":"C1","changeKey":"{key}","displayName":"Ann Lee","emailAddresses":[{{"address":"ann@example.org"}}]}}"#
+                ),
+            )
+        }
+        ("PATCH", "/contacts/C1") => json(200, r#"{"id":"C1","changeKey":"k2"}"#.into()),
+        ("DELETE", "/contacts/C1") => (204, String::new(), Vec::new(), "text/plain"),
+        ("GET", "/people") => json(
+            200,
+            r#"{"value":[{"displayName":"Carl Dir","scoredEmailAddresses":[{"address":"carl@example.org"}]},{"displayName":"No Mail","scoredEmailAddresses":[]}]}"#.into(),
+        ),
         ("GET", "/contactFolders") => json(
             200,
             r#"{"value":[{"id":"CF1","displayName":"Contacts"}]}"#.into(),
@@ -1446,4 +1470,197 @@ async fn an_account_is_edited_and_reconnected_and_a_new_mailbox_clears_the_cache
         fetched_after > fetched_before,
         "the cache was cleared and read again ({fetched_before} -> {fetched_after})"
     );
+}
+
+async fn ann_id(core: &Core) -> i64 {
+    core.db
+        .read(|conn| {
+            Ok(conn.query_row(
+                "SELECT id FROM contacts WHERE email='ann@example.org'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )?)
+        })
+        .await
+        .unwrap()
+}
+
+fn seen(shared: &Shared, prefix: &str) -> Vec<String> {
+    shared
+        .lock()
+        .unwrap()
+        .log
+        .iter()
+        .filter(|(line, _)| line.contains(prefix))
+        .map(|(_, body)| body.clone())
+        .collect()
+}
+
+#[tokio::test]
+async fn contact_edits_new_contacts_and_deletions_are_written_back() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().contacts = vec![
+        r#"{"id":"C1","changeKey":"k1","displayName":"Ann Lee","emailAddresses":[{"address":"ann@example.org"}],"companyName":"Acme"}"#.into(),
+    ];
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+
+    // An edit goes out as a PATCH.
+    let id = ann_id(&core).await;
+    let mut record = core
+        .list_contact_records("ann".into(), 5)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|c| c.id == id)
+        .unwrap();
+    record.company = "Globex".into();
+    record.account_ids = vec![account.id];
+    core.save_contact(record).await.unwrap();
+    assert_eq!(core.pending_changes(Some(account.id)).await.unwrap(), 1);
+    core.sync_now(Some(account.id)).await.unwrap();
+    assert_eq!(core.pending_changes(Some(account.id)).await.unwrap(), 0);
+    let patches = seen(&shared, "PATCH /graph/v1.0/me/contacts/C1");
+    assert_eq!(patches.len(), 1, "{:?}", shared.lock().unwrap().log);
+    assert!(patches[0].contains("Globex"), "{}", patches[0]);
+
+    // A new contact is created in the default folder and then keeps its id.
+    let new = core
+        .save_contact(ContactRecord {
+            id: 0,
+            name: "Bob Ray".into(),
+            email: "bob@example.org".into(),
+            phone: String::new(),
+            company: "Initech".into(),
+            job_title: String::new(),
+            website: String::new(),
+            birthday: String::new(),
+            postal_address: String::new(),
+            notes: String::new(),
+            tags: String::new(),
+            is_favorite: false,
+            interactions: 0,
+            last_interacted: None,
+            account_ids: vec![account.id],
+            is_managed: true,
+        })
+        .await
+        .unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    let posts = seen(&shared, "POST /graph/v1.0/me/contactFolders/CF1/contacts");
+    assert_eq!(posts.len(), 1);
+    assert!(posts[0].contains("Bob Ray") && posts[0].contains("Initech"));
+    let href: String = core
+        .db
+        .read(move |conn| {
+            Ok(conn.query_row(
+                "SELECT href FROM carddav_objects WHERE contact_id=?1",
+                [new.id],
+                |row| row.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(href, "NEWC");
+    core.sync_now(Some(account.id)).await.unwrap();
+    assert_eq!(
+        seen(&shared, "POST /graph/v1.0/me/contactFolders/CF1/contacts").len(),
+        1,
+        "created once"
+    );
+
+    // A deletion goes out as a DELETE.
+    core.delete_contact(id).await.unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    assert_eq!(seen(&shared, "DELETE /graph/v1.0/me/contacts/C1").len(), 1);
+}
+
+#[tokio::test]
+async fn a_contact_changed_on_the_server_meanwhile_is_not_overwritten() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().contacts = vec![
+        r#"{"id":"C1","changeKey":"k1","displayName":"Ann Lee","emailAddresses":[{"address":"ann@example.org"}],"companyName":"Acme"}"#.into(),
+    ];
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let id = ann_id(&core).await;
+    let mut record = core
+        .list_contact_records("ann".into(), 5)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|c| c.id == id)
+        .unwrap();
+    record.company = "Local edit".into();
+    record.account_ids = vec![account.id];
+    core.save_contact(record).await.unwrap();
+    shared.lock().unwrap().contact_key = "k9".into();
+    core.sync_now(Some(account.id)).await.unwrap();
+    assert!(
+        seen(&shared, "PATCH /graph/v1.0/me/contacts/C1").is_empty(),
+        "the server's newer version is not overwritten"
+    );
+}
+
+#[tokio::test]
+async fn the_organization_directory_can_be_searched() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    let found = core
+        .exchange_directory_search(account.id, "carl", 10)
+        .await
+        .unwrap();
+    assert_eq!(
+        found,
+        vec![("Carl Dir".to_owned(), "carl@example.org".to_owned())]
+    );
+    assert!(
+        core.exchange_directory_search(account.id, "  ", 10)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn delete_everything_clears_the_exchange_cache_and_tokens() {
+    use rustmail_core::accounts::secrets::{CredentialStore, Slot};
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().contacts = vec![
+        r#"{"id":"C1","changeKey":"k1","displayName":"Ann Lee","emailAddresses":[{"address":"ann@example.org"}]}"#.into(),
+    ];
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let store = DevelopmentFileCredentialStore::new(temp.path().join("credentials.json"));
+    assert!(store.load(account.id, Slot::RefreshToken).is_ok());
+    let count = |sql: &'static str| {
+        let db = core.db.clone();
+        async move {
+            db.read(move |conn| Ok(conn.query_row(sql, [], |row| row.get::<_, i64>(0))?))
+                .await
+                .unwrap()
+        }
+    };
+    assert!(count("SELECT COUNT(*) FROM exchange_messages").await > 0);
+
+    core.delete_all_local_data().await.unwrap();
+
+    assert_eq!(count("SELECT COUNT(*) FROM exchange_messages").await, 0);
+    assert_eq!(count("SELECT COUNT(*) FROM exchange_folders").await, 0);
+    assert_eq!(count("SELECT COUNT(*) FROM carddav_objects").await, 0);
+    assert_eq!(count("SELECT COUNT(*) FROM contacts").await, 0);
+    let store = DevelopmentFileCredentialStore::new(temp.path().join("credentials.json"));
+    assert!(store.load(account.id, Slot::RefreshToken).is_err());
 }

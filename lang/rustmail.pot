@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-11 14:10+0000\n"
+"POT-Creation-Date: 2026-11-11 19:53+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -184,8 +184,8 @@ msgstr ""
 msgid "New address-book entry"
 msgstr ""
 
-#: ui/app.slint:137 ui/app.slint:957 ui/components/composer-fields.slint:80
-#: ui/app.slint:137 ui/app.slint:957 ui/components/composer-fields.slint:80 ui/dialogs/compose-dialog.slint:39
+#: ui/app.slint:137 ui/app.slint:961 ui/components/composer-fields.slint:80
+#: ui/app.slint:137 ui/app.slint:961 ui/components/composer-fields.slint:80 ui/dialogs/compose-dialog.slint:39
 msgid "No connected account"
 msgstr ""
 
@@ -1548,133 +1548,149 @@ msgid "Mail refresh failed: {}"
 msgstr ""
 
 #: ui/app.slint:562
-msgid "Mail filter failed: {}"
+msgid "Searching Microsoft 365…"
 msgstr ""
 
 #: ui/app.slint:563
-msgid "Mail pagination failed: {}"
+msgid "Microsoft 365 search finished."
 msgstr ""
 
 #: ui/app.slint:564
+msgid "Microsoft 365 search added {} messages to the list."
+msgstr ""
+
+#: ui/app.slint:565
+msgid "Microsoft 365 search failed: {}"
+msgstr ""
+
+#: ui/app.slint:566
+msgid "Mail filter failed: {}"
+msgstr ""
+
+#: ui/app.slint:567
+msgid "Mail pagination failed: {}"
+msgstr ""
+
+#: ui/app.slint:568
 msgid "Could not mark message as read: {}"
 msgstr ""
 
-#: ui/app.slint:565 ui/views/mail-reading-pane.slint:297
-#: ui/app.slint:565 ui/views/mail-reading-pane.slint:297 ui/views/mail-reading-pane.slint:1467
+#: ui/app.slint:569 ui/views/mail-reading-pane.slint:297
+#: ui/app.slint:569 ui/views/mail-reading-pane.slint:297 ui/views/mail-reading-pane.slint:1467
 msgid "Loading message…"
 msgstr ""
 
-#: ui/app.slint:573 ui/components/workspace-navigation.slint:581
-#: ui/app.slint:573 ui/components/workspace-navigation.slint:581 ui/dialogs/settings-dialog.slint:2358
-#: ui/app.slint:573 ui/components/workspace-navigation.slint:581 ui/dialogs/settings-dialog.slint:2358 ui/tray.slint:13 ui/views/onboarding-view.slint:130
+#: ui/app.slint:577 ui/components/workspace-navigation.slint:581
+#: ui/app.slint:577 ui/components/workspace-navigation.slint:581 ui/dialogs/settings-dialog.slint:2358
+#: ui/app.slint:577 ui/components/workspace-navigation.slint:581 ui/dialogs/settings-dialog.slint:2358 ui/tray.slint:13 ui/views/onboarding-view.slint:130
 msgid "Rustmail"
 msgstr ""
 
-#: ui/app.slint:1181 ui/app.slint:1194
+#: ui/app.slint:1185 ui/app.slint:1198
 msgid "Global Labels (local only)"
 msgstr ""
 
-#: ui/app.slint:2096
+#: ui/app.slint:2100
 msgid "Empty Trash?"
 msgstr ""
 
-#: ui/app.slint:2096 ui/views/files-view.slint:539
+#: ui/app.slint:2100 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr ""
 
-#: ui/app.slint:2100
+#: ui/app.slint:2104
 msgid "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 
-#: ui/app.slint:2101
+#: ui/app.slint:2105
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr ""
 
-#: ui/app.slint:2103
+#: ui/app.slint:2107
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr ""
 
-#: ui/app.slint:2104
+#: ui/app.slint:2108
 msgid "Permanently delete this conversation from Trash?"
 msgstr ""
 
-#: ui/app.slint:2105 ui/components/calendar.slint:951
-#: ui/app.slint:2105 ui/components/calendar.slint:951
+#: ui/app.slint:2109 ui/components/calendar.slint:951
+#: ui/app.slint:2109 ui/components/calendar.slint:951
 msgid "This action cannot be undone."
 msgstr ""
 
-#: ui/app.slint:2106
+#: ui/app.slint:2110
 msgid "Empty Trash"
 msgstr ""
 
-#: ui/app.slint:2106 ui/views/files-view.slint:621
-#: ui/app.slint:2106 ui/views/files-view.slint:621
+#: ui/app.slint:2110 ui/views/files-view.slint:621
+#: ui/app.slint:2110 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr ""
 
-#: ui/app.slint:2288
+#: ui/app.slint:2292
 msgid "Mailbox startup failed"
 msgstr ""
 
-#: ui/app.slint:2294
+#: ui/app.slint:2298
 msgid "Rustmail could not open local storage"
 msgstr ""
 
-#: ui/app.slint:2307
+#: ui/app.slint:2311
 msgid "Diagnostic ID: {}"
 msgstr ""
 
-#: ui/app.slint:2310
+#: ui/app.slint:2314
 msgid "Diagnostic ID {}"
 msgstr ""
 
-#: ui/app.slint:2315
+#: ui/app.slint:2319
 msgid "Retry"
 msgstr ""
 
-#: ui/app.slint:2323 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2327 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr ""
 
-#: ui/app.slint:2389 ui/app.slint:2474 ui/app.slint:2532
-#: ui/app.slint:2389 ui/app.slint:2474 ui/app.slint:2532
+#: ui/app.slint:2393 ui/app.slint:2478 ui/app.slint:2536
+#: ui/app.slint:2393 ui/app.slint:2478 ui/app.slint:2536
 msgid "Dismiss"
 msgstr ""
 
-#: ui/app.slint:2409 ui/app.slint:2414
+#: ui/app.slint:2413 ui/app.slint:2418
 msgid "Sent and linked"
 msgstr ""
 
-#: ui/app.slint:2432
+#: ui/app.slint:2436
 msgid "Task moved to Waiting for"
 msgstr ""
 
-#: ui/app.slint:2432
+#: ui/app.slint:2436
 msgid "Task marked as done"
 msgstr ""
 
-#: ui/app.slint:2441
+#: ui/app.slint:2445
 msgid "Follow-up in {} days"
 msgstr ""
 
-#: ui/app.slint:2450
+#: ui/app.slint:2454
 msgid "Follow-up added to the calendar"
 msgstr ""
 
-#: ui/app.slint:2460
+#: ui/app.slint:2464
 msgid "Back to board"
 msgstr ""
 
-#: ui/app.slint:2519 ui/components/linked-task-banner.slint:116
-#: ui/app.slint:2519 ui/components/linked-task-banner.slint:116
-#: ui/app.slint:2519 ui/components/linked-task-banner.slint:116 ui/components/task-reply.slint:23
+#: ui/app.slint:2523 ui/components/linked-task-banner.slint:116
+#: ui/app.slint:2523 ui/components/linked-task-banner.slint:116
+#: ui/app.slint:2523 ui/components/linked-task-banner.slint:116 ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr ""
 
-#: ui/app.slint:2565 ui/components/workspace-navigation.slint:126
-#: ui/app.slint:2565 ui/components/workspace-navigation.slint:126
-#: ui/app.slint:2565 ui/components/workspace-navigation.slint:126
-#: ui/app.slint:2565 ui/components/workspace-navigation.slint:126 ui/dialogs/settings-dialog.slint:2138
+#: ui/app.slint:2569 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2569 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2569 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2569 ui/components/workspace-navigation.slint:126 ui/dialogs/settings-dialog.slint:2138
 msgid "Tasks"
 msgstr ""
 

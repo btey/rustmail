@@ -2,9 +2,11 @@
 //! into the same tables the CardDAV sync fills: each contact folder is an
 //! address book (named `graph:<folder id>`), each contact an object whose
 //! vCard is made from the Graph fields, and the first e-mail address keys the
-//! unified contact. Read only: edits are not written back to Microsoft 365.
+//! unified contact. Local edits, new contacts and deletions are written back
+//! before each pull (`push_contacts`); when the contact changed on the server
+//! meanwhile, the server's version wins.
 
-use super::client::{ContactChange, ContactPage, GraphContact, GraphMail};
+use super::client::{self, ContactChange, ContactPage, GraphContact, GraphMail};
 use crate::db::repo;
 use crate::error::{CoreError, Result};
 use crate::events::CoreEvent;
@@ -13,6 +15,113 @@ use crate::sync::engine::SyncCtx;
 
 const MAX_PAGES: usize = 2_000;
 const MAX_FOLDERS: usize = 200;
+
+/// Write local contact changes to Microsoft 365. Returns whether anything
+/// was sent. A folder that answers `403` is marked read only.
+async fn push_contacts(ctx: &SyncCtx, config: &AccountConfig, client: &GraphMail) -> Result<bool> {
+    let account_id = config.id;
+    let objects = ctx
+        .db
+        .read(move |conn| repo::carddav::dirty_objects(conn, account_id))
+        .await?;
+    let mut changed = false;
+    for object in objects {
+        let book_id = object.addressbook_id;
+        let Some(url) = ctx
+            .db
+            .read(move |conn| repo::carddav::addressbook_url(conn, book_id))
+            .await?
+        else {
+            continue;
+        };
+        let Some(folder) = url.strip_prefix("graph:").map(str::to_owned) else {
+            continue;
+        };
+        let id = object.id;
+        let outcome: Result<()> = async {
+            if object.deleted {
+                if object.remote_exists {
+                    client.delete_contact(&object.href).await?;
+                }
+                ctx.db
+                    .write(move |conn| repo::carddav::delete_object(conn, id))
+                    .await?;
+                return Ok(());
+            }
+            let Some(contact_id) = object.contact_id else {
+                return Ok(());
+            };
+            let Some(record) = ctx
+                .db
+                .read(move |conn| repo::carddav::contact(conn, contact_id))
+                .await?
+            else {
+                return Ok(());
+            };
+            let body = client::contact_body(&record);
+            let vcard =
+                crate::carddav::vcard::serialize(&record, &format!("graph-{}", object.href));
+            if object.remote_exists {
+                match client.get_contact(&object.href).await? {
+                    // Gone on the server: keep the local contact, stop syncing it.
+                    None => {
+                        ctx.db
+                            .write(move |conn| repo::carddav::delete_object(conn, id))
+                            .await?;
+                    }
+                    // Changed on the server since the last pull: the server
+                    // wins, its version arrives with the next delta.
+                    Some(server)
+                        if server.change_key.is_some() && server.change_key != object.etag =>
+                    {
+                        ctx.db
+                            .write(move |conn| {
+                                conn.execute(
+                                    "UPDATE carddav_objects SET dirty=0 WHERE id=?1",
+                                    [id],
+                                )?;
+                                Ok(())
+                            })
+                            .await?;
+                    }
+                    Some(_) => {
+                        let key = client.update_contact(&object.href, &body).await?;
+                        ctx.db
+                            .write(move |conn| {
+                                repo::carddav::clear_dirty(conn, id, key.as_deref(), &vcard)
+                            })
+                            .await?;
+                    }
+                }
+            } else {
+                let (graph_id, key) = client.create_contact(&folder, &body).await?;
+                ctx.db
+                    .write(move |conn| {
+                        conn.execute(
+                            "UPDATE carddav_objects SET href=?2,etag=?3,vcard_raw=?4,
+                               remote_exists=1,dirty=0 WHERE id=?1",
+                            rusqlite::params![id, graph_id, key, vcard],
+                        )?;
+                        Ok(())
+                    })
+                    .await?;
+            }
+            Ok(())
+        }
+        .await;
+        match outcome {
+            Ok(()) => changed = true,
+            Err(CoreError::Other(text)) if text.contains("denied this request") => {
+                ctx.db
+                    .write(move |conn| repo::carddav::mark_addressbook_read_only(conn, book_id))
+                    .await?;
+                tracing::warn!(book_id, "Microsoft 365 contact folder is read only");
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(changed)
+}
 
 fn record_for(contact: &GraphContact) -> Option<ContactRecord> {
     let email = contact.emails.first()?.to_lowercase();
@@ -54,6 +163,13 @@ pub(crate) async fn sync_contacts(
             "the mailbox has too many contact folders".into(),
         ));
     }
+    // Contacts changed here go first, so the pull below cannot undo them.
+    if let Err(error) = push_contacts(ctx, config, client).await {
+        if matches!(error, CoreError::NeedsReauth | CoreError::Auth(_)) {
+            return Err(error);
+        }
+        tracing::debug!(account_id, %error, "exchange contacts not written back");
+    }
     let listed = folders.clone();
     let books: Vec<(i64, String)> = ctx
         .db
@@ -62,13 +178,17 @@ pub(crate) async fn sync_contacts(
             let mut out = Vec::new();
             let mut first = None;
             for (graph_id, name) in listed {
-                let id = repo::carddav::upsert_addressbook(
-                    &tx,
-                    account_id,
-                    &format!("graph:{graph_id}"),
-                    Some(&name),
-                    true,
-                )?;
+                let url = format!("graph:{graph_id}");
+                // A folder Microsoft 365 refused writes to stays read only.
+                let refused: bool = tx
+                    .query_row(
+                        "SELECT read_only FROM carddav_addressbooks WHERE account_id=?1 AND url=?2",
+                        rusqlite::params![account_id, url],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(false);
+                let id =
+                    repo::carddav::upsert_addressbook(&tx, account_id, &url, Some(&name), refused)?;
                 first.get_or_insert(id);
                 out.push((id, graph_id));
             }

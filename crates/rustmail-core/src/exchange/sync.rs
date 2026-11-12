@@ -22,7 +22,8 @@ use std::time::Duration;
 use tokio::sync::{mpsc, watch};
 
 /// A first sync only reads mail received in this window.
-const INITIAL_WINDOW_DAYS: i64 = 90;
+/// Days of one month of the account's mail history setting.
+const MONTH_DAYS: i64 = 30;
 const DAY_MS: i64 = 86_400_000;
 /// New messages downloaded per sync cycle; the rest follows in the next one.
 const CYCLE_NEW_MESSAGES: usize = 200;
@@ -494,9 +495,18 @@ async fn sync_folder(
     let mut changed: HashSet<i64> = HashSet::new();
     let mut more = false;
     loop {
+        // The first read of a folder is limited by the account's mail history
+        // setting (Settings > Accounts); "all" reads everything.
         let cutoff = link
             .is_none()
-            .then(|| now_ms() - INITIAL_WINDOW_DAYS * DAY_MS);
+            .then(|| {
+                config
+                    .settings
+                    .mail_history
+                    .months()
+                    .map(|months| now_ms() - i64::from(months) * MONTH_DAYS * DAY_MS)
+            })
+            .flatten();
         let page = match client
             .delta(&folder.graph_id, link.as_deref(), cutoff)
             .await?

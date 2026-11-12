@@ -7559,6 +7559,8 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
     let runtime_for_search = Rc::clone(&runtime);
     let mail_pagination_generation_for_search = Rc::clone(&mail_pagination_generation);
     let mail_pagination_in_progress_for_search = Rc::clone(&mail_pagination_in_progress);
+    let server_search_generation = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let ui_task_tx_for_server_search = ui_task_tx.clone();
     app.on_search_changed(move |query| {
         let Some(app) = app_weak.upgrade() else {
             return;
@@ -7583,6 +7585,78 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         {
             app.set_render_status(UiMessage::detail("Mail refresh failed: {}", error));
         }
+        // Microsoft 365 mailboxes also hold mail that was never downloaded:
+        // once typing pauses, ask the server and let the hits join the list.
+        let generation = server_search_generation.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+        let (core, exchange_accounts) = {
+            let state = state_for_search.borrow();
+            let accounts: Vec<i64> = state
+                .account_configs
+                .iter()
+                .filter(|config| config.mail_protocol == rustmail_core::models::MailProtocol::Exchange)
+                .map(|config| config.id)
+                .collect();
+            (state.core.clone(), accounts)
+        };
+        let query = query.trim().to_owned();
+        let Some(core) = core else {
+            return;
+        };
+        if query.chars().count() < 3 || exchange_accounts.is_empty() {
+            return;
+        }
+        let latest = Arc::clone(&server_search_generation);
+        let updates = ui_task_tx_for_server_search.clone();
+        runtime_for_search.spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(700)).await;
+            // Typing went on: that keystroke starts its own search.
+            let current = || latest.load(std::sync::atomic::Ordering::SeqCst) == generation;
+            if !current() {
+                return;
+            }
+            let send = |message: UiMessage| {
+                let updates = updates.clone();
+                async move {
+                    let _ = updates
+                        .send(UiTaskUpdate {
+                            message,
+                            accounts: None,
+                            calendar_connections: None,
+                            carddav_connections: None,
+                            calendar_error: None,
+                            account_removal: None,
+                            clear_account_form: false,
+                            finishes_account_setup: false,
+                            finishes_oauth: false,
+                            close_to_tray: None,
+                        })
+                        .await;
+                }
+            };
+            send(UiMessage::plain("Searching Microsoft 365…")).await;
+            let mut added = 0;
+            for account_id in exchange_accounts {
+                if !current() {
+                    return;
+                }
+                match core.exchange_search(account_id, &query).await {
+                    Ok(count) => added += count,
+                    Err(error) => {
+                        send(UiMessage::detail("Microsoft 365 search failed: {}", error)).await;
+                        return;
+                    }
+                }
+            }
+            send(if added == 0 {
+                UiMessage::plain("Microsoft 365 search finished.")
+            } else {
+                UiMessage::detail(
+                    "Microsoft 365 search added {} messages to the list.",
+                    added.to_string(),
+                )
+            })
+            .await;
+        });
     });
 
     let app_weak = app.as_weak();

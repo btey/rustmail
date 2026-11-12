@@ -815,6 +815,15 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    /// Search a Microsoft 365 mailbox on the server; the hits are cached and
+    /// announced as a mail update. Returns how many messages were added.
+    pub async fn exchange_search(&self, account_id: i64, query: &str) -> Result<usize, String> {
+        self.core
+            .exchange_search(account_id, query)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn set_account_mail_history(
         &self,
         account_id: i64,
