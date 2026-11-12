@@ -1935,6 +1935,11 @@ pub struct Settings {
     /// Mark unread conversations as read when the user opens them.
     #[serde(default = "default_true")]
     pub mark_read_on_open: bool,
+    /// Work offline: Microsoft 365 accounts make no network request; changes
+    /// wait in the action queue and contact edits stay marked until the switch
+    /// is turned off. Off by default.
+    #[serde(default)]
+    pub work_offline: bool,
     #[serde(default = "default_ai_base_url")]
     pub ai_base_url: String,
     /// Per-tier model ids, all sharing `ai_base_url` and the stored API key.
@@ -2274,6 +2279,7 @@ impl Default for Settings {
             task_shortcut: String::new(),
             load_remote_images: false,
             mark_read_on_open: true,
+            work_offline: false,
             ai_base_url: default_ai_base_url(),
             ai_model_instant: default_ai_model(),
             ai_model_cheap: default_ai_model(),

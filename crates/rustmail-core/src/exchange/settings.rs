@@ -183,6 +183,9 @@ pub struct ExchangeSettings {
     /// taken from the account's proxy setting at run time; never stored here.
     #[serde(skip)]
     pub proxy_url: String,
+    /// Work offline for this account only (see `Settings::work_offline` for
+    /// all accounts): no request leaves the app, changes are queued.
+    pub work_offline: bool,
 }
 
 impl Default for ExchangeSettings {
@@ -200,6 +203,7 @@ impl Default for ExchangeSettings {
             endpoint: ExchangeEndpoint::Auto,
             shared_mailbox: String::new(),
             proxy_url: String::new(),
+            work_offline: false,
         }
     }
 }

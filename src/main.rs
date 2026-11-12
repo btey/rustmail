@@ -3498,6 +3498,28 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             app.set_render_status(message.clone());
             app.set_sync_status(message);
         }
+        if let Some(notice) = pending.notice.clone()
+            && let Some(app) = mail_update_app.upgrade()
+        {
+            app.set_sync_status(UiMessage::detail("Microsoft 365: {}", notice));
+        }
+        if pending.offline_check {
+            let core = mail_update_state.borrow().core.clone();
+            if let Some(core) = core {
+                let app_weak = mail_update_app.clone();
+                mail_update_runtime.spawn(async move {
+                    let Ok((offline, waiting)) = core.offline_status().await else {
+                        return;
+                    };
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(app) = app_weak.upgrade() {
+                            app.set_offline_active(offline);
+                            app.set_offline_waiting(i32::try_from(waiting).unwrap_or(i32::MAX));
+                        }
+                    });
+                });
+            }
+        }
         if let Some(sent) = pending.task_mail_sent.as_ref()
             && let Some(app) = mail_update_app.upgrade()
         {
@@ -6451,13 +6473,59 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             apply_compose_contacts(&app, &[]);
             return;
         };
+        let compose_account = account_id;
         let account_id = (account_id > 0).then_some(i64::from(account_id));
+        let directory_query = query.clone();
         match runtime_for_contacts.block_on(core.list_contacts(query, account_id, 6)) {
             Ok(mut contacts) => {
                 let existing = recipients.to_lowercase();
+                // People the organization directory of a Microsoft 365 account
+                // answered earlier (read only; see the lookup below).
+                for (name, email) in core.directory_suggestions(account_id, &directory_query, 4) {
+                    if !contacts
+                        .iter()
+                        .any(|contact| contact.email.eq_ignore_ascii_case(&email))
+                    {
+                        contacts.push(rustmail_core::models::Address {
+                            name: (!name.is_empty()).then_some(name),
+                            email,
+                        });
+                    }
+                }
                 contacts.retain(|contact| !existing.contains(&contact.email.to_lowercase()));
                 *contacts_for_search.borrow_mut() = contacts;
                 apply_compose_contacts(&app, &contacts_for_search.borrow());
+                // Ask the organization directory in the background; when it
+                // knows people not seen before, the lookup runs again so they
+                // show up without another keystroke.
+                if let Some(id) = account_id
+                    && directory_query.chars().count() >= 3
+                {
+                    let weak = app.as_weak();
+                    let recipients = recipients.clone();
+                    runtime_for_contacts.spawn(async move {
+                        if !core.is_exchange_account(id).await {
+                            return;
+                        }
+                        let before = core.directory_suggestions(Some(id), &directory_query, 50).len();
+                        let asked = tokio::time::timeout(
+                            std::time::Duration::from_secs(4),
+                            core.exchange_directory_search(id, &directory_query, 6),
+                        )
+                        .await;
+                        if !matches!(asked, Ok(Ok(_)))
+                            || core.directory_suggestions(Some(id), &directory_query, 50).len()
+                                <= before
+                        {
+                            return;
+                        }
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(app) = weak.upgrade() {
+                                app.invoke_search_compose_contacts(recipients, compose_account);
+                            }
+                        });
+                    });
+                }
             }
             Err(error) => {
                 contacts_for_search.borrow_mut().clear();

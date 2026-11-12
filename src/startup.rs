@@ -521,6 +521,10 @@ pub(crate) struct PendingCoreUpdates {
     pub(crate) all_mail_changed: bool,
     pub(crate) account_states: HashMap<i64, (String, Option<String>)>,
     pub(crate) action_error: Option<String>,
+    /// Something to tell the user that is not a failed action.
+    pub(crate) notice: Option<String>,
+    /// Re-read the "Offline · N changes waiting" status.
+    pub(crate) offline_check: bool,
     pub(crate) calendar_changed: bool,
     pub(crate) contacts_changed: bool,
     pub(crate) tasks_changed: bool,
@@ -677,6 +681,28 @@ pub(crate) fn spawn_core_event_listener(
                         .unwrap_or_else(|poisoned| poisoned.into_inner())
                         .account_states
                         .insert(account_id, (sync_state, sync_error));
+                    pending
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .offline_check = true;
+                    true
+                }
+                Ok(CoreEvent::Notice { message, .. }) => {
+                    pending
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .notice = Some(message);
+                    true
+                }
+                Ok(CoreEvent::ActionState {
+                    state,
+                    error: None,
+                    ..
+                }) if matches!(state.as_str(), "done" | "pending" | "retrying" | "paused") => {
+                    pending
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .offline_check = true;
                     true
                 }
                 Ok(CoreEvent::ActionState {
@@ -828,6 +854,7 @@ pub(crate) fn apply_settings(app: &AppWindow, settings: &Settings) {
         _ => 5,
     });
     app.set_mark_read_on_open(settings.mark_read_on_open);
+    app.set_work_offline(settings.work_offline);
     app.global::<SendUndoUi>().set_seconds(settings.undo_send_seconds.clamp(0, 30) as i32);
     app.global::<crate::TaskSettingsUi>()
         .set_follow_up(settings.task_follow_up_default.clamp(0, 3) as i32);

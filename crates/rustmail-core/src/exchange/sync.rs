@@ -93,6 +93,13 @@ async fn actor(
                 set_state(&ctx, config.id, "idle").await;
                 finish_waiters(&mut waiters, Ok(()));
             }
+            Err(CoreError::Offline)
+                if super::is_work_offline(&config.settings.connection.exchange) =>
+            {
+                // Offline on purpose: changes wait in the queue.
+                set_state(&ctx, config.id, "offline").await;
+                finish_waiters(&mut waiters, Err("working offline".into()));
+            }
             Err(error) => {
                 let message = error.to_string();
                 tracing::warn!(account_id = config.id, %message, "exchange sync failed");
@@ -859,6 +866,17 @@ async fn run_due_actions(ctx: &SyncCtx, config: &AccountConfig, client: &GraphMa
                     })
                     .await?;
                 return Err(error);
+            }
+            // No connection says nothing about the action: keep its retry
+            // budget and wait for the network (or the offline switch).
+            Err(CoreError::Offline) => {
+                let retry_at = now_ms() + 60_000;
+                ctx.db
+                    .write(move |conn| {
+                        repo::actions::defer_offline(conn, action_id, retry_at, "offline")
+                    })
+                    .await?;
+                return Err(CoreError::Offline);
             }
             Err(error) => {
                 let message = error.to_string();

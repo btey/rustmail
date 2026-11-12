@@ -93,9 +93,88 @@ pub(crate) fn settings_for(config: &AccountConfig) -> Result<ExchangeSettings> {
     Ok(settings)
 }
 
-/// A Graph client for the account, using its stored credentials.
+type DirectoryCache = Mutex<HashMap<i64, Vec<(String, String)>>>;
+
+const DIRECTORY_CACHE_PER_ACCOUNT: usize = 200;
+
+fn directory_cache() -> &'static DirectoryCache {
+    static CACHE: OnceLock<DirectoryCache> = OnceLock::new();
+    CACHE.get_or_init(Mutex::default)
+}
+
+/// Keep what the organization directory answered, in memory only, so the
+/// composer can offer it as the user types without waiting for the network.
+pub(crate) fn remember_directory(account_id: i64, hits: &[(String, String)]) {
+    let mut cache = directory_cache()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let known = cache.entry(account_id).or_default();
+    for (name, email) in hits {
+        if !known
+            .iter()
+            .any(|(_, known_email)| known_email.eq_ignore_ascii_case(email))
+        {
+            known.push((name.clone(), email.clone()));
+        }
+    }
+    let excess = known.len().saturating_sub(DIRECTORY_CACHE_PER_ACCOUNT);
+    known.drain(..excess);
+}
+
+/// Directory entries heard earlier that match `query` (name or address).
+pub fn cached_directory(
+    account_id: Option<i64>,
+    query: &str,
+    limit: usize,
+) -> Vec<(String, String)> {
+    let needle = query.trim().to_lowercase();
+    if needle.is_empty() {
+        return Vec::new();
+    }
+    let cache = directory_cache()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    cache
+        .iter()
+        .filter(|(id, _)| account_id.is_none_or(|wanted| wanted == **id))
+        .flat_map(|(_, entries)| entries.iter())
+        .filter(|(name, email)| {
+            name.to_lowercase().contains(&needle) || email.to_lowercase().contains(&needle)
+        })
+        .take(limit)
+        .cloned()
+        .collect()
+}
+
+pub(crate) fn forget_directory(account_id: i64) {
+    directory_cache()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remove(&account_id);
+}
+
+static GLOBAL_WORK_OFFLINE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// The "Work offline" switch of the Settings dialog (all accounts).
+pub fn set_global_work_offline(offline: bool) {
+    GLOBAL_WORK_OFFLINE.store(offline, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Whether the account must stay off the network: the global switch or the
+/// account's own.
+pub fn is_work_offline(settings: &ExchangeSettings) -> bool {
+    settings.work_offline || GLOBAL_WORK_OFFLINE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// A Graph client for the account, using its stored credentials. While the
+/// account works offline this fails at once with [`CoreError::Offline`]
+/// instead of waiting for a connection that is not wanted.
 pub(crate) fn graph_for(ctx: &SyncCtx, config: &AccountConfig) -> Result<client::GraphMail> {
     let settings = settings_for(config)?;
+    if is_work_offline(&settings) {
+        return Err(crate::error::CoreError::Offline);
+    }
     let tokens = tokens_for(config.id, &settings, &ctx.credentials);
     client::GraphMail::new(&settings, tokens)
 }
@@ -145,6 +224,19 @@ mod tests {
             smtp_port: 0,
             settings,
         }
+    }
+
+    #[test]
+    fn the_global_and_the_account_switch_each_take_an_account_offline() {
+        let mut settings = ExchangeSettings::default();
+        assert!(!is_work_offline(&settings));
+        settings.work_offline = true;
+        assert!(is_work_offline(&settings));
+        settings.work_offline = false;
+        set_global_work_offline(true);
+        let global = is_work_offline(&settings);
+        set_global_work_offline(false);
+        assert!(global && !is_work_offline(&settings));
     }
 
     #[test]

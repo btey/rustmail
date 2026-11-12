@@ -139,7 +139,9 @@ async fn execute_actions(
             }
             Err(e) => {
                 let msg = e.to_string();
-                if action.kind == "send" && is_connection_failure(&msg) {
+                if action.kind == "send"
+                    && (matches!(e, CoreError::Offline) || is_connection_failure(&msg))
+                {
                     // SMTP has no shared session whose successful connection
                     // can gate this independent worker. A refused/timed-out
                     // connection means the transport is unavailable, not that

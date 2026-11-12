@@ -188,7 +188,11 @@ export global I18n {
         if (key == "Sync interval set to {} minutes.") { return @tr("Sync interval set to {} minutes.", argument); }
         if (key == "Could not save sync interval: {}") { return @tr("Could not save sync interval: {}", argument); }
         if (key == "Message-opening preference updated for this session.") { return @tr("Message-opening preference updated for this session."); }
+        if (key == "Microsoft 365: {}") { return @tr("Microsoft 365: {}", argument); }
         if (key == "Message-opening preference saved.") { return @tr("Message-opening preference saved."); }
+        if (key == "Working offline: changes to Microsoft 365 accounts wait.") { return @tr("Working offline: changes to Microsoft 365 accounts wait."); }
+        if (key == "Back online: waiting changes are being sent.") { return @tr("Back online: waiting changes are being sent."); }
+        if (key == "Could not save the offline setting: {}") { return @tr("Could not save the offline setting: {}", argument); }
         if (key == "Undo send window saved.") { return @tr("Undo send window saved."); }
         if (key == "Task settings saved.") { return @tr("Task settings saved."); }
         if (key == "Select conversations first.") { return @tr("Select conversations first."); }
@@ -646,6 +650,7 @@ export component AppWindow inherits Window {
     callback save_notification_settings(bool, bool, string);
     callback save_sync_interval(int);
     callback save_mark_read_on_open(bool);
+    callback save_work_offline(bool);
     callback save_contact_discovery_settings(bool, bool, bool, bool);
     callback clear_contact_suggestions() -> bool;
     callback set_close_to_tray(bool);
@@ -866,6 +871,9 @@ export component AppWindow inherits Window {
     in property <bool> sync_in_progress: false;
     // Some account is fetching mail right now (any trigger, not only a click).
     in-out property <bool> mail_fetching: false;
+    // Microsoft 365 accounts are offline, and how many changes wait to be sent.
+    in-out property <bool> offline_active: false;
+    in-out property <int> offline_waiting: 0;
     // Local time (HH:MM) an account last finished fetching in this session.
     in-out property <string> last_sync_text: "";
     in property <[EmailTile]> email_tiles: [];
@@ -930,6 +938,7 @@ export component AppWindow inherits Window {
     in-out property <string> notification_scope: "important";
     in-out property <int> sync_interval_minutes: 5;
     in-out property <bool> mark_read_on_open: true;
+    in-out property <bool> work_offline: false;
     in-out property <bool> collect_outgoing_contacts: true;
     in-out property <bool> collect_incoming_contacts: false;
     in-out property <bool> contact_suggest_all_accounts: false;
@@ -1434,6 +1443,8 @@ export component AppWindow inherits Window {
             clipboard_request_id: root.clipboard_request_id;
             sync_in_progress: root.sync_in_progress;
             mail_fetching: root.mail_fetching;
+            offline_active: root.offline_active;
+            offline_waiting: root.offline_waiting;
             last_sync_text: root.last_sync_text;
             can_load_more: root.can_load_more;
             loading_more: root.mail_loading_more;
@@ -1837,6 +1848,7 @@ export component AppWindow inherits Window {
             notification_scope <=> root.notification_scope;
             sync_interval_minutes <=> root.sync_interval_minutes;
             mark_read_on_open <=> root.mark_read_on_open;
+            work_offline <=> root.work_offline;
             collect_outgoing_contacts <=> root.collect_outgoing_contacts;
             collect_incoming_contacts <=> root.collect_incoming_contacts;
             contact_suggest_all_accounts <=> root.contact_suggest_all_accounts;
@@ -1930,6 +1942,7 @@ export component AppWindow inherits Window {
             }
             save_sync_interval(minutes) => { root.save_sync_interval(minutes); }
             save_mark_read_on_open(enabled) => { root.save_mark_read_on_open(enabled); }
+            save_work_offline(enabled) => { root.save_work_offline(enabled); }
             save_group_mail_by_date(enabled) => { root.save_group_mail_by_date(enabled); }
             save_contact_discovery_settings(outgoing, incoming, all-accounts, suggest) => {
                 root.save_contact_discovery_settings(outgoing, incoming, all-accounts, suggest);

@@ -64,6 +64,13 @@ pub enum CoreEvent {
     NetworkState {
         online: bool,
     },
+    /// Something the user should know that is not an error of an action, for
+    /// example a local edit that was kept as a copy because the server's
+    /// version changed too.
+    Notice {
+        account_id: i64,
+        message: String,
+    },
     AccountState {
         account_id: i64,
         sync_state: String,

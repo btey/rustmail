@@ -61,6 +61,8 @@ export component MailView inherits FocusScope {
     in property <int> clipboard_request_id: 0;
     in property <bool> sync_in_progress: false;
     in property <bool> mail_fetching: false;
+    in property <bool> offline_active: false;
+    in property <int> offline_waiting: 0;
     in property <string> last_sync_text: "";
     in property <bool> can_load_more: false;
     in property <bool> loading_more: false;
@@ -304,6 +306,8 @@ export component MailView inherits FocusScope {
                 search_filter: root.search_filter;
                 sync_in_progress: root.sync_in_progress;
                 mail_fetching: root.mail_fetching;
+                offline_active: root.offline_active;
+                offline_waiting: root.offline_waiting;
                 last_sync_text: root.last_sync_text;
                 can_load_more: root.can_load_more;
                 loading_more: root.loading_more;
@@ -536,6 +540,8 @@ export component MailView inherits FocusScope {
                 search_filter: root.search_filter;
                 sync_in_progress: root.sync_in_progress;
                 mail_fetching: root.mail_fetching;
+                offline_active: root.offline_active;
+                offline_waiting: root.offline_waiting;
                 last_sync_text: root.last_sync_text;
                 can_load_more: root.can_load_more;
                 loading_more: root.loading_more;

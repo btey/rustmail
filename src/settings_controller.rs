@@ -97,6 +97,37 @@ pub(super) fn register_settings_preference_callbacks(
         }
     });
 
+    let app_weak = app.as_weak();
+    let state_for_offline = Rc::clone(state);
+    let runtime_for_offline = Rc::clone(runtime);
+    app.on_save_work_offline(move |enabled| {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        let Some(core) = state_for_offline.borrow().core.clone() else {
+            return;
+        };
+        match runtime_for_offline.block_on(core.set_work_offline(enabled)) {
+            Ok(()) => {
+                if !enabled {
+                    app.set_offline_active(false);
+                }
+                app.set_sync_status(if enabled {
+                    UiMessage::plain("Working offline: changes to Microsoft 365 accounts wait.")
+                } else {
+                    UiMessage::plain("Back online: waiting changes are being sent.")
+                });
+            }
+            Err(error) => {
+                app.set_work_offline(!enabled);
+                app.set_sync_status(UiMessage::detail(
+                    "Could not save the offline setting: {}",
+                    error,
+                ));
+            }
+        }
+    });
+
     for archive in [false, true] {
         let app_weak = app.as_weak();
         let state_for_tasks = Rc::clone(state);

@@ -221,6 +221,13 @@ fn route(
             "application/json",
         );
     }
+    if method == "GET" && path == "/graph/v1.0/users" {
+        // The tenant directory (`User.ReadBasic.All`).
+        return json(
+            200,
+            r#"{"value":[{"displayName":"Dora Tenant","mail":"dora@example.org"},{"displayName":"Carl Dir","mail":"CARL@example.org"},{"displayName":"No Address","mail":null}]}"#.into(),
+        );
+    }
     let Some(rest) = path
         .strip_prefix("/graph/v1.0/me")
         .or_else(|| path.strip_prefix("/graph/v1.0/users/shared@example.org"))
@@ -1601,11 +1608,30 @@ async fn a_contact_changed_on_the_server_meanwhile_is_not_overwritten() {
     record.account_ids = vec![account.id];
     core.save_contact(record).await.unwrap();
     shared.lock().unwrap().contact_key = "k9".into();
+    let mut events = core.bus.subscribe();
     core.sync_now(Some(account.id)).await.unwrap();
     assert!(
         seen(&shared, "PATCH /graph/v1.0/me/contacts/C1").is_empty(),
         "the server's newer version is not overwritten"
     );
+    // The local edit is not lost: it is kept as a second contact, and the
+    // user is told.
+    let copies = seen(&shared, "POST /graph/v1.0/me/contactFolders/CF1/contacts");
+    assert_eq!(copies.len(), 1, "{:?}", shared.lock().unwrap().log);
+    assert!(copies[0].contains("Ann Lee (your edit)") && copies[0].contains("Local edit"));
+    assert!(
+        copies[0].contains(r#""emailAddresses":[]"#),
+        "{}",
+        copies[0]
+    );
+    let mut notice = None;
+    while let Ok(event) = events.try_recv() {
+        if let rustmail_core::events::CoreEvent::Notice { message, .. } = event {
+            notice = Some(message);
+        }
+    }
+    assert!(notice.unwrap().contains("your edit"));
+    assert_eq!(core.pending_changes(Some(account.id)).await.unwrap(), 0);
 }
 
 #[tokio::test]
@@ -1619,9 +1645,13 @@ async fn the_organization_directory_can_be_searched() {
         .exchange_directory_search(account.id, "carl", 10)
         .await
         .unwrap();
+    // `/me/people` first, then the tenant directory without repeating anyone.
     assert_eq!(
         found,
-        vec![("Carl Dir".to_owned(), "carl@example.org".to_owned())]
+        vec![
+            ("Carl Dir".to_owned(), "carl@example.org".to_owned()),
+            ("Dora Tenant".to_owned(), "dora@example.org".to_owned()),
+        ]
     );
     assert!(
         core.exchange_directory_search(account.id, "  ", 10)
@@ -1629,6 +1659,23 @@ async fn the_organization_directory_can_be_searched() {
             .unwrap()
             .is_empty()
     );
+    // What the directory answered is offered to the composer, for this
+    // account only, until the account is removed.
+    assert!(core.is_exchange_account(account.id).await);
+    assert_eq!(
+        core.directory_suggestions(Some(account.id), "CARL", 5),
+        vec![("Carl Dir".to_owned(), "carl@example.org".to_owned())]
+    );
+    assert!(
+        core.directory_suggestions(Some(account.id + 1), "carl", 5)
+            .is_empty()
+    );
+    assert!(
+        core.directory_suggestions(Some(account.id), "zed", 5)
+            .is_empty()
+    );
+    core.remove_account(account.id).await.unwrap();
+    assert!(core.directory_suggestions(None, "carl", 5).is_empty());
 }
 
 #[tokio::test]
@@ -1663,4 +1710,212 @@ async fn delete_everything_clears_the_exchange_cache_and_tokens() {
     assert_eq!(count("SELECT COUNT(*) FROM contacts").await, 0);
     let store = DevelopmentFileCredentialStore::new(temp.path().join("credentials.json"));
     assert!(store.load(account.id, Slot::RefreshToken).is_err());
+}
+
+fn requests_seen(shared: &Shared) -> usize {
+    shared.lock().unwrap().log.len()
+}
+
+async fn thread_of_subject(core: &Core, subject: &'static str) -> i64 {
+    core.db
+        .read(move |conn| {
+            Ok(conn.query_row(
+                "SELECT thread_id FROM messages WHERE subject=?1",
+                [subject],
+                |r| r.get::<_, i64>(0),
+            )?)
+        })
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn working_offline_queues_changes_makes_no_request_and_replays_them_later() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    assert_eq!(
+        core.offline_status().await.unwrap(),
+        (false, 0),
+        "online and nothing waiting"
+    );
+
+    core.set_exchange_work_offline(account.id, true)
+        .await
+        .unwrap();
+    let before = requests_seen(&shared);
+    let one = thread_of_subject(&core, "One").await;
+    core.perform_action(PerformActionArgs {
+        kind: ActionKind::MarkRead,
+        thread_ids: vec![one],
+        params: None,
+    })
+    .await
+    .unwrap();
+    core.perform_action(PerformActionArgs {
+        kind: ActionKind::Trash,
+        thread_ids: vec![one],
+        params: None,
+    })
+    .await
+    .unwrap();
+    // A sync attempt neither reaches the server nor fails the actions.
+    assert!(core.sync_now(Some(account.id)).await.is_err());
+    assert_eq!(requests_seen(&shared), before, "no request while offline");
+    assert_eq!(core.pending_changes(Some(account.id)).await.unwrap(), 2);
+    assert_eq!(core.offline_status().await.unwrap(), (true, 2));
+    // Reading works: the change is already visible locally.
+    assert_eq!(
+        rows(&core).await.iter().find(|r| r.0 == "One").unwrap().1,
+        "trash"
+    );
+    // A message written offline waits in the outbox as well.
+    let draft = core
+        .save_draft(SaveDraftArgs {
+            draft_id: None,
+            account_id: account.id,
+            from: None,
+            to: vec![Address {
+                name: None,
+                email: "to@example.com".into(),
+            }],
+            cc: vec![],
+            bcc: vec![],
+            subject: "Written offline".into(),
+            body_text: "hello".into(),
+            body_html: None,
+            mode: "new".into(),
+            in_reply_to_message_id: None,
+            attachments: vec![],
+        })
+        .await
+        .unwrap();
+    let queued = core
+        .queue_send(QueueSendArgs {
+            draft_id: draft,
+            send_at: None,
+        })
+        .await
+        .unwrap();
+    wait_until("the offline send to stay queued", async || {
+        let state: String = core
+            .db
+            .read(move |conn| {
+                Ok(conn.query_row(
+                    "SELECT state FROM pending_actions WHERE id=?1",
+                    [queued.action_id],
+                    |r| r.get(0),
+                )?)
+            })
+            .await
+            .unwrap();
+        assert_ne!(state, "failed", "an offline send never fails");
+        state == "pending"
+    })
+    .await;
+    assert!(seen(&shared, "sendMail").is_empty());
+
+    // Back online: everything is replayed.
+    core.set_exchange_work_offline(account.id, false)
+        .await
+        .unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    {
+        let state = shared.lock().unwrap();
+        let m1 = state.messages.iter().find(|m| m.id == "M1").unwrap();
+        assert!(m1.read && m1.folder == "trash", "queued changes replayed");
+    }
+    core.wait_for_send(queued.action_id).await.unwrap();
+    assert!(!seen(&shared, "sendMail").is_empty());
+    assert_eq!(core.pending_changes(Some(account.id)).await.unwrap(), 0);
+    assert_eq!(core.offline_status().await.unwrap(), (false, 0));
+}
+
+#[tokio::test]
+async fn a_lost_connection_keeps_the_retry_budget_of_queued_actions() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    core.set_exchange_work_offline(account.id, true)
+        .await
+        .unwrap();
+    let one = thread_of_subject(&core, "One").await;
+    core.perform_action(PerformActionArgs {
+        kind: ActionKind::MarkRead,
+        thread_ids: vec![one],
+        params: None,
+    })
+    .await
+    .unwrap();
+    for _ in 0..3 {
+        let _ = core.sync_now(Some(account.id)).await;
+    }
+    let (state, attempts): (String, i64) = core
+        .db
+        .read(|conn| {
+            Ok(conn.query_row(
+                "SELECT state, attempts FROM pending_actions WHERE kind='mark_read'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!((state.as_str(), attempts), ("pending", 0));
+}
+
+#[tokio::test]
+async fn a_task_linked_to_microsoft_365_mail_keeps_its_link_after_the_mail_moves() {
+    use rustmail_core::tasks::{ColumnKind, LinkTarget, TaskDraft};
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let one = thread_of_subject(&core, "One").await;
+    core.task_project_create_default("Work".into())
+        .await
+        .unwrap();
+    let task = core
+        .task_create_from_thread(
+            one,
+            TaskDraft {
+                title: None,
+                project_id: None,
+                status: ColumnKind::Next,
+                due_at: None,
+                context_id: None,
+                label_ids: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(task.title, "One");
+    // The link names the message by its Message-ID, so a move on the server
+    // (here: to Deleted Items) and the sync that follows do not break it.
+    core.perform_action(PerformActionArgs {
+        kind: ActionKind::Trash,
+        thread_ids: vec![one],
+        params: None,
+    })
+    .await
+    .unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    let links = core.task_links(task.id).await.unwrap();
+    assert!(
+        matches!(links[0].target, LinkTarget::Mail { .. }),
+        "{links:?}"
+    );
+    let linked = core.task_threads(None).await.unwrap();
+    assert!(
+        linked.iter().any(|t| t.task_id == task.id),
+        "the task still finds its conversation"
+    );
 }

@@ -911,6 +911,10 @@ fn states() -> Vec<State> {
     let mut states = vec![
         state("mail", |_| {}),
         state("mail fetching", |app| app.set_mail_fetching(true)),
+        state("mail offline", |app| {
+            app.set_offline_active(true);
+            app.set_offline_waiting(12);
+        }),
         state("mail grouped", |app| {
             app.set_mail_list_entries(model(mail_entries(true)))
         }),

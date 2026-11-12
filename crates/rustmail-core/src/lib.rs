@@ -2325,6 +2325,8 @@ impl Core {
         }
         let old = config.settings.connection.exchange.clone();
         let mut new = settings;
+        // The form has no offline switch: editing never changes it.
+        new.work_offline = old.work_offline;
         new.enabled = true;
         new.validate()?;
         let mailbox_changed =
@@ -2490,6 +2492,91 @@ impl Core {
             .await
     }
 
+    /// Turn "Work offline" on or off for every account. Turning it off wakes
+    /// the accounts so queued changes are sent at once.
+    pub async fn set_work_offline(&self, offline: bool) -> Result<()> {
+        let mut settings = self.get_settings().await?;
+        settings.work_offline = offline;
+        self.set_settings(settings).await?;
+        self.wake_exchange_accounts().await;
+        Ok(())
+    }
+
+    /// Work offline for one Microsoft 365 account only.
+    pub async fn set_exchange_work_offline(&self, account_id: i64, offline: bool) -> Result<()> {
+        let settings = self
+            .db
+            .write(move |conn| {
+                let tx = conn.transaction()?;
+                let mut config = repo::accounts::get_config(&tx, account_id)?
+                    .ok_or_else(|| CoreError::NotFound(format!("account {account_id}")))?;
+                if config.mail_protocol != MailProtocol::Exchange {
+                    return Err(CoreError::Other(
+                        "this account is not a Microsoft 365 account".into(),
+                    ));
+                }
+                config.settings.connection.exchange.work_offline = offline;
+                repo::accounts::set_settings(&tx, account_id, &config.settings)?;
+                tx.commit()?;
+                Ok(config.settings)
+            })
+            .await?;
+        if let Some(handle) = self.handles.read().await.get(&account_id).cloned() {
+            handle.update_settings(settings);
+        }
+        self.bus.emit(CoreEvent::MailUpdated { thread_ids: vec![] });
+        Ok(())
+    }
+
+    async fn wake_exchange_accounts(&self) {
+        for handle in self.handles.read().await.values() {
+            handle.send(SyncCmd::SyncNow { complete: None });
+        }
+        for handle in self.card_handles.read().await.values() {
+            handle.nudge();
+        }
+        for handle in self.cal_handles.read().await.values() {
+            handle.nudge();
+        }
+    }
+
+    /// For the status line "Offline · N changes waiting": whether any
+    /// Microsoft 365 account is offline (by choice, or because its last sync
+    /// could not connect) and how many local changes wait to be sent.
+    pub async fn offline_status(&self) -> Result<(bool, usize)> {
+        let switched = self.get_settings().await?.work_offline;
+        let (accounts_offline, any_exchange) = self
+            .db
+            .read(|conn| {
+                let mut stmt =
+                    conn.prepare("SELECT a.settings_json, a.sync_state FROM accounts a")?;
+                let rows = stmt.query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+                })?;
+                let mut offline = false;
+                let mut any = false;
+                for row in rows {
+                    let (json, state) = row?;
+                    let Ok(value) = serde_json::from_str::<serde_json::Value>(&json) else {
+                        continue;
+                    };
+                    let exchange = &value["connection"]["exchange"];
+                    if exchange["enabled"].as_bool() == Some(true) {
+                        any = true;
+                        offline |= exchange["workOffline"].as_bool() == Some(true)
+                            || state.as_deref() == Some("offline");
+                    }
+                }
+                Ok((offline, any))
+            })
+            .await?;
+        if !any_exchange {
+            return Ok((false, 0));
+        }
+        let pending = self.pending_changes(None).await?;
+        Ok((switched || accounts_offline, pending))
+    }
+
     /// Look people up in the Microsoft 365 organization directory (read
     /// only, needs `People.Read` and a connection): (name, address) pairs.
     pub async fn exchange_directory_search(
@@ -2499,7 +2586,31 @@ impl Core {
         limit: usize,
     ) -> Result<Vec<(String, String)>> {
         let (_, client) = self.exchange_client(account_id).await?;
-        client.directory_search(query, limit).await
+        let hits = client.directory_search(query, limit).await?;
+        exchange::remember_directory(account_id, &hits);
+        Ok(hits)
+    }
+
+    /// Directory entries an earlier [`Core::exchange_directory_search`]
+    /// found that match `query`, for the composer's address completion.
+    pub fn directory_suggestions(
+        &self,
+        account_id: Option<i64>,
+        query: &str,
+        limit: usize,
+    ) -> Vec<(String, String)> {
+        exchange::cached_directory(account_id, query, limit)
+    }
+
+    /// Whether the account is a Microsoft 365 one (the composer asks the
+    /// organization directory for those).
+    pub async fn is_exchange_account(&self, account_id: i64) -> bool {
+        self.db
+            .read(move |conn| repo::accounts::get_config(conn, account_id))
+            .await
+            .ok()
+            .flatten()
+            .is_some_and(|config| config.mail_protocol == MailProtocol::Exchange)
     }
 
     /// Connect the calendars of a Microsoft 365 account (the shared calendar
@@ -3141,6 +3252,7 @@ impl Core {
     }
 
     pub async fn remove_account(&self, account_id: i64) -> Result<()> {
+        exchange::forget_directory(account_id);
         let created_at = chrono::Utc::now().timestamp_millis();
         self.db
             .write(move |conn| {
@@ -9005,6 +9117,9 @@ fn invite_body_text(args: &CreateEventArgs) -> String {
 
 /// Push user-entered OAuth app registrations into the resolver.
 fn apply_oauth_settings(settings: &Settings) {
+    // The offline switch is read by the Microsoft 365 clients without a
+    // database round trip.
+    exchange::set_global_work_offline(settings.work_offline);
     oauth::providers::set_configured(
         Provider::Gmail,
         &settings.google_client_id,

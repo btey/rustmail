@@ -484,6 +484,12 @@ fn import_account_backup_document(
                 settings.mark_read_on_open = enabled;
             }
             if let Some(enabled) = preferences
+                .get("workOffline")
+                .and_then(|value| value.as_bool())
+            {
+                settings.work_offline = enabled;
+            }
+            if let Some(enabled) = preferences
                 .get("collectOutgoingContacts")
                 .and_then(|value| value.as_bool())
             {
@@ -635,6 +641,7 @@ fn import_account_backup_document(
             app.set_notification_scope(settings.notification_scope.clone().into());
             app.set_sync_interval_minutes(settings.sync_interval_minutes as i32);
             app.set_mark_read_on_open(settings.mark_read_on_open);
+            app.set_work_offline(settings.work_offline);
             app.global::<SendUndoUi>().set_seconds(settings.undo_send_seconds.clamp(0, 30) as i32);
             app.global::<crate::TaskSettingsUi>()
                 .set_follow_up(settings.task_follow_up_default.clamp(0, 3) as i32);
@@ -863,6 +870,7 @@ pub(super) fn register_data_management_callbacks(
                     "calendarWeekStart": settings.calendar_week_start,
                     "loadRemoteImages": settings.load_remote_images,
                     "markReadOnOpen": settings.mark_read_on_open,
+                    "workOffline": settings.work_offline,
                     "collectOutgoingContacts": settings.collect_outgoing_contacts,
                     "collectIncomingContacts": settings.collect_incoming_contacts,
                     "contactSuggestAllAccounts": settings.contact_suggest_all_accounts,
@@ -1258,6 +1266,7 @@ pub(super) fn register_data_management_callbacks(
                     app.set_notification_scope("important".into());
                     app.set_sync_interval_minutes(5);
                     app.set_mark_read_on_open(true);
+                    app.set_work_offline(false);
                     app.set_remote_images_enabled(false);
                     app.set_close_to_tray(false);
                     crate::window_chrome::apply_preference(

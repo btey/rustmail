@@ -70,10 +70,30 @@ async fn push_contacts(ctx: &SyncCtx, config: &AccountConfig, client: &GraphMail
                             .await?;
                     }
                     // Changed on the server since the last pull: the server
-                    // wins, its version arrives with the next delta.
+                    // wins and its version arrives with the next delta; the
+                    // local edit is kept as a second contact (without the
+                    // address, which names the first one) so nothing is lost.
                     Some(server)
                         if server.change_key.is_some() && server.change_key != object.etag =>
                     {
+                        let mut copy = body.clone();
+                        copy["displayName"] =
+                            format!("{} (your edit)", record.name).into();
+                        copy["emailAddresses"] = serde_json::json!([]);
+                        copy["personalNotes"] = format!(
+                            "{}\nThis is your edit of {}: the contact was also changed on Microsoft 365, whose version was kept.",
+                            record.notes, record.email
+                        )
+                        .trim()
+                        .into();
+                        client.create_contact(&folder, &copy).await?;
+                        ctx.bus.emit(CoreEvent::Notice {
+                            account_id,
+                            message: format!(
+                                "{} was changed here and on Microsoft 365. The server's version was kept and your edit was saved as \"{} (your edit)\".",
+                                record.name, record.name
+                            ),
+                        });
                         ctx.db
                             .write(move |conn| {
                                 conn.execute(

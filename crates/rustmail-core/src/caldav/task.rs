@@ -141,6 +141,19 @@ async fn run_cycle(
         return Ok(());
     };
 
+    // Working offline: no request is made, edited events stay marked and the
+    // queued calendar actions stay pending until the switch is turned off.
+    if cfg.kind == "exchange" {
+        let mail = mail_db
+            .read(move |conn| repo::accounts::get_config(conn, account_id))
+            .await?;
+        if mail.is_some_and(|mail| {
+            crate::exchange::is_work_offline(&mail.settings.connection.exchange)
+        }) {
+            return Ok(());
+        }
+    }
+
     // Claim due cal_% actions up front; sync_account's push-dirty pass is
     // what actually performs them (actions are nudges carrying intent).
     let now = now_ms();

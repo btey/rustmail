@@ -808,6 +808,48 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    pub async fn set_work_offline(&self, offline: bool) -> Result<(), String> {
+        self.core
+            .set_work_offline(offline)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    /// Directory entries an earlier lookup found (name, address).
+    pub fn directory_suggestions(
+        &self,
+        account_id: Option<i64>,
+        query: &str,
+        limit: usize,
+    ) -> Vec<(String, String)> {
+        self.core.directory_suggestions(account_id, query, limit)
+    }
+
+    pub async fn is_exchange_account(&self, account_id: i64) -> bool {
+        self.core.is_exchange_account(account_id).await
+    }
+
+    /// Ask the organization directory of a Microsoft 365 account.
+    pub async fn exchange_directory_search(
+        &self,
+        account_id: i64,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<(String, String)>, String> {
+        self.core
+            .exchange_directory_search(account_id, query, limit)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    /// (offline, changes waiting) of the Microsoft 365 accounts.
+    pub async fn offline_status(&self) -> Result<(bool, usize), String> {
+        self.core
+            .offline_status()
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn set_sync_interval_minutes(&self, minutes: i64) -> Result<(), String> {
         self.core
             .set_sync_interval_minutes(minutes)

@@ -1240,7 +1240,65 @@ impl GraphMail {
                 out.push((name.to_owned(), address.to_owned()));
             }
         }
+        // People the user never wrote to are in the tenant directory
+        // (`/users`, needs `User.ReadBasic.All`); an administrator may not
+        // have granted it, which only leaves this part out.
+        let wanted = limit.clamp(1, 50);
+        if out.len() < wanted {
+            match self.directory_users(query, wanted - out.len()).await {
+                Ok(users) => {
+                    for (name, address) in users {
+                        if !out
+                            .iter()
+                            .any(|(_, known)| known.eq_ignore_ascii_case(&address))
+                        {
+                            out.push((name, address));
+                        }
+                    }
+                }
+                Err(error @ (CoreError::NeedsReauth | CoreError::Auth(_) | CoreError::Offline)) => {
+                    return Err(error);
+                }
+                Err(error) => tracing::debug!(%error, "tenant directory not searched"),
+            }
+        }
         Ok(out)
+    }
+
+    /// Users of the tenant whose name or address starts with `query`.
+    async fn directory_users(&self, query: &str, limit: usize) -> Result<Vec<(String, String)>> {
+        let mut url = self.base.clone();
+        if let Ok(mut path) = url.path_segments_mut() {
+            path.pop_if_empty();
+            path.push("users");
+        }
+        let quoted = query.replace('\'', "''");
+        url.query_pairs_mut()
+            .append_pair(
+                "$filter",
+                &format!("startswith(displayName,'{quoted}') or startswith(mail,'{quoted}')"),
+            )
+            .append_pair("$select", "displayName,mail")
+            .append_pair("$top", &limit.clamp(1, 50).to_string());
+        let value = self.json(reqwest::Method::GET, url, None, &[]).await?;
+        Ok(value["value"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|user| {
+                let address = user["mail"].as_str()?.trim();
+                address.contains('@').then(|| {
+                    (
+                        user["displayName"]
+                            .as_str()
+                            .unwrap_or_default()
+                            .trim()
+                            .to_owned(),
+                        address.to_owned(),
+                    )
+                })
+            })
+            .collect())
     }
 
     /// The mailbox's calendars.

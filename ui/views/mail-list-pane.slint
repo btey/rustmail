@@ -180,6 +180,11 @@ export component MailListPane inherits Rectangle {
     in property <string> search_filter: "All mail";
     in property <bool> sync_in_progress: false;
     in property <bool> mail_fetching: false;
+    // Microsoft 365 accounts are offline: "Offline · N changes waiting".
+    in property <bool> offline_active: false;
+    in property <int> offline_waiting: 0;
+    private property <string> offline-text: root.offline_waiting == 0 ? @tr("Offline")
+        : @tr("Offline · {n} change waiting" | "Offline · {n} changes waiting" % root.offline_waiting);
     in property <string> last_sync_text: "";
     in property <bool> can_load_more: false;
     in property <bool> loading_more: false;
@@ -394,17 +399,17 @@ export component MailListPane inherits Rectangle {
 
                     // Shown while any account is fetching, so an empty list or a
                     // late refresh is not mistaken for "no mail".
-                    if root.mail_fetching : Rectangle {
+                    if root.mail_fetching || root.offline_active : Rectangle {
                         height: 26px;
                         background: root.surface;
                         z: 1;
                         accessible-role: text;
-                        accessible-label: @tr("Fetching mail…");
+                        accessible-label: root.offline_active ? root.offline-text : @tr("Fetching mail…");
                         Text {
                             x: root.compact ? LayoutMetrics.compact-inset : LayoutMetrics.content-inset;
                             width: parent.width - 2 * self.x;
                             height: parent.height;
-                            text: @tr("Fetching mail…");
+                            text: root.offline_active ? root.offline-text : @tr("Fetching mail…");
                             color: root.secondary-text;
                             font-size: TypeScale.caption;
                             vertical-alignment: center;

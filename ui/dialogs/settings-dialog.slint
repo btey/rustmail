@@ -390,6 +390,7 @@ export component SettingsDialog inherits Rectangle {
     in-out property <string> notification_scope: "important";
     in-out property <int> sync_interval_minutes: 5;
     in-out property <bool> mark_read_on_open: true;
+    in-out property <bool> work_offline: false;
     in-out property <bool> collect_outgoing_contacts: true;
     in-out property <bool> collect_incoming_contacts: false;
     in-out property <bool> contact_suggest_all_accounts: false;
@@ -477,6 +478,7 @@ export component SettingsDialog inherits Rectangle {
     callback save_notification_settings(bool, bool, string);
     callback save_sync_interval(int);
     callback save_mark_read_on_open(bool);
+    callback save_work_offline(bool);
     callback save_contact_discovery_settings(bool, bool, bool, bool);
     callback clear_contact_suggestions() -> bool;
     callback set_close_to_tray(bool);
@@ -1117,6 +1119,19 @@ export component SettingsDialog inherits Rectangle {
                                                 root.mark_read_on_open = self.checked;
                                                 root.save_mark_read_on_open(self.checked);
                                             }
+                                        }
+                                    }
+                                    Rectangle { height: 1px; background: root.border-subtle; }
+                                    SettingsSwitchRow {
+                                        compact: root.compact;
+                                        title: @tr("Work offline");
+                                        description: @tr("Microsoft 365 accounts make no network request; changes wait and are sent when you turn this off.");
+                                        checked: root.work_offline;
+                                        title-color: root.body-text;
+                                        description-color: root.faint-text;
+                                        toggled(checked) => {
+                                            root.work_offline = checked;
+                                            root.save_work_offline(checked);
                                         }
                                     }
                                     Rectangle { height: 1px; background: root.border-subtle; }
