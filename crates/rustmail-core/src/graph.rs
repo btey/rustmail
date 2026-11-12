@@ -50,6 +50,8 @@ pub struct GraphEvent<'a> {
     pub end_ms: i64,
     pub all_day: bool,
     pub attendees: Vec<GraphAttendee>,
+    /// Graph `patternedRecurrence`, for a series master.
+    pub recurrence: Option<serde_json::Value>,
 }
 
 /// Send a JSON request to Graph. `path_or_url` is either a v1.0 path
@@ -218,6 +220,9 @@ pub(crate) fn event_payload(ev: &GraphEvent<'_>) -> Result<serde_json::Value> {
     if let Some(loc) = ev.location {
         payload["location"] = serde_json::json!({ "displayName": loc });
     }
+    if let Some(recurrence) = &ev.recurrence {
+        payload["recurrence"] = recurrence.clone();
+    }
     Ok(payload)
 }
 
@@ -345,6 +350,7 @@ pub async fn list_calendars(access_token: &str) -> Result<Vec<GraphCalendar>> {
 
 /// One event from a calendarView delta page, reduced to the fields sync
 /// stores. `removed` items carry only the id.
+#[derive(Debug, Clone)]
 pub struct DeltaEvent {
     pub id: String,
     pub removed: bool,
@@ -515,7 +521,7 @@ pub(crate) fn parse_delta_event(v: &serde_json::Value) -> Option<DeltaEvent> {
 /// is taken as is, a zone named in `exchange::zones` is converted, and any
 /// other zone is read as UTC. An all-day date is a calendar date, never moved
 /// by a zone.
-fn parse_graph_time(v: Option<&serde_json::Value>, all_day: bool) -> Option<i64> {
+pub(crate) fn parse_graph_time(v: Option<&serde_json::Value>, all_day: bool) -> Option<i64> {
     let dt = v?.get("dateTime")?.as_str()?;
     let fmt = if dt.contains('.') {
         "%Y-%m-%dT%H:%M:%S%.f"

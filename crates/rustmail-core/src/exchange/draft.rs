@@ -5,8 +5,11 @@
 //! mapping to the local row follows (Graph gives every copy a new id). A
 //! message up to [`MAX_SIMPLE_MIME_BYTES`] travels as MIME, so `Message-ID`,
 //! `In-Reply-To` and `References` survive. A larger message becomes a JSON
-//! draft whose big attachments go through upload sessions; that route cannot
-//! carry the threading headers (Graph accepts only `x-` headers there).
+//! draft whose big attachments go through upload sessions. A JSON draft
+//! cannot carry the threading headers (Graph accepts only `x-` headers
+//! there), so a large reply to a message stored on the server starts from
+//! `createReply`, which sets `In-Reply-To` and `References` itself; a large
+//! reply to a message Graph does not know has no threading headers.
 
 use super::client::{GraphMail, MAX_INLINE_ATTACHMENT_BYTES, MAX_SIMPLE_MIME_BYTES};
 use crate::db::repo;
@@ -190,10 +193,32 @@ fn json_draft(parts: &Parts, message_id: &str) -> Value {
 
 /// A message too big for one MIME request: a JSON draft, then its
 /// attachments (small ones inline, big ones by upload session).
-async fn create_large(client: &GraphMail, parts: &Parts, message_id: &str) -> Result<String> {
-    let draft_id = client
-        .create_draft_json(&json_draft(parts, message_id))
-        .await?;
+async fn create_large(
+    client: &GraphMail,
+    parts: &Parts,
+    message_id: &str,
+    reply_to: Option<&str>,
+) -> Result<String> {
+    let draft_id = match reply_to {
+        Some(original) => {
+            let draft_id = client.create_reply_draft(original).await?;
+            let mut body = json_draft(parts, message_id);
+            // The reply keeps the id the server gave it.
+            if let Some(object) = body.as_object_mut() {
+                object.remove("internetMessageId");
+            }
+            if let Err(error) = client.update_message(&draft_id, &body).await {
+                let _ = client.permanent_delete(&draft_id).await;
+                return Err(error);
+            }
+            draft_id
+        }
+        None => {
+            client
+                .create_draft_json(&json_draft(parts, message_id))
+                .await?
+        }
+    };
     let uploaded: Result<()> = async {
         for (path, name) in &parts.attachments {
             let content_type = crate::queue::mime_guess_from_name(name);
@@ -223,6 +248,26 @@ async fn create_large(client: &GraphMail, parts: &Parts, message_id: &str) -> Re
         return Err(error);
     }
     Ok(draft_id)
+}
+
+/// The server id of the message this draft replies to, when it is stored.
+async fn reply_target(ctx: &SyncCtx, account_id: i64, parts: &Parts) -> Option<String> {
+    let in_reply_to = parts.in_reply_to.clone()?;
+    ctx.db
+        .read(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT em.graph_id FROM exchange_messages em
+                     JOIN messages m ON m.id = em.message_id
+                     WHERE em.account_id = ?1 AND m.message_id = ?2 LIMIT 1",
+                    params![account_id, in_reply_to],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?)
+        })
+        .await
+        .ok()
+        .flatten()
 }
 
 /// Whether the local row is still an unsent draft of this account.
@@ -258,7 +303,8 @@ pub(crate) async fn push_draft(
     let new_id = if raw.len() <= MAX_SIMPLE_MIME_BYTES {
         client.create_draft_mime(&raw).await?
     } else {
-        create_large(client, &parts, &message_id).await?
+        let reply_to = reply_target(ctx, account_id, &parts).await;
+        create_large(client, &parts, &message_id, reply_to.as_deref()).await?
     };
     let stable = message_id.clone();
     let previous: Option<String> = ctx
@@ -384,6 +430,7 @@ pub(crate) async fn send_large(ctx: &SyncCtx, config: &AccountConfig, draft_id: 
         Some(id) => id.trim_matches(['<', '>']).to_owned(),
         None => build_raw(&parts).await?.0,
     };
-    let remote = create_large(&client, &parts, &message_id).await?;
+    let reply_to = reply_target(ctx, config.id, &parts).await;
+    let remote = create_large(&client, &parts, &message_id, reply_to.as_deref()).await?;
     client.send_draft(&remote).await
 }

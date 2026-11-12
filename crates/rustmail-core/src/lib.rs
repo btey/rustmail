@@ -2327,6 +2327,8 @@ impl Core {
         let mut new = settings;
         // The form has no offline switch: editing never changes it.
         new.work_offline = old.work_offline;
+        new.calendar_past_days = old.calendar_past_days;
+        new.calendar_future_days = old.calendar_future_days;
         new.enabled = true;
         new.validate()?;
         let mailbox_changed =
@@ -2589,6 +2591,19 @@ impl Core {
         let hits = client.directory_search(query, limit).await?;
         exchange::remember_directory(account_id, &hits);
         Ok(hits)
+    }
+
+    /// Free/busy of up to 20 mailboxes between two instants (`getSchedule`),
+    /// for planning a meeting: one list of slots per address.
+    pub async fn exchange_free_busy(
+        &self,
+        account_id: i64,
+        addresses: Vec<String>,
+        from_ms: i64,
+        to_ms: i64,
+    ) -> Result<Vec<(String, Vec<exchange::client::BusySlot>)>> {
+        let (_, client) = self.exchange_client(account_id).await?;
+        exchange::calendar::free_busy(&client, &addresses, (from_ms, to_ms)).await
     }
 
     /// Directory entries an earlier [`Core::exchange_directory_search`]
@@ -6185,6 +6200,7 @@ impl Core {
                 end_ms: args.ends_at,
                 all_day: args.all_day,
                 attendees,
+                recurrence: None,
             },
         )
         .await

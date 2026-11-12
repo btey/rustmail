@@ -542,6 +542,52 @@ pub fn set_series_master(
     Ok(())
 }
 
+/// Drop the expanded occurrence rows of a series that is now stored as one
+/// master with a recurrence rule (rows the user edited are kept).
+pub fn delete_series_occurrences(
+    conn: &Connection,
+    calendar_id: i64,
+    series_master_id: &str,
+) -> Result<usize> {
+    Ok(conn.execute(
+        "DELETE FROM calendar_events
+         WHERE calendar_id = ?1 AND series_master_id = ?2 AND rrule IS NULL
+           AND dirty = 0 AND message_id IS NULL
+           AND (caldav_href IS NULL OR caldav_href != ?2)",
+        params![calendar_id, series_master_id],
+    )?)
+}
+
+/// Whether a series is stored as a master row with a recurrence rule.
+pub fn has_series_master(conn: &Connection, calendar_id: i64, href: &str) -> Result<bool> {
+    Ok(conn
+        .query_row(
+            "SELECT 1 FROM calendar_events
+             WHERE calendar_id = ?1 AND caldav_href = ?2 AND rrule IS NOT NULL
+               AND deleted = 0",
+            params![calendar_id, href],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_some())
+}
+
+/// The hrefs of the series stored as master rows in a calendar.
+pub fn series_master_hrefs(
+    conn: &Connection,
+    calendar_id: i64,
+    limit: usize,
+) -> Result<Vec<String>> {
+    let mut statement = conn.prepare(
+        "SELECT caldav_href FROM calendar_events
+         WHERE calendar_id = ?1 AND rrule IS NOT NULL AND caldav_href IS NOT NULL
+           AND deleted = 0 AND dirty = 0
+         ORDER BY id LIMIT ?2",
+    )?;
+    let rows = statement.query_map(params![calendar_id, limit as i64], |row| row.get(0))?;
+    Ok(rows.collect::<std::result::Result<_, _>>()?)
+}
+
 /// Record our RSVP (ACCEPTED | TENTATIVE | DECLINED).
 pub fn set_rsvp(conn: &Connection, event_id: i64, status: &str) -> Result<()> {
     conn.execute(

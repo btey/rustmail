@@ -78,9 +78,9 @@ async fn actor(
                 _ => {}
             }
         }
-        if settings.has_changed().unwrap_or(false) {
-            config.settings = settings.borrow_and_update().clone();
-        }
+        // Always take the current value: `settings.changed()` in the wait
+        // below marks a change as seen, so `has_changed()` would miss it.
+        config.settings = settings.borrow_and_update().clone();
         set_state(&ctx, config.id, "syncing").await;
         let mut more = false;
         let outcome = match super::graph_for(&ctx, &config) {

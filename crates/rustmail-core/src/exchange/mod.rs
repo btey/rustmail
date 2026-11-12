@@ -26,6 +26,7 @@ pub struct AddExchangeAccountArgs {
 pub(crate) mod calendar;
 pub(crate) mod contacts;
 pub(crate) mod draft;
+pub mod recurrence;
 pub(crate) mod sync;
 
 use crate::accounts::secrets::CredentialStoreHandle;

@@ -377,6 +377,12 @@ fn route(
             state.drafts.push(id.clone());
             json(201, format!(r#"{{"id":"{id}"}}"#))
         }
+        ("POST", p) if p.ends_with("/createReply") => {
+            state.next_id += 1;
+            let id = format!("D{}", state.next_id);
+            state.drafts.push(id.clone());
+            json(201, format!(r#"{{"id":"{id}"}}"#))
+        }
         ("POST", p) if p.ends_with("/permanentDelete") => {
             let id = p
                 .trim_start_matches("/messages/")
@@ -451,6 +457,40 @@ fn route(
                 ),
             )
         }
+        ("GET", "/events/EV-NEW") => json(
+            200,
+            r#"{"id":"EV-NEW","@odata.etag":"W/\"v2\"","changeKey":"v2"}"#.into(),
+        ),
+        ("GET", "/events/SM1") => json(
+            200,
+            r#"{"id":"SM1","iCalUId":"SUID1","type":"seriesMaster","subject":"Standup","isAllDay":false,"isCancelled":false,
+                "start":{"dateTime":"2026-07-06T09:00:00.0000000","timeZone":"UTC"},
+                "end":{"dateTime":"2026-07-06T09:30:00.0000000","timeZone":"UTC"},
+                "recurrence":{"pattern":{"type":"weekly","interval":1,"daysOfWeek":["monday"],"firstDayOfWeek":"sunday"},
+                              "range":{"type":"noEnd","startDate":"2026-07-06"}},
+                "cancelledOccurrences":["OID.SM1.2026-07-20"],
+                "exceptionOccurrences":[{"id":"EX1","type":"exception","subject":"Standup (later)","isAllDay":false,"isCancelled":false,
+                    "originalStart":"2026-07-13T09:00:00Z",
+                    "start":{"dateTime":"2026-07-13T11:00:00.0000000","timeZone":"UTC"},
+                    "end":{"dateTime":"2026-07-13T11:30:00.0000000","timeZone":"UTC"}}]}"#
+                .replace('\n', ""),
+        ),
+        ("GET", "/events/SM2") => json(
+            200,
+            r#"{"id":"SM2","iCalUId":"SUID2","type":"seriesMaster","subject":"Review","isAllDay":false,"isCancelled":false,
+                "start":{"dateTime":"2026-07-07T09:00:00.0000000","timeZone":"UTC"},
+                "end":{"dateTime":"2026-07-07T10:00:00.0000000","timeZone":"UTC"},
+                "recurrence":{"pattern":{"type":"relativeYearly","interval":1,"daysOfWeek":["tuesday"],"index":"first","month":7},
+                              "range":{"type":"noEnd","startDate":"2026-07-07"}}}"#
+                .replace('\n', ""),
+        ),
+        ("POST", "/calendar/getSchedule") => json(
+            200,
+            r#"{"value":[{"scheduleId":"ann@example.org","scheduleItems":[{"status":"busy",
+                "start":{"dateTime":"2026-07-01T09:00:00.0000000","timeZone":"UTC"},
+                "end":{"dateTime":"2026-07-01T10:00:00.0000000","timeZone":"UTC"}}]}]}"#
+                .replace('\n', ""),
+        ),
         ("POST", "/calendars/CAL1/events") => json(201, r#"{"id":"EV-NEW"}"#.into()),
         ("PATCH", p) if p.starts_with("/events/") => json(200, "{}".into()),
         ("DELETE", p) if p.starts_with("/events/") => {
@@ -1218,6 +1258,52 @@ async fn a_big_attachment_goes_through_an_upload_session_and_the_draft_is_sent()
 }
 
 #[tokio::test]
+async fn a_large_reply_starts_from_create_reply_to_keep_its_threading() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let parent: i64 = core
+        .db
+        .read(|conn| {
+            Ok(conn.query_row(
+                "SELECT m.id FROM messages m JOIN exchange_messages em ON em.message_id = m.id
+                 WHERE m.subject = 'One' AND m.message_id IS NOT NULL LIMIT 1",
+                [],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    let file = temp.path().join("big.bin");
+    std::fs::write(&file, vec![7u8; 4 * 1024 * 1024]).unwrap();
+    let mut args = new_draft(account.id, None, "Re: One");
+    args.mode = "reply".into();
+    args.in_reply_to_message_id = Some(parent);
+    args.attachments = vec![DraftAttachmentIn {
+        file_path: file.to_string_lossy().into_owned(),
+        filename: "big.bin".into(),
+    }];
+    let draft = core.save_draft(args).await.unwrap();
+    let queued = core
+        .queue_send(QueueSendArgs {
+            draft_id: draft,
+            send_at: None,
+        })
+        .await
+        .unwrap();
+    core.wait_for_send(queued.action_id).await.unwrap();
+    assert!(
+        log_has(&shared, "/createReply"),
+        "the reply was started from the original"
+    );
+    assert!(!log_has(&shared, "POST /graph/v1.0/me/sendMail"));
+    assert!(log_has(&shared, "/send"));
+}
+
+#[tokio::test]
 async fn contacts_are_read_through_delta_and_removed_with_the_server_copy() {
     let temp = tempfile::tempdir().unwrap();
     let shared = seeded();
@@ -1389,6 +1475,199 @@ async fn calendar_events_arrive_with_zones_applied_and_local_changes_and_answers
         log_has(&shared, "DELETE /graph/v1.0/me/events/EV2")
     })
     .await;
+}
+
+fn utc_ms(y: i32, m: u32, d: u32, h: u32) -> i64 {
+    chrono::NaiveDate::from_ymd_opt(y, m, d)
+        .unwrap()
+        .and_hms_opt(h, 0, 0)
+        .unwrap()
+        .and_utc()
+        .timestamp_millis()
+}
+
+#[tokio::test]
+async fn a_recurring_series_is_stored_as_one_master_with_its_exceptions() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let occurrence = |id: &str, master: &str, subject: &str, day: u32| {
+        format!(
+            r#"{{"id":"{id}","iCalUId":"U-{master}","type":"occurrence","seriesMasterId":"{master}","subject":"{subject}","isAllDay":false,"isCancelled":false,
+                "start":{{"dateTime":"2026-07-{day:02}T09:00:00.0000000","timeZone":"UTC"}},
+                "end":{{"dateTime":"2026-07-{day:02}T09:30:00.0000000","timeZone":"UTC"}}}}"#
+        )
+        .replace('\n', "")
+    };
+    shared.lock().unwrap().events = vec![
+        occurrence("OC1", "SM1", "Standup", 6),
+        occurrence("OC2", "SM1", "Standup", 13),
+        occurrence("OC3", "SM1", "Standup", 20),
+        occurrence("OC4", "SM2", "Review", 7),
+        occurrence("OC5", "SM2", "Review", 8),
+    ];
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.calendar_sync_now(Some(account.id)).await;
+    let window = (utc_ms(2026, 7, 1, 0), utc_ms(2026, 8, 1, 0));
+    let mut events = Vec::new();
+    for _ in 0..100 {
+        events = core.list_events(window.0, window.1).await.unwrap();
+        if events.len() >= 5 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    let standups: Vec<i64> = events
+        .iter()
+        .filter(|e| e.summary.as_deref() == Some("Standup"))
+        .map(|e| e.starts_at)
+        .collect();
+    // Mondays 6, (13 moved to 11:00), 27; the 20th was cancelled.
+    assert_eq!(
+        standups,
+        vec![
+            utc_ms(2026, 7, 6, 9),
+            utc_ms(2026, 7, 13, 11),
+            utc_ms(2026, 7, 27, 9)
+        ],
+        "{events:?}"
+    );
+    // The rule maps, so the series is one row with its recurrence rule.
+    let masters: i64 = core
+        .calendar_db
+        .read(|conn| {
+            Ok(conn.query_row(
+                "SELECT COUNT(*) FROM calendar_events
+                 WHERE caldav_href = 'SM1' AND rrule = 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO'",
+                [],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(masters, 1);
+    // A rule outside the local expander keeps the occurrences Graph sent.
+    let reviews = events
+        .iter()
+        .filter(|e| e.summary.as_deref() == Some("Review"))
+        .count();
+    assert_eq!(reviews, 2, "{events:?}");
+}
+
+#[tokio::test]
+async fn an_event_edited_here_and_on_the_server_keeps_both_versions() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    let window = (utc_ms(2026, 7, 1, 0), utc_ms(2026, 7, 31, 0));
+    let created = core
+        .create_event(CreateEventArgs {
+            account_id: account.id,
+            calendar_id: None,
+            summary: "Workshop".into(),
+            description: None,
+            location: None,
+            join_url: None,
+            starts_at: utc_ms(2026, 7, 2, 9),
+            ends_at: utc_ms(2026, 7, 2, 10),
+            all_day: false,
+            attendees: vec![],
+        })
+        .await
+        .unwrap();
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the event on the server", async || {
+        log_has(&shared, "POST /graph/v1.0/me/calendars/CAL1/events")
+    })
+    .await;
+    // The next pull brings the event back at version v1.
+    shared.lock().unwrap().event_changes = vec![
+        r#"{"id":"EV-NEW","@odata.etag":"W/\"v1\"","iCalUId":"UID-NEW","type":"singleInstance","subject":"Workshop","isAllDay":false,"isCancelled":false,
+            "start":{"dateTime":"2026-07-02T09:00:00.0000000","timeZone":"UTC"},
+            "end":{"dateTime":"2026-07-02T10:00:00.0000000","timeZone":"UTC"}}"#
+            .replace('\n', ""),
+    ];
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the event at version v1", async || {
+        core.calendar_db
+            .read(|conn| {
+                Ok(conn.query_row(
+                    "SELECT COUNT(*) FROM calendar_events WHERE caldav_href = 'EV-NEW' AND etag LIKE '%v1%'",
+                    [],
+                    |r| r.get::<_, i64>(0),
+                )?)
+            })
+            .await
+            .unwrap()
+            == 1
+    })
+    .await;
+    let _ = (created, window);
+    // The server already holds v2 when the local edit is pushed.
+    let local: i64 = core
+        .calendar_db
+        .read(|conn| {
+            Ok(conn.query_row(
+                "SELECT id FROM calendar_events WHERE caldav_href = 'EV-NEW'",
+                [],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    core.update_event(UpdateEventArgs {
+        event_id: local,
+        summary: "Workshop (new room)".into(),
+        description: None,
+        location: None,
+        join_url: None,
+        starts_at: utc_ms(2026, 7, 2, 9),
+        ends_at: utc_ms(2026, 7, 2, 10),
+        all_day: false,
+        attendees: vec![],
+        notify: false,
+    })
+    .await
+    .unwrap();
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the edit saved as a second event", async || {
+        shared
+            .lock()
+            .unwrap()
+            .log
+            .iter()
+            .filter(|(line, _)| line.contains("POST /graph/v1.0/me/calendars/CAL1/events"))
+            .count()
+            == 2
+    })
+    .await;
+    assert!(!log_has(&shared, "PATCH /graph/v1.0/me/events/EV-NEW"));
+}
+
+#[tokio::test]
+async fn free_busy_of_other_mailboxes_comes_from_get_schedule() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    let answer = core
+        .exchange_free_busy(
+            account.id,
+            vec!["ann@example.org".into()],
+            utc_ms(2026, 7, 1, 0),
+            utc_ms(2026, 7, 2, 0),
+        )
+        .await
+        .unwrap();
+    assert_eq!(answer.len(), 1);
+    assert_eq!(answer[0].0, "ann@example.org");
+    assert_eq!(answer[0].1.len(), 1);
+    assert_eq!(answer[0].1[0].status, "busy");
+    assert_eq!(answer[0].1[0].start_ms, utc_ms(2026, 7, 1, 9));
 }
 
 #[tokio::test]
@@ -1746,7 +2025,6 @@ async fn working_offline_queues_changes_makes_no_request_and_replays_them_later(
     core.set_exchange_work_offline(account.id, true)
         .await
         .unwrap();
-    let before = requests_seen(&shared);
     let one = thread_of_subject(&core, "One").await;
     core.perform_action(PerformActionArgs {
         kind: ActionKind::MarkRead,
@@ -1763,7 +2041,11 @@ async fn working_offline_queues_changes_makes_no_request_and_replays_them_later(
     .await
     .unwrap();
     // A sync attempt neither reaches the server nor fails the actions.
-    assert!(core.sync_now(Some(account.id)).await.is_err());
+    wait_until("the sync actor to go offline", async || {
+        core.sync_now(Some(account.id)).await.is_err()
+    })
+    .await;
+    let before = requests_seen(&shared);
     assert_eq!(requests_seen(&shared), before, "no request while offline");
     assert_eq!(core.pending_changes(Some(account.id)).await.unwrap(), 2);
     assert_eq!(core.offline_status().await.unwrap(), (true, 2));
@@ -1845,6 +2127,12 @@ async fn a_lost_connection_keeps_the_retry_budget_of_queued_actions() {
     core.set_exchange_work_offline(account.id, true)
         .await
         .unwrap();
+    // The sync actor takes the new settings a moment later; once a sync
+    // fails for being offline it has them.
+    wait_until("the sync actor to go offline", async || {
+        core.sync_now(Some(account.id)).await.is_err()
+    })
+    .await;
     let one = thread_of_subject(&core, "One").await;
     core.perform_action(PerformActionArgs {
         kind: ActionKind::MarkRead,

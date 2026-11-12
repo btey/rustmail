@@ -1,6 +1,6 @@
 import { VerticalBox, HorizontalBox } from "std-widgets.slint";
 import { Button } from "button.slint";
-import { FormField } from "settings-components.slint";
+import { FormField, SettingsSwitchRow } from "settings-components.slint";
 import { AppTheme } from "../design-system.slint";
 import { TypeScale } from "../typography.slint";
 
@@ -25,6 +25,8 @@ export global ExchangeSetupUi {
     in-out property <string> login-url;
     in-out property <string> graph-url;
     in-out property <string> mailbox;
+    // Editing an existing account: no requests to Microsoft 365 for it.
+    in-out property <bool> work-offline: false;
     // "" (nothing running), "paste", "device" or "browser".
     in-out property <string> step;
     // The sign-in address (paste) or the verification address (device code).
@@ -210,6 +212,16 @@ export component ExchangeSetupFields inherits VerticalBox {
         placeholder: @tr("shared@example.com");
         label-color: root.label-color;
         edited(value) => { ExchangeSetupUi.mailbox = value; }
+    }
+    if ExchangeSetupUi.edit-account-id != 0 : SettingsSwitchRow {
+        enabled: root.enabled;
+        compact: true;
+        title: @tr("Work offline for this account");
+        description: @tr("No requests are made; changes wait and are sent when you go back online.");
+        checked: ExchangeSetupUi.work-offline;
+        title-color: root.label-color;
+        description-color: root.body-text;
+        toggled(value) => { ExchangeSetupUi.work-offline = value; }
     }
 
     if ExchangeSetupUi.step == "paste" : VerticalBox {

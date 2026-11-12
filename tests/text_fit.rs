@@ -967,6 +967,11 @@ fn states() -> Vec<State> {
             app.set_connected_accounts(model(Vec::new()));
             app.set_account_protocol("exchange".into());
         }),
+        state("onboarding exchange edit account", |app| {
+            app.set_connected_accounts(model(Vec::new()));
+            app.set_account_protocol("exchange".into());
+            app.global::<ExchangeSetupUi>().set_edit_account_id(3);
+        }),
         state("onboarding exchange paste address", |app| {
             app.set_connected_accounts(model(Vec::new()));
             app.set_account_protocol("exchange".into());

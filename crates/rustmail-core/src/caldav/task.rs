@@ -185,7 +185,14 @@ async fn run_cycle(
             &settings,
             crate::exchange::tokens_for(account_id, &settings, &credential_store),
         )?;
-        crate::exchange::calendar::sync_account(db, bus, &client, account_id).await
+        crate::exchange::calendar::sync_account(
+            db,
+            bus,
+            &client,
+            account_id,
+            settings.calendar_window_ms(),
+        )
+        .await
     } else if cfg.kind == "google" {
         let token = tokens.access_token(account_id, Provider::Gmail).await?;
         if refresh_collections {

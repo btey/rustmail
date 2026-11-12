@@ -834,6 +834,46 @@ pub struct ContactPage {
     pub delta_link: Option<String>,
 }
 
+/// The version tag of an event reply, in the form the calendar rows store
+/// (`@odata.etag`, else `changeKey`).
+fn event_version(value: &Value) -> Option<String> {
+    value["@odata.etag"]
+        .as_str()
+        .or_else(|| value["changeKey"].as_str())
+        .filter(|text| !text.is_empty())
+        .map(str::to_owned)
+}
+
+/// A recurring series as Graph describes it: the master event with its
+/// recurrence, the cancelled dates and the changed or cancelled occurrences.
+#[derive(Debug, Clone)]
+pub struct SeriesMaster {
+    pub event: crate::graph::DeltaEvent,
+    pub recurrence: Value,
+    /// The master's first start as written by Graph (local time and zone name).
+    pub start_local: Option<(String, String)>,
+    pub cancelled: Vec<String>,
+    pub exceptions: Vec<SeriesException>,
+}
+
+/// One occurrence of a series that was moved, changed or cancelled.
+#[derive(Debug, Clone)]
+pub struct SeriesException {
+    pub original_start_ms: i64,
+    pub start_ms: i64,
+    pub end_ms: Option<i64>,
+    pub cancelled: bool,
+}
+
+/// One slot of a free/busy answer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BusySlot {
+    pub start_ms: i64,
+    pub end_ms: i64,
+    /// `free`, `tentative`, `busy`, `oof`, `workingElsewhere`, `unknown`.
+    pub status: String,
+}
+
 /// The answer to a meeting invitation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventResponse {
@@ -951,6 +991,24 @@ impl GraphMail {
             .as_str()
             .map(str::to_owned)
             .ok_or_else(|| CoreError::Network("Microsoft Graph returned no draft id".into()))
+    }
+
+    /// Start a reply draft to a stored message: Graph fills in the threading
+    /// headers (`In-Reply-To`, `References`), which a JSON draft cannot carry.
+    pub async fn create_reply_draft(&self, message_id: &str) -> Result<String> {
+        let url = self.endpoint(&["messages", message_id, "createReply"]);
+        let value = self
+            .json(
+                reqwest::Method::POST,
+                url,
+                Some(&json!({})),
+                &[("Prefer", "IdType=\"ImmutableId\"")],
+            )
+            .await?;
+        value["id"]
+            .as_str()
+            .map(str::to_owned)
+            .ok_or_else(|| CoreError::Network("Microsoft Graph returned no reply draft id".into()))
     }
 
     /// Attach a file of up to a few MiB to a draft in one request.
@@ -1412,11 +1470,158 @@ impl GraphMail {
             .ok_or_else(|| CoreError::Network("Microsoft Graph returned no event id".into()))
     }
 
-    pub async fn update_event(&self, event_id: &str, event: &Value) -> Result<()> {
+    /// Read a series master (`None` when it is gone) with its exceptions.
+    pub async fn series_master(&self, event_id: &str) -> Result<Option<SeriesMaster>> {
+        let mut url = self.endpoint(&["events", event_id]);
+        url.query_pairs_mut()
+            .append_pair("$expand", "exceptionOccurrences");
+        let raw = self
+            .send(reqwest::Method::GET, url, None, &[], MAX_JSON_BYTES, false)
+            .await?;
+        if raw.status == 404 {
+            return Ok(None);
+        }
+        if !(200..300).contains(&raw.status) {
+            return Err(status_error(raw.status, &raw.body));
+        }
+        let value: Value = serde_json::from_slice(&raw.body).map_err(|error| {
+            CoreError::Network(format!("Microsoft Graph reply was not JSON: {error}"))
+        })?;
+        let Some(event) = crate::graph::parse_delta_event(&value) else {
+            return Ok(None);
+        };
+        let start_local = value["start"]["dateTime"].as_str().map(|text| {
+            (
+                text.to_owned(),
+                value["start"]["timeZone"]
+                    .as_str()
+                    .unwrap_or("UTC")
+                    .to_owned(),
+            )
+        });
+        let rfc3339_ms = |text: &Value| {
+            let text = text.as_str()?;
+            chrono::DateTime::parse_from_rfc3339(text)
+                .or_else(|_| chrono::DateTime::parse_from_rfc3339(&format!("{text}Z")))
+                .ok()
+                .map(|date| date.timestamp_millis())
+        };
+        let exceptions = value["exceptionOccurrences"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .take(500)
+            .filter_map(|item| {
+                let parsed = crate::graph::parse_delta_event(item)?;
+                Some(SeriesException {
+                    original_start_ms: rfc3339_ms(&item["originalStart"])?,
+                    start_ms: parsed.start_ms,
+                    end_ms: parsed.end_ms,
+                    cancelled: parsed.cancelled,
+                })
+            })
+            .collect();
+        Ok(Some(SeriesMaster {
+            recurrence: value["recurrence"].clone(),
+            start_local,
+            cancelled: value["cancelledOccurrences"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .take(1000)
+                .filter_map(|item| item.as_str().map(str::to_owned))
+                .collect(),
+            exceptions,
+            event,
+        }))
+    }
+
+    /// Free/busy of mailboxes in a window (`POST /me/calendar/getSchedule`),
+    /// one list of slots per address, in the order asked.
+    pub async fn free_busy(
+        &self,
+        addresses: &[String],
+        window_ms: (i64, i64),
+    ) -> Result<Vec<(String, Vec<BusySlot>)>> {
+        if addresses.is_empty() || addresses.len() > 20 {
+            return Err(CoreError::Other(
+                "ask for between 1 and 20 mailboxes at a time".into(),
+            ));
+        }
+        let at = |ms: i64| {
+            chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
+                .map(|date| json!({"dateTime": date.format("%Y-%m-%dT%H:%M:%S").to_string(), "timeZone": "UTC"}))
+                .ok_or_else(|| CoreError::Other("invalid timestamp".into()))
+        };
+        let body = json!({
+            "schedules": addresses,
+            "startTime": at(window_ms.0)?,
+            "endTime": at(window_ms.1)?,
+            "availabilityViewInterval": 30,
+        });
+        let url = self.endpoint(&["calendar", "getSchedule"]);
+        let reply = self
+            .json(
+                reqwest::Method::POST,
+                url,
+                Some(&body),
+                &[("Prefer", "outlook.timezone=\"UTC\"")],
+            )
+            .await?;
+        let time = |value: &Value| {
+            let text = value["dateTime"].as_str()?;
+            let naive = chrono::NaiveDateTime::parse_from_str(text, "%Y-%m-%dT%H:%M:%S%.f").ok()?;
+            Some(naive.and_utc().timestamp_millis())
+        };
+        Ok(reply["value"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|entry| {
+                let address = entry["scheduleId"].as_str().unwrap_or_default().to_owned();
+                let slots = entry["scheduleItems"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .take(500)
+                    .filter_map(|slot| {
+                        Some(BusySlot {
+                            start_ms: time(&slot["start"])?,
+                            end_ms: time(&slot["end"])?,
+                            status: slot["status"].as_str().unwrap_or("unknown").to_owned(),
+                        })
+                    })
+                    .collect();
+                (address, slots)
+            })
+            .collect())
+    }
+
+    /// Change an event; returns its new version tag when Graph sent one.
+    pub async fn update_event(&self, event_id: &str, event: &Value) -> Result<Option<String>> {
         let url = self.endpoint(&["events", event_id]);
-        self.json(reqwest::Method::PATCH, url, Some(event), &[])
-            .await
-            .map(|_| ())
+        let reply = self
+            .json(reqwest::Method::PATCH, url, Some(event), &[])
+            .await?;
+        Ok(event_version(&reply))
+    }
+
+    /// The server's current version tag of an event (`None` outer: the event
+    /// is gone; `None` inner: Graph named no version).
+    pub async fn event_version(&self, event_id: &str) -> Result<Option<Option<String>>> {
+        let mut url = self.endpoint(&["events", event_id]);
+        url.query_pairs_mut().append_pair("$select", "id,changeKey");
+        let raw = self
+            .send(reqwest::Method::GET, url, None, &[], MAX_JSON_BYTES, false)
+            .await?;
+        if raw.status == 404 {
+            return Ok(None);
+        }
+        if !(200..300).contains(&raw.status) {
+            return Err(status_error(raw.status, &raw.body));
+        }
+        let value: Value = serde_json::from_slice(&raw.body).unwrap_or(Value::Null);
+        Ok(Some(event_version(&value)))
     }
 
     /// Delete an event; one that is already gone counts as deleted.

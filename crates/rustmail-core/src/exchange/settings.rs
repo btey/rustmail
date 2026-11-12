@@ -186,6 +186,10 @@ pub struct ExchangeSettings {
     /// Work offline for this account only (see `Settings::work_offline` for
     /// all accounts): no request leaves the app, changes are queued.
     pub work_offline: bool,
+    /// Days of calendar history kept (0 = the default, 90).
+    pub calendar_past_days: u32,
+    /// Days of calendar ahead kept (0 = the default, 400).
+    pub calendar_future_days: u32,
 }
 
 impl Default for ExchangeSettings {
@@ -204,7 +208,27 @@ impl Default for ExchangeSettings {
             shared_mailbox: String::new(),
             proxy_url: String::new(),
             work_offline: false,
+            calendar_past_days: 0,
+            calendar_future_days: 0,
         }
+    }
+}
+
+impl ExchangeSettings {
+    /// How far back and ahead the calendar is kept, in milliseconds.
+    pub fn calendar_window_ms(&self) -> (i64, i64) {
+        const DAY: i64 = 86_400_000;
+        let days = |set: u32, default: i64| {
+            if set == 0 {
+                default
+            } else {
+                i64::from(set.min(3650))
+            }
+        };
+        (
+            days(self.calendar_past_days, 90) * DAY,
+            days(self.calendar_future_days, 400) * DAY,
+        )
     }
 }
 
@@ -531,6 +555,16 @@ impl ExchangeSettings {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_calendar_window_defaults_and_is_bounded() {
+        let day = 86_400_000;
+        let mut settings = ExchangeSettings::default();
+        assert_eq!(settings.calendar_window_ms(), (90 * day, 400 * day));
+        settings.calendar_past_days = 30;
+        settings.calendar_future_days = 100_000;
+        assert_eq!(settings.calendar_window_ms(), (30 * day, 3650 * day));
+    }
+
     use super::*;
 
     const CLIENT: &str = "facd6cff-a294-4415-b59f-c5b01937d7bd";

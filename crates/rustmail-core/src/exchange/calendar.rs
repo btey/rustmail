@@ -7,16 +7,15 @@
 //! times come in the zone the event was made in and are converted through
 //! `exchange::zones` (all-day dates stay dates).
 
-use super::client::{EventResponse, GraphMail};
+use super::client::{EventResponse, GraphMail, SeriesMaster};
+use super::recurrence;
+use crate::calendar::IcsEvent;
 use crate::db::Db;
 use crate::db::repo;
 use crate::db::repo::calendar::SyncRow;
 use crate::error::{CoreError, Result};
 use crate::events::{CoreEvent, EventBus, NewEventInfo};
-use crate::graphcal::{
-    MAX_GRAPH_DELTA_PAGES, MAX_NEW_EVENT_NOTIFICATIONS, WINDOW_FUTURE_MS, WINDOW_PAST_MS,
-    graph_event, ics_event,
-};
+use crate::graphcal::{MAX_GRAPH_DELTA_PAGES, MAX_NEW_EVENT_NOTIFICATIONS, graph_event, ics_event};
 use crate::models::now_ms;
 
 /// List the mailbox's calendars and register them (and the account's
@@ -83,15 +82,25 @@ pub(crate) async fn sync_account(
     bus: &EventBus,
     client: &GraphMail,
     account_id: i64,
+    (past_ms, future_ms): (i64, i64),
 ) -> Result<bool> {
-    let pushed = push_dirty(db, client, account_id).await?;
+    let pushed = push_dirty(db, bus, client, account_id).await?;
     let calendars = db
         .read(move |conn| repo::caldav::list_calendars(conn, Some(account_id)))
         .await?;
     let mut changed_any = pushed;
     let mut new_events: Vec<NewEventInfo> = Vec::new();
     for cal in calendars.into_iter().filter(|c| c.enabled) {
-        match sync_calendar(db, client, account_id, cal.id, &cal.url).await {
+        match sync_calendar(
+            db,
+            client,
+            account_id,
+            cal.id,
+            &cal.url,
+            (past_ms, future_ms),
+        )
+        .await
+        {
             Ok((changed, fresh)) => {
                 changed_any |= changed;
                 let remaining = MAX_NEW_EVENT_NOTIFICATIONS.saturating_sub(new_events.len());
@@ -120,13 +129,13 @@ pub(crate) async fn sync_account(
     Ok(changed_any)
 }
 
-async fn push_dirty(db: &Db, client: &GraphMail, account_id: i64) -> Result<bool> {
+async fn push_dirty(db: &Db, bus: &EventBus, client: &GraphMail, account_id: i64) -> Result<bool> {
     let rows = db
         .read(move |conn| repo::calendar::dirty_rows(conn, account_id))
         .await?;
     let mut any = false;
     for row in rows {
-        match push_row(db, client, account_id, &row).await {
+        match push_row(db, bus, client, account_id, &row).await {
             Ok(()) => any = true,
             Err(error @ (CoreError::NeedsReauth | CoreError::Auth(_))) => return Err(error),
             Err(error) => tracing::warn!("exchange push of event {} failed: {error}", row.event.id),
@@ -135,7 +144,13 @@ async fn push_dirty(db: &Db, client: &GraphMail, account_id: i64) -> Result<bool
     Ok(any)
 }
 
-async fn push_row(db: &Db, client: &GraphMail, account_id: i64, row: &SyncRow) -> Result<()> {
+async fn push_row(
+    db: &Db,
+    bus: &EventBus,
+    client: &GraphMail,
+    account_id: i64,
+    row: &SyncRow,
+) -> Result<()> {
     let event_id = row.event.id;
     if row.deleted {
         if let Some(href) = &row.caldav_href {
@@ -146,18 +161,67 @@ async fn push_row(db: &Db, client: &GraphMail, account_id: i64, row: &SyncRow) -
         return Ok(());
     }
     let subject = row.event.summary.clone().unwrap_or_default();
-    let event = graph_event(&subject, &row.event);
+    let mut event = graph_event(&subject, &row.event);
+    // A series master carries its recurrence; a rule outside the mapped
+    // subset is left as it is on the server.
+    if let Some(rrule) = row.event.rrule.as_deref()
+        && let Some(start) = chrono::DateTime::from_timestamp_millis(row.event.starts_at)
+    {
+        event.recurrence = recurrence::recurrence_from_rrule(rrule, start.date_naive());
+    }
     let payload = crate::graph::event_payload(&event)?;
     match &row.caldav_href {
         Some(href) => {
-            client.update_event(href, &payload).await?;
             let calendar_id = row
                 .event
                 .calendar_id
                 .ok_or_else(|| CoreError::CalDav("synced event without calendar".into()))?;
+            // Changed on the server since the last pull: the server wins (its
+            // version arrives with the next delta) and the local edit is
+            // saved there as a second event, so neither is lost.
+            if let (Some(stored), Some(current)) = (
+                row.etag.as_deref(),
+                client.event_version(href).await?.flatten(),
+            ) && stored != current
+            {
+                let mut copy = payload.clone();
+                copy["subject"] = format!("{subject} (your edit)").into();
+                copy.as_object_mut()
+                    .map(|object| object.remove("recurrence"));
+                let target = db
+                    .read(move |conn| repo::caldav::get_calendar(conn, calendar_id))
+                    .await?
+                    .map(|calendar| calendar.url);
+                client.create_event(target.as_deref(), &copy).await?;
+                bus.emit(CoreEvent::Notice {
+                    account_id,
+                    message: format!(
+                        "\"{subject}\" was changed here and on Microsoft 365. The server's version was kept and your edit was saved as \"{subject} (your edit)\"."
+                    ),
+                });
+                db.write(move |conn| {
+                    conn.execute(
+                        "UPDATE calendar_events SET dirty = 0 WHERE id = ?1",
+                        [event_id],
+                    )?;
+                    Ok(())
+                })
+                .await?;
+                return Ok(());
+            }
+            let version = client.update_event(href, &payload).await?;
             let href = href.clone();
+            // A series keeps the text that lists its cancelled dates.
+            let raw = row.ical_raw.clone().unwrap_or_default();
             db.write(move |conn| {
-                repo::calendar::clear_dirty_set_etag(conn, event_id, calendar_id, &href, None, "")
+                repo::calendar::clear_dirty_set_etag(
+                    conn,
+                    event_id,
+                    calendar_id,
+                    &href,
+                    version.as_deref(),
+                    &raw,
+                )
             })
             .await?;
         }
@@ -193,13 +257,14 @@ async fn sync_calendar(
     account_id: i64,
     calendar_id: i64,
     graph_calendar_id: &str,
+    (past_ms, future_ms): (i64, i64),
 ) -> Result<(bool, Vec<NewEventInfo>)> {
     let (_, stored) = db
         .read(move |conn| repo::caldav::sync_state(conn, calendar_id))
         .await?;
     let mut incremental = stored.is_some();
     let now = now_ms();
-    let window = (now - WINDOW_PAST_MS, now + WINDOW_FUTURE_MS);
+    let window = (now - past_ms, now + future_ms);
     let mut link = stored;
     let mut restarted = false;
     let mut changed_any = false;
@@ -236,15 +301,74 @@ async fn sync_calendar(
             continue;
         };
         let (removed, upserts): (Vec<_>, Vec<_>) = page.events.into_iter().partition(|e| e.removed);
-        if !upserts.is_empty() {
+        // Series touched by this page: changed occurrences, and every stored
+        // master when something was removed (a cancelled occurrence arrives
+        // as a bare removal that names no series).
+        let mut wanted: Vec<String> = Vec::new();
+        for ev in &upserts {
+            if let Some(master) = &ev.series_master_id
+                && !wanted.contains(master)
+            {
+                wanted.push(master.clone());
+            }
+        }
+        if !removed.is_empty() {
+            let known = db
+                .read(move |conn| {
+                    repo::calendar::series_master_hrefs(conn, calendar_id, MAX_SERIES_PER_CYCLE)
+                })
+                .await?;
+            for href in known {
+                if !wanted.contains(&href) && !removed.iter().any(|gone| gone.id == href) {
+                    wanted.push(href);
+                }
+            }
+        }
+        wanted.truncate(MAX_SERIES_PER_CYCLE);
+        let mut series: std::collections::HashMap<String, Option<SeriesRow>> =
+            std::collections::HashMap::new();
+        for id in wanted {
+            let row = match client.series_master(&id).await? {
+                Some(master) => series_row(&master),
+                None => None,
+            };
+            series.insert(id, row);
+        }
+        if !upserts.is_empty() || series.values().any(Option::is_some) {
             changed_any = true;
             let batch_new = db
                 .write(move |conn| {
                     let tx = conn.transaction()?;
                     let mut fresh: Vec<NewEventInfo> = Vec::new();
+                    for (id, row) in &series {
+                        match row {
+                            Some(row) => {
+                                repo::calendar::delete_series_occurrences(&tx, calendar_id, id)?;
+                                repo::calendar::upsert_remote(
+                                    &tx,
+                                    account_id,
+                                    calendar_id,
+                                    id,
+                                    row.etag.as_deref().unwrap_or(""),
+                                    &row.raw,
+                                    &row.ics,
+                                )?;
+                            }
+                            // The rule no longer maps: go back to occurrences.
+                            None if repo::calendar::has_series_master(&tx, calendar_id, id)? => {
+                                repo::calendar::delete_by_href(&tx, calendar_id, id)?;
+                            }
+                            None => {}
+                        }
+                    }
                     for ev in &upserts {
                         if ev.start_ms == 0 || ev.event_type.as_deref() == Some("seriesMaster") {
                             continue;
+                        }
+                        if let Some(master) = &ev.series_master_id
+                            && matches!(series.get(master), Some(Some(_)))
+                        {
+                            continue; // shown through the master's rule
                         }
                         let ics = ics_event(ev);
                         let inserted = repo::calendar::upsert_remote(
@@ -303,6 +427,117 @@ async fn sync_calendar(
     })
     .await?;
     Ok((changed_any, new_events))
+}
+
+/// How many series masters one cycle reads.
+const MAX_SERIES_PER_CYCLE: usize = 50;
+
+/// A series master ready to store.
+struct SeriesRow {
+    ics: IcsEvent,
+    raw: String,
+    etag: Option<String>,
+}
+
+fn ics_time(ms: i64, all_day: bool) -> String {
+    let Some(date) = chrono::DateTime::from_timestamp_millis(ms) else {
+        return String::new();
+    };
+    if all_day {
+        date.format("%Y%m%d").to_string()
+    } else {
+        date.format("%Y%m%dT%H%M%SZ").to_string()
+    }
+}
+
+/// Turn a Graph series master into a master row with an RRULE, or `None`
+/// when its rule does not map (the occurrences stay expanded).
+fn series_row(master: &SeriesMaster) -> Option<SeriesRow> {
+    let event = &master.event;
+    if event.start_ms == 0 || event.cancelled {
+        return None;
+    }
+    let (local_text, zone) = master.start_local.as_ref()?;
+    let local = chrono::NaiveDateTime::parse_from_str(local_text, "%Y-%m-%dT%H:%M:%S%.f").ok()?;
+    let rrule = recurrence::rrule_from_recurrence(&master.recurrence, local.date())?;
+    let all_day = event.all_day;
+    // A cancelled date happens at the series' own time of day.
+    let at_start_time = |date: chrono::NaiveDate| -> Option<i64> {
+        let moment = date.and_time(local.time());
+        if all_day {
+            return Some(date.and_hms_opt(0, 0, 0)?.and_utc().timestamp_millis());
+        }
+        crate::graph::parse_graph_time(
+            Some(&serde_json::json!({
+                "dateTime": moment.format("%Y-%m-%dT%H:%M:%S").to_string(),
+                "timeZone": zone,
+            })),
+            false,
+        )
+    };
+    let mut exdates: Vec<i64> = recurrence::cancelled_dates(&master.cancelled)
+        .into_iter()
+        .filter_map(at_start_time)
+        .collect();
+    exdates.extend(
+        master
+            .exceptions
+            .iter()
+            .filter(|e| e.cancelled)
+            .map(|e| e.original_start_ms),
+    );
+    exdates.sort_unstable();
+    exdates.dedup();
+    let mut ics = ics_event(event);
+    ics.rrule = Some(rrule.clone());
+    let uid = &ics.uid;
+    let mut raw = String::from("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\n");
+    raw.push_str(&format!("UID:{uid}\r\n"));
+    raw.push_str(&format!(
+        "DTSTART:{}\r\n",
+        ics_time(event.start_ms, all_day)
+    ));
+    raw.push_str(&format!("RRULE:{rrule}\r\n"));
+    if !exdates.is_empty() {
+        let list: Vec<String> = exdates.iter().map(|ms| ics_time(*ms, all_day)).collect();
+        raw.push_str(&format!("EXDATE:{}\r\n", list.join(",")));
+    }
+    raw.push_str("END:VEVENT\r\n");
+    for moved in master
+        .exceptions
+        .iter()
+        .filter(|e| !e.cancelled && e.start_ms != 0)
+    {
+        let end = moved.end_ms.unwrap_or(moved.start_ms);
+        raw.push_str("BEGIN:VEVENT\r\n");
+        raw.push_str(&format!("UID:{uid}\r\n"));
+        raw.push_str(&format!(
+            "RECURRENCE-ID:{}\r\n",
+            ics_time(moved.original_start_ms, all_day)
+        ));
+        raw.push_str(&format!(
+            "DTSTART:{}\r\n",
+            ics_time(moved.start_ms, all_day)
+        ));
+        raw.push_str(&format!("DTEND:{}\r\n", ics_time(end, all_day)));
+        raw.push_str("END:VEVENT\r\n");
+    }
+    raw.push_str("END:VCALENDAR\r\n");
+    Some(SeriesRow {
+        ics,
+        raw,
+        etag: event.etag.clone(),
+    })
+}
+
+/// Free/busy of mailboxes (an optional meeting-planning lookup; the Calendar
+/// view has no place for it yet, so nothing in the UI calls it).
+pub(crate) async fn free_busy(
+    client: &GraphMail,
+    addresses: &[String],
+    window_ms: (i64, i64),
+) -> Result<Vec<(String, Vec<super::client::BusySlot>)>> {
+    client.free_busy(addresses, window_ms).await
 }
 
 /// Answer a meeting invitation on the server and remember the answer.

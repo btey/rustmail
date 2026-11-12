@@ -186,6 +186,7 @@ pub(crate) fn graph_event<'a>(
                 name: a.name.clone(),
             })
             .collect(),
+        recurrence: None,
     }
 }
 
