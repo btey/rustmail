@@ -10,7 +10,8 @@ macro_rules! event_select {
         concat!(
             "SELECT id, account_id, message_id, summary, location, organizer, ",
             "description, attendees_json, join_url, rsvp_status, is_local, ",
-            "calendar_id, rrule, starts_at, ends_at, all_day, status, method ",
+            "calendar_id, rrule, starts_at, ends_at, all_day, status, method, ",
+            "reminder_minutes ",
             "FROM calendar_events ",
             $tail
         )
@@ -23,7 +24,8 @@ macro_rules! sync_event_select {
             "SELECT id, account_id, message_id, summary, location, organizer, ",
             "description, attendees_json, join_url, rsvp_status, is_local, ",
             "calendar_id, rrule, starts_at, ends_at, all_day, status, method, ",
-            "ical_uid, sequence, caldav_href, etag, ical_raw, deleted ",
+            "reminder_minutes, ",
+            "ical_uid, sequence, caldav_href, etag, ical_raw, deleted, tzid ",
             "FROM calendar_events ",
             $tail
         )
@@ -55,6 +57,7 @@ fn from_row(row: &Row) -> rusqlite::Result<CalendarEvent> {
         all_day: row.get::<_, i64>("all_day")? != 0,
         status: row.get("status")?,
         method: row.get("method")?,
+        reminder_minutes: row.get("reminder_minutes")?,
     })
 }
 
@@ -68,6 +71,8 @@ pub struct SyncRow {
     pub etag: Option<String>,
     pub ical_raw: Option<String>,
     pub deleted: bool,
+    /// Time zone of a recurring series (a Windows or IANA name), when known.
+    pub tzid: Option<String>,
 }
 
 fn sync_row(row: &Row) -> rusqlite::Result<SyncRow> {
@@ -79,6 +84,7 @@ fn sync_row(row: &Row) -> rusqlite::Result<SyncRow> {
         etag: row.get("etag")?,
         ical_raw: row.get("ical_raw")?,
         deleted: row.get::<_, i64>("deleted")? != 0,
+        tzid: row.get("tzid")?,
     })
 }
 
@@ -283,7 +289,8 @@ pub fn upsert_remote(
                     ical_uid = ?6, summary = ?7, location = ?8, organizer = ?9,
                     description = ?10, attendees_json = ?11, join_url = ?12,
                     sequence = ?13, rrule = ?14, tzid = ?15, starts_at = ?16,
-                    ends_at = ?17, all_day = ?18, status = ?19
+                    ends_at = ?17, all_day = ?18, status = ?19,
+                    reminder_minutes = ?20
                  WHERE id = ?1",
                 params![
                     id,
@@ -305,6 +312,7 @@ pub fn upsert_remote(
                     ev.ends_at_ms,
                     ev.all_day as i64,
                     ev.status,
+                    ev.reminder_minutes,
                 ],
             )?;
             Ok(false)
@@ -314,8 +322,9 @@ pub fn upsert_remote(
                 "INSERT INTO calendar_events
                     (account_id, calendar_id, caldav_href, etag, ical_raw, ical_uid,
                      summary, location, organizer, description, attendees_json,
-                     join_url, sequence, rrule, tzid, starts_at, ends_at, all_day, status)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19)",
+                     join_url, sequence, rrule, tzid, starts_at, ends_at, all_day, status,
+                     reminder_minutes)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
                 params![
                     account_id,
                     calendar_id,
@@ -336,6 +345,7 @@ pub fn upsert_remote(
                     ev.ends_at_ms,
                     ev.all_day as i64,
                     ev.status,
+                    ev.reminder_minutes,
                 ],
             )?;
             Ok(true)
@@ -409,6 +419,28 @@ pub fn update_local_fields(
             args.all_day as i64,
             attendees_to_json(attendees)?,
         ],
+    )?;
+    Ok(())
+}
+
+/// Set or clear the reminder of one event and flag it for the push.
+/// `None` = the app's default lead time, `Some(0)` = no reminder. The
+/// notification gate is reset so a changed lead can fire again.
+pub fn set_reminder(conn: &Connection, event_id: i64, minutes: Option<i64>) -> Result<()> {
+    conn.execute(
+        "UPDATE calendar_events SET reminder_minutes = ?2, notified_at = NULL, dirty = 1
+         WHERE id = ?1",
+        params![event_id, minutes],
+    )?;
+    Ok(())
+}
+
+/// Set or clear the recurrence rule of one event and flag it for the push.
+pub fn set_rrule(conn: &Connection, event_id: i64, rrule: Option<&str>) -> Result<()> {
+    conn.execute(
+        "UPDATE calendar_events SET rrule = ?2, sequence = sequence + 1, dirty = 1
+         WHERE id = ?1",
+        params![event_id, rrule],
     )?;
     Ok(())
 }
@@ -651,9 +683,11 @@ pub fn for_message(conn: &Connection, message_id: i64) -> Result<Vec<CalendarEve
     Ok(rows)
 }
 
-/// Non-recurring events starting within the reminder window that have not
-/// been notified for this start time yet. (Recurring occurrences are handled
-/// by the caller via the expander; the notified_at gate is per-occurrence.)
+/// Non-recurring events starting within their reminder window that have not
+/// been notified for this start time yet. An event's own reminder
+/// (`reminder_minutes`, 0 = none) wins over `lead_ms`, the app's default
+/// lead. (Recurring occurrences are handled by the caller via the expander;
+/// the notified_at gate is per-occurrence.)
 pub fn upcoming_for_notify(
     conn: &Connection,
     now: i64,
@@ -666,7 +700,11 @@ pub fn upcoming_for_notify(
            AND (calendar_id IS NULL OR EXISTS (
                 SELECT 1 FROM calendars c WHERE c.id = calendar_events.calendar_id AND c.enabled = 1
            ))
-           AND starts_at > ?1 AND starts_at <= ?1 + ?2
+           AND CASE WHEN reminder_minutes IS NULL THEN ?2
+                    ELSE reminder_minutes * 60000 END > 0
+           AND starts_at > ?1
+           AND starts_at <= ?1 + CASE WHEN reminder_minutes IS NULL THEN ?2
+                                      ELSE reminder_minutes * 60000 END
            AND (notified_at IS NULL OR notified_at < starts_at)
          ORDER BY starts_at LIMIT 20"
     ))?;
@@ -801,6 +839,51 @@ mod tests {
             .unwrap();
         assert!(list_range(&c, 0, 10_000).unwrap().is_empty());
         assert!(upcoming_for_notify(&c, 1_000, 5_000).unwrap().is_empty());
+    }
+
+    #[test]
+    fn an_events_own_reminder_wins_over_the_default_lead() {
+        let c = testutil::calendar_conn();
+        let id = insert_local(
+            &c,
+            1,
+            None,
+            "own@test",
+            "Own",
+            None,
+            None,
+            None,
+            "me@test.dev",
+            &[],
+            600_000,
+            700_000,
+            false,
+        )
+        .unwrap();
+        let ten_minutes = 600_000;
+        // No default lead and no reminder of its own: silent.
+        assert!(upcoming_for_notify(&c, 0, 0).unwrap().is_empty());
+        // The default lead of 15 minutes reaches it...
+        assert_eq!(upcoming_for_notify(&c, 0, 15 * 60_000).unwrap().len(), 1);
+        // ...but its own 5 minutes (not yet due 10 minutes before) does not,
+        set_reminder(&c, id, Some(5)).unwrap();
+        assert!(upcoming_for_notify(&c, 0, 15 * 60_000).unwrap().is_empty());
+        // and is due once 5 minutes are left.
+        assert_eq!(
+            upcoming_for_notify(&c, ten_minutes - 5 * 60_000, 0)
+                .unwrap()
+                .len(),
+            1
+        );
+        // Zero means no reminder at all, whatever the default says.
+        set_reminder(&c, id, Some(0)).unwrap();
+        assert!(upcoming_for_notify(&c, 0, 15 * 60_000).unwrap().is_empty());
+        // Clearing it goes back to the default; the row is flagged for push.
+        set_reminder(&c, id, None).unwrap();
+        assert_eq!(upcoming_for_notify(&c, 0, 15 * 60_000).unwrap().len(), 1);
+        let ev = get(&c, id).unwrap().unwrap();
+        assert_eq!(ev.reminder_minutes, None);
+        assert_eq!(dirty_rows(&c, 1).unwrap().len(), 1);
     }
 
     #[test]

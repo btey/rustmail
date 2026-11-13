@@ -187,6 +187,7 @@ pub(crate) fn graph_event<'a>(
             })
             .collect(),
         recurrence: None,
+        reminder_minutes: ev.reminder_minutes,
     }
 }
 
@@ -357,5 +358,6 @@ pub(crate) fn ics_event(ev: &graph::DeltaEvent) -> IcsEvent {
             }
             .to_string(),
         ),
+        reminder_minutes: ev.reminder_minutes,
     }
 }

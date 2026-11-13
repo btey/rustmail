@@ -40,6 +40,8 @@ pub struct IcsEvent {
     pub ends_at_ms: Option<i64>,
     pub all_day: bool,
     pub status: Option<String>,
+    /// Reminder lead in minutes when the source carries one (None = unset).
+    pub reminder_minutes: Option<i64>,
 }
 
 /// Unfold RFC 5545 folded lines (continuations start with space or tab).

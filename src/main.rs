@@ -2266,6 +2266,11 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                     emails: contacts::lines_of(app.get_contact_more_emails().as_str()),
                     phones: contacts::lines_of(app.get_contact_more_phones().as_str()),
                     addresses: contacts::lines_of(app.get_contact_more_addresses().as_str()),
+                    // The kind of a number or address stays with its text.
+                    kinds: previous
+                        .as_ref()
+                        .map(|contact| contact.extras.kinds.clone())
+                        .unwrap_or_default(),
                     photo: None,
                 },
                 has_photo: previous.as_ref().is_some_and(|contact| contact.has_photo),

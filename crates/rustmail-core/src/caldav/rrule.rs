@@ -112,9 +112,23 @@ fn parse_rule(rrule: &str) -> Option<Rule> {
     saw_freq.then_some(rule)
 }
 
-fn to_naive(ms: i64, all_day: bool) -> Option<NaiveDateTime> {
+/// The zone a series repeats in: its own named zone, or this computer's.
+#[derive(Clone, Copy)]
+struct Zone<'a>(Option<&'a str>);
+
+impl Zone<'_> {
+    /// Only a name the zone table knows counts; any other falls back to the
+    /// computer's zone, as a series without a zone always did.
+    fn named(&self) -> Option<&str> {
+        self.0.filter(|name| crate::exchange::zones::is_known(name))
+    }
+}
+
+fn to_naive(ms: i64, all_day: bool, zone: Zone) -> Option<NaiveDateTime> {
     if all_day {
         Some(chrono::Utc.timestamp_millis_opt(ms).earliest()?.naive_utc())
+    } else if let Some(name) = zone.named() {
+        crate::exchange::zones::utc_ms_to_local(ms, name)
     } else {
         Some(
             chrono::Local
@@ -125,9 +139,11 @@ fn to_naive(ms: i64, all_day: bool) -> Option<NaiveDateTime> {
     }
 }
 
-fn to_ms(naive: NaiveDateTime, all_day: bool) -> Option<i64> {
+fn to_ms(naive: NaiveDateTime, all_day: bool, zone: Zone) -> Option<i64> {
     if all_day {
         Some(chrono::Utc.from_utc_datetime(&naive).timestamp_millis())
+    } else if let Some(name) = zone.named() {
+        crate::exchange::zones::local_to_utc_ms(naive, name)
     } else {
         Some(
             chrono::Local
@@ -281,6 +297,34 @@ pub fn expand(
     window_start: i64,
     window_end: i64,
 ) -> Option<Vec<Occurrence>> {
+    expand_in_zone(
+        rrule,
+        dtstart_ms,
+        duration_ms,
+        all_day,
+        ical_raw,
+        window_start,
+        window_end,
+        None,
+    )
+}
+
+/// Like [`expand`], with the series repeating at the same wall-clock time in
+/// a named zone (a Windows or IANA name from `exchange::zones`), so a series
+/// keeps its local time across a daylight-saving change whatever zone this
+/// computer is in. An unknown or missing zone means this computer's zone.
+#[allow(clippy::too_many_arguments)]
+pub fn expand_in_zone(
+    rrule: &str,
+    dtstart_ms: i64,
+    duration_ms: i64,
+    all_day: bool,
+    ical_raw: Option<&str>,
+    window_start: i64,
+    window_end: i64,
+    zone: Option<&str>,
+) -> Option<Vec<Occurrence>> {
+    let zone = Zone(zone);
     let rule = parse_rule(rrule)?;
     if rule.unsupported {
         return None;
@@ -291,12 +335,12 @@ pub fn expand(
         return None;
     }
 
-    let dtstart = to_naive(dtstart_ms, all_day)?;
+    let dtstart = to_naive(dtstart_ms, all_day, zone)?;
     let horizon_anchor = window_start.max(dtstart_ms);
     let horizon_ms = horizon_anchor
         .saturating_add(MAX_HORIZON_MS)
         .min(window_end.max(dtstart_ms));
-    let horizon = to_naive(horizon_ms, all_day)?;
+    let horizon = to_naive(horizon_ms, all_day, zone)?;
 
     // EXDATE + overrides from the raw calendar.
     let mut exdates: Vec<i64> = Vec::new();
@@ -334,7 +378,7 @@ pub fn expand(
         {
             break;
         }
-        let Some(start) = to_ms(*cand, all_day) else {
+        let Some(start) = to_ms(*cand, all_day, zone) else {
             continue;
         };
         if let Some(until) = rule.until_ms
@@ -471,7 +515,7 @@ mod tests {
         .unwrap();
         assert_eq!(occ.len(), 3);
         for (i, o) in occ.iter().enumerate() {
-            let dt = to_naive(o.start, false).unwrap();
+            let dt = to_naive(o.start, false, Zone(None)).unwrap();
             assert_eq!(
                 dt.time(),
                 chrono::NaiveTime::from_hms_opt(9, 0, 0).unwrap(),
@@ -551,6 +595,96 @@ mod tests {
         )
         .unwrap();
         assert_eq!(occ[1].start, local_ms(2026, 8, 28, 8, 0));
+    }
+
+    fn utc(y: i32, mo: u32, d: u32, h: u32) -> i64 {
+        NaiveDate::from_ymd_opt(y, mo, d)
+            .unwrap()
+            .and_hms_opt(h, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp_millis()
+    }
+
+    #[test]
+    fn a_series_in_its_own_zone_keeps_its_local_time_across_daylight_saving() {
+        // Mondays 09:00 in Berlin from 2026-03-23 (CET, UTC+1): summer time
+        // starts on Sunday 2026-03-29, so the next Monday is 09:00 CEST (UTC+2).
+        let start = utc(2026, 3, 23, 8);
+        let occ = expand_in_zone(
+            "FREQ=WEEKLY;COUNT=3",
+            start,
+            HOUR,
+            false,
+            None,
+            0,
+            start + 60 * DAY,
+            Some("W. Europe Standard Time"),
+        )
+        .unwrap();
+        let starts: Vec<i64> = occ.iter().map(|o| o.start).collect();
+        assert_eq!(
+            starts,
+            vec![utc(2026, 3, 23, 8), utc(2026, 3, 30, 7), utc(2026, 4, 6, 7)]
+        );
+        // New York changes on a different Sunday (2026-03-08); the series
+        // stays at 09:00 local: 14:00 UTC before, 13:00 UTC after.
+        let start = utc(2026, 3, 2, 14);
+        let occ = expand_in_zone(
+            "FREQ=WEEKLY;COUNT=3",
+            start,
+            HOUR,
+            false,
+            None,
+            0,
+            start + 60 * DAY,
+            Some("Eastern Standard Time"),
+        )
+        .unwrap();
+        let starts: Vec<i64> = occ.iter().map(|o| o.start).collect();
+        assert_eq!(
+            starts,
+            vec![
+                utc(2026, 3, 2, 14),
+                utc(2026, 3, 9, 13),
+                utc(2026, 3, 16, 13)
+            ]
+        );
+    }
+
+    #[test]
+    fn an_unknown_or_missing_zone_means_the_computers_zone() {
+        let start = local_ms(2026, 7, 1, 9, 0);
+        let plain = expand(
+            "FREQ=DAILY;COUNT=3",
+            start,
+            HOUR,
+            false,
+            None,
+            0,
+            start + 9 * DAY,
+        );
+        for zone in [None, Some("Nowhere Time")] {
+            let named = expand_in_zone(
+                "FREQ=DAILY;COUNT=3",
+                start,
+                HOUR,
+                false,
+                None,
+                0,
+                start + 9 * DAY,
+                zone,
+            );
+            assert_eq!(
+                named.unwrap().iter().map(|o| o.start).collect::<Vec<_>>(),
+                plain
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .map(|o| o.start)
+                    .collect::<Vec<_>>()
+            );
+        }
     }
 
     #[test]

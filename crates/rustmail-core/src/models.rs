@@ -978,6 +978,11 @@ pub struct ContactExtras {
     pub phones: Vec<String>,
     #[serde(default)]
     pub addresses: Vec<String>,
+    /// What kind a phone number or postal address is: `home`, `work`,
+    /// `mobile` (phones) or `other`, keyed `tel:<number>` / `adr:<address>`
+    /// (the primary values too). Only values a source named a kind for.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub kinds: std::collections::BTreeMap<String, String>,
     #[serde(skip)]
     pub photo: Option<Vec<u8>>,
 }
@@ -992,7 +997,50 @@ impl ContactExtras {
         self.emails.is_empty()
             && self.phones.is_empty()
             && self.addresses.is_empty()
+            && self.kinds.is_empty()
             && self.photo.is_none()
+    }
+
+    /// The kind recorded for a phone number, if any.
+    pub fn phone_kind(&self, number: &str) -> Option<&str> {
+        self.kinds
+            .get(&format!("tel:{}", number.trim()))
+            .map(String::as_str)
+    }
+
+    /// The kind recorded for a postal address, if any.
+    pub fn address_kind(&self, address: &str) -> Option<&str> {
+        self.kinds
+            .get(&format!("adr:{}", address.trim()))
+            .map(String::as_str)
+    }
+
+    /// Record the kind of a phone number (`home`, `work`, `mobile`, `other`).
+    pub fn set_phone_kind(&mut self, number: &str, kind: &str) {
+        if !number.trim().is_empty() {
+            self.kinds
+                .insert(format!("tel:{}", number.trim()), kind.to_owned());
+        }
+    }
+
+    /// Record the kind of a postal address (`home`, `work`, `other`).
+    pub fn set_address_kind(&mut self, address: &str, kind: &str) {
+        if !address.trim().is_empty() {
+            self.kinds
+                .insert(format!("adr:{}", address.trim()), kind.to_owned());
+        }
+    }
+
+    /// The values a contact search should match: extra e-mails, phones and
+    /// postal addresses.
+    pub fn search_text(&self) -> String {
+        self.emails
+            .iter()
+            .chain(&self.phones)
+            .chain(&self.addresses)
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     /// Trim, drop empty and repeated values, and cap the counts.
@@ -1021,6 +1069,17 @@ impl ContactExtras {
                 .collect(),
             phones: clean(&self.phones, ""),
             addresses: clean(&self.addresses, ""),
+            kinds: self
+                .kinds
+                .iter()
+                .filter(|(key, kind)| {
+                    (key.starts_with("tel:") || key.starts_with("adr:"))
+                        && key.len() <= 520
+                        && matches!(kind.as_str(), "home" | "work" | "mobile" | "other")
+                })
+                .take(2 * MAX_CONTACT_EXTRAS + 2)
+                .map(|(key, kind)| (key.clone(), kind.clone()))
+                .collect(),
             photo: self
                 .photo
                 .clone()
@@ -2471,6 +2530,9 @@ pub struct CalendarEvent {
     pub all_day: bool,
     pub status: Option<String>,
     pub method: Option<String>,
+    /// Reminder before the start in minutes: None = the app's default lead
+    /// time, Some(0) = no reminder.
+    pub reminder_minutes: Option<i64>,
 }
 
 /// A discovered CalDAV calendar collection.

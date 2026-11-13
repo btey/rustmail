@@ -14,6 +14,8 @@ use crate::caldav::task::CalTaskHandle;
 use crate::sync::engine::{AccountHandle, SyncCmd};
 
 const TICK_SECS: u64 = 5;
+/// The longest per-event reminder (28 days), as Outlook allows.
+const MAX_EVENT_REMINDER_MS: i64 = 40_320 * 60_000;
 
 pub fn spawn(
     db: Db,
@@ -101,8 +103,11 @@ pub fn spawn(
                 .read(|conn| Ok(repo::settings::get(conn)?.meeting_notify_lead_minutes))
                 .await
                 .unwrap_or(0);
-            if lead_min > 0 && calendar_db.is_open() {
+            // An event's own reminder (up to 28 days) can reach further than
+            // the default lead, so the series query looks that far ahead.
+            if calendar_db.is_open() {
                 let lead_ms = lead_min * 60_000;
+                let reach_ms = lead_ms.max(MAX_EVENT_REMINDER_MS);
                 if let Ok(due) = calendar_db
                     .read(move |conn| repo::calendar::upcoming_for_notify(conn, now, lead_ms))
                     .await
@@ -123,7 +128,7 @@ pub fn spawn(
                 }
                 // Recurring masters: check the next occurrence explicitly.
                 if let Ok(masters) = calendar_db
-                    .read(move |conn| repo::calendar::recurring_masters(conn, now + lead_ms))
+                    .read(move |conn| repo::calendar::recurring_masters(conn, now + reach_ms))
                     .await
                 {
                     for m in masters {
@@ -138,19 +143,28 @@ pub fn spawn(
                         let Some(rrule) = m.event.rrule.clone() else {
                             continue;
                         };
+                        // This series' own lead, else the default.
+                        let own_lead_ms = m
+                            .event
+                            .reminder_minutes
+                            .map_or(lead_ms, |minutes| minutes * 60_000);
+                        if own_lead_ms <= 0 {
+                            continue;
+                        }
                         let duration = m
                             .event
                             .ends_at
                             .map(|e| e - m.event.starts_at)
                             .unwrap_or(1_800_000);
-                        let Some(occs) = crate::caldav::rrule::expand(
+                        let Some(occs) = crate::caldav::rrule::expand_in_zone(
                             &rrule,
                             m.event.starts_at,
                             duration,
                             m.event.all_day,
                             m.ical_raw.as_deref(),
                             now,
-                            now + lead_ms,
+                            now + own_lead_ms,
+                            m.tzid.as_deref(),
                         ) else {
                             continue;
                         };

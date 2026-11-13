@@ -614,13 +614,14 @@ pub fn save_record(
         ));
     }
     let folded = fold(&format!(
-        "{name} {email} {} {} {} {} {} {}",
+        "{name} {email} {} {} {} {} {} {} {}",
         record.company,
         record.phone,
         record.job_title,
         record.website,
         record.tags,
         record.postal_address,
+        record.extras.search_text(),
     ));
     if record.id > 0 {
         let changed = conn.execute(

@@ -52,6 +52,8 @@ pub struct GraphEvent<'a> {
     pub attendees: Vec<GraphAttendee>,
     /// Graph `patternedRecurrence`, for a series master.
     pub recurrence: Option<serde_json::Value>,
+    /// Reminder lead in minutes (`Some(0)` = off); `None` leaves Graph's own.
+    pub reminder_minutes: Option<i64>,
 }
 
 /// Send a JSON request to Graph. `path_or_url` is either a v1.0 path
@@ -223,6 +225,14 @@ pub(crate) fn event_payload(ev: &GraphEvent<'_>) -> Result<serde_json::Value> {
     if let Some(recurrence) = &ev.recurrence {
         payload["recurrence"] = recurrence.clone();
     }
+    match ev.reminder_minutes {
+        Some(0) => payload["isReminderOn"] = false.into(),
+        Some(minutes) => {
+            payload["isReminderOn"] = true.into();
+            payload["reminderMinutesBeforeStart"] = minutes.into();
+        }
+        None => {}
+    }
     Ok(payload)
 }
 
@@ -372,6 +382,9 @@ pub struct DeltaEvent {
     pub end_ms: Option<i64>,
     pub all_day: bool,
     pub cancelled: bool,
+    /// Reminder lead in minutes: `Some(0)` when the reminder is off, `None`
+    /// when Graph sent neither field.
+    pub reminder_minutes: Option<i64>,
 }
 
 pub struct DeltaPage {
@@ -452,6 +465,7 @@ pub(crate) fn parse_delta_event(v: &serde_json::Value) -> Option<DeltaEvent> {
             end_ms: None,
             all_day: false,
             cancelled: false,
+            reminder_minutes: None,
         });
     }
     let s = |path: &[&str]| -> Option<String> {
@@ -512,8 +526,22 @@ pub(crate) fn parse_delta_event(v: &serde_json::Value) -> Option<DeltaEvent> {
             .get("isCancelled")
             .and_then(|x| x.as_bool())
             .unwrap_or(false),
+        reminder_minutes: reminder_from_graph(v),
         id,
     })
+}
+
+/// The reminder of a Graph event in minutes before the start: `Some(0)` when
+/// the reminder is switched off, `None` when Graph said nothing about it.
+pub(crate) fn reminder_from_graph(v: &serde_json::Value) -> Option<i64> {
+    match v.get("isReminderOn").and_then(|x| x.as_bool()) {
+        Some(false) => Some(0),
+        Some(true) => v
+            .get("reminderMinutesBeforeStart")
+            .and_then(|x| x.as_i64())
+            .map(|m| m.clamp(0, 40_320)),
+        None => None,
+    }
 }
 
 /// Parse a Graph `{ dateTime, timeZone }` pair into epoch ms. Graph returns

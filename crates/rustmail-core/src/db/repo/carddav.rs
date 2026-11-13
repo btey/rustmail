@@ -338,7 +338,7 @@ pub fn upsert_remote(
     let owns = existing_object.as_ref().is_some_and(|v| v.2) || existing_contact.is_none();
     let old_contact = existing_object.as_ref().and_then(|value| value.1);
     let folded = fold(&format!(
-        "{} {} {} {} {} {} {} {}",
+        "{} {} {} {} {} {} {} {} {}",
         record.name,
         record.email,
         record.company,
@@ -346,7 +346,8 @@ pub fn upsert_remote(
         record.job_title,
         record.website,
         record.tags,
-        record.postal_address
+        record.postal_address,
+        record.extras.search_text()
     ));
     conn.execute(
         "INSERT INTO contacts(email,name,folded,phone,company,job_title,website,birthday,

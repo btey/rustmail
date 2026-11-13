@@ -488,6 +488,15 @@ fn route(
                     "end":{"dateTime":"2026-07-13T11:30:00.0000000","timeZone":"UTC"}}]}"#
                 .replace('\n', ""),
         ),
+        ("GET", "/events/SM3") => json(
+            200,
+            r#"{"id":"SM3","iCalUId":"SUID3","type":"seriesMaster","subject":"Berlin sync","isAllDay":false,"isCancelled":false,
+                "start":{"dateTime":"2026-03-23T09:00:00.0000000","timeZone":"W. Europe Standard Time"},
+                "end":{"dateTime":"2026-03-23T10:00:00.0000000","timeZone":"W. Europe Standard Time"},
+                "recurrence":{"pattern":{"type":"weekly","interval":1,"daysOfWeek":["monday"],"firstDayOfWeek":"sunday"},
+                              "range":{"type":"noEnd","startDate":"2026-03-23"}}}"#
+                .replace('\n', ""),
+        ),
         ("GET", "/events/SM2") => json(
             200,
             r#"{"id":"SM2","iCalUId":"SUID2","type":"seriesMaster","subject":"Review","isAllDay":false,"isCancelled":false,
@@ -495,6 +504,17 @@ fn route(
                 "end":{"dateTime":"2026-07-07T10:00:00.0000000","timeZone":"UTC"},
                 "recurrence":{"pattern":{"type":"relativeYearly","interval":1,"daysOfWeek":["tuesday"],"index":"first","month":7},
                               "range":{"type":"noEnd","startDate":"2026-07-07"}}}"#
+                .replace('\n', ""),
+        ),
+        ("GET", "/events/SM1/instances") => json(
+            200,
+            r#"{"value":[
+                {"id":"INST-06","type":"occurrence","seriesMasterId":"SM1","subject":"Standup","isAllDay":false,"isCancelled":false,
+                 "start":{"dateTime":"2026-07-06T09:00:00.0000000","timeZone":"UTC"},
+                 "end":{"dateTime":"2026-07-06T09:30:00.0000000","timeZone":"UTC"}},
+                {"id":"INST-27","type":"occurrence","seriesMasterId":"SM1","subject":"Standup","isAllDay":false,"isCancelled":false,
+                 "start":{"dateTime":"2026-07-27T09:00:00.0000000","timeZone":"UTC"},
+                 "end":{"dateTime":"2026-07-27T09:30:00.0000000","timeZone":"UTC"}}]}"#
                 .replace('\n', ""),
         ),
         ("POST", "/calendar/getSchedule") => json(
@@ -2262,6 +2282,20 @@ async fn contact_extras_and_photo_round_trip_with_graph() {
     );
     assert!(record.has_photo);
     assert_eq!(core.contact_photo(id).await.unwrap(), Some(picture.clone()));
+    // The kind of each number and address is kept.
+    assert_eq!(record.extras.phone_kind("+1 555 0100"), Some("mobile"));
+    assert_eq!(record.extras.phone_kind("+1 555 0101"), Some("work"));
+    assert_eq!(record.extras.phone_kind("+1 555 0102"), Some("home"));
+    assert_eq!(record.extras.address_kind("1 Main St, Oslo"), Some("work"));
+    assert_eq!(
+        record.extras.address_kind("2 Side Rd, Bergen"),
+        Some("home")
+    );
+    // The extra values are found by searching.
+    for query in ["ann.lee@home", "555 0102", "side rd"] {
+        let found = core.list_contact_records(query.into(), 5).await.unwrap();
+        assert!(found.iter().any(|c| c.id == id), "{query}");
+    }
 
     // An edit keeps the extra values and the picture and sends them back.
     let mut edited = record.clone();
@@ -2280,6 +2314,13 @@ async fn contact_extras_and_photo_round_trip_with_graph() {
     ] {
         assert!(patches[0].contains(wanted), "{wanted} in {}", patches[0]);
     }
+    // Every value goes back to the field of its kind.
+    let sent: serde_json::Value = serde_json::from_str(&patches[0]).unwrap();
+    assert_eq!(sent["mobilePhone"], "+1 555 0100");
+    assert_eq!(sent["businessPhones"], serde_json::json!(["+1 555 0101"]));
+    assert_eq!(sent["homePhones"], serde_json::json!(["+1 555 0102"]));
+    assert_eq!(sent["businessAddress"]["street"], "1 Main St, Oslo");
+    assert_eq!(sent["homeAddress"]["street"], "2 Side Rd, Bergen");
     assert_eq!(
         seen(&shared, "PUT /graph/v1.0/me/contacts/C1/photo/$value").len(),
         1
@@ -2310,4 +2351,322 @@ async fn the_calendar_window_of_an_account_can_be_set_and_is_bounded() {
         .unwrap();
     let again = core.exchange_account_settings(account.id).await.unwrap();
     assert_eq!(again.calendar_past_days, 30);
+}
+
+async fn event_id_of(core: &Core, href: &'static str) -> i64 {
+    core.calendar_db
+        .read(move |conn| {
+            Ok(conn.query_row(
+                "SELECT id FROM calendar_events WHERE caldav_href = ?1",
+                [href],
+                |r| r.get::<_, i64>(0),
+            )?)
+        })
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn reminders_come_from_graph_and_a_changed_one_goes_back() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().events = vec![
+        r#"{"id":"EV1","iCalUId":"UID1","type":"singleInstance","subject":"Planning","isAllDay":false,"isCancelled":false,
+            "isReminderOn":true,"reminderMinutesBeforeStart":30,
+            "start":{"dateTime":"2026-07-01T09:00:00.0000000","timeZone":"UTC"},
+            "end":{"dateTime":"2026-07-01T10:00:00.0000000","timeZone":"UTC"}}"#
+            .replace('\n', ""),
+        r#"{"id":"EV2","iCalUId":"UID2","type":"singleInstance","subject":"Quiet","isAllDay":false,"isCancelled":false,
+            "isReminderOn":false,"reminderMinutesBeforeStart":15,
+            "start":{"dateTime":"2026-07-02T09:00:00.0000000","timeZone":"UTC"},
+            "end":{"dateTime":"2026-07-02T10:00:00.0000000","timeZone":"UTC"}}"#
+            .replace('\n', ""),
+    ];
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.calendar_sync_now(Some(account.id)).await;
+    let window = (utc_ms(2026, 6, 30, 0), utc_ms(2026, 7, 5, 0));
+    let mut events = Vec::new();
+    for _ in 0..100 {
+        events = core.list_events(window.0, window.1).await.unwrap();
+        if events.len() == 2 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    let reminder = |name: &str| {
+        events
+            .iter()
+            .find(|e| e.summary.as_deref() == Some(name))
+            .map(|e| e.reminder_minutes)
+    };
+    assert_eq!(reminder("Planning"), Some(Some(30)), "{events:?}");
+    assert_eq!(
+        reminder("Quiet"),
+        Some(Some(0)),
+        "a switched-off reminder is 0"
+    );
+
+    // A reminder outside Outlook's range is refused; a valid one is pushed.
+    let planning = event_id_of(&core, "EV1").await;
+    assert!(
+        core.set_event_reminder(planning, Some(40_321))
+            .await
+            .is_err()
+    );
+    core.set_event_reminder(planning, Some(10)).await.unwrap();
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the reminder on the server", async || {
+        seen(&shared, "PATCH /graph/v1.0/me/events/EV1")
+            .iter()
+            .any(|body| {
+                body.contains("\"reminderMinutesBeforeStart\":10")
+                    && body.contains("\"isReminderOn\":true")
+            })
+    })
+    .await;
+    // "No reminder" switches it off there.
+    core.set_event_reminder(planning, Some(0)).await.unwrap();
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the reminder switched off", async || {
+        seen(&shared, "PATCH /graph/v1.0/me/events/EV1")
+            .iter()
+            .any(|body| body.contains("\"isReminderOn\":false"))
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn one_occurrence_of_a_series_can_be_cancelled_or_changed_and_a_series_ended() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let occurrence = |id: &str, day: u32| {
+        format!(
+            r#"{{"id":"{id}","iCalUId":"U-SM1","type":"occurrence","seriesMasterId":"SM1","subject":"Standup","isAllDay":false,"isCancelled":false,
+                "start":{{"dateTime":"2026-07-{day:02}T09:00:00.0000000","timeZone":"UTC"}},
+                "end":{{"dateTime":"2026-07-{day:02}T09:30:00.0000000","timeZone":"UTC"}}}}"#
+        )
+        .replace('\n', "")
+    };
+    shared.lock().unwrap().events = vec![occurrence("OC1", 6), occurrence("OC3", 20)];
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the series master", async || {
+        core.calendar_db
+            .read(|conn| {
+                Ok(conn.query_row(
+                    "SELECT COUNT(*) FROM calendar_events WHERE caldav_href = 'SM1'",
+                    [],
+                    |r| r.get::<_, i64>(0),
+                )?)
+            })
+            .await
+            .unwrap()
+            == 1
+    })
+    .await;
+    let master = event_id_of(&core, "SM1").await;
+
+    // Cancel the occurrence of the 6th: Graph is asked for the instances and
+    // the matching one is deleted.
+    core.exchange_cancel_occurrence(master, utc_ms(2026, 7, 6, 9))
+        .await
+        .unwrap();
+    assert!(log_has(&shared, "GET /graph/v1.0/me/events/SM1/instances"));
+    assert!(log_has(&shared, "DELETE /graph/v1.0/me/events/INST-06"));
+
+    // Change the occurrence of the 27th: only that instance is patched.
+    core.exchange_edit_occurrence(
+        master,
+        utc_ms(2026, 7, 27, 9),
+        Some("Standup (short)".into()),
+        Some(utc_ms(2026, 7, 27, 10)),
+        Some(utc_ms(2026, 7, 27, 11)),
+    )
+    .await
+    .unwrap();
+    let patches = seen(&shared, "PATCH /graph/v1.0/me/events/INST-27");
+    assert_eq!(patches.len(), 1);
+    assert!(patches[0].contains("Standup (short)"), "{patches:?}");
+    assert!(patches[0].contains("2026-07-27T10:00:00"), "{patches:?}");
+    assert!(!log_has(&shared, "PATCH /graph/v1.0/me/events/SM1"));
+
+    // An occurrence that does not exist is not found, and nothing is sent.
+    let changes = |shared: &Shared| {
+        shared
+            .lock()
+            .unwrap()
+            .log
+            .iter()
+            .filter(|(line, _)| line.starts_with("DELETE ") || line.starts_with("PATCH "))
+            .count()
+    };
+    let before = changes(&shared);
+    let missing = core
+        .exchange_cancel_occurrence(master, utc_ms(2026, 7, 14, 9))
+        .await;
+    assert!(matches!(missing, Err(CoreError::NotFound(_))));
+    assert_eq!(changes(&shared), before, "nothing was deleted or changed");
+
+    // "Delete this and the following" ends the series the day before.
+    core.end_series_before(master, utc_ms(2026, 7, 20, 9))
+        .await
+        .unwrap();
+    let rule: String = core
+        .calendar_db
+        .read(move |conn| {
+            Ok(conn.query_row(
+                "SELECT rrule FROM calendar_events WHERE id = ?1",
+                [master],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        rule,
+        "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;UNTIL=20260719T235959Z"
+    );
+    let listed = core
+        .list_events(utc_ms(2026, 7, 1, 0), utc_ms(2026, 8, 1, 0))
+        .await
+        .unwrap();
+    assert!(
+        listed
+            .iter()
+            .filter(|e| e.summary.as_deref() == Some("Standup"))
+            .all(|e| e.starts_at < utc_ms(2026, 7, 20, 0)),
+        "{listed:?}"
+    );
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the shortened series on the server", async || {
+        seen(&shared, "PATCH /graph/v1.0/me/events/SM1")
+            .iter()
+            .any(|body| body.contains("2026-07-19"))
+    })
+    .await;
+
+    // Ending it at its first occurrence deletes the whole series.
+    core.end_series_before(master, utc_ms(2026, 7, 6, 9))
+        .await
+        .unwrap();
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the series deleted", async || {
+        log_has(&shared, "DELETE /graph/v1.0/me/events/SM1")
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn an_event_can_be_made_to_repeat_and_goes_to_graph_with_its_rule() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    let created = core
+        .create_event(CreateEventArgs {
+            account_id: account.id,
+            calendar_id: None,
+            summary: "Weekly sync".into(),
+            description: None,
+            location: None,
+            join_url: None,
+            starts_at: utc_ms(2026, 7, 6, 9),
+            ends_at: utc_ms(2026, 7, 6, 10),
+            all_day: false,
+            attendees: vec![],
+        })
+        .await
+        .unwrap();
+    // A rule the expander does not know, or Outlook cannot hold, is refused.
+    assert!(
+        core.set_event_recurrence(created.id, Some("FREQ=SECONDLY".into()))
+            .await
+            .is_err()
+    );
+    core.set_event_recurrence(created.id, Some("FREQ=WEEKLY;BYDAY=MO;COUNT=4".into()))
+        .await
+        .unwrap();
+    let listed = core
+        .list_events(utc_ms(2026, 7, 1, 0), utc_ms(2026, 9, 1, 0))
+        .await
+        .unwrap();
+    assert_eq!(
+        listed
+            .iter()
+            .filter(|e| e.summary.as_deref() == Some("Weekly sync"))
+            .count(),
+        4,
+        "{listed:?}"
+    );
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the rule on the server", async || {
+        let bodies = seen(&shared, "/graph/v1.0/me/calendars/CAL1/events");
+        let patches = seen(&shared, "PATCH /graph/v1.0/me/events/");
+        bodies
+            .iter()
+            .chain(patches.iter())
+            .any(|body| body.contains("\"weekly\"") && body.contains("\"numberOfOccurrences\":4"))
+    })
+    .await;
+    // Stopping the repetition clears the rule here.
+    core.set_event_recurrence(created.id, None).await.unwrap();
+    let again = core
+        .list_events(utc_ms(2026, 7, 1, 0), utc_ms(2026, 9, 1, 0))
+        .await
+        .unwrap();
+    assert_eq!(
+        again
+            .iter()
+            .filter(|e| e.summary.as_deref() == Some("Weekly sync"))
+            .count(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn a_series_keeps_its_local_time_in_its_own_zone_across_daylight_saving() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().events = vec![
+        r#"{"id":"OCB","iCalUId":"U-SM3","type":"occurrence","seriesMasterId":"SM3","subject":"Berlin sync","isAllDay":false,"isCancelled":false,
+            "start":{"dateTime":"2026-03-23T09:00:00.0000000","timeZone":"W. Europe Standard Time"},
+            "end":{"dateTime":"2026-03-23T10:00:00.0000000","timeZone":"W. Europe Standard Time"}}"#
+            .replace('\n', ""),
+    ];
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.calendar_sync_now(Some(account.id)).await;
+    let window = (utc_ms(2026, 3, 20, 0), utc_ms(2026, 4, 12, 0));
+    let mut starts = Vec::new();
+    for _ in 0..100 {
+        starts = core
+            .list_events(window.0, window.1)
+            .await
+            .unwrap()
+            .iter()
+            .filter(|e| e.summary.as_deref() == Some("Berlin sync"))
+            .map(|e| e.starts_at)
+            .collect();
+        if starts.len() >= 3 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    // Mondays 09:00 in Berlin: CET (UTC+1) on the 23rd, CEST (UTC+2) after
+    // summer time starts on Sunday 2026-03-29, whatever zone this computer is
+    // in.
+    assert_eq!(
+        starts,
+        vec![
+            utc_ms(2026, 3, 23, 8),
+            utc_ms(2026, 3, 30, 7),
+            utc_ms(2026, 4, 6, 7)
+        ]
+    );
 }

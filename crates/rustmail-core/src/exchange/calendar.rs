@@ -490,6 +490,8 @@ fn series_row(master: &SeriesMaster) -> Option<SeriesRow> {
     exdates.dedup();
     let mut ics = ics_event(event);
     ics.rrule = Some(rrule.clone());
+    // The series repeats at this wall-clock time in its own zone.
+    ics.tzid = Some(zone.clone());
     let uid = &ics.uid;
     let mut raw = String::from("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\n");
     raw.push_str(&format!("UID:{uid}\r\n"));
@@ -528,6 +530,107 @@ fn series_row(master: &SeriesMaster) -> Option<SeriesRow> {
         raw,
         etag: event.etag.clone(),
     })
+}
+
+/// How far from the named start an occurrence may begin and still be the
+/// one meant (a minute: the stored start was converted from a zone).
+const OCCURRENCE_SLACK_MS: i64 = 60_000;
+
+/// What to change about one occurrence of a series.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct OccurrenceChange {
+    pub(crate) summary: Option<String>,
+    pub(crate) starts_at: Option<i64>,
+    pub(crate) ends_at: Option<i64>,
+}
+
+/// The Graph id of the occurrence that starts at `occurrence_start_ms`.
+async fn occurrence_id(
+    client: &GraphMail,
+    series_id: &str,
+    occurrence_start_ms: i64,
+) -> Result<String> {
+    let window = (
+        occurrence_start_ms - 86_400_000,
+        occurrence_start_ms + 86_400_000,
+    );
+    client
+        .series_instances(series_id, window)
+        .await?
+        .into_iter()
+        .find(|(_, start, _)| (start - occurrence_start_ms).abs() <= OCCURRENCE_SLACK_MS)
+        .map(|(id, _, _)| id)
+        .ok_or_else(|| CoreError::NotFound("occurrence".into()))
+}
+
+/// The series' Graph id of a stored master row.
+async fn series_id(db: &Db, event_id: i64) -> Result<(SyncRow, String)> {
+    let row = db
+        .read(move |conn| repo::calendar::sync_row_for(conn, event_id))
+        .await?
+        .ok_or_else(|| CoreError::NotFound("event".into()))?;
+    let id = match (&row.caldav_href, &row.event.rrule) {
+        (Some(href), Some(_)) => href.clone(),
+        _ => {
+            return Err(CoreError::CalDav(
+                "this event is not a series on Microsoft 365".into(),
+            ));
+        }
+    };
+    Ok((row, id))
+}
+
+/// Cancel one occurrence of a series on the server (the attendees are told,
+/// as Outlook does).
+pub(crate) async fn cancel_occurrence(
+    db: &Db,
+    client: &GraphMail,
+    event_id: i64,
+    occurrence_start_ms: i64,
+) -> Result<()> {
+    let (_, series) = series_id(db, event_id).await?;
+    let occurrence = occurrence_id(client, &series, occurrence_start_ms).await?;
+    client.delete_event(&occurrence).await
+}
+
+/// Change one occurrence of a series on the server (an exception).
+pub(crate) async fn edit_occurrence(
+    db: &Db,
+    client: &GraphMail,
+    event_id: i64,
+    occurrence_start_ms: i64,
+    change: &OccurrenceChange,
+) -> Result<()> {
+    let (row, series) = series_id(db, event_id).await?;
+    let occurrence = occurrence_id(client, &series, occurrence_start_ms).await?;
+    let mut payload = serde_json::Map::new();
+    if let Some(summary) = &change.summary {
+        payload.insert("subject".into(), summary.clone().into());
+    }
+    let all_day = row.event.all_day;
+    let moment = |ms: i64| -> Result<serde_json::Value> {
+        let date = chrono::DateTime::from_timestamp_millis(ms)
+            .ok_or_else(|| CoreError::Other("invalid timestamp".into()))?;
+        let text = if all_day {
+            date.format("%Y-%m-%dT00:00:00")
+        } else {
+            date.format("%Y-%m-%dT%H:%M:%S")
+        };
+        Ok(serde_json::json!({ "dateTime": text.to_string(), "timeZone": "UTC" }))
+    };
+    if let Some(start) = change.starts_at {
+        payload.insert("start".into(), moment(start)?);
+    }
+    if let Some(end) = change.ends_at {
+        payload.insert("end".into(), moment(end)?);
+    }
+    if payload.is_empty() {
+        return Ok(());
+    }
+    client
+        .update_event(&occurrence, &serde_json::Value::Object(payload))
+        .await
+        .map(|_| ())
 }
 
 /// Free/busy of mailboxes (an optional meeting-planning lookup; the Calendar

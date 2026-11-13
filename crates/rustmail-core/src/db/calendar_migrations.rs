@@ -146,6 +146,12 @@ INSERT INTO caldav_config_v2
 DROP TABLE caldav_config;
 ALTER TABLE caldav_config_v2 RENAME TO caldav_config;
 "#,
+    r#"
+-- Per-event reminder: NULL = the app's default lead time, 0 = no reminder,
+-- otherwise minutes before the start.
+ALTER TABLE calendar_events ADD COLUMN reminder_minutes INTEGER
+  CHECK (reminder_minutes IS NULL OR (reminder_minutes >= 0 AND reminder_minutes <= 40320));
+"#,
 ];
 pub const LATEST_VERSION: i64 = MIGRATIONS.len() as i64;
 
@@ -209,7 +215,7 @@ mod tests {
         assert_eq!(
             conn.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
                 .unwrap(),
-            2
+            3
         );
         let violations = conn
             .prepare("PRAGMA foreign_key_check")
@@ -224,6 +230,35 @@ mod tests {
             .query_row("PRAGMA integrity_check", [], |row| row.get(0))
             .unwrap();
         assert_eq!(integrity, "ok");
+    }
+
+    #[test]
+    fn a_version_2_database_gains_the_reminder_column_and_keeps_its_events() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        for (index, sql) in MIGRATIONS.iter().enumerate().take(2) {
+            conn.execute_batch(sql).unwrap();
+            conn.pragma_update(None, "user_version", (index + 1) as i64)
+                .unwrap();
+        }
+        conn.execute(
+            "INSERT INTO calendar_events (account_id, ical_uid, starts_at) VALUES (1, 'u', 5)",
+            [],
+        )
+        .unwrap();
+        run(&mut conn).unwrap();
+        let reminder: Option<i64> = conn
+            .query_row("SELECT reminder_minutes FROM calendar_events", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(reminder, None);
+        // A reminder beyond 28 days or below zero is refused by the table.
+        for bad in [-1, 40_321] {
+            assert!(
+                conn.execute("UPDATE calendar_events SET reminder_minutes = ?1", [bad])
+                    .is_err()
+            );
+        }
     }
 
     #[test]
@@ -300,13 +335,14 @@ mod tests {
     #[test]
     fn pre_release_profiles_are_rejected_without_mutation() {
         let mut conn = Connection::open_in_memory().unwrap();
-        conn.pragma_update(None, "user_version", 3).unwrap();
+        let too_new = LATEST_VERSION + 1;
+        conn.pragma_update(None, "user_version", too_new).unwrap();
         let error = run(&mut conn).unwrap_err().to_string();
         assert!(error.contains("recreate the development profile"));
         assert_eq!(
             conn.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
                 .unwrap(),
-            3
+            too_new
         );
     }
 }

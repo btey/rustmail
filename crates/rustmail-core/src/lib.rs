@@ -2695,6 +2695,193 @@ impl Core {
         Ok(())
     }
 
+    /// Cancel one occurrence of a Microsoft 365 series (`occurrence_start_ms`
+    /// is the occurrence's start as the Calendar shows it). The attendees are
+    /// told; the series shows the change after the next calendar sync.
+    pub async fn exchange_cancel_occurrence(
+        &self,
+        event_id: i64,
+        occurrence_start_ms: i64,
+    ) -> Result<()> {
+        let account_id = self.calendar_event_account(event_id).await?;
+        let (_, client) = self.exchange_client(account_id).await?;
+        exchange::calendar::cancel_occurrence(
+            &self.calendar_db,
+            &client,
+            event_id,
+            occurrence_start_ms,
+        )
+        .await?;
+        self.nudge_cal(Some(account_id)).await;
+        Ok(())
+    }
+
+    /// Change one occurrence of a Microsoft 365 series (a new title, start or
+    /// end; an exception in Outlook's terms).
+    pub async fn exchange_edit_occurrence(
+        &self,
+        event_id: i64,
+        occurrence_start_ms: i64,
+        summary: Option<String>,
+        starts_at: Option<i64>,
+        ends_at: Option<i64>,
+    ) -> Result<()> {
+        if let (Some(start), Some(end)) = (starts_at, ends_at)
+            && end <= start
+        {
+            return Err(CoreError::Other("event must end after it starts".into()));
+        }
+        let account_id = self.calendar_event_account(event_id).await?;
+        let (_, client) = self.exchange_client(account_id).await?;
+        exchange::calendar::edit_occurrence(
+            &self.calendar_db,
+            &client,
+            event_id,
+            occurrence_start_ms,
+            &exchange::calendar::OccurrenceChange {
+                summary: summary.map(|text| text.trim().to_owned()),
+                starts_at,
+                ends_at,
+            },
+        )
+        .await?;
+        self.nudge_cal(Some(account_id)).await;
+        Ok(())
+    }
+
+    /// "Delete this and the following": end a series on the day before the
+    /// occurrence that starts at `occurrence_start_ms`. When that is the
+    /// series' first occurrence the whole series is deleted. The change goes
+    /// to the server with the next push (Microsoft 365, CalDAV).
+    pub async fn end_series_before(&self, event_id: i64, occurrence_start_ms: i64) -> Result<()> {
+        let row = self
+            .calendar_db
+            .read(move |conn| repo::calendar::sync_row_for(conn, event_id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound("event".into()))?;
+        let Some(rrule) = row.event.rrule.clone() else {
+            return Err(CoreError::Other("this event does not repeat".into()));
+        };
+        if occurrence_start_ms <= row.event.starts_at + 60_000 {
+            return self.delete_event(event_id, false).await;
+        }
+        // The last day the series still runs: the day before, in its zone.
+        let local = |ms: i64| match row
+            .tzid
+            .as_deref()
+            .and_then(|zone| exchange::zones::utc_ms_to_local(ms, zone))
+        {
+            Some(local) => Some(local.date()),
+            None => chrono::DateTime::from_timestamp_millis(ms)
+                .map(|utc| utc.with_timezone(&chrono::Local).date_naive()),
+        };
+        let last = local(occurrence_start_ms)
+            .and_then(|day| day.pred_opt())
+            .ok_or_else(|| CoreError::Other("invalid date".into()))?;
+        let mut parts: Vec<String> = rrule
+            .split(';')
+            .filter(|part| {
+                let key = part.split('=').next().unwrap_or("").to_ascii_uppercase();
+                key != "UNTIL" && key != "COUNT"
+            })
+            .map(str::to_owned)
+            .collect();
+        parts.push(format!("UNTIL={}T235959Z", last.format("%Y%m%d")));
+        let ended = parts.join(";");
+        let account_id = row.event.account_id;
+        self.calendar_db
+            .write(move |conn| repo::calendar::set_rrule(conn, event_id, Some(&ended)))
+            .await?;
+        self.enqueue_cal_push(event_id, account_id, "cal_put")
+            .await?;
+        self.bus.emit(CoreEvent::CalendarUpdated { account_id });
+        Ok(())
+    }
+
+    /// Set the reminder of an event: `None` = the app's default lead time,
+    /// `Some(0)` = no reminder, otherwise minutes before the start (at most
+    /// 28 days). Synced events carry it to the server with the next push.
+    pub async fn set_event_reminder(&self, event_id: i64, minutes: Option<i64>) -> Result<()> {
+        if let Some(minutes) = minutes
+            && !(0..=40_320).contains(&minutes)
+        {
+            return Err(CoreError::Other(
+                "a reminder can be up to 28 days before the start".into(),
+            ));
+        }
+        let account_id = self.calendar_event_account(event_id).await?;
+        self.calendar_db
+            .write(move |conn| repo::calendar::set_reminder(conn, event_id, minutes))
+            .await?;
+        self.enqueue_cal_push(event_id, account_id, "cal_put")
+            .await?;
+        self.bus.emit(CoreEvent::CalendarUpdated { account_id });
+        Ok(())
+    }
+
+    /// Make an event you organize repeat (an RRULE such as
+    /// `FREQ=WEEKLY;BYDAY=MO,WE`), or stop it repeating with `None`. A
+    /// Microsoft 365 event only takes rules Outlook can hold (daily, weekly,
+    /// monthly, yearly with an interval, one weekday per month and an end).
+    pub async fn set_event_recurrence(&self, event_id: i64, rrule: Option<String>) -> Result<()> {
+        let event = self
+            .calendar_db
+            .read(move |conn| repo::calendar::get(conn, event_id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound("event".into()))?;
+        if !event.is_local {
+            return Err(CoreError::Other(
+                "only events you organize can be changed to repeat".into(),
+            ));
+        }
+        let rrule = rrule
+            .map(|text| text.trim().trim_start_matches("RRULE:").to_owned())
+            .filter(|text| !text.is_empty());
+        if let Some(rule) = &rrule {
+            // The local expander must understand it, and Outlook must hold it.
+            if caldav::rrule::expand(
+                rule,
+                event.starts_at,
+                event.ends_at.unwrap_or(event.starts_at) - event.starts_at,
+                event.all_day,
+                None,
+                event.starts_at,
+                event.starts_at + 86_400_000,
+            )
+            .is_none()
+            {
+                return Err(CoreError::Other("that repeat rule is not supported".into()));
+            }
+            let start = chrono::DateTime::from_timestamp_millis(event.starts_at)
+                .map(|date| date.date_naive())
+                .ok_or_else(|| CoreError::Other("invalid date".into()))?;
+            if self.is_exchange_account(event.account_id).await
+                && exchange::recurrence::recurrence_from_rrule(rule, start).is_none()
+            {
+                return Err(CoreError::Other(
+                    "Microsoft 365 cannot repeat an event like that".into(),
+                ));
+            }
+        }
+        let account_id = event.account_id;
+        self.calendar_db
+            .write(move |conn| repo::calendar::set_rrule(conn, event_id, rrule.as_deref()))
+            .await?;
+        self.enqueue_cal_push(event_id, account_id, "cal_put")
+            .await?;
+        self.bus.emit(CoreEvent::CalendarUpdated { account_id });
+        Ok(())
+    }
+
+    async fn calendar_event_account(&self, event_id: i64) -> Result<i64> {
+        self.calendar_db
+            .read(
+                move |conn| Ok(repo::calendar::get(conn, event_id)?.map(|event| event.account_id)),
+            )
+            .await?
+            .ok_or_else(|| CoreError::NotFound("event".into()))
+    }
+
     pub async fn start_oauth(
         &self,
         provider: Provider,
@@ -6046,7 +6233,7 @@ impl Core {
                 .ends_at
                 .map(|e| e - m.event.starts_at)
                 .unwrap_or(1_800_000);
-            let Some(occs) = caldav::rrule::expand(
+            let Some(occs) = caldav::rrule::expand_in_zone(
                 &rrule,
                 m.event.starts_at,
                 duration,
@@ -6054,6 +6241,7 @@ impl Core {
                 m.ical_raw.as_deref(),
                 start_ms,
                 end_ms,
+                m.tzid.as_deref(),
             ) else {
                 continue; // unsupported rule: the master entry stands alone
             };
@@ -6265,6 +6453,7 @@ impl Core {
                 all_day: args.all_day,
                 attendees,
                 recurrence: None,
+                reminder_minutes: None,
             },
         )
         .await
@@ -10600,7 +10789,7 @@ mod thread_read_tests {
             })
             .await
             .unwrap();
-        assert_eq!(calendar_contract, (2, 1, false, "ok".to_owned()));
+        assert_eq!(calendar_contract, (3, 1, false, "ok".to_owned()));
     }
 }
 

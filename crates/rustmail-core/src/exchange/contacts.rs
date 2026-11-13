@@ -181,6 +181,7 @@ fn record_for(contact: &GraphContact, photo: Option<Vec<u8>>) -> Option<ContactR
             emails: contact.emails.iter().skip(1).cloned().collect(),
             phones: contact.more_phones.clone(),
             addresses: contact.more_addresses.clone(),
+            kinds: contact.kinds.clone(),
             photo,
         }
         .cleaned(&email_for_extras),

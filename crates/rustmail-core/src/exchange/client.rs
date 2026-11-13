@@ -823,6 +823,8 @@ pub struct GraphContact {
     pub more_phones: Vec<String>,
     /// Postal addresses after the first (business, home, other order).
     pub more_addresses: Vec<String>,
+    /// What kind each phone (`tel:<number>`) and address (`adr:<text>`) is.
+    pub kinds: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1660,6 +1662,39 @@ impl GraphMail {
         Ok(event_version(&reply))
     }
 
+    /// The occurrences of a series between two instants: (Graph id of the
+    /// occurrence, start, end). The id addresses one occurrence for a
+    /// change or a cancellation.
+    pub async fn series_instances(
+        &self,
+        series_id: &str,
+        window_ms: (i64, i64),
+    ) -> Result<Vec<(String, i64, i64)>> {
+        let utc_z = |ms: i64| {
+            chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
+                .map(|date| date.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+                .ok_or_else(|| CoreError::Other("invalid timestamp".into()))
+        };
+        let mut url = self.endpoint(&["events", series_id, "instances"]);
+        url.query_pairs_mut()
+            .append_pair("startDateTime", &utc_z(window_ms.0)?)
+            .append_pair("endDateTime", &utc_z(window_ms.1)?)
+            .append_pair("$top", "100");
+        let reply = self.json(reqwest::Method::GET, url, None, &[]).await?;
+        Ok(reply["value"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .take(100)
+            .filter_map(crate::graph::parse_delta_event)
+            .filter(|event| !event.removed && !event.cancelled && event.start_ms != 0)
+            .map(|event| {
+                let end = event.end_ms.unwrap_or(event.start_ms);
+                (event.id, event.start_ms, end)
+            })
+            .collect())
+    }
+
     /// The server's current version tag of an event (`None` outer: the event
     /// is gone; `None` inner: Graph named no version).
     pub async fn event_version(&self, event_id: &str) -> Result<Option<Option<String>>> {
@@ -1726,13 +1761,37 @@ pub(crate) fn contact_body(record: &crate::models::ContactRecord) -> Value {
     ] {
         body.insert(key, value);
     }
+    // Each number goes to the field of its kind (mobile, business, home);
+    // one without a kind takes the first free place, as the primary number
+    // always did (mobile).
+    let mut mobile: Option<String> = None;
+    let mut business: Vec<String> = Vec::new();
+    let mut home: Vec<String> = Vec::new();
+    let numbers: Vec<&String> = std::iter::once(&record.phone)
+        .filter(|phone| !phone.trim().is_empty())
+        .chain(record.extras.phones.iter())
+        .collect();
+    let mut unplaced: Vec<&String> = Vec::new();
+    for number in numbers {
+        match record.extras.phone_kind(number) {
+            Some("mobile") if mobile.is_none() => mobile = Some(number.clone()),
+            Some("work") if business.len() < 2 => business.push(number.clone()),
+            Some("home") if home.len() < 2 => home.push(number.clone()),
+            _ => unplaced.push(number),
+        }
+    }
+    for number in unplaced {
+        if mobile.is_none() && number == &record.phone {
+            mobile = Some(number.clone());
+        } else if business.len() < 2 {
+            business.push(number.clone());
+        } else if home.len() < 2 {
+            home.push(number.clone());
+        }
+    }
     body.insert(
         "mobilePhone".into(),
-        if record.phone.is_empty() {
-            Value::Null
-        } else {
-            Value::from(record.phone.clone())
-        },
+        mobile.map_or(Value::Null, Value::from),
     );
     body.insert(
         "birthday".into(),
@@ -1743,28 +1802,47 @@ pub(crate) fn contact_body(record: &crate::models::ContactRecord) -> Value {
         },
     );
     body.insert(
-        "businessAddress".into(),
-        serde_json::json!({ "street": record.postal_address }),
-    );
-    // The kind of a value is not kept: more phones go to the business list,
-    // more addresses to the home and other address.
-    body.insert(
         "businessPhones".into(),
-        Value::Array(
-            record
-                .extras
-                .phones
-                .iter()
-                .take(2)
-                .map(|phone| Value::from(phone.clone()))
-                .collect(),
-        ),
+        Value::Array(business.into_iter().map(Value::from).collect()),
     );
-    for (key, address) in ["homeAddress", "otherAddress"]
-        .into_iter()
-        .zip(record.extras.addresses.iter())
+    body.insert(
+        "homePhones".into(),
+        Value::Array(home.into_iter().map(Value::from).collect()),
+    );
+    // Addresses likewise: by kind, the rest in business, home, other order.
+    let mut places: [Option<String>; 3] = [None, None, None]; // business, home, other
+    let slot = |kind: Option<&str>| match kind {
+        Some("work") => Some(0),
+        Some("home") => Some(1),
+        Some("other") => Some(2),
+        _ => None,
+    };
+    let mut loose: Vec<&String> = Vec::new();
+    for address in std::iter::once(&record.postal_address)
+        .filter(|address| !address.trim().is_empty())
+        .chain(record.extras.addresses.iter())
     {
-        body.insert(key.into(), serde_json::json!({ "street": address }));
+        match slot(record.extras.address_kind(address)) {
+            Some(index) if places[index].is_none() => places[index] = Some(address.clone()),
+            _ => loose.push(address),
+        }
+    }
+    for address in loose {
+        if let Some(free) = places.iter_mut().find(|place| place.is_none()) {
+            *free = Some(address.clone());
+        }
+    }
+    for (key, address) in ["businessAddress", "homeAddress", "otherAddress"]
+        .into_iter()
+        .zip(places)
+    {
+        body.insert(
+            key.into(),
+            match address {
+                Some(street) => serde_json::json!({ "street": street }),
+                None => serde_json::json!({}),
+            },
+        );
     }
     Value::Object(body)
 }
@@ -1772,36 +1850,44 @@ pub(crate) fn contact_body(record: &crate::models::ContactRecord) -> Value {
 fn parse_contact(item: &Value, id: &str) -> GraphContact {
     let text = |key: &str| item[key].as_str().unwrap_or_default().trim().to_owned();
     let mut phones: Vec<String> = Vec::new();
-    let mut add_phone = |value: &str| {
+    let mut kinds: std::collections::BTreeMap<String, String> = Default::default();
+    let mut add_phone = |value: &str, kind: &str| {
         let value = value.trim();
         if !value.is_empty() && !phones.iter().any(|seen| seen == value) {
             phones.push(value.to_owned());
+            kinds.insert(format!("tel:{value}"), kind.to_owned());
         }
     };
     if let Some(mobile) = item["mobilePhone"].as_str() {
-        add_phone(mobile);
+        add_phone(mobile, "mobile");
     }
-    for key in ["businessPhones", "homePhones"] {
+    for (key, kind) in [("businessPhones", "work"), ("homePhones", "home")] {
         for phone in item[key]
             .as_array()
             .into_iter()
             .flatten()
             .filter_map(Value::as_str)
         {
-            add_phone(phone);
+            add_phone(phone, kind);
         }
     }
-    let mut addresses: Vec<String> = ["businessAddress", "homeAddress", "otherAddress"]
-        .iter()
-        .filter_map(|key| {
-            let parts: Vec<&str> = ["street", "city", "state", "postalCode", "countryOrRegion"]
-                .iter()
-                .filter_map(|part| item[*key][*part].as_str())
-                .filter(|part| !part.trim().is_empty())
-                .collect();
-            (!parts.is_empty()).then(|| parts.join(", "))
-        })
-        .collect();
+    let mut addresses: Vec<String> = Vec::new();
+    for (key, kind) in [
+        ("businessAddress", "work"),
+        ("homeAddress", "home"),
+        ("otherAddress", "other"),
+    ] {
+        let parts: Vec<&str> = ["street", "city", "state", "postalCode", "countryOrRegion"]
+            .iter()
+            .filter_map(|part| item[key][*part].as_str())
+            .filter(|part| !part.trim().is_empty())
+            .collect();
+        if !parts.is_empty() {
+            let text = parts.join(", ");
+            kinds.insert(format!("adr:{text}"), kind.to_owned());
+            addresses.push(text);
+        }
+    }
     let phone = if phones.is_empty() {
         String::new()
     } else {
@@ -1827,6 +1913,7 @@ fn parse_contact(item: &Value, id: &str) -> GraphContact {
         phone,
         more_phones: phones,
         more_addresses: addresses,
+        kinds,
         company: text("companyName"),
         job_title: text("jobTitle"),
         website: item["businessHomePage"]

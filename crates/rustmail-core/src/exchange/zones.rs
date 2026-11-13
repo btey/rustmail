@@ -203,6 +203,16 @@ pub fn local_to_utc_ms(local: NaiveDateTime, zone: &str) -> Option<i64> {
     Some(utc.and_utc().timestamp_millis())
 }
 
+/// The wall-clock time in a named zone at a UTC instant (milliseconds), or
+/// `None` when the zone is not in the table.
+pub fn utc_ms_to_local(utc_ms: i64, zone: &str) -> Option<NaiveDateTime> {
+    let (standard, rule) = find(zone)?;
+    let utc = chrono::DateTime::from_timestamp_millis(utc_ms)?.naive_utc();
+    let dst = is_dst(rule, standard, utc)?;
+    let minutes = i64::from(standard) + if dst { 60 } else { 0 };
+    Some(utc + chrono::Duration::minutes(minutes))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,6 +278,50 @@ mod tests {
             local_to_utc_ms(local("2026-01-10T12:00:00"), "New Zealand Standard Time"),
             Some(utc("2026-01-09T23:00:00"))
         );
+    }
+
+    #[test]
+    fn a_utc_instant_turns_back_into_the_wall_clock_of_a_zone() {
+        // The inverse of `local_to_utc_ms`, either side of a change.
+        for (utc_text, zone, wall) in [
+            (
+                "2026-03-28T11:00:00",
+                "Europe/Berlin",
+                "2026-03-28T12:00:00",
+            ),
+            (
+                "2026-03-30T10:00:00",
+                "Europe/Berlin",
+                "2026-03-30T12:00:00",
+            ),
+            (
+                "2026-03-09T16:00:00",
+                "Eastern Standard Time",
+                "2026-03-09T12:00:00",
+            ),
+            (
+                "2026-01-10T01:00:00",
+                "AUS Eastern Standard Time",
+                "2026-01-10T12:00:00",
+            ),
+            (
+                "2026-07-01T06:30:00",
+                "India Standard Time",
+                "2026-07-01T12:00:00",
+            ),
+        ] {
+            assert_eq!(
+                utc_ms_to_local(utc(utc_text), zone),
+                Some(local(wall)),
+                "{zone}"
+            );
+            assert_eq!(
+                local_to_utc_ms(local(wall), zone),
+                Some(utc(utc_text)),
+                "{zone}"
+            );
+        }
+        assert!(utc_ms_to_local(0, "Nowhere Time").is_none());
     }
 
     #[test]

@@ -236,8 +236,11 @@ fn serialized_lines(record: &ContactRecord, uid: &str, version: &str) -> Vec<Cow
         "N:;;;;".into(),
         format!("{email_property}:{}", escape(&record.email)).into(),
     ];
+    if !record.phone.trim().is_empty() {
+        let kind = record.extras.phone_kind(&record.phone);
+        lines.push(format!("TEL{}:{}", type_param(kind), escape(record.phone.trim())).into());
+    }
     for (name, value) in [
-        ("TEL", &record.phone),
         ("ORG", &record.company),
         ("TITLE", &record.job_title),
         ("URL", &record.website),
@@ -250,16 +253,26 @@ fn serialized_lines(record: &ContactRecord, uid: &str, version: &str) -> Vec<Cow
         }
     }
     if !record.postal_address.trim().is_empty() {
-        lines.push(format!("ADR:;;{};;;;", escape(record.postal_address.trim())).into());
+        let kind = record.extras.address_kind(&record.postal_address);
+        lines.push(
+            format!(
+                "ADR{}:;;{};;;;",
+                type_param(kind),
+                escape(record.postal_address.trim())
+            )
+            .into(),
+        );
     }
     for email in &record.extras.emails {
         lines.push(format!("EMAIL:{}", escape(email)).into());
     }
     for phone in &record.extras.phones {
-        lines.push(format!("TEL:{}", escape(phone)).into());
+        let kind = record.extras.phone_kind(phone);
+        lines.push(format!("TEL{}:{}", type_param(kind), escape(phone)).into());
     }
     for address in &record.extras.addresses {
-        lines.push(format!("ADR:;;{};;;;", escape(address)).into());
+        let kind = record.extras.address_kind(address);
+        lines.push(format!("ADR{}:;;{};;;;", type_param(kind), escape(address)).into());
     }
     if let Some(photo) = record
         .extras
@@ -278,6 +291,29 @@ fn serialized_lines(record: &ContactRecord, uid: &str, version: &str) -> Vec<Cow
     }
     lines.push("END:VCARD".into());
     lines
+}
+
+/// The kind a vCard `TYPE` parameter names for a phone number or address.
+fn kind_from_head(head: &str, phone: bool) -> Option<&'static str> {
+    if phone && contains_ascii_case(head, "CELL") {
+        Some("mobile")
+    } else if contains_ascii_case(head, "WORK") {
+        Some("work")
+    } else if contains_ascii_case(head, "HOME") {
+        Some("home")
+    } else {
+        None
+    }
+}
+
+/// The `TYPE` parameter of a kind (`;TYPE=CELL`), or nothing for none.
+fn type_param(kind: Option<&str>) -> &'static str {
+    match kind {
+        Some("mobile") => ";TYPE=CELL",
+        Some("work") => ";TYPE=WORK",
+        Some("home") => ";TYPE=HOME",
+        _ => "",
+    }
 }
 
 fn image_type(photo: &[u8]) -> &'static str {
@@ -454,6 +490,9 @@ pub fn parse(input: &str) -> Result<ContactRecord> {
                 }
             }
             "TEL" if !value.is_empty() => {
+                if let Some(kind) = kind_from_head(head, true) {
+                    record.extras.set_phone_kind(&value, kind);
+                }
                 if record.phone.is_empty() {
                     record.phone = value;
                 } else {
@@ -480,6 +519,11 @@ pub fn parse(input: &str) -> Result<ContactRecord> {
                         }
                         joined.push_str(value);
                     }
+                }
+                if !joined.is_empty()
+                    && let Some(kind) = kind_from_head(head, false)
+                {
+                    record.extras.set_address_kind(&joined, kind);
                 }
                 if joined.is_empty() {
                     // keep the first non-empty one
@@ -725,6 +769,35 @@ mod tests {
         // A picture over the limit or a link is not read.
         let link = "BEGIN:VCARD\nVERSION:3.0\nUID:a\nFN:A\nEMAIL:a@example.test\nPHOTO;VALUE=uri:https://example.test/a.jpg\nEND:VCARD";
         assert!(parse(link).unwrap().extras.photo.is_none());
+    }
+
+    #[test]
+    fn the_kind_of_a_phone_and_an_address_survives_a_card_round_trip() {
+        let card = "BEGIN:VCARD\nVERSION:3.0\nUID:ada\nFN:Ada\nEMAIL:ada@example.test\nTEL;TYPE=CELL:+1 1\nTEL;TYPE=HOME,VOICE:+1 2\nTEL;TYPE=WORK:+1 3\nTEL:+1 4\nADR;TYPE=WORK:;;1 Main;Oslo\nADR;TYPE=HOME:;;2 Side;Bergen\nEND:VCARD";
+        let record = parse(card).unwrap();
+        assert_eq!(record.phone, "+1 1");
+        assert_eq!(record.extras.phone_kind("+1 1"), Some("mobile"));
+        assert_eq!(record.extras.phone_kind("+1 2"), Some("home"));
+        assert_eq!(record.extras.phone_kind("+1 3"), Some("work"));
+        assert_eq!(record.extras.phone_kind("+1 4"), None);
+        assert_eq!(record.extras.address_kind("1 Main, Oslo"), Some("work"));
+        assert_eq!(record.extras.address_kind("2 Side, Bergen"), Some("home"));
+        let written = serialize(&record, "ada");
+        assert!(written.contains("TEL;TYPE=CELL:+1 1"), "{written}");
+        assert!(written.contains("TEL;TYPE=HOME:+1 2"), "{written}");
+        assert!(
+            written.contains("ADR;TYPE=HOME:;;2 Side\\, Bergen"),
+            "{written}"
+        );
+        assert!(written.contains("TEL:+1 4"), "{written}");
+        let again = parse(&written).unwrap();
+        assert_eq!(again.extras.kinds, record.extras.kinds);
+        // A new number added next to a card keeps its kind in the update.
+        let mut edited = record.clone();
+        edited.extras.phones.push("+1 5".into());
+        edited.extras.set_phone_kind("+1 5", "work");
+        let updated = update(card, &edited, "ada");
+        assert!(updated.contains("TEL;TYPE=WORK:+1 5"), "{updated}");
     }
 
     #[test]
