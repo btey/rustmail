@@ -60,17 +60,24 @@ pub(crate) fn tokens_for(
     tokens
 }
 
-/// The account's Exchange settings with its proxy setting applied. Only an
-/// HTTP (CONNECT) proxy is supported for Microsoft 365 traffic.
+/// The account's Exchange settings with its proxy setting applied: an HTTP
+/// (CONNECT) proxy, or a SOCKS5 proxy that resolves the host names itself
+/// (`socks5h`). The proxy settings carry no login, so a SOCKS5 proxy must
+/// accept the "no authentication" method.
 pub(crate) fn settings_for(config: &AccountConfig) -> Result<ExchangeSettings> {
     use crate::models::ProxyKind;
     let connection = &config.settings.connection;
     let mut settings = connection.exchange.clone();
     match connection.proxy {
         ProxyKind::None => {}
-        ProxyKind::Http => {
+        ProxyKind::Http | ProxyKind::Socks5 => {
             let host = connection.proxy_host.trim();
-            let url = url::Url::parse(&format!("http://{host}:{}", connection.proxy_port))
+            let scheme = if connection.proxy == ProxyKind::Http {
+                "http"
+            } else {
+                "socks5h"
+            };
+            let url = url::Url::parse(&format!("{scheme}://{host}:{}", connection.proxy_port))
                 .ok()
                 .filter(|url| {
                     url.host_str().is_some()
@@ -84,11 +91,6 @@ pub(crate) fn settings_for(config: &AccountConfig) -> Result<ExchangeSettings> {
                     )
                 })?;
             settings.proxy_url = url.to_string();
-        }
-        ProxyKind::Socks5 => {
-            return Err(crate::error::CoreError::Other(
-                "Microsoft 365 accounts can use an HTTP proxy only; a SOCKS5 proxy is not supported for them.".into(),
-            ));
         }
     }
     Ok(settings)
@@ -252,7 +254,9 @@ mod tests {
         assert_eq!(http.proxy(), Some("http://proxy.example.org:3128/"));
         assert!(settings_for(&config(ProxyKind::Http, "", 3128)).is_err());
         assert!(settings_for(&config(ProxyKind::Http, "proxy.example.org", 0)).is_err());
-        let socks = settings_for(&config(ProxyKind::Socks5, "proxy.example.org", 1080));
-        assert!(socks.unwrap_err().to_string().contains("HTTP proxy only"));
+        let socks = settings_for(&config(ProxyKind::Socks5, "proxy.example.org", 1080)).unwrap();
+        assert_eq!(socks.proxy(), Some("socks5h://proxy.example.org:1080"));
+        assert!(settings_for(&config(ProxyKind::Socks5, "", 1080)).is_err());
+        assert!(settings_for(&config(ProxyKind::Socks5, "proxy.example.org", 0)).is_err());
     }
 }

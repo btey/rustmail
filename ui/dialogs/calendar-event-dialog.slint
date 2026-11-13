@@ -1,7 +1,42 @@
-import { HorizontalBox } from "std-widgets.slint";
+import { HorizontalBox, ScrollView } from "std-widgets.slint";
 import { Button } from "../components/button.slint";
 import { LineEdit } from "../components/controls.slint";
 import { TypeScale } from "../typography.slint";
+
+// One option of a small single-choice row (reminder, repeat, end).
+component ChoiceChip inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    in property <bool> compact: false;
+    in property <color> accent;
+    in property <color> control-bg;
+    in property <color> title-color;
+    callback clicked;
+
+    height: root.compact ? 44px : 34px;
+    border-radius: 8px;
+    border-width: root.selected ? 2px : 0px;
+    border-color: root.accent;
+    background: root.control-bg;
+    Text {
+        x: 4px;
+        width: parent.width - 8px;
+        height: parent.height;
+        text: root.label;
+        color: root.title-color;
+        font-size: TypeScale.secondary;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    TouchArea {
+        accessible-role: radio-button;
+        accessible-label: root.label;
+        accessible-checked: root.selected;
+        clicked => { root.clicked(); }
+        mouse-cursor: pointer;
+    }
+}
 
 export component CalendarEventDialog inherits Rectangle {
     in property <bool> compact: false;
@@ -20,8 +55,42 @@ export component CalendarEventDialog inherits Rectangle {
     in-out property <string> calendar_event_time: "09:00";
     in-out property <string> calendar_event_duration: "60";
     in-out property <int> calendar_event_color: 0;
+    // -1 app default, 0 none, otherwise minutes before the start.
+    in-out property <int> calendar_event_reminder: -1;
+    // none | daily | weekly | monthly | yearly | custom (a rule the editor
+    // cannot show; it is kept unless another choice is made).
+    in-out property <string> calendar_event_repeat: "none";
+    in-out property <string> calendar_event_interval: "1";
+    // Monday = 1 ... Sunday = 64.
+    in-out property <int> calendar_event_weekdays: 0;
+    in-out property <string> calendar_event_end_kind: "never";
+    in-out property <string> calendar_event_end_value: "";
+    in-out property <bool> calendar_event_more_open: false;
+    // The event repeats on a Microsoft 365 calendar: an edit can apply to
+    // one occurrence or to all of them.
+    in property <bool> calendar_event_series: false;
+    in-out property <string> calendar_event_scope: "all";
+    in property <string> calendar_event_busy: "";
     callback calendar-save-event(string, string, string, string, int);
     callback calendar-create-task();
+
+    private property <length> chip-h: root.compact ? 44px : 34px;
+    private property <length> field-h: root.compact ? 44px : 38px;
+    private property <bool> repeating: root.calendar_event_repeat != "none" && root.calendar_event_repeat != "custom";
+    // Height of the repeat details (interval, weekdays, end).
+    private property <length> repeat-detail-height: root.repeating
+        ? 22px + root.field-h + 10px + (root.calendar_event_repeat == "weekly" ? root.chip-h + 10px : 0px)
+            + 22px + root.chip-h + (root.calendar_event_end_kind != "never" ? 8px + root.field-h : 0px) + 6px
+        : 0px;
+    private property <length> scope-height: root.calendar_event_series ? 22px + root.chip-h + 14px : 0px;
+    private property <length> busy-height: root.calendar_event_busy != "" ? 22px + 40px + 6px : 0px;
+    // The folded section: reminder chips, repeat chips and what follows.
+    private property <length> more-height: 8px + 22px + 2 * (root.chip-h + 6px) + 10px + 22px + 2 * (root.chip-h + 6px)
+        + (root.repeating ? 10px + root.repeat-detail-height : 0px)
+        + root.scope-height + root.busy-height + 12px;
+    // Everything above the buttons.
+    private property <length> form-height: 22px + 28px + 16px + 22px + root.field-h + 16px + 22px + root.field-h + 16px + 22px + root.field-h
+        + 16px + 34px + (root.calendar_event_more_open ? root.more-height : 0px) + 24px;
 
         Rectangle {
             visible: root.calendar_editor_open;
@@ -36,51 +105,224 @@ export component CalendarEventDialog inherits Rectangle {
             Rectangle {
                 accessible-role: groupbox;
                 accessible-label: root.calendar_event_editing ? @tr("Edit calendar event") : @tr("New calendar event");
-                x: root.compact ? 0px : (parent.width - 420px) / 2;
+                x: root.compact ? 0px : (parent.width - self.width) / 2;
                 y: root.compact ? 0px : (parent.height - self.height) / 2;
-                width: root.compact ? parent.width : 420px;
-                // Fields stack below their labels, which grow with the platform font.
-                height: root.compact ? parent.height : event-divider.y + 86px;
+                width: root.compact ? parent.width : 440px;
+                // The form scrolls when the window is shorter than it is.
+                height: root.compact ? parent.height : min(parent.height - 48px, root.form-height + 72px);
                 border-radius: root.compact ? 0px : 12px;
                 border-width: root.compact ? 0px : 1px;
                 border-color: root.border;
                 background: root.surface;
                 TouchArea { }
 
-                event-heading := Text { x: 24px; y: 22px; width: parent.width - 48px; height: max(28px, self.preferred-height); text: root.calendar_event_editing ? @tr("Edit event") : @tr("New event"); color: root.title-color; font-size: TypeScale.title-small; font-weight: 700; }
-                title-label := Text { x: 24px; y: event-heading.y + event-heading.height + 16px; width: parent.width - 48px; height: max(18px, self.preferred-height); text: @tr("TITLE"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
-                title-field := LineEdit { x: 24px; y: title-label.y + title-label.height + 4px; width: parent.width - 48px; height: root.compact ? 44px : 38px; text: root.calendar_event_title; placeholder-text: @tr("Event title"); edited(value) => { root.calendar_event_title = value; } }
-                date-label := Text { x: 24px; y: title-field.y + 54px; width: (parent.width - 56px) / 2; height: max(18px, max(self.preferred-height, start-label.preferred-height)); wrap: word-wrap; text: @tr("DATE"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
-                start-label := Text { x: parent.width / 2 + 4px; y: date-label.y; width: (parent.width - 56px) / 2; height: date-label.height; wrap: word-wrap; text: @tr("START TIME"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
-                date-field := LineEdit { x: 24px; y: date-label.y + date-label.height + 4px; width: (parent.width - 56px) / 2; height: root.compact ? 44px : 38px; text: root.calendar_event_date; placeholder-text: @tr("YYYY-MM-DD"); edited(value) => { root.calendar_event_date = value; } }
-                LineEdit { x: parent.width / 2 + 4px; y: date-field.y; width: (parent.width - 56px) / 2; height: root.compact ? 44px : 38px; text: root.calendar_event_time; placeholder-text: @tr("09:00"); edited(value) => { root.calendar_event_time = value; } }
-                duration-label := Text { x: 24px; y: date-field.y + 54px; width: (parent.width - 56px) / 2; height: max(18px, max(self.preferred-height, calendar-label.preferred-height)); wrap: word-wrap; text: @tr("DURATION (MINUTES)"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
-                duration-field := LineEdit { x: 24px; y: duration-label.y + duration-label.height + 4px; width: (parent.width - 56px) / 2; height: root.compact ? 44px : 38px; text: root.calendar_event_duration; placeholder-text: @tr("60"); input-type: InputType.number; edited(value) => { root.calendar_event_duration = value; } }
-                calendar-label := Text { x: parent.width / 2 + 4px; y: duration-label.y; width: (parent.width - 56px) / 2; height: duration-label.height; wrap: word-wrap; text: @tr("CALENDAR"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
-                HorizontalBox {
-                    x: parent.width / 2 + 4px;
-                    y: duration-field.y;
-                    width: (parent.width - 56px) / 2;
-                    height: root.compact ? 44px : 38px;
-                    spacing: 8px;
-                    for color in [0, 1, 2, 3] : Rectangle {
-                        width: max(30px, (parent.width - 24px) / 4);
-                        height: root.compact ? 44px : 36px;
-                        border-radius: 8px;
-                        border-width: root.calendar_event_color == color ? 2px : 0px;
-                        border-color: root.accent;
-                        background: root.control-bg;
-                        Rectangle { x: 10px; y: 10px; width: 16px; height: 16px; border-radius: 5px; background: color == 0 ? #3478f6 : color == 1 ? #8b5cf6 : color == 2 ? #e87924 : #26a269; }
-                        TouchArea {
-                            accessible-role: radio-button;
-                            accessible-label: color == 0 ? @tr("Blue calendar") : color == 1 ? @tr("Purple calendar") : color == 2 ? @tr("Orange calendar") : @tr("Green calendar");
-                            accessible-checked: root.calendar_event_color == color;
-                            clicked => { root.calendar_event_color = color; }
-                            mouse-cursor: pointer;
+                ScrollView {
+                    x: 0px;
+                    y: 0px;
+                    width: parent.width;
+                    height: max(0px, parent.height - 72px);
+                    content-width: self.visible-width;
+                    horizontal-scrollbar-policy: always-off;
+
+                    form := Rectangle {
+                        width: parent.width;
+                        height: root.form-height;
+                        private property <length> field-h: root.compact ? 44px : 38px;
+                        private property <length> half: (self.width - 56px) / 2;
+                        private property <bool> repeating: root.calendar_event_repeat != "none" && root.calendar_event_repeat != "custom";
+
+                        event-heading := Text { x: 24px; y: 22px; width: parent.width - 48px; height: max(28px, self.preferred-height); text: root.calendar_event_editing ? @tr("Edit event") : @tr("New event"); color: root.title-color; font-size: TypeScale.title-small; font-weight: 700; }
+                        title-label := Text { x: 24px; y: event-heading.y + event-heading.height + 16px; width: parent.width - 48px; height: max(18px, self.preferred-height); text: @tr("TITLE"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                        title-field := LineEdit { x: 24px; y: title-label.y + title-label.height + 4px; width: parent.width - 48px; height: form.field-h; text: root.calendar_event_title; placeholder-text: @tr("Event title"); edited(value) => { root.calendar_event_title = value; } }
+                        date-label := Text { x: 24px; y: title-field.y + 54px; width: form.half; height: max(18px, max(self.preferred-height, start-label.preferred-height)); wrap: word-wrap; text: @tr("DATE"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                        start-label := Text { x: parent.width / 2 + 4px; y: date-label.y; width: form.half; height: date-label.height; wrap: word-wrap; text: @tr("START TIME"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                        date-field := LineEdit { x: 24px; y: date-label.y + date-label.height + 4px; width: form.half; height: form.field-h; text: root.calendar_event_date; placeholder-text: @tr("YYYY-MM-DD"); edited(value) => { root.calendar_event_date = value; } }
+                        LineEdit { x: parent.width / 2 + 4px; y: date-field.y; width: form.half; height: form.field-h; text: root.calendar_event_time; placeholder-text: @tr("09:00"); edited(value) => { root.calendar_event_time = value; } }
+                        duration-label := Text { x: 24px; y: date-field.y + 54px; width: form.half; height: max(18px, max(self.preferred-height, calendar-label.preferred-height)); wrap: word-wrap; text: @tr("DURATION (MINUTES)"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                        duration-field := LineEdit { x: 24px; y: duration-label.y + duration-label.height + 4px; width: form.half; height: form.field-h; text: root.calendar_event_duration; placeholder-text: @tr("60"); input-type: InputType.number; edited(value) => { root.calendar_event_duration = value; } }
+                        calendar-label := Text { x: parent.width / 2 + 4px; y: duration-label.y; width: form.half; height: duration-label.height; wrap: word-wrap; text: @tr("CALENDAR"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                        HorizontalBox {
+                            x: parent.width / 2 + 4px;
+                            y: duration-field.y;
+                            width: form.half;
+                            height: form.field-h;
+                            spacing: 8px;
+                            for color in [0, 1, 2, 3] : Rectangle {
+                                width: max(30px, (parent.width - 24px) / 4);
+                                height: root.compact ? 44px : 36px;
+                                border-radius: 8px;
+                                border-width: root.calendar_event_color == color ? 2px : 0px;
+                                border-color: root.accent;
+                                background: root.control-bg;
+                                Rectangle { x: 10px; y: 10px; width: 16px; height: 16px; border-radius: 5px; background: color == 0 ? #3478f6 : color == 1 ? #8b5cf6 : color == 2 ? #e87924 : #26a269; }
+                                TouchArea {
+                                    accessible-role: radio-button;
+                                    accessible-label: color == 0 ? @tr("Blue calendar") : color == 1 ? @tr("Purple calendar") : color == 2 ? @tr("Orange calendar") : @tr("Green calendar");
+                                    accessible-checked: root.calendar_event_color == color;
+                                    clicked => { root.calendar_event_color = color; }
+                                    mouse-cursor: pointer;
+                                }
+                            }
+                        }
+
+                        // Reminder and repeat: folded away until asked for.
+                        more-toggle := Rectangle {
+                            x: 24px;
+                            y: duration-field.y + form.field-h + 16px;
+                            width: parent.width - 48px;
+                            height: max(30px, more-text.preferred-height + 8px);
+                            more-text := Text {
+                                width: parent.width;
+                                height: parent.height;
+                                text: (root.calendar_event_more_open ? "▾ " : "▸ ") + @tr("Reminder and repeat");
+                                color: root.accent;
+                                font-size: TypeScale.secondary;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                            TouchArea {
+                                accessible-role: button;
+                                accessible-label: @tr("Reminder and repeat");
+                                accessible-expandable: true;
+                                accessible-expanded: root.calendar_event_more_open;
+                                clicked => { root.calendar_event_more_open = !root.calendar_event_more_open; }
+                                mouse-cursor: pointer;
+                            }
+                        }
+                        if root.calendar_event_more_open : Rectangle {
+                            x: 0px;
+                            y: more-toggle.y + more-toggle.height;
+                            width: parent.width;
+                            height: root.more-height;
+
+                            reminder-label := Text { x: 24px; y: 8px; width: parent.width - 48px; height: max(18px, self.preferred-height); text: @tr("REMINDER"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                            for option[index] in [-1, 0, 5, 15, 60, 1440] : ChoiceChip {
+                                x: 24px + mod(index, 3) * ((parent.width - 48px - 16px) / 3 + 8px);
+                                y: reminder-label.y + reminder-label.height + 4px + floor(index / 3) * (self.height + 6px);
+                                width: (parent.width - 48px - 16px) / 3;
+                                compact: root.compact;
+                                accent: root.accent;
+                                control-bg: root.control-bg;
+                                title-color: root.title-color;
+                                label: option == -1 ? @tr("Default") : option == 0 ? @tr("None") : option == 5 ? @tr("5 min") : option == 15 ? @tr("15 min") : option == 60 ? @tr("1 hour") : @tr("1 day");
+                                selected: root.calendar_event_reminder == option;
+                                clicked => { root.calendar_event_reminder = option; }
+                            }
+
+                            repeat-label := Text { x: 24px; y: reminder-label.y + reminder-label.height + 4px + 2 * (root.chip-h + 6px) + 10px; width: parent.width - 48px; height: max(18px, self.preferred-height); text: @tr("REPEAT"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                            for option[index] in ["none", "daily", "weekly", "monthly", "yearly"] : ChoiceChip {
+                                x: 24px + mod(index, 3) * ((parent.width - 48px - 16px) / 3 + 8px);
+                                y: repeat-label.y + repeat-label.height + 4px + floor(index / 3) * (self.height + 6px);
+                                width: (parent.width - 48px - 16px) / 3;
+                                compact: root.compact;
+                                accent: root.accent;
+                                control-bg: root.control-bg;
+                                title-color: root.title-color;
+                                label: option == "none" ? @tr("None") : option == "daily" ? @tr("Daily") : option == "weekly" ? @tr("Weekly") : option == "monthly" ? @tr("Monthly") : @tr("Yearly");
+                                selected: root.calendar_event_repeat == option;
+                                clicked => { root.calendar_event_repeat = option; }
+                            }
+                            if root.calendar_event_repeat == "custom" : Text {
+                                x: 24px + 2 * ((parent.width - 48px - 16px) / 3 + 8px);
+                                y: repeat-label.y + repeat-label.height + 4px + root.chip-h + 6px;
+                                width: (parent.width - 48px - 16px) / 3;
+                                height: root.chip-h;
+                                text: @tr("Custom rule");
+                                color: root.muted-text;
+                                font-size: TypeScale.caption;
+                                vertical-alignment: center;
+                                horizontal-alignment: center;
+                                overflow: elide;
+                            }
+
+                            if form.repeating : Rectangle {
+                                x: 0px;
+                                y: repeat-label.y + repeat-label.height + 4px + 2 * (root.chip-h + 6px) + 10px;
+                                width: parent.width;
+                                height: root.repeat-detail-height;
+
+                                interval-label := Text { x: 24px; y: 0px; width: form.half; height: max(18px, self.preferred-height); text: root.calendar_event_repeat == "daily" ? @tr("EVERY (DAYS)") : root.calendar_event_repeat == "weekly" ? @tr("EVERY (WEEKS)") : root.calendar_event_repeat == "monthly" ? @tr("EVERY (MONTHS)") : @tr("EVERY (YEARS)"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; wrap: word-wrap; }
+                                LineEdit { x: 24px; y: interval-label.y + interval-label.height + 4px; width: form.half; height: form.field-h; text: root.calendar_event_interval; placeholder-text: "1"; input-type: InputType.number; edited(value) => { root.calendar_event_interval = value; } }
+                                if root.calendar_event_repeat == "weekly" : Rectangle {
+                                    x: 0px;
+                                    y: interval-label.y + interval-label.height + 4px + form.field-h + 10px;
+                                    width: parent.width;
+                                    height: root.chip-h;
+                                    for day[index] in [1, 2, 4, 8, 16, 32, 64] : ChoiceChip {
+                                        x: 24px + index * ((parent.width - 48px - 36px) / 7 + 6px);
+                                        y: 0px;
+                                        width: (parent.width - 48px - 36px) / 7;
+                                        compact: root.compact;
+                                        accent: root.accent;
+                                        control-bg: root.control-bg;
+                                        title-color: root.title-color;
+                                        label: day == 1 ? @tr("Mo") : day == 2 ? @tr("Tu") : day == 4 ? @tr("We") : day == 8 ? @tr("Th") : day == 16 ? @tr("Fr") : day == 32 ? @tr("Sa") : @tr("Su");
+                                        selected: mod(floor(root.calendar_event_weekdays / day), 2) == 1;
+                                        clicked => {
+                                            if mod(floor(root.calendar_event_weekdays / day), 2) == 1 {
+                                                root.calendar_event_weekdays = root.calendar_event_weekdays - day;
+                                            } else {
+                                                root.calendar_event_weekdays = root.calendar_event_weekdays + day;
+                                            }
+                                        }
+                                    }
+                                }
+                                end-label := Text { x: 24px; y: interval-label.y + interval-label.height + 4px + form.field-h + 10px + (root.calendar_event_repeat == "weekly" ? root.chip-h + 10px : 0px); width: parent.width - 48px; height: max(18px, self.preferred-height); text: @tr("ENDS"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                                for option[index] in ["never", "count", "until"] : ChoiceChip {
+                                    x: 24px + index * ((parent.width - 48px - 16px) / 3 + 8px);
+                                    y: end-label.y + end-label.height + 4px;
+                                    width: (parent.width - 48px - 16px) / 3;
+                                    compact: root.compact;
+                                    accent: root.accent;
+                                    control-bg: root.control-bg;
+                                    title-color: root.title-color;
+                                    label: option == "never" ? @tr("Never") : option == "count" ? @tr("After") : @tr("Until");
+                                    selected: root.calendar_event_end_kind == option;
+                                    clicked => { root.calendar_event_end_kind = option; }
+                                }
+                                if root.calendar_event_end_kind != "never" : LineEdit {
+                                    x: 24px;
+                                    y: end-label.y + end-label.height + 4px + root.chip-h + 8px;
+                                    width: parent.width - 48px;
+                                    height: form.field-h;
+                                    text: root.calendar_event_end_value;
+                                    placeholder-text: root.calendar_event_end_kind == "count" ? @tr("Number of events") : @tr("YYYY-MM-DD");
+                                    edited(value) => { root.calendar_event_end_value = value; }
+                                }
+                            }
+
+                            if root.calendar_event_series : Rectangle {
+                                x: 0px;
+                                y: root.more-height - root.scope-height - root.busy-height - 4px;
+                                width: parent.width;
+                                height: root.scope-height;
+                                scope-label := Text { x: 24px; y: 0px; width: parent.width - 48px; height: max(18px, self.preferred-height); text: @tr("APPLY TO"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                                for option[index] in ["occurrence", "all"] : ChoiceChip {
+                                    x: 24px + index * ((parent.width - 48px - 8px) / 2 + 8px);
+                                    y: scope-label.y + scope-label.height + 4px;
+                                    width: (parent.width - 48px - 8px) / 2;
+                                    compact: root.compact;
+                                    accent: root.accent;
+                                    control-bg: root.control-bg;
+                                    title-color: root.title-color;
+                                    label: option == "occurrence" ? @tr("This event only") : @tr("All events");
+                                    selected: root.calendar_event_scope == option;
+                                    clicked => { root.calendar_event_scope = option; }
+                                }
+                            }
+                            if root.calendar_event_busy != "" : Rectangle {
+                                x: 0px;
+                                y: root.more-height - root.busy-height - 4px;
+                                width: parent.width;
+                                height: root.busy-height;
+                                busy-label := Text { x: 24px; y: 0px; width: parent.width - 48px; height: max(18px, self.preferred-height); text: @tr("ATTENDEE AVAILABILITY"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                                Text { x: 24px; y: busy-label.y + busy-label.height + 4px; width: parent.width - 48px; height: max(20px, self.preferred-height); text: root.calendar_event_busy; color: root.title-color; font-size: TypeScale.secondary; wrap: word-wrap; }
+                            }
                         }
                     }
                 }
-                event-divider := Rectangle { x: 0px; y: root.compact ? root.height - 72px : duration-field.y + 64px; width: parent.width; height: 1px; background: root.border-subtle; }
+
+                event-divider := Rectangle { x: 0px; y: parent.height - 72px; width: parent.width; height: 1px; background: root.border-subtle; }
                 if root.calendar_event_editing : Button {
                     x: 24px;
                     y: save-button.y;
@@ -92,7 +334,7 @@ export component CalendarEventDialog inherits Rectangle {
                 Button { x: save-button.x - self.width - 8px; y: save-button.y; width: max(82px, self.content-width); height: root.compact ? 44px : 40px; text: @tr("Cancel"); clicked => { root.calendar_editor_open = false; } }
                 save-button := Button {
                     x: parent.width - self.width - 24px;
-                    y: root.compact ? root.height - 60px : event-divider.y + 24px;
+                    y: parent.height - 56px;
                     width: max(82px, self.content-width);
                     height: root.compact ? 44px : 40px;
                     text: root.calendar_event_editing ? @tr("Save") : @tr("Create");

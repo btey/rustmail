@@ -394,6 +394,11 @@ export global I18n {
         if (key == "Could not save event: {}") { return @tr("Could not save event: {}", argument); }
         if (key == "Event saved, but refresh failed: {}") { return @tr("Event saved, but refresh failed: {}", argument); }
         if (key == "Event saved. Provider sync will run when enabled.") { return @tr("Event saved. Provider sync will run when enabled."); }
+        if (key == "The repeat interval must be a number from 1 to 999.") { return @tr("The repeat interval must be a number from 1 to 999."); }
+        if (key == "The number of events must be from 1 to 999.") { return @tr("The number of events must be from 1 to 999."); }
+        if (key == "Use YYYY-MM-DD for the last day of the repeat.") { return @tr("Use YYYY-MM-DD for the last day of the repeat."); }
+        if (key == "The repeat must not end before the event starts.") { return @tr("The repeat must not end before the event starts."); }
+        if (key == "Event saved, but its reminder or repeat could not be set: {}") { return @tr("Event saved, but its reminder or repeat could not be set: {}", argument); }
         return "";
     }
 
@@ -719,6 +724,7 @@ export component AppWindow inherits Window {
     callback calendar-open-editor();
     callback calendar-edit-event(int);
     callback calendar-delete-event(int);
+    callback calendar-delete-event-scope(int, string, int, string);
     callback calendar-save-event(string, string, string, string, int);
     callback calendar-create-task();
     callback select-contact(int);
@@ -840,6 +846,21 @@ export component AppWindow inherits Window {
     in-out property <string> calendar_event_time: "09:00";
     in-out property <string> calendar_event_duration: "60";
     in-out property <int> calendar_event_color: 0;
+    // Reminder (-1 app default, 0 none, else minutes before), repeat rule
+    // fields, which part of a repeating event an edit applies to, and a
+    // free/busy summary of the attendees.
+    in-out property <int> calendar_event_reminder: -1;
+    in-out property <string> calendar_event_repeat: "none";
+    in-out property <string> calendar_event_interval: "1";
+    in-out property <int> calendar_event_weekdays: 0;
+    in-out property <string> calendar_event_end_kind: "never";
+    in-out property <string> calendar_event_end_value: "";
+    in-out property <bool> calendar_event_more_open: false;
+    in property <bool> calendar_event_series: false;
+    in-out property <string> calendar_event_scope: "all";
+    in property <string> calendar_event_busy: "";
+    in-out property <string> calendar_occurrence_date: "";
+    in-out property <int> calendar_occurrence_minutes: 0;
     in property <string> selected_scope: "Unified Inbox";
     in property <string> selected_scope_title: "Unified Inbox";
     in property <bool> trash_view: false;
@@ -1610,6 +1631,9 @@ export component AppWindow inherits Window {
             focus-event-id: root.calendar_focus_event;
             event-focused => { root.calendar_focus_event = -1; }
             delete-event(event-id) => { root.calendar-delete-event(event-id); }
+            delete-event-scope(event-id, date, minutes, scope) => { root.calendar-delete-event-scope(event-id, date, minutes, scope); }
+            occurrence-date <=> root.calendar_occurrence_date;
+            occurrence-minutes <=> root.calendar_occurrence_minutes;
             open-link(url) => { root.open_email_link(url); }
         }
         }
@@ -1791,6 +1815,16 @@ export component AppWindow inherits Window {
             calendar_event_time <=> root.calendar_event_time;
             calendar_event_duration <=> root.calendar_event_duration;
             calendar_event_color <=> root.calendar_event_color;
+            calendar_event_reminder <=> root.calendar_event_reminder;
+            calendar_event_repeat <=> root.calendar_event_repeat;
+            calendar_event_interval <=> root.calendar_event_interval;
+            calendar_event_weekdays <=> root.calendar_event_weekdays;
+            calendar_event_end_kind <=> root.calendar_event_end_kind;
+            calendar_event_end_value <=> root.calendar_event_end_value;
+            calendar_event_more_open <=> root.calendar_event_more_open;
+            calendar_event_series: root.calendar_event_series;
+            calendar_event_scope <=> root.calendar_event_scope;
+            calendar_event_busy: root.calendar_event_busy;
             calendar-save-event(title, date, time, duration, color) => {
                 root.calendar-save-event(title, date, time, duration, color);
             }

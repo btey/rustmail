@@ -1,0 +1,40 @@
+import { Button } from "../components/button.slint";
+import { TypeScale } from "../typography.slint";
+
+// Which part of a repeating Microsoft 365 event a delete applies to.
+export component CalendarScopeDialog inherits Rectangle {
+    in-out property <bool> open: false;
+    in property <string> title;
+    in property <string> description;
+    in property <color> surface;
+    in property <color> dialog-border-color;
+    in property <color> title-color;
+    in property <color> muted-color;
+    callback chosen(string);
+
+    visible: root.open;
+    background: #00000088;
+    z: 1000;
+    accessible-role: groupbox;
+    accessible-label: root.title;
+
+    TouchArea { enabled: root.open; }
+
+    panel := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(420px, parent.width - 32px);
+        height: scope-description.y + scope-description.height + 16px + 3 * 48px + 8px + 40px + 24px;
+        border-radius: 12px;
+        border-width: 1px;
+        border-color: root.dialog-border-color;
+        background: root.surface;
+
+        scope-title := Text { x: 24px; y: 22px; width: parent.width - 48px; height: max(28px, self.preferred-height); text: root.title; color: root.title-color; font-size: TypeScale.title-small; font-weight: 700; wrap: word-wrap; }
+        scope-description := Text { x: 24px; y: scope-title.y + scope-title.height + 6px; width: parent.width - 48px; height: max(20px, self.preferred-height); text: root.description; color: root.muted-color; font-size: TypeScale.secondary; wrap: word-wrap; }
+        Button { x: 24px; y: scope-description.y + scope-description.height + 16px; width: parent.width - 48px; height: 40px; text: @tr("This event only"); clicked => { root.open = false; root.chosen("occurrence"); } }
+        Button { x: 24px; y: scope-description.y + scope-description.height + 64px; width: parent.width - 48px; height: 40px; text: @tr("This and following events"); clicked => { root.open = false; root.chosen("following"); } }
+        Button { x: 24px; y: scope-description.y + scope-description.height + 112px; width: parent.width - 48px; height: 40px; text: @tr("All events"); destructive: true; clicked => { root.open = false; root.chosen("all"); } }
+        Button { x: parent.width - self.width - 24px; y: parent.height - 64px; width: max(82px, self.content-width); height: 40px; text: @tr("Cancel"); clicked => { root.open = false; } }
+    }
+}

@@ -426,7 +426,11 @@ fn apply_fixture(app: &AppWindow) {
     let events = vec![
         calendar_event(1, "Quarterly planning review", 0, 9 * 60),
         calendar_event(2, "Design critique", 1, 11 * 60),
-        calendar_event(3, "Customer call with Northwind", 3, 15 * 60),
+        CalendarEventRow {
+            provider: "microsoft".into(),
+            recurrence: "FREQ=WEEKLY;BYDAY=TH".into(),
+            ..calendar_event(3, "Customer call with Northwind", 3, 15 * 60)
+        },
         CalendarEventRow {
             all_day: true,
             ..calendar_event(4, "Company offsite", 2, 0)
@@ -569,6 +573,15 @@ fn reset(app: &AppWindow) {
     app.set_settings_tab("General".into());
     app.set_compose_open(false);
     app.set_calendar_editor_open(false);
+    app.set_calendar_event_editing(false);
+    app.set_calendar_event_more_open(false);
+    app.set_calendar_event_reminder(-1);
+    app.set_calendar_event_repeat("none".into());
+    app.set_calendar_event_weekdays(0);
+    app.set_calendar_event_end_kind("never".into());
+    app.set_calendar_event_end_value("".into());
+    app.set_calendar_event_series(false);
+    app.set_calendar_event_busy("".into());
     app.set_rendering_info_open(false);
     app.set_oauth_setup_open(false);
     app.set_custom_oauth_open(false);
@@ -1010,6 +1023,44 @@ fn states() -> Vec<State> {
             app.set_calendar_event_date("2026-10-19".into());
             app.set_calendar_editor_open(true);
         }),
+        state("calendar event editor reminder and repeat", |app| {
+            app.set_active_view("calendar".into());
+            app.set_calendar_event_title("Quarterly planning review".into());
+            app.set_calendar_event_date("2026-10-19".into());
+            app.set_calendar_event_more_open(true);
+            app.set_calendar_event_reminder(15);
+            app.set_calendar_event_repeat("weekly".into());
+            app.set_calendar_event_weekdays(1 | 4);
+            app.set_calendar_event_end_kind("count".into());
+            app.set_calendar_event_end_value("10".into());
+            app.set_calendar_editor_open(true);
+        }),
+        state("calendar event editor series and availability", |app| {
+            app.set_active_view("calendar".into());
+            app.set_calendar_event_editing(true);
+            app.set_calendar_event_title("Quarterly planning review".into());
+            app.set_calendar_event_date("2026-10-19".into());
+            app.set_calendar_event_more_open(true);
+            app.set_calendar_event_repeat("monthly".into());
+            app.set_calendar_event_end_kind("until".into());
+            app.set_calendar_event_end_value("2027-01-31".into());
+            app.set_calendar_event_series(true);
+            app.set_calendar_event_busy(
+                "jamie.rivera@example.com: busy\npriya.shah@example.com: free".into(),
+            );
+            app.set_calendar_editor_open(true);
+        }),
+        State {
+            dismiss: Some("Cancel"),
+            ..state("calendar delete scope", |app| {
+                app.set_active_view("calendar".into());
+                app.set_calendar_view_mode("week".into());
+                let label =
+                    translate("View details for {}").replace("{}", "Customer call with Northwind");
+                press_labelled(app, &label);
+                press_labelled(app, &translate("Delete"));
+            })
+        },
         State {
             dismiss: Some("Close"),
             ..state("calendar event details", |app| {

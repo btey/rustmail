@@ -2245,6 +2245,101 @@ mod tests {
         );
     }
 
+    /// A SOCKS5 proxy that accepts "no authentication", records the
+    /// destination it is asked for and relays to `target`.
+    async fn fake_socks5_proxy(
+        target: std::net::SocketAddr,
+    ) -> (u16, Arc<std::sync::Mutex<Vec<(u8, Vec<u8>, u16)>>>) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let asked = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let record = Arc::clone(&asked);
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut client, _)) = listener.accept().await else {
+                    return;
+                };
+                let record = Arc::clone(&record);
+                tokio::spawn(async move {
+                    let mut head = [0u8; 2];
+                    client.read_exact(&mut head).await.unwrap();
+                    assert_eq!(head[0], 5);
+                    let mut methods = vec![0u8; usize::from(head[1])];
+                    client.read_exact(&mut methods).await.unwrap();
+                    assert!(methods.contains(&0), "no-auth must be offered");
+                    client.write_all(&[5, 0]).await.unwrap();
+                    let mut request = [0u8; 4];
+                    client.read_exact(&mut request).await.unwrap();
+                    assert_eq!(&request[..3], &[5, 1, 0]);
+                    let address = match request[3] {
+                        1 => {
+                            let mut ip = vec![0u8; 4];
+                            client.read_exact(&mut ip).await.unwrap();
+                            ip
+                        }
+                        3 => {
+                            let mut len = [0u8; 1];
+                            client.read_exact(&mut len).await.unwrap();
+                            let mut name = vec![0u8; usize::from(len[0])];
+                            client.read_exact(&mut name).await.unwrap();
+                            name
+                        }
+                        other => panic!("unexpected address type {other}"),
+                    };
+                    let mut port = [0u8; 2];
+                    client.read_exact(&mut port).await.unwrap();
+                    record
+                        .lock()
+                        .unwrap()
+                        .push((request[3], address, u16::from_be_bytes(port)));
+                    let mut upstream = tokio::net::TcpStream::connect(target).await.unwrap();
+                    client
+                        .write_all(&[5, 0, 0, 1, 127, 0, 0, 1, 0, 0])
+                        .await
+                        .unwrap();
+                    let _ = tokio::io::copy_bidirectional(&mut client, &mut upstream).await;
+                });
+            }
+        });
+        (port, asked)
+    }
+
+    #[tokio::test]
+    async fn requests_go_through_a_socks5_proxy_that_gets_the_host_name() {
+        let graph = FakeServer::start(|_| Reply::json(200, r#"{"id":"INBOX1"}"#)).await;
+        let target: std::net::SocketAddr = graph
+            .url()
+            .trim_start_matches("http://")
+            .trim_end_matches('/')
+            .parse()
+            .unwrap();
+        let (port, asked) = fake_socks5_proxy(target).await;
+        let settings = ExchangeSettings {
+            enabled: true,
+            client_id: "facd6cff-a294-4415-b59f-c5b01937d7bd".into(),
+            cloud: ExchangeCloud::Custom,
+            custom_login_url: "http://127.0.0.1:9".into(),
+            custom_graph_url: "http://localhost:9/graph".into(),
+            proxy_url: format!("socks5h://127.0.0.1:{port}"),
+            ..ExchangeSettings::default()
+        };
+        let client = GraphMail::new(&settings, Arc::new(StaticToken("TOKEN"))).unwrap();
+        assert_eq!(client.probe().await.unwrap(), "INBOX1");
+        // The proxy was asked for the name (address type 3), not an address,
+        // and the request itself reached the server through it.
+        assert_eq!(
+            asked.lock().unwrap().first(),
+            Some(&(3u8, b"localhost".to_vec(), 9u16))
+        );
+        let seen = graph.requests();
+        assert!(
+            seen[0].path.starts_with("/graph/v1.0/me/mailFolders/inbox"),
+            "{}",
+            seen[0].path
+        );
+    }
+
     #[test]
     fn upload_addresses_must_be_plain_https_or_loopback() {
         assert!(checked_upload_url("https://outlook.office.com/api/upload/abc?x=1").is_ok());

@@ -2798,6 +2798,13 @@ impl Core {
         Ok(())
     }
 
+    /// One event as stored (for a series: the master, with its first start).
+    pub async fn calendar_event(&self, event_id: i64) -> Result<Option<CalendarEvent>> {
+        self.calendar_db
+            .read(move |conn| repo::calendar::get(conn, event_id))
+            .await
+    }
+
     /// Set the reminder of an event: `None` = the app's default lead time,
     /// `Some(0)` = no reminder, otherwise minutes before the start (at most
     /// 28 days). Synced events carry it to the server with the next push.

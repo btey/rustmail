@@ -38,6 +38,8 @@ pub(crate) struct LocalCalendarEvent {
     pub(crate) recurrence: String,
     pub(crate) status: String,
     pub(crate) is_local: bool,
+    /// None = the app's default lead time, Some(0) = no reminder.
+    pub(crate) reminder_minutes: Option<i64>,
 }
 
 #[derive(Clone)]
@@ -269,7 +271,208 @@ pub(crate) fn core_calendar_event(event: CalendarEvent) -> LocalCalendarEvent {
         recurrence: event.rrule.unwrap_or_default(),
         status: event.status.unwrap_or_default(),
         is_local: event.is_local,
+        reminder_minutes: event.reminder_minutes,
     }
+}
+
+/// The repeat controls of the event editor.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct RepeatForm {
+    /// none | daily | weekly | monthly | yearly | custom
+    pub(crate) kind: String,
+    pub(crate) interval: String,
+    /// Monday = 1 ... Sunday = 64.
+    pub(crate) weekdays: i32,
+    /// never | count | until
+    pub(crate) end_kind: String,
+    pub(crate) end_value: String,
+}
+
+impl Default for RepeatForm {
+    fn default() -> Self {
+        Self {
+            kind: "none".into(),
+            interval: "1".into(),
+            weekdays: 0,
+            end_kind: "never".into(),
+            end_value: String::new(),
+        }
+    }
+}
+
+const WEEKDAY_CODES: [&str; 7] = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+
+/// The editor's controls for an existing RRULE. A rule the controls cannot
+/// show (a relative weekday such as `2TU`, a `BYMONTHDAY` list and so on) is
+/// "custom": the editor leaves it as it is.
+pub(crate) fn repeat_form_from_rrule(rrule: &str) -> RepeatForm {
+    let rrule = rrule.trim().trim_start_matches("RRULE:");
+    if rrule.is_empty() {
+        return RepeatForm::default();
+    }
+    let mut form = RepeatForm::default();
+    let mut custom = false;
+    for part in rrule.split(';') {
+        let (key, value) = part.split_once('=').unwrap_or((part, ""));
+        match key.to_ascii_uppercase().as_str() {
+            "FREQ" => {
+                form.kind = match value.to_ascii_uppercase().as_str() {
+                    "DAILY" => "daily",
+                    "WEEKLY" => "weekly",
+                    "MONTHLY" => "monthly",
+                    "YEARLY" => "yearly",
+                    _ => {
+                        custom = true;
+                        "custom"
+                    }
+                }
+                .into();
+            }
+            "INTERVAL" => form.interval = value.to_owned(),
+            "BYDAY" => {
+                for code in value.split(',') {
+                    match WEEKDAY_CODES
+                        .iter()
+                        .position(|day| day.eq_ignore_ascii_case(code))
+                    {
+                        Some(index) => form.weekdays |= 1 << index,
+                        None => custom = true,
+                    }
+                }
+            }
+            "COUNT" => {
+                form.end_kind = "count".into();
+                form.end_value = value.to_owned();
+            }
+            "UNTIL" => {
+                let digits: String = value.chars().take(8).collect();
+                match NaiveDate::parse_from_str(&digits, "%Y%m%d") {
+                    Ok(date) => {
+                        form.end_kind = "until".into();
+                        form.end_value = date.format("%Y-%m-%d").to_string();
+                    }
+                    Err(_) => custom = true,
+                }
+            }
+            "WKST" => {}
+            _ => custom = true,
+        }
+    }
+    if custom || (form.weekdays != 0 && form.kind != "weekly") {
+        form.kind = "custom".into();
+    }
+    form
+}
+
+/// The RRULE the editor's controls describe; `None` = does not repeat. The
+/// weekday of the start is used when a weekly rule names no day.
+pub(crate) fn rrule_from_repeat_form(
+    form: &RepeatForm,
+    start: NaiveDate,
+) -> Result<Option<String>, &'static str> {
+    let freq = match form.kind.as_str() {
+        "none" => return Ok(None),
+        "daily" => "DAILY",
+        "weekly" => "WEEKLY",
+        "monthly" => "MONTHLY",
+        "yearly" => "YEARLY",
+        _ => return Err("custom"),
+    };
+    let interval = if form.interval.trim().is_empty() {
+        1
+    } else {
+        form.interval
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|value| (1..=999).contains(value))
+            .ok_or("The repeat interval must be a number from 1 to 999.")?
+    };
+    let mut rule = format!("FREQ={freq}");
+    if interval > 1 {
+        rule.push_str(&format!(";INTERVAL={interval}"));
+    }
+    if form.kind == "weekly" {
+        let mask = if form.weekdays & 0x7f == 0 {
+            1 << start.weekday().num_days_from_monday()
+        } else {
+            form.weekdays & 0x7f
+        };
+        let days: Vec<&str> = WEEKDAY_CODES
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| mask & (1 << index) != 0)
+            .map(|(_, code)| *code)
+            .collect();
+        rule.push_str(&format!(";BYDAY={}", days.join(",")));
+    }
+    match form.end_kind.as_str() {
+        "count" => {
+            let count = form
+                .end_value
+                .trim()
+                .parse::<u32>()
+                .ok()
+                .filter(|value| (1..=999).contains(value))
+                .ok_or("The number of events must be from 1 to 999.")?;
+            rule.push_str(&format!(";COUNT={count}"));
+        }
+        "until" => {
+            let last = NaiveDate::parse_from_str(form.end_value.trim(), "%Y-%m-%d")
+                .map_err(|_| "Use YYYY-MM-DD for the last day of the repeat.")?;
+            if last < start {
+                return Err("The repeat must not end before the event starts.");
+            }
+            rule.push_str(&format!(";UNTIL={}T235959Z", last.format("%Y%m%d")));
+        }
+        _ => {}
+    }
+    Ok(Some(rule))
+}
+
+/// One line per attendee for the editor: whether they are busy while the
+/// event runs (`slots` is what Microsoft 365 answered for that window).
+pub(crate) fn free_busy_summary(
+    answers: &[(String, Vec<rustmail_core::exchange::client::BusySlot>)],
+    start_ms: i64,
+    end_ms: i64,
+) -> String {
+    answers
+        .iter()
+        .map(|(address, slots)| {
+            let status = slots
+                .iter()
+                .filter(|slot| slot.end_ms > start_ms && slot.start_ms < end_ms)
+                .map(|slot| slot.status.as_str())
+                .find(|status| matches!(*status, "busy" | "oof" | "tentative"))
+                .map(|status| match status {
+                    "oof" => "away",
+                    "tentative" => "maybe busy",
+                    _ => "busy",
+                })
+                .unwrap_or("free");
+            format!("{address}: {status}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The occurrence a Calendar row stands for: events of a series share one id
+/// and differ by day and start.
+pub(crate) fn find_occurrence<'a>(
+    events: &'a [LocalCalendarEvent],
+    id: i32,
+    iso_date: &str,
+    start_minutes: i32,
+) -> Option<&'a LocalCalendarEvent> {
+    events
+        .iter()
+        .find(|event| {
+            event.id == id
+                && event.date.format("%Y-%m-%d").to_string() == iso_date
+                && event.start_minutes == start_minutes
+        })
+        .or_else(|| events.iter().find(|event| event.id == id))
 }
 
 pub(crate) fn refresh_calendar_events(
@@ -856,6 +1059,7 @@ mod tests {
             recurrence: String::new(),
             status: String::new(),
             is_local: true,
+            reminder_minutes: None,
         }
     }
 
@@ -1087,5 +1291,86 @@ mod tests {
             r.render(&mut pixels, width as usize);
         });
         app.hide().unwrap();
+    }
+
+    #[test]
+    fn repeat_controls_round_trip_through_an_rrule() {
+        let monday = NaiveDate::from_ymd_opt(2026, 11, 9).unwrap();
+        let form = RepeatForm {
+            kind: "weekly".into(),
+            interval: "2".into(),
+            weekdays: 1 | 4,
+            end_kind: "count".into(),
+            end_value: "10".into(),
+        };
+        let rule = rrule_from_repeat_form(&form, monday).unwrap().unwrap();
+        assert_eq!(rule, "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE;COUNT=10");
+        assert_eq!(repeat_form_from_rrule(&rule), form);
+
+        let until = RepeatForm {
+            kind: "daily".into(),
+            end_kind: "until".into(),
+            end_value: "2026-12-24".into(),
+            ..RepeatForm::default()
+        };
+        let rule = rrule_from_repeat_form(&until, monday).unwrap().unwrap();
+        assert_eq!(rule, "FREQ=DAILY;UNTIL=20261224T235959Z");
+        assert_eq!(repeat_form_from_rrule(&rule), until);
+    }
+
+    #[test]
+    fn a_weekly_rule_without_days_uses_the_start_day_and_bad_input_is_refused() {
+        let wednesday = NaiveDate::from_ymd_opt(2026, 11, 11).unwrap();
+        let weekly = RepeatForm {
+            kind: "weekly".into(),
+            ..RepeatForm::default()
+        };
+        assert_eq!(
+            rrule_from_repeat_form(&weekly, wednesday).unwrap().unwrap(),
+            "FREQ=WEEKLY;BYDAY=WE"
+        );
+        assert_eq!(
+            rrule_from_repeat_form(&RepeatForm::default(), wednesday).unwrap(),
+            None
+        );
+        for bad in [
+            RepeatForm { kind: "daily".into(), interval: "0".into(), ..RepeatForm::default() },
+            RepeatForm { kind: "daily".into(), interval: "x".into(), ..RepeatForm::default() },
+            RepeatForm { kind: "daily".into(), end_kind: "count".into(), end_value: "0".into(), ..RepeatForm::default() },
+            RepeatForm { kind: "daily".into(), end_kind: "until".into(), end_value: "2026-11-01".into(), ..RepeatForm::default() },
+            RepeatForm { kind: "daily".into(), end_kind: "until".into(), end_value: "soon".into(), ..RepeatForm::default() },
+        ] {
+            assert!(rrule_from_repeat_form(&bad, wednesday).is_err(), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn rules_the_controls_cannot_show_stay_custom() {
+        assert_eq!(repeat_form_from_rrule("FREQ=MONTHLY;BYDAY=2TU").kind, "custom");
+        assert_eq!(repeat_form_from_rrule("FREQ=MONTHLY;BYMONTHDAY=1,15").kind, "custom");
+        assert_eq!(repeat_form_from_rrule("FREQ=HOURLY").kind, "custom");
+        assert_eq!(repeat_form_from_rrule("").kind, "none");
+        assert!(rrule_from_repeat_form(
+            &RepeatForm { kind: "custom".into(), ..RepeatForm::default() },
+            NaiveDate::from_ymd_opt(2026, 11, 11).unwrap()
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn free_busy_names_who_is_busy_while_the_event_runs() {
+        use rustmail_core::exchange::client::BusySlot;
+        let slot = |start_ms, end_ms, status: &str| BusySlot { start_ms, end_ms, status: status.into() };
+        let text = free_busy_summary(
+            &[
+                ("a@x.org".into(), vec![slot(0, 100, "busy")]),
+                ("b@x.org".into(), vec![slot(500, 900, "busy")]),
+                ("c@x.org".into(), vec![slot(10, 90, "oof")]),
+                ("d@x.org".into(), vec![slot(10, 90, "free")]),
+            ],
+            50,
+            200,
+        );
+        assert_eq!(text, "a@x.org: busy\nb@x.org: free\nc@x.org: away\nd@x.org: free");
     }
 }

@@ -1275,23 +1275,35 @@ async fn a_big_attachment_goes_through_an_upload_session_and_the_draft_is_sent()
     assert_eq!(uploads.len(), 2, "{uploads:?}");
     assert!(uploads[0].starts_with("bytes 0-") && uploads[0].ends_with(&format!("/{total}")));
     assert!(uploads[1].ends_with(&format!("-{}/{total}", total - 1)));
-    let created = shared
+    // The draft is made from the MIME of the text alone (headers kept); the
+    // 5 MiB file is not in it.
+    let raw = created_draft_mime(&shared);
+    assert!(raw.contains("Subject: With a big file"), "{raw}");
+    assert!(raw.contains("ann@example.com") && raw.contains("Message-ID:"));
+    assert!(raw.len() < 100_000, "{} bytes", raw.len());
+}
+
+/// The MIME of the first draft the fake server was sent through `POST /messages`.
+fn created_draft_mime(shared: &Shared) -> String {
+    use base64::Engine;
+    let body = shared
         .lock()
         .unwrap()
         .log
         .iter()
         .find(|(l, _)| l == "POST /graph/v1.0/me/messages")
         .map(|(_, body)| body.clone())
-        .expect("a JSON draft was created");
-    assert!(
-        created.contains("\"subject\":\"With a big file\""),
-        "{created}"
-    );
-    assert!(created.contains("ann@example.com"));
+        .expect("a draft was created");
+    String::from_utf8(
+        base64::engine::general_purpose::STANDARD
+            .decode(body.trim())
+            .expect("the draft went up as base64 MIME"),
+    )
+    .unwrap()
 }
 
 #[tokio::test]
-async fn a_large_reply_starts_from_create_reply_to_keep_its_threading() {
+async fn a_large_reply_keeps_its_threading_headers_in_the_mime_of_its_text() {
     let temp = tempfile::tempdir().unwrap();
     let shared = seeded();
     let base = serve(shared.clone()).await;
@@ -1328,10 +1340,54 @@ async fn a_large_reply_starts_from_create_reply_to_keep_its_threading() {
         .await
         .unwrap();
     core.wait_for_send(queued.action_id).await.unwrap();
-    assert!(
-        log_has(&shared, "/createReply"),
-        "the reply was started from the original"
-    );
+    // The text goes up as MIME with its own In-Reply-To and References; the
+    // 4 MiB attachment follows through an upload session.
+    assert!(!log_has(&shared, "/createReply"));
+    let raw = created_draft_mime(&shared);
+    assert!(raw.contains("In-Reply-To:"), "{raw}");
+    assert!(raw.contains("References:"), "{raw}");
+    assert!(log_has(&shared, "createUploadSession"));
+    assert!(!log_has(&shared, "POST /graph/v1.0/me/sendMail"));
+    assert!(log_has(&shared, "/send"));
+}
+
+#[tokio::test]
+async fn a_reply_whose_text_alone_is_too_big_still_starts_from_create_reply() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let parent: i64 = core
+        .db
+        .read(|conn| {
+            Ok(conn.query_row(
+                "SELECT m.id FROM messages m JOIN exchange_messages em ON em.message_id = m.id
+                 WHERE m.subject = 'One' AND m.message_id IS NOT NULL LIMIT 1",
+                [],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    let mut args = new_draft(account.id, None, "Re: One");
+    args.mode = "reply".into();
+    args.in_reply_to_message_id = Some(parent);
+    // Random-looking text (not compressible, and over the 3 MiB MIME limit).
+    args.body_text = (0..4 * 1024 * 1024u32)
+        .map(|i| char::from(b'a' + ((i.wrapping_mul(2_654_435_761) >> 24) as u8) % 26))
+        .collect();
+    let draft = core.save_draft(args).await.unwrap();
+    let queued = core
+        .queue_send(QueueSendArgs {
+            draft_id: draft,
+            send_at: None,
+        })
+        .await
+        .unwrap();
+    core.wait_for_send(queued.action_id).await.unwrap();
+    assert!(log_has(&shared, "/createReply"));
     assert!(!log_has(&shared, "POST /graph/v1.0/me/sendMail"));
     assert!(log_has(&shared, "/send"));
 }

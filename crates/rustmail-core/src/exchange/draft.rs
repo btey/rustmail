@@ -4,12 +4,15 @@
 //! the new copy is created first, then the previous one is deleted, and the
 //! mapping to the local row follows (Graph gives every copy a new id). A
 //! message up to [`MAX_SIMPLE_MIME_BYTES`] travels as MIME, so `Message-ID`,
-//! `In-Reply-To` and `References` survive. A larger message becomes a JSON
-//! draft whose big attachments go through upload sessions. A JSON draft
-//! cannot carry the threading headers (Graph accepts only `x-` headers
-//! there), so a large reply to a message stored on the server starts from
-//! `createReply`, which sets `In-Reply-To` and `References` itself; a large
-//! reply to a message Graph does not know has no threading headers.
+//! `In-Reply-To` and `References` survive. A larger message is created from
+//! the MIME of its text alone (the same headers), and its attachments are
+//! added afterwards: small ones inline, big ones through upload sessions.
+//! Only when the text itself is over the MIME limit does the message become
+//! a JSON draft. A JSON draft cannot carry the threading headers (Graph
+//! accepts only `x-` headers there), so such a reply to a message stored on
+//! the server starts from `createReply`, which sets `In-Reply-To` and
+//! `References` itself; a reply to a message Graph does not know, or a new
+//! message, with a text that large has no threading headers.
 
 use super::client::{GraphMail, MAX_INLINE_ATTACHMENT_BYTES, MAX_SIMPLE_MIME_BYTES};
 use crate::db::repo;
@@ -120,8 +123,23 @@ async fn load_parts(ctx: &SyncCtx, draft_id: i64) -> Result<Parts> {
 
 /// The whole message as MIME, with the Message-ID it will carry.
 async fn build_raw(parts: &Parts) -> Result<(String, Vec<u8>)> {
+    build_raw_with(parts, parts.stored_message_id.as_deref(), true).await
+}
+
+/// The message as MIME, optionally without its attachments and with a given
+/// Message-ID (the skeleton a large message starts from).
+async fn build_raw_with(
+    parts: &Parts,
+    message_id: Option<&str>,
+    with_attachments: bool,
+) -> Result<(String, Vec<u8>)> {
     let mut outgoing_attachments = Vec::new();
-    for (path, filename) in &parts.attachments {
+    let attachments: &[(std::path::PathBuf, String)] = if with_attachments {
+        &parts.attachments
+    } else {
+        &[]
+    };
+    for (path, filename) in attachments {
         let size = tokio::fs::metadata(path).await?.len();
         outgoing_attachments.push(crate::mime::OutgoingAttachment {
             mime_type: crate::queue::mime_guess_from_name(filename),
@@ -152,7 +170,7 @@ async fn build_raw(parts: &Parts) -> Result<(String, Vec<u8>)> {
         body_html: detail.html_body.as_deref(),
         in_reply_to: parts.in_reply_to.as_deref(),
         references: &parts.references,
-        message_id: parts.stored_message_id.as_deref(),
+        message_id,
         message_id_domain: domain,
         attachments: outgoing_attachments,
     })?;
@@ -191,15 +209,19 @@ fn json_draft(parts: &Parts, message_id: &str) -> Value {
     draft
 }
 
-/// A message too big for one MIME request: a JSON draft, then its
-/// attachments (small ones inline, big ones by upload session).
+/// A message too big for one MIME request: a draft made from the MIME of its
+/// text alone when that is small enough (all headers kept), otherwise a JSON
+/// draft; then its attachments (small ones inline, big ones by upload
+/// session).
 async fn create_large(
     client: &GraphMail,
     parts: &Parts,
     message_id: &str,
     reply_to: Option<&str>,
 ) -> Result<String> {
+    let skeleton = build_raw_with(parts, Some(message_id), false).await?.1;
     let draft_id = match reply_to {
+        _ if skeleton.len() <= MAX_SIMPLE_MIME_BYTES => client.create_draft_mime(&skeleton).await?,
         Some(original) => {
             let draft_id = client.create_reply_draft(original).await?;
             let mut body = json_draft(parts, message_id);

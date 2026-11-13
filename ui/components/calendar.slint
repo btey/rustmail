@@ -4,6 +4,7 @@ import { Button } from "button.slint";
 import { IconButton, ToolbarIconButton } from "controls.slint";
 import { CalendarDetailsDialog } from "../dialogs/calendar-details-dialog.slint";
 import { ConfirmationDialog } from "confirmation-dialog.slint";
+import { CalendarScopeDialog } from "../dialogs/calendar-scope-dialog.slint";
 import { HorizontalBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 import { TypeScale } from "../typography.slint";
 import { LayoutMetrics } from "../design-system.slint";
@@ -406,6 +407,12 @@ export component FunctionalCalendarView inherits Rectangle {
     callback clear-agenda-filters;
     callback edit-event(int);
     callback delete-event(int);
+    // Delete part of a repeating Microsoft 365 event: id, occurrence date,
+    // occurrence start (minutes) and "occurrence", "following" or "all".
+    callback delete-event-scope(int, string, int, string);
+    // The occurrence the editor was opened on (set before `edit-event`).
+    in-out property <string> occurrence-date: "";
+    in-out property <int> occurrence-minutes: 0;
     // Another view asks for one event's details (a task's linked event).
     in property <int> focus-event-id: -1;
     callback event-focused;
@@ -431,6 +438,9 @@ export component FunctionalCalendarView inherits Rectangle {
     private property <int> detail-event-id: 0;
     private property <bool> detail-event-editable: false;
     private property <bool> delete-confirmation-open: false;
+    private property <bool> scope-open: false;
+    private property <string> detail-iso-date: "";
+    private property <int> detail-start-minutes: 0;
 
     function show-source(source: CalendarSourceRow) {
         root.detail-kind = "calendar";
@@ -489,6 +499,8 @@ export component FunctionalCalendarView inherits Rectangle {
         root.detail-join-url = event.join-url;
         root.detail-event-id = event.id;
         root.detail-event-editable = event.editable;
+        root.detail-iso-date = event.iso-date;
+        root.detail-start-minutes = event.start-minutes;
         root.detail-open = true;
     }
 
@@ -937,9 +949,34 @@ export component FunctionalCalendarView inherits Rectangle {
         open-link(url) => { root.open-link(url); }
         edit-event => {
             root.detail-open = false;
+            root.occurrence-date = root.detail-iso-date;
+            root.occurrence-minutes = root.detail-start-minutes;
             root.edit-event(root.detail-event-id);
         }
-        delete-event => { root.delete-confirmation-open = true; }
+        delete-event => {
+            // A repeating Microsoft 365 event asks which part to delete.
+            if root.detail-recurrence != "" && root.detail-provider == "microsoft" {
+                root.scope-open = true;
+            } else {
+                root.delete-confirmation-open = true;
+            }
+        }
+    }
+
+    CalendarScopeDialog {
+        width: parent.width;
+        height: parent.height;
+        open <=> root.scope-open;
+        title: @tr("Delete a repeating event");
+        description: @tr("Choose which events to remove from your calendar.");
+        surface: root.surface-color;
+        dialog-border-color: root.subtle-border-color;
+        title-color: root.title-color;
+        muted-color: root.secondary-color;
+        chosen(scope) => {
+            root.detail-open = false;
+            root.delete-event-scope(root.detail-event-id, root.detail-iso-date, root.detail-start-minutes, scope);
+        }
     }
 
     ConfirmationDialog {
