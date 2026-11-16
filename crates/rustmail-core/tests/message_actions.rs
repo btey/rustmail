@@ -101,7 +101,7 @@ async fn an_action_gets_a_private_copy_and_the_message_details_in_its_environmen
             // Modifies and then deletes its copy, and prints what it was given.
             action(
                 "inspect",
-                "printf 'copy=%s subj=%s from=%s\\n' \"$(wc -c < %f)\" \"$RUSTMAIL_SUBJECT\" \"$RUSTMAIL_FROM\"; echo changed > %f; rm -f %f",
+                "printf 'copy=%s subj=%s from=%s\\n' \"$(wc -c < %f | tr -d ' ')\" \"$RUSTMAIL_SUBJECT\" \"$RUSTMAIL_FROM\"; echo changed > %f; rm -f %f",
             ),
             action("fails", "echo broken >&2; exit 4"),
         ])

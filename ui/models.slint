@@ -221,6 +221,9 @@ export struct AdvancedOptions {
     proxy: string,
     proxy_host: string,
     proxy_port: string,
+    proxy_username: string,
+    // Never persisted in the account row; leave empty to keep the stored one.
+    proxy_password: string,
     accept_invalid_certs: bool,
     // Local accounts: the Maildir/mbox location and its format ("maildir" or "mbox").
     local_path: string,

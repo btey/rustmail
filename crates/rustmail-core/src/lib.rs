@@ -1915,6 +1915,18 @@ impl Core {
                         secrets::delete_async(self.credentials.clone(), id, Slot::ClientKey).await;
                 }
             }
+            if args.connection.proxy_username.is_empty() {
+                let _ =
+                    secrets::delete_async(self.credentials.clone(), id, Slot::ProxyPassword).await;
+            } else if !args.connection.proxy_password.is_empty() {
+                secrets::store_async(
+                    self.credentials.clone(),
+                    id,
+                    Slot::ProxyPassword,
+                    args.connection.proxy_password.expose().to_owned(),
+                )
+                .await?;
+            }
             match args.smtp_password.clone() {
                 Some(smtp_password) => {
                     secrets::store_async(
@@ -2347,6 +2359,7 @@ impl Core {
         }
         // Prove the (new) sign-in reaches the (new) mailbox before saving.
         let mut probe_settings = new.clone();
+        let config = &secrets::hydrate_account(&self.credentials, &config).await;
         probe_settings.proxy_url = exchange::settings_for(&AccountConfig {
             settings: AccountSettings {
                 connection: MailConnectionSettings {

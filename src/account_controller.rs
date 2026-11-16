@@ -45,6 +45,8 @@ pub(super) fn advanced_options(
         } else {
             connection.proxy_port.to_string().into()
         },
+        proxy_username: connection.proxy_username.clone().into(),
+        proxy_password: Default::default(),
         smtp_auth: connection.smtp_auth.as_str().into(),
         smtp_username: connection.smtp_username.clone().into(),
         smtp_password: Default::default(),
@@ -140,6 +142,13 @@ pub(super) fn apply_advanced_options(
             .filter(|port| *port > 0)
             .ok_or(AdvancedOptionsError::ProxyPort)?,
     };
+    connection.proxy_username = options.proxy_username.trim().to_owned();
+    connection.proxy_password =
+        rustmail_core::models::SecretString::new(options.proxy_password.to_string());
+    if connection.proxy == rustmail_core::models::ProxyKind::None {
+        connection.proxy_username.clear();
+        connection.proxy_password = Default::default();
+    }
     if connection.proxy != rustmail_core::models::ProxyKind::None
         && (connection.proxy_host.is_empty() || connection.proxy_port == 0)
     {
@@ -796,6 +805,13 @@ mod advanced_option_tests {
         assert_eq!(shown.display_name.as_str(), "Ada");
         assert_eq!(shown.proxy.as_str(), "socks5");
         assert!(shown.client_key_pem.is_empty(), "the key is never shown again");
+        options.proxy_username = " ben ".into();
+        options.proxy_password = "sesame".into();
+        apply_advanced_options(&options, &mut connection).unwrap();
+        assert_eq!(connection.proxy_username, "ben");
+        assert_eq!(connection.proxy_password.expose(), "sesame");
+        assert_eq!(advanced_options(&connection, None).proxy_username.as_str(), "ben");
+        assert!(advanced_options(&connection, None).proxy_password.is_empty(), "never shown again");
         options.proxy_port = "70000".into();
         assert!(apply_advanced_options(&options, &mut connection).is_err());
         options.proxy_port = "1080".into();

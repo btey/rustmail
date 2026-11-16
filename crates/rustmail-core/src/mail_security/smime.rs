@@ -499,14 +499,18 @@ impl Smime {
                 let sig = &parsed.parts[parts[1] as usize];
                 let file = tempfile::NamedTempFile::new()?;
                 tokio::fs::write(file.path(), sig.contents()).await?;
+                // The signed data goes in a file too: GnuPG 2.5 no longer
+                // reads it from stdin when `-` is given as the data operand.
+                let signed_file = tempfile::NamedTempFile::new()?;
+                tokio::fs::write(signed_file.path(), data).await?;
                 let (_, status) = self
                     .run(
                         &[
                             "--verify".into(),
                             file.path().to_string_lossy().into_owned(),
-                            "-".into(),
+                            signed_file.path().to_string_lossy().into_owned(),
                         ],
-                        Some(data),
+                        None,
                     )
                     .await?;
                 signature = trusted_signature(&status);

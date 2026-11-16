@@ -414,6 +414,13 @@ pub struct MailConnectionSettings {
     pub proxy: ProxyKind,
     pub proxy_host: String,
     pub proxy_port: u16,
+    /// Login for a proxy that requires one (SOCKS5 user/password, HTTP Basic);
+    /// empty = no login.
+    pub proxy_username: String,
+    /// Matching password. Runtime only: loaded from the credential store,
+    /// never serialized into the account settings.
+    #[serde(skip)]
+    pub proxy_password: SecretString,
     /// Skip server-certificate and hostname verification for this account
     /// (self-signed or private-CA servers). Encryption stays on, but the
     /// server's identity is no longer checked.

@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-13 13:24+0000\n"
+"POT-Creation-Date: 2026-11-16 14:57+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3896,7 +3896,17 @@ msgid "Proxy port"
 msgstr ""
 
 #: ui/components/mail-security-fields.slint:187
-msgid "The proxy applies to IMAP and SMTP only, and must not require a login."
+msgid "Proxy user name (empty = no login)"
+msgstr ""
+
+#: ui/components/mail-security-fields.slint:189
+msgid "Proxy password (empty = keep the saved one)"
+msgstr ""
+
+#: ui/components/mail-security-fields.slint:191
+msgid ""
+"The proxy applies to mail (IMAP, SMTP) and Exchange. SOCKS5 and HTTP logins "
+"are supported."
 msgstr ""
 
 #: ui/components/oauth-browser-help.slint:43

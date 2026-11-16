@@ -467,7 +467,7 @@ mod tests {
     #[tokio::test]
     async fn external_editor_round_trips_text_and_never_loses_it_on_failure() {
         let edited = edit_externally(
-            "sed -i 's/world/there/' %f",
+            "sed 's/world/there/' %f > %f.new && mv %f.new %f",
             "hello world\nline two\n",
             Duration::from_secs(5),
         )

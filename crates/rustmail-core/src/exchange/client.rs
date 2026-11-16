@@ -2399,6 +2399,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_file_of_exactly_one_chunk_is_sent_as_a_single_range() {
+        let ranges = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let seen = ranges.clone();
+        let server = FakeServer::start(move |request| {
+            if request.method == "PUT" {
+                seen.lock().unwrap().push(
+                    request
+                        .header("content-range")
+                        .unwrap_or_default()
+                        .to_owned(),
+                );
+                return Reply::json(200, "{}");
+            }
+            let base = request.header("host").unwrap_or_default().to_owned();
+            Reply::json(200, &format!(r#"{{"uploadUrl":"http://{base}/put/s"}}"#))
+        })
+        .await;
+        let dir = std::env::temp_dir().join(format!("rustmail-chunk-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("exact.bin");
+        std::fs::write(&file, vec![1u8; UPLOAD_CHUNK]).unwrap();
+        client_for(&server, "")
+            .upload_attachment("D1", "exact.bin", "application/octet-stream", &file)
+            .await
+            .unwrap();
+        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(
+            *ranges.lock().unwrap(),
+            vec![format!("bytes 0-{}/{UPLOAD_CHUNK}", UPLOAD_CHUNK - 1)]
+        );
+    }
+
+    #[tokio::test]
     async fn a_search_quotes_the_text_and_reads_the_hits() {
         let server = FakeServer::start(|request| {
             assert!(

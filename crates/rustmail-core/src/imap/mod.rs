@@ -455,8 +455,10 @@ pub(crate) async fn open_tcp(
     match settings.proxy {
         ProxyKind::None => unreachable!(),
         ProxyKind::Socks5 => {
+            let login = !settings.proxy_username.is_empty();
+            let greeting: &[u8] = if login { &[5, 2, 0, 2] } else { &[5, 1, 0] };
             stream
-                .write_all(&[5, 1, 0])
+                .write_all(greeting)
                 .await
                 .map_err(|e| fail(&e.to_string()))?;
             let mut reply = [0u8; 2];
@@ -464,10 +466,38 @@ pub(crate) async fn open_tcp(
                 .read_exact(&mut reply)
                 .await
                 .map_err(|e| fail(&e.to_string()))?;
-            if reply != [5, 0] {
-                return Err(fail(
-                    "SOCKS5 server requires authentication, which is not supported",
-                ));
+            match reply {
+                [5, 0] => {}
+                [5, 2] if login => {
+                    let user = settings.proxy_username.as_bytes();
+                    let password = settings.proxy_password.expose().as_bytes();
+                    if user.len() > 255 || password.len() > 255 {
+                        return Err(fail("login is longer than SOCKS5 allows (255 bytes)"));
+                    }
+                    let mut auth = vec![1, user.len() as u8];
+                    auth.extend_from_slice(user);
+                    auth.push(password.len() as u8);
+                    auth.extend_from_slice(password);
+                    stream
+                        .write_all(&auth)
+                        .await
+                        .map_err(|e| fail(&e.to_string()))?;
+                    let mut verdict = [0u8; 2];
+                    stream
+                        .read_exact(&mut verdict)
+                        .await
+                        .map_err(|e| fail(&e.to_string()))?;
+                    if verdict[1] != 0 {
+                        return Err(fail("SOCKS5 server refused the login"));
+                    }
+                }
+                _ => {
+                    return Err(fail(if login {
+                        "SOCKS5 server accepts none of the offered login methods"
+                    } else {
+                        "SOCKS5 server requires a login; enter the proxy user name and password"
+                    }));
+                }
             }
             let mut request = vec![5, 1, 0, 3, host.len() as u8];
             request.extend_from_slice(host.as_bytes());
@@ -504,7 +534,22 @@ pub(crate) async fn open_tcp(
                 .map_err(|e| fail(&e.to_string()))?;
         }
         ProxyKind::Http => {
-            let request = format!("CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n\r\n");
+            let auth = if settings.proxy_username.is_empty() {
+                String::new()
+            } else {
+                use base64::Engine as _;
+                let credentials = format!(
+                    "{}:{}",
+                    settings.proxy_username,
+                    settings.proxy_password.expose()
+                );
+                format!(
+                    "Proxy-Authorization: Basic {}\r\n",
+                    base64::engine::general_purpose::STANDARD.encode(credentials)
+                )
+            };
+            let request =
+                format!("CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n{auth}\r\n");
             stream
                 .write_all(request.as_bytes())
                 .await
@@ -528,6 +573,9 @@ pub(crate) async fn open_tcp(
                 .and_then(|line| line.split_whitespace().nth(1))
                 .is_some_and(|code| code == "200");
             if !ok {
+                if status.lines().next().is_some_and(|l| l.contains(" 407")) {
+                    return Err(fail("HTTP proxy refused the login (407)"));
+                }
                 return Err(fail("HTTP proxy refused the CONNECT request"));
             }
         }
@@ -2079,6 +2127,88 @@ mod transport_option_tests {
         let mut buffer = [0u8; 5];
         stream.read_exact(&mut buffer).await.unwrap();
         assert_eq!(&buffer, b"ready");
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn socks5_proxy_login_is_sent_and_a_refusal_is_reported() {
+        for (verdict, expect_ok) in [(0u8, true), (1u8, false)] {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port = listener.local_addr().unwrap().port();
+            let server = tokio::spawn(async move {
+                let (mut s, _) = listener.accept().await.unwrap();
+                let mut greeting = [0u8; 4];
+                s.read_exact(&mut greeting).await.unwrap();
+                assert_eq!(greeting, [5, 2, 0, 2]);
+                s.write_all(&[5, 2]).await.unwrap();
+                let mut auth = [0u8; 3 + 3 + 6];
+                s.read_exact(&mut auth).await.unwrap();
+                assert_eq!(&auth, b"\x01\x03ben\x06sesame");
+                s.write_all(&[1, verdict]).await.unwrap();
+                if verdict == 0 {
+                    let mut request = [0u8; 4 + 1 + 16 + 2];
+                    s.read_exact(&mut request).await.unwrap();
+                    s.write_all(&[5, 0, 0, 1, 0, 0, 0, 0, 0, 0]).await.unwrap();
+                }
+            });
+            let mut settings = through(ProxyKind::Socks5, port);
+            settings.proxy_username = "ben".into();
+            settings.proxy_password = SecretString::new("sesame");
+            let result = open_tcp("imap.example.com", 993, &settings).await;
+            assert_eq!(result.is_ok(), expect_ok, "{result:?}");
+            if !expect_ok {
+                let message = result.unwrap_err().to_string();
+                assert!(message.contains("refused the login"), "{message}");
+            }
+            server.await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn socks5_proxy_demanding_a_login_without_one_says_so() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tokio::spawn(async move {
+            let (mut s, _) = listener.accept().await.unwrap();
+            let mut greeting = [0u8; 3];
+            s.read_exact(&mut greeting).await.unwrap();
+            s.write_all(&[5, 0xff]).await.unwrap();
+        });
+        let error = open_tcp("imap.example.com", 993, &through(ProxyKind::Socks5, port))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("user name and password"), "{error}");
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn http_proxy_login_is_sent_as_basic_authorization() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tokio::spawn(async move {
+            let (mut s, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut byte = [0u8; 1];
+            while !request.ends_with(b"\r\n\r\n") {
+                s.read_exact(&mut byte).await.unwrap();
+                request.push(byte[0]);
+            }
+            let text = String::from_utf8(request).unwrap();
+            // base64("ben:sesame")
+            assert!(text.contains("Proxy-Authorization: Basic YmVuOnNlc2FtZQ==\r\n"));
+            s.write_all(b"HTTP/1.1 407 Proxy Authentication Required\r\n\r\n")
+                .await
+                .unwrap();
+        });
+        let mut settings = through(ProxyKind::Http, port);
+        settings.proxy_username = "ben".into();
+        settings.proxy_password = SecretString::new("sesame");
+        let error = open_tcp("smtp.example.com", 465, &settings)
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("refused the login"), "{error}");
         server.await.unwrap();
     }
 

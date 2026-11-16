@@ -1097,7 +1097,8 @@ async fn a_sign_in_that_graph_rejects_creates_no_account() {
 }
 
 async fn wait_until(what: &str, mut check: impl AsyncFnMut() -> bool) {
-    for _ in 0..100 {
+    // Generous: a loaded machine runs many of these tests at once.
+    for _ in 0..300 {
         if check().await {
             return;
         }
@@ -1390,6 +1391,87 @@ async fn a_reply_whose_text_alone_is_too_big_still_starts_from_create_reply() {
     assert!(log_has(&shared, "/createReply"));
     assert!(!log_has(&shared, "POST /graph/v1.0/me/sendMail"));
     assert!(log_has(&shared, "/send"));
+}
+
+/// Send a draft carrying one attachment of `size` bytes and return the log
+/// entries the fake server saw.
+async fn send_with_attachment_of(size: usize) -> Shared {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let file = temp.path().join("edge.bin");
+    std::fs::write(&file, vec![7u8; size]).unwrap();
+    let mut args = new_draft(account.id, None, "Edge");
+    args.attachments = vec![DraftAttachmentIn {
+        file_path: file.to_string_lossy().into_owned(),
+        filename: "edge.bin".into(),
+    }];
+    let draft = core.save_draft(args).await.unwrap();
+    let queued = core
+        .queue_send(QueueSendArgs {
+            draft_id: draft,
+            send_at: None,
+        })
+        .await
+        .unwrap();
+    core.wait_for_send(queued.action_id).await.unwrap();
+    shared
+}
+
+#[tokio::test]
+async fn an_attachment_of_exactly_the_inline_limit_is_added_in_one_request() {
+    let shared = send_with_attachment_of(3 * 1024 * 1024).await;
+    assert!(!log_has(&shared, "createUploadSession"));
+    assert!(shared.lock().unwrap().uploads.is_empty());
+    assert!(log_has(&shared, "/attachments"));
+    assert!(log_has(&shared, "/send"));
+}
+
+#[tokio::test]
+async fn one_byte_over_the_inline_limit_uses_an_upload_session() {
+    let shared = send_with_attachment_of(3 * 1024 * 1024 + 1).await;
+    assert!(log_has(&shared, "createUploadSession"));
+    let uploads = shared.lock().unwrap().uploads.clone();
+    assert_eq!(uploads.len(), 1, "{uploads:?}");
+    let total = 3 * 1024 * 1024 + 1;
+    assert_eq!(uploads[0], format!("bytes 0-{}/{total}", total - 1));
+}
+
+#[tokio::test]
+async fn a_text_beyond_the_draft_limit_is_refused_clearly_and_nothing_is_created() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let mut args = new_draft(account.id, None, "Too much text");
+    args.body_text = (0..9 * 1024 * 1024u32)
+        .map(|i| char::from(b'a' + ((i.wrapping_mul(2_654_435_761) >> 24) as u8) % 26))
+        .collect();
+    let draft = core.save_draft(args).await;
+    let error = match draft {
+        Err(error) => error.to_string(),
+        Ok(draft) => {
+            let queued = core
+                .queue_send(QueueSendArgs {
+                    draft_id: draft,
+                    send_at: None,
+                })
+                .await
+                .unwrap();
+            core.wait_for_send(queued.action_id)
+                .await
+                .unwrap_err()
+                .to_string()
+        }
+    };
+    assert!(error.contains("8 MiB"), "{error}");
+    assert!(!log_has(&shared, "POST /graph/v1.0/me/sendMail"));
+    assert!(!log_has(&shared, "POST /graph/v1.0/me/messages"));
 }
 
 #[tokio::test]

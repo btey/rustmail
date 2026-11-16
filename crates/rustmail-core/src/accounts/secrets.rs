@@ -40,6 +40,8 @@ pub enum Slot {
     SmtpPassword,
     /// Private key for the account's mutual-TLS client certificate.
     ClientKey,
+    /// Password for the account's proxy login.
+    ProxyPassword,
 }
 
 impl Slot {
@@ -56,6 +58,7 @@ impl Slot {
             Slot::CarddavPassword => "carddav_password",
             Slot::SmtpPassword => "smtp_password",
             Slot::ClientKey => "client_key",
+            Slot::ProxyPassword => "proxy_password",
         }
     }
 }
@@ -162,6 +165,7 @@ pub async fn delete_all_async(store: CredentialStoreHandle, account_id: i64) -> 
         // whatever the backend's `delete_all` enumerates.
         let _ = store.delete(account_id, Slot::SmtpPassword);
         let _ = store.delete(account_id, Slot::ClientKey);
+        let _ = store.delete(account_id, Slot::ProxyPassword);
         store.delete_all(account_id)
     })
     .await
@@ -196,6 +200,11 @@ pub async fn hydrate_account(
         && let Ok(key) = load_async(store.clone(), config.id, Slot::ClientKey).await
     {
         hydrated.settings.connection.client_key_pem = crate::models::SecretString::new(key);
+    }
+    if !hydrated.settings.connection.proxy_username.is_empty()
+        && let Ok(password) = load_async(store.clone(), config.id, Slot::ProxyPassword).await
+    {
+        hydrated.settings.connection.proxy_password = crate::models::SecretString::new(password);
     }
     hydrated
 }

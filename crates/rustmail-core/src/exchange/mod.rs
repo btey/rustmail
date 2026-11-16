@@ -62,8 +62,7 @@ pub(crate) fn tokens_for(
 
 /// The account's Exchange settings with its proxy setting applied: an HTTP
 /// (CONNECT) proxy, or a SOCKS5 proxy that resolves the host names itself
-/// (`socks5h`). The proxy settings carry no login, so a SOCKS5 proxy must
-/// accept the "no authentication" method.
+/// (`socks5h`). A proxy login, when set, travels in the URL's user info.
 pub(crate) fn settings_for(config: &AccountConfig) -> Result<ExchangeSettings> {
     use crate::models::ProxyKind;
     let connection = &config.settings.connection;
@@ -77,7 +76,7 @@ pub(crate) fn settings_for(config: &AccountConfig) -> Result<ExchangeSettings> {
             } else {
                 "socks5h"
             };
-            let url = url::Url::parse(&format!("{scheme}://{host}:{}", connection.proxy_port))
+            let mut url = url::Url::parse(&format!("{scheme}://{host}:{}", connection.proxy_port))
                 .ok()
                 .filter(|url| {
                     url.host_str().is_some()
@@ -90,6 +89,17 @@ pub(crate) fn settings_for(config: &AccountConfig) -> Result<ExchangeSettings> {
                         "The proxy host or port of this account is not valid.".into(),
                     )
                 })?;
+            if !connection.proxy_username.is_empty() {
+                let login = url.set_username(&connection.proxy_username).is_ok()
+                    && url
+                        .set_password(Some(connection.proxy_password.expose()))
+                        .is_ok();
+                if !login {
+                    return Err(crate::error::CoreError::Other(
+                        "The proxy login of this account is not valid.".into(),
+                    ));
+                }
+            }
             settings.proxy_url = url.to_string();
         }
     }
@@ -256,6 +266,14 @@ mod tests {
         assert!(settings_for(&config(ProxyKind::Http, "proxy.example.org", 0)).is_err());
         let socks = settings_for(&config(ProxyKind::Socks5, "proxy.example.org", 1080)).unwrap();
         assert_eq!(socks.proxy(), Some("socks5h://proxy.example.org:1080"));
+        let mut with_login = config(ProxyKind::Socks5, "proxy.example.org", 1080);
+        with_login.settings.connection.proxy_username = "ben".into();
+        with_login.settings.connection.proxy_password =
+            crate::models::SecretString::new("p@ss/word");
+        assert_eq!(
+            settings_for(&with_login).unwrap().proxy(),
+            Some("socks5h://ben:p%40ss%2Fword@proxy.example.org:1080")
+        );
         assert!(settings_for(&config(ProxyKind::Socks5, "", 1080)).is_err());
         assert!(settings_for(&config(ProxyKind::Socks5, "proxy.example.org", 0)).is_err());
     }

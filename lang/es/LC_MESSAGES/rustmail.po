@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-13 13:24+0000\n"
+"POT-Creation-Date: 2026-11-16 14:57+0000\n"
 "PO-Revision-Date: 2026-09-20 23:21+0000\n"
 "Last-Translator: Admin <admin@rustmail.org>\n"
 "Language-Team: Spanish <https://translate.rustmail.org/projects/rustmail/"
@@ -3933,9 +3933,20 @@ msgid "Proxy port"
 msgstr "Puerto del proxy"
 
 #: ui/components/mail-security-fields.slint:187
-msgid "The proxy applies to IMAP and SMTP only, and must not require a login."
+msgid "Proxy user name (empty = no login)"
+msgstr "Usuario del proxy (vacío = sin inicio de sesión)"
+
+#: ui/components/mail-security-fields.slint:189
+msgid "Proxy password (empty = keep the saved one)"
+msgstr "Contraseña del proxy (vacío = conservar la guardada)"
+
+#: ui/components/mail-security-fields.slint:191
+msgid ""
+"The proxy applies to mail (IMAP, SMTP) and Exchange. SOCKS5 and HTTP logins "
+"are supported."
 msgstr ""
-"El proxy se aplica solo a IMAP y SMTP, y no debe requerir inicio de sesión."
+"El proxy se aplica al correo (IMAP, SMTP) y a Exchange. Se admite inicio de "
+"sesión SOCKS5 y HTTP."
 
 #: ui/components/oauth-browser-help.slint:43
 msgid "Browser did not open — show sign-in help"
@@ -8228,6 +8239,12 @@ msgstr "Restaurar"
 #: ui/window-chrome.slint:205 ui/window-chrome.slint:242
 msgid "Maximize"
 msgstr "Maximizar"
+
+#~ msgid ""
+#~ "The proxy applies to IMAP and SMTP only, and must not require a login."
+#~ msgstr ""
+#~ "El proxy se aplica solo a IMAP y SMTP, y no debe requerir inicio de "
+#~ "sesión."
 
 #~ msgid ""
 #~ "The built-in client ID is Microsoft's own Office app, not Rustmail's. "

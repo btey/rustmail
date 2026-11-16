@@ -211,7 +211,8 @@ fn json_draft(parts: &Parts, message_id: &str) -> Value {
 
 /// A message too big for one MIME request: a draft made from the MIME of its
 /// text alone when that is small enough (all headers kept), otherwise a JSON
-/// draft; then its attachments (small ones inline, big ones by upload
+/// draft (the 8 MiB draft-body limit applied when a draft is saved keeps
+/// that text within what Graph takes); then its attachments (small ones inline, big ones by upload
 /// session).
 async fn create_large(
     client: &GraphMail,

@@ -184,6 +184,10 @@ export component MailSecurityFields inherits VerticalBox {
             LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.proxy-host; edited(value) => { root.advanced.proxy-host = value; } }
             Text { text: @tr("Proxy port"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
             LineEdit { height: 36px; enabled: root.enabled; input-type: number; text: root.advanced.proxy-port; edited(value) => { root.advanced.proxy-port = value; } }
-            Text { text: @tr("The proxy applies to IMAP and SMTP only, and must not require a login."); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            Text { text: @tr("Proxy user name (empty = no login)"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; text: root.advanced.proxy-username; edited(value) => { root.advanced.proxy-username = value; } }
+            Text { text: @tr("Proxy password (empty = keep the saved one)"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            LineEdit { height: 36px; enabled: root.enabled; input-type: password; text: root.advanced.proxy-password; edited(value) => { root.advanced.proxy-password = value; } }
+            Text { text: @tr("The proxy applies to mail (IMAP, SMTP) and Exchange. SOCKS5 and HTTP logins are supported."); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
     }
 }
