@@ -156,7 +156,7 @@ impl ExchangeEndpoint {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ExchangeSettings {
     /// Marks the account as Exchange Online (the account row stores `imap`).
@@ -190,6 +190,40 @@ pub struct ExchangeSettings {
     pub calendar_past_days: u32,
     /// Days of calendar ahead kept (0 = the default, 400).
     pub calendar_future_days: u32,
+}
+
+/// The proxy URL can carry the proxy login, so `Debug` shows only where it
+/// points, never the user info.
+impl std::fmt::Debug for ExchangeSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let proxy = url::Url::parse(&self.proxy_url).ok().map(|url| {
+            format!(
+                "{}://{}{}",
+                url.scheme(),
+                url.host_str().unwrap_or_default(),
+                url.port()
+                    .map(|port| format!(":{port}"))
+                    .unwrap_or_default()
+            )
+        });
+        f.debug_struct("ExchangeSettings")
+            .field("enabled", &self.enabled)
+            .field("client_id", &self.client_id)
+            .field("tenant", &self.tenant)
+            .field("redirect_uri", &self.redirect_uri)
+            .field("scopes", &self.scopes)
+            .field("cloud", &self.cloud)
+            .field("custom_login_url", &self.custom_login_url)
+            .field("custom_graph_url", &self.custom_graph_url)
+            .field("sign_in", &self.sign_in)
+            .field("endpoint", &self.endpoint)
+            .field("shared_mailbox", &self.shared_mailbox)
+            .field("proxy_url", &proxy)
+            .field("work_offline", &self.work_offline)
+            .field("calendar_past_days", &self.calendar_past_days)
+            .field("calendar_future_days", &self.calendar_future_days)
+            .finish()
+    }
 }
 
 impl Default for ExchangeSettings {
@@ -555,6 +589,17 @@ impl ExchangeSettings {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn debug_output_never_shows_the_proxy_login() {
+        let settings = ExchangeSettings {
+            proxy_url: "socks5h://ben:s3cret%2Fword@proxy.example.org:1080".into(),
+            ..ExchangeSettings::default()
+        };
+        let text = format!("{settings:?}");
+        assert!(text.contains("socks5h://proxy.example.org:1080"), "{text}");
+        assert!(!text.contains("s3cret") && !text.contains("ben"));
+    }
+
     #[test]
     fn the_calendar_window_defaults_and_is_bounded() {
         let day = 86_400_000;

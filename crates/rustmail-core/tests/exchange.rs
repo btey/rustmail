@@ -574,6 +574,7 @@ async fn add(core: &Core, base: &str) -> Account {
             email: "me@example.org".into(),
             display_name: Some("Me".into()),
             exchange: settings(base),
+            proxy: None,
         },
         tokens(),
     )
@@ -883,6 +884,7 @@ async fn the_resource_sign_in_refreshes_through_the_classic_endpoint() {
                     endpoint: rustmail_core::exchange::settings::ExchangeEndpoint::Resource,
                     ..settings(&base)
                 },
+                proxy: None,
             },
             // Expires at once, so the first sync must refresh.
             TokenSet {
@@ -1073,6 +1075,7 @@ async fn a_sign_in_that_graph_rejects_creates_no_account() {
                 email: "me@example.org".into(),
                 display_name: None,
                 exchange: settings(&base),
+                proxy: None,
             },
             tokens(),
         )
@@ -1087,7 +1090,8 @@ async fn a_sign_in_that_graph_rejects_creates_no_account() {
             AddExchangeAccountArgs {
                 email: "me@example.org".into(),
                 display_name: None,
-                exchange: bad
+                exchange: bad,
+                proxy: None,
             },
             tokens()
         )
@@ -2806,5 +2810,151 @@ async fn a_series_keeps_its_local_time_in_its_own_zone_across_daylight_saving() 
             utc_ms(2026, 3, 30, 7),
             utc_ms(2026, 4, 6, 7)
         ]
+    );
+}
+
+/// A plain-HTTP proxy that records each request head and answers the Graph
+/// inbox probe; the Graph address of the account is never reached directly.
+async fn recording_proxy() -> (u16, Arc<Mutex<Vec<String>>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let heads: Arc<Mutex<Vec<String>>> = Arc::default();
+    let record = heads.clone();
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut stream, _)) = listener.accept().await else {
+                return;
+            };
+            let record = record.clone();
+            tokio::spawn(async move {
+                let mut buf = vec![0u8; 8192];
+                let read = stream.read(&mut buf).await.unwrap_or(0);
+                record
+                    .lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(&buf[..read]).to_lowercase());
+                let body = r#"{"id":"INBOX1","value":[]}"#;
+                let _ = stream
+                    .write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).as_bytes())
+                    .await;
+            });
+        }
+    });
+    (port, heads)
+}
+
+#[tokio::test]
+async fn the_proxy_of_the_form_is_used_for_the_check_and_saved_with_the_account() {
+    use rustmail_core::accounts::secrets::{self, Slot};
+    use rustmail_core::exchange::ExchangeProxy;
+    let temp = tempfile::tempdir().unwrap();
+    let store: rustmail_core::accounts::secrets::CredentialStoreHandle = Arc::new(
+        DevelopmentFileCredentialStore::new(temp.path().join("credentials.json")),
+    );
+    let core = Core::start_mail_ui_with_credentials(
+        Paths::for_tests(&temp.path().join("profile")),
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let (port, heads) = recording_proxy().await;
+    let proxy = ExchangeProxy {
+        kind: ProxyKind::Http,
+        host: "127.0.0.1".into(),
+        port,
+        username: "ben".into(),
+        password: SecretString::new("sesame"),
+    };
+    // The Graph address is unreachable (port 9): only the proxy can answer.
+    let account = core
+        .add_exchange_account(
+            AddExchangeAccountArgs {
+                email: "me@example.org".into(),
+                display_name: None,
+                exchange: settings("http://127.0.0.1:9"),
+                proxy: Some(proxy.clone()),
+            },
+            tokens(),
+        )
+        .await
+        .unwrap();
+    let login = format!(
+        "proxy-authorization: basic {}",
+        {
+            use base64::Engine;
+            base64::engine::general_purpose::STANDARD.encode("ben:sesame")
+        }
+        .to_lowercase()
+    );
+    assert!(
+        heads.lock().unwrap()[0].contains(&login),
+        "{}",
+        heads.lock().unwrap()[0]
+    );
+    let saved = core.exchange_account_proxy(account.id).await.unwrap();
+    assert_eq!(
+        (
+            saved.kind,
+            saved.host.as_str(),
+            saved.port,
+            saved.username.as_str()
+        ),
+        (ProxyKind::Http, "127.0.0.1", port, "ben")
+    );
+    assert!(
+        saved.password.is_empty(),
+        "the password is never handed back"
+    );
+    assert_eq!(
+        secrets::load_async(store.clone(), account.id, Slot::ProxyPassword)
+            .await
+            .unwrap(),
+        "sesame"
+    );
+
+    // Saving the form with the password left blank keeps the saved one, and
+    // the check still logs in to the proxy with it.
+    let before = heads.lock().unwrap().len();
+    let blank = ExchangeProxy {
+        password: SecretString::default(),
+        ..proxy
+    };
+    core.update_exchange_account_with_proxy(
+        account.id,
+        None,
+        settings("http://127.0.0.1:9"),
+        Some(blank.clone()),
+        Some(tokens()),
+    )
+    .await
+    .unwrap();
+    assert!(
+        heads.lock().unwrap()[before..]
+            .iter()
+            .any(|head| head.contains(&login))
+    );
+    assert_eq!(
+        secrets::load_async(store.clone(), account.id, Slot::ProxyPassword)
+            .await
+            .unwrap(),
+        "sesame"
+    );
+
+    // Removing the proxy removes the login with it.
+    core.update_exchange_account_with_proxy(
+        account.id,
+        None,
+        settings(&format!("http://127.0.0.1:{port}")),
+        Some(ExchangeProxy::default()),
+        Some(tokens()),
+    )
+    .await
+    .unwrap();
+    let saved = core.exchange_account_proxy(account.id).await.unwrap();
+    assert_eq!(saved.kind, ProxyKind::None);
+    assert!(
+        secrets::load_async(store, account.id, Slot::ProxyPassword)
+            .await
+            .is_err()
     );
 }

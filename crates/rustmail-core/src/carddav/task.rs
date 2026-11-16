@@ -91,8 +91,15 @@ async fn run_cycle(
     let Some(config) = config.filter(|config| config.enabled) else {
         return Ok(());
     };
-    let password = secrets::load_async(credentials, account_id, Slot::CarddavPassword).await?;
-    let transport = HttpTransport::new(config.username.clone(), password, &config.base_url)?;
+    let password =
+        secrets::load_async(credentials.clone(), account_id, Slot::CarddavPassword).await?;
+    let proxy = crate::proxy_url::for_account(db, &credentials, account_id).await?;
+    let transport = HttpTransport::new(
+        config.username.clone(),
+        password,
+        &config.base_url,
+        proxy.as_deref(),
+    )?;
     if refresh_collections {
         let discovered = super::discovery::discover(&transport, &config.base_url).await?;
         let urls = discovered

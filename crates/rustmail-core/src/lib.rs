@@ -31,6 +31,7 @@ pub mod models;
 pub mod nntp;
 pub mod oauth;
 pub mod pop3;
+mod proxy_url;
 pub mod queue;
 pub mod route;
 pub mod scheduler;
@@ -2143,18 +2144,31 @@ impl Core {
         secrets::check_available_async(self.credentials.clone()).await?;
         self.recover_incomplete_account_credentials().await?;
 
+        let proxy = args.proxy.clone();
+        let mut probe_settings = settings.clone();
+        if let Some(url) = proxy
+            .as_ref()
+            .map(exchange::ExchangeProxy::url)
+            .transpose()?
+            .flatten()
+        {
+            probe_settings.proxy_url = url;
+        }
         // Prove the sign-in works and may read this mailbox before saving.
         exchange::client::GraphMail::new(
-            &settings,
+            &probe_settings,
             std::sync::Arc::new(exchange::client::FixedToken(tokens.access_token.clone())),
         )?
         .probe()
         .await?;
 
-        let connection = MailConnectionSettings {
+        let mut connection = MailConnectionSettings {
             exchange: settings.clone(),
             ..Default::default()
         };
+        if let Some(proxy) = &proxy {
+            proxy.apply(&mut connection);
+        }
         let name = args
             .display_name
             .map(|value| value.trim().to_owned())
@@ -2180,6 +2194,7 @@ impl Core {
             }
             let id = existing.id;
             let (a_email, a_name, a_connection) = (email.clone(), name.clone(), connection.clone());
+            let a_proxy = proxy.clone();
             self.db
                 .write(move |conn| {
                     let transaction = conn.transaction()?;
@@ -2205,8 +2220,12 @@ impl Core {
                     let mut stored = repo::accounts::get_config(&transaction, id)?
                         .ok_or_else(|| CoreError::NotFound("account".into()))?
                         .settings;
-                    // Keep the account's other connection settings (proxy, ...).
+                    // Keep the account's other connection settings; the proxy
+                    // changes only when the form brought one.
                     stored.connection.exchange = a_connection.exchange;
+                    if let Some(proxy) = &a_proxy {
+                        proxy.apply(&mut stored.connection);
+                    }
                     repo::accounts::set_settings(&transaction, id, &stored)?;
                     // A different registration or tenant has different delta state.
                     transaction.execute(
@@ -2253,9 +2272,18 @@ impl Core {
                 .await?
         };
 
-        let stored = exchange::tokens_for(id, &settings, &self.credentials)
-            .store_initial(&tokens)
-            .await;
+        let stored = match &proxy {
+            Some(proxy) => self.save_exchange_proxy_password(id, proxy).await,
+            None => Ok(()),
+        };
+        let stored = match stored {
+            Ok(()) => {
+                exchange::tokens_for(id, &settings, &self.credentials)
+                    .store_initial(&tokens)
+                    .await
+            }
+            Err(error) => Err(error),
+        };
         if let Err(error) = stored {
             if is_new {
                 self.rollback_incomplete_account_credentials(id).await;
@@ -2294,6 +2322,61 @@ impl Core {
             .ok_or_else(|| CoreError::NotFound("account".into()))
     }
 
+    /// Keep the proxy password of an Exchange account in the credential
+    /// store: removed without a login, replaced when a new one was typed,
+    /// otherwise left as it is.
+    async fn save_exchange_proxy_password(
+        &self,
+        account_id: i64,
+        proxy: &exchange::ExchangeProxy,
+    ) -> Result<()> {
+        if proxy.kind == ProxyKind::None || proxy.username.trim().is_empty() {
+            let _ =
+                secrets::delete_async(self.credentials.clone(), account_id, Slot::ProxyPassword)
+                    .await;
+        } else if !proxy.password.is_empty() {
+            secrets::store_async(
+                self.credentials.clone(),
+                account_id,
+                Slot::ProxyPassword,
+                proxy.password.expose().to_owned(),
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    /// The URL of the proxy typed into the edit form; a blank password with
+    /// the saved user name uses the saved password.
+    pub async fn exchange_proxy_url(
+        &self,
+        account_id: i64,
+        proxy: &exchange::ExchangeProxy,
+    ) -> Result<Option<String>> {
+        let mut proxy = proxy.clone();
+        if proxy.password.is_empty()
+            && !proxy.username.trim().is_empty()
+            && let Ok(saved) =
+                secrets::load_async(self.credentials.clone(), account_id, Slot::ProxyPassword).await
+        {
+            proxy.password = SecretString::new(saved);
+        }
+        proxy.url()
+    }
+
+    /// The proxy of an Exchange account, for the edit form (the password is
+    /// never returned).
+    pub async fn exchange_account_proxy(&self, account_id: i64) -> Result<exchange::ExchangeProxy> {
+        let config = self
+            .db
+            .read(move |conn| repo::accounts::get_config(conn, account_id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound("account".into()))?;
+        Ok(exchange::ExchangeProxy::from_connection(
+            &config.settings.connection,
+        ))
+    }
+
     /// The Exchange settings of an account, for the edit form.
     pub async fn exchange_account_settings(
         &self,
@@ -2323,6 +2406,20 @@ impl Core {
         account_id: i64,
         display_name: Option<String>,
         settings: exchange::ExchangeSettings,
+        tokens: Option<exchange::auth::TokenSet>,
+    ) -> Result<Account> {
+        self.update_exchange_account_with_proxy(account_id, display_name, settings, None, tokens)
+            .await
+    }
+
+    /// [`Self::update_exchange_account`] that also saves the proxy of the
+    /// form. An empty password with the same user name keeps the saved one.
+    pub async fn update_exchange_account_with_proxy(
+        &self,
+        account_id: i64,
+        display_name: Option<String>,
+        settings: exchange::ExchangeSettings,
+        proxy: Option<exchange::ExchangeProxy>,
         tokens: Option<exchange::auth::TokenSet>,
     ) -> Result<Account> {
         let config = self
@@ -2360,17 +2457,25 @@ impl Core {
         // Prove the (new) sign-in reaches the (new) mailbox before saving.
         let mut probe_settings = new.clone();
         let config = &secrets::hydrate_account(&self.credentials, &config).await;
-        probe_settings.proxy_url = exchange::settings_for(&AccountConfig {
-            settings: AccountSettings {
-                connection: MailConnectionSettings {
-                    exchange: new.clone(),
-                    ..config.settings.connection.clone()
-                },
-                ..config.settings.clone()
-            },
-            ..config.clone()
-        })?
-        .proxy_url;
+        let mut connection = MailConnectionSettings {
+            exchange: new.clone(),
+            ..config.settings.connection.clone()
+        };
+        let proxy = match proxy {
+            Some(mut proxy) => {
+                if proxy.password.is_empty()
+                    && proxy.username.trim() == config.settings.connection.proxy_username
+                {
+                    proxy.password = config.settings.connection.proxy_password.clone();
+                }
+                proxy.apply(&mut connection);
+                Some(proxy)
+            }
+            None => None,
+        };
+        if let Some(url) = proxy_url::for_connection(&connection)? {
+            probe_settings.proxy_url = url;
+        }
         let source: std::sync::Arc<dyn exchange::client::AccessTokenSource> = match &tokens {
             Some(tokens) => {
                 std::sync::Arc::new(exchange::client::FixedToken(tokens.access_token.clone()))
@@ -2388,6 +2493,7 @@ impl Core {
             .map(|value| value.trim().to_owned())
             .filter(|value| !value.is_empty());
         let saved = new.clone();
+        let saved_proxy = proxy.clone();
         let reset_delta = mailbox_changed || tokens.is_some();
         self.db
             .write(move |conn| {
@@ -2396,6 +2502,9 @@ impl Core {
                     .ok_or_else(|| CoreError::NotFound("account".into()))?
                     .settings;
                 stored.connection.exchange = saved;
+                if let Some(proxy) = &saved_proxy {
+                    proxy.apply(&mut stored.connection);
+                }
                 repo::accounts::set_settings(&tx, account_id, &stored)?;
                 if let Some(name) = name {
                     tx.execute(
@@ -2430,6 +2539,18 @@ impl Core {
                 Ok(())
             })
             .await?;
+        if let Some(proxy) = &proxy
+            && let Err(error) = self.save_exchange_proxy_password(account_id, proxy).await
+        {
+            if let Ok(Some(cfg)) = self
+                .db
+                .read(move |conn| repo::accounts::get_config(conn, account_id))
+                .await
+            {
+                self.spawn_actor(cfg).await;
+            }
+            return Err(error);
+        }
         if let Some(tokens) = &tokens {
             let stored = exchange::tokens_for(account_id, &new, &self.credentials)
                 .store_initial(tokens)
@@ -6095,10 +6216,12 @@ impl Core {
             return Err(CoreError::CardDav("app password is required".into()));
         }
         secrets::check_available_async(self.credentials.clone()).await?;
+        let proxy = proxy_url::for_account(&self.db, &self.credentials, account_id).await?;
         let transport = carddav::http::HttpTransport::new(
             args.username.clone(),
             args.password.clone(),
             &base_url,
+            proxy.as_deref(),
         )?;
         let discovered = carddav::discovery::discover(&transport, &base_url).await?;
 
@@ -6853,7 +6976,8 @@ impl Core {
             caldav::DavAuth::Bearer(token) if kind == "google" => Some(token.clone()),
             _ => None,
         };
-        let transport = caldav::HttpTransport::new(auth, &base_url)?;
+        let proxy = proxy_url::for_account(&self.db, &self.credentials, account_id).await?;
+        let transport = caldav::HttpTransport::new(auth, &base_url, proxy.as_deref())?;
         let (discovery, google_calendars) = if kind == "google" {
             // Validate the primary DAV collection so a disabled CalDAV API is
             // reported immediately. Calendar API metadata then supplies every

@@ -275,6 +275,21 @@ pub fn spawn_account(ctx: SyncCtx, config: AccountConfig) -> AccountHandle {
     let (pool_tx, pool_rx) = mpsc::channel(1);
     let (hist_tx, hist_rx) = mpsc::channel(1);
     let (settings_tx, settings_rx) = watch::channel(config.settings.clone());
+    // Token requests of this account go through its proxy; keep that current
+    // while the settings change.
+    ctx.tokens
+        .set_proxy(account_id, &config.settings.connection);
+    // The task ends when the handle (and so the sender) is dropped.
+    {
+        let tokens = ctx.tokens.clone();
+        let mut settings = settings_rx.clone();
+        tokio::spawn(async move {
+            while settings.changed().await.is_ok() {
+                let connection = settings.borrow_and_update().connection.clone();
+                tokens.set_proxy(account_id, &connection);
+            }
+        });
+    }
     let joins = if config.provider == Provider::Gmail {
         crate::sync::gmail::spawn(ctx, config, rx, body_rx, settings_rx)
     } else if config.mail_protocol == MailProtocol::Jmap {

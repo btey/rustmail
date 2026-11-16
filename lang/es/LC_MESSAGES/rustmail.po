@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-16 14:57+0000\n"
+"POT-Creation-Date: 2026-11-16 18:58+0000\n"
 "PO-Revision-Date: 2026-09-20 23:21+0000\n"
 "Last-Translator: Admin <admin@rustmail.org>\n"
 "Language-Team: Spanish <https://translate.rustmail.org/projects/rustmail/"
@@ -1557,7 +1557,7 @@ msgstr ""
 msgid "Choose Gmail or Outlook OAuth."
 msgstr "Elige OAuth de Gmail o Outlook."
 
-#: ui/app.slint:554 ui/components/exchange-setup.slint:307
+#: ui/app.slint:554 ui/components/exchange-setup.slint:360
 msgid "Complete sign-in in your browser, or choose Cancel here."
 msgstr ""
 "Completa el inicio de sesión en el navegador o selecciona Cancelar aquí."
@@ -3151,59 +3151,59 @@ msgstr "¿Eliminar plantilla de correo?"
 msgid "Delete this template from this device?"
 msgstr "¿Eliminar esta plantilla de este dispositivo?"
 
-#: ui/components/exchange-setup.slint:55
+#: ui/components/exchange-setup.slint:62
 msgid "Paste address"
 msgstr "Pegar dirección"
 
-#: ui/components/exchange-setup.slint:59
+#: ui/components/exchange-setup.slint:66
 msgid "Device code"
 msgstr "Código de dispositivo"
 
-#: ui/components/exchange-setup.slint:63
+#: ui/components/exchange-setup.slint:70
 msgid "Browser"
 msgstr "Navegador"
 
-#: ui/components/exchange-setup.slint:75
+#: ui/components/exchange-setup.slint:82
 msgid "Resource"
 msgstr "Recurso"
 
-#: ui/components/exchange-setup.slint:76
+#: ui/components/exchange-setup.slint:83
 msgid "Scopes"
 msgstr "Ámbitos"
 
-#: ui/components/exchange-setup.slint:84
+#: ui/components/exchange-setup.slint:91
 msgid "Worldwide"
 msgstr "Global"
 
-#: ui/components/exchange-setup.slint:85
+#: ui/components/exchange-setup.slint:92
 msgid "US Gov."
 msgstr "EE. UU."
 
-#: ui/components/exchange-setup.slint:86
+#: ui/components/exchange-setup.slint:93
 msgid "China"
 msgstr "China"
 
-#: ui/components/exchange-setup.slint:87
+#: ui/components/exchange-setup.slint:94
 msgid "Germany"
 msgstr "Alemania"
 
-#: ui/components/exchange-setup.slint:88 ui/components/sidebar.slint:343
+#: ui/components/exchange-setup.slint:95 ui/components/sidebar.slint:343
 msgid "Other"
 msgstr "Otros"
 
-#: ui/components/exchange-setup.slint:109
+#: ui/components/exchange-setup.slint:116
 msgid ""
-"Signs in to Microsoft 365 directly with OAuth, with no IMAP, SMTP or proxy. "
-"No password is typed here or stored."
+"Signs in to Microsoft 365 directly with OAuth, with no IMAP or SMTP. No "
+"password is typed here or stored."
 msgstr ""
-"Inicia sesión directamente en Microsoft 365 con OAuth, sin IMAP, SMTP ni "
-"proxy. Aquí no se escribe ni se guarda ninguna contraseña."
+"Inicia sesión en Microsoft 365 directamente con OAuth, sin IMAP ni SMTP. "
+"Aquí no se escribe ni se guarda ninguna contraseña."
 
-#: ui/components/exchange-setup.slint:113
+#: ui/components/exchange-setup.slint:120
 msgid "Sign-in method"
 msgstr "Método de inicio de sesión"
 
-#: ui/components/exchange-setup.slint:119
+#: ui/components/exchange-setup.slint:126
 msgid ""
 "Paste address: Rustmail shows a sign-in address. Open it in any browser, "
 "sign in, then paste the address the browser ends on (or its code) here."
@@ -3212,7 +3212,7 @@ msgstr ""
 "en cualquier navegador, inicia sesión y pega aquí la dirección (o el código) "
 "en la que termina el navegador."
 
-#: ui/components/exchange-setup.slint:121
+#: ui/components/exchange-setup.slint:128
 msgid ""
 "Device code: Rustmail shows a short code. Enter it at the Microsoft address "
 "on any device, then wait here."
@@ -3220,7 +3220,7 @@ msgstr ""
 "Código de dispositivo: Rustmail muestra un código corto. Introdúcelo en la "
 "dirección de Microsoft desde cualquier dispositivo y espera aquí."
 
-#: ui/components/exchange-setup.slint:122
+#: ui/components/exchange-setup.slint:129
 msgid ""
 "Browser: Rustmail opens your browser and waits for it to return to this "
 "computer. This needs a client ID of your own app registration with a http://"
@@ -3230,23 +3230,23 @@ msgstr ""
 "Necesita el ID de cliente de un registro de aplicación propio con "
 "redirección http://localhost."
 
-#: ui/components/exchange-setup.slint:128
+#: ui/components/exchange-setup.slint:135
 msgid "Display name · Optional"
 msgstr "Nombre para mostrar · Opcional"
 
-#: ui/components/exchange-setup.slint:130
+#: ui/components/exchange-setup.slint:137
 msgid "Shown in the account list"
 msgstr "Se muestra en la lista de cuentas"
 
-#: ui/components/exchange-setup.slint:137
+#: ui/components/exchange-setup.slint:144
 msgid "Client ID · Optional"
 msgstr "ID de cliente · Opcional"
 
-#: ui/components/exchange-setup.slint:139
+#: ui/components/exchange-setup.slint:146
 msgid "Built-in: Microsoft Office client"
 msgstr "Integrado: cliente de Microsoft Office"
 
-#: ui/components/exchange-setup.slint:145
+#: ui/components/exchange-setup.slint:152
 msgid ""
 "The built-in client ID is Microsoft's own Office app, not Rustmail's. It "
 "signs in with the Resource style below. Your organization's sign-in log "
@@ -3261,7 +3261,7 @@ msgstr ""
 "el inicio de sesión falla, introduzca el ID de cliente de su propio registro "
 "de aplicación en Microsoft Entra ID."
 
-#: ui/components/exchange-setup.slint:146
+#: ui/components/exchange-setup.slint:153
 msgid ""
 "Using the client ID of your own app registration. Allow public client flows "
 "for it in Microsoft Entra ID."
@@ -3269,31 +3269,31 @@ msgstr ""
 "Se usa el ID de cliente de tu propio registro de aplicación. Permite los "
 "flujos de cliente público en Microsoft Entra ID."
 
-#: ui/components/exchange-setup.slint:152
+#: ui/components/exchange-setup.slint:159
 msgid "Tenant · Optional"
 msgstr "Inquilino · Opcional"
 
-#: ui/components/exchange-setup.slint:154
+#: ui/components/exchange-setup.slint:161
 msgid "common, organizations, a tenant ID or contoso.com"
 msgstr "common, organizations, un ID de inquilino o contoso.com"
 
-#: ui/components/exchange-setup.slint:161
+#: ui/components/exchange-setup.slint:168
 msgid "Redirect URI · Optional"
 msgstr "URI de redirección · Opcional"
 
-#: ui/components/exchange-setup.slint:163
+#: ui/components/exchange-setup.slint:170
 msgid "http://localhost"
 msgstr "http://localhost"
 
-#: ui/components/exchange-setup.slint:163
+#: ui/components/exchange-setup.slint:170
 msgid "urn:ietf:wg:oauth:2.0:oob"
 msgstr "urn:ietf:wg:oauth:2.0:oob"
 
-#: ui/components/exchange-setup.slint:168
+#: ui/components/exchange-setup.slint:175
 msgid "Sign-in style"
 msgstr "Estilo de inicio de sesión"
 
-#: ui/components/exchange-setup.slint:174
+#: ui/components/exchange-setup.slint:181
 msgid ""
 "Resource: Microsoft gives the permissions already approved for the app, so "
 "no scopes are asked for (the classic sign-in, as DavMail does). Needed for "
@@ -3303,7 +3303,7 @@ msgstr ""
 "lo que no se piden ámbitos (el inicio de sesión clásico, como hace DavMail). "
 "Necesario para el cliente Office integrado de Microsoft."
 
-#: ui/components/exchange-setup.slint:175
+#: ui/components/exchange-setup.slint:182
 msgid ""
 "Scopes: Rustmail asks Microsoft for the permissions listed below. This needs "
 "your own app registration with those permissions."
@@ -3311,70 +3311,90 @@ msgstr ""
 "Ámbitos: Rustmail pide a Microsoft los permisos indicados abajo. Esto "
 "requiere su propio registro de aplicación con esos permisos."
 
-#: ui/components/exchange-setup.slint:181
+#: ui/components/exchange-setup.slint:188
 msgid "Scopes · Optional"
 msgstr "Ámbitos · Opcional"
 
-#: ui/components/exchange-setup.slint:183
+#: ui/components/exchange-setup.slint:190
 msgid "Default: mail, calendar and contacts"
 msgstr "Predeterminado: correo, calendario y contactos"
 
-#: ui/components/exchange-setup.slint:188
+#: ui/components/exchange-setup.slint:195
 msgid "Cloud"
 msgstr "Nube"
 
-#: ui/components/exchange-setup.slint:195
+#: ui/components/exchange-setup.slint:202
 msgid "Login address"
 msgstr "Dirección de inicio de sesión"
 
-#: ui/components/exchange-setup.slint:197
+#: ui/components/exchange-setup.slint:204
 msgid "https://login.example.org"
 msgstr "https://login.example.org"
 
-#: ui/components/exchange-setup.slint:204
+#: ui/components/exchange-setup.slint:211
 msgid "Graph address"
 msgstr "Dirección de Graph"
 
-#: ui/components/exchange-setup.slint:206
+#: ui/components/exchange-setup.slint:213
 msgid "https://graph.example.org"
 msgstr "https://graph.example.org"
 
-#: ui/components/exchange-setup.slint:213
+#: ui/components/exchange-setup.slint:220
 msgid "Shared mailbox · Optional"
 msgstr "Buzón compartido · Opcional"
 
-#: ui/components/exchange-setup.slint:215
+#: ui/components/exchange-setup.slint:222
 msgid "shared@example.com"
 msgstr "shared@example.com"
 
-#: ui/components/exchange-setup.slint:222
+#: ui/components/exchange-setup.slint:227
+msgid "Proxy"
+msgstr "Proxy"
+
+#: ui/components/exchange-setup.slint:241
+msgid "Proxy host"
+msgstr "Host del proxy"
+
+#: ui/components/exchange-setup.slint:249
+msgid "Proxy port"
+msgstr "Puerto del proxy"
+
+#: ui/components/exchange-setup.slint:258
+msgid "Proxy user name (empty = no login)"
+msgstr "Usuario del proxy (vacío = sin inicio de sesión)"
+
+#: ui/components/exchange-setup.slint:266
+msgid "Proxy password (empty = keep the saved one)"
+msgstr "Contraseña del proxy (vacío = conservar la guardada)"
+
+#: ui/components/exchange-setup.slint:275
 msgid "Work offline for this account"
 msgstr "Trabajar sin conexión con esta cuenta"
 
-#: ui/components/exchange-setup.slint:223
+#: ui/components/exchange-setup.slint:276
 msgid ""
 "No requests are made; changes wait and are sent when you go back online."
 msgstr ""
 "No se hacen solicitudes; los cambios esperan y se envían cuando vuelva a "
 "estar en línea."
 
-#: ui/components/exchange-setup.slint:233
+#: ui/components/exchange-setup.slint:286
 msgid "Calendar history in days · Optional"
 msgstr "Historial del calendario en días · Opcional"
 
-#: ui/components/exchange-setup.slint:235
+#: ui/components/exchange-setup.slint:288
 msgid "90"
 msgstr "90"
 
-#: ui/components/exchange-setup.slint:242
+#: ui/components/exchange-setup.slint:295
 msgid "Calendar ahead in days · Optional"
 msgstr "Calendario por adelantado en días · Opcional"
 
-#: ui/components/exchange-setup.slint:244
+#: ui/components/exchange-setup.slint:297
 msgid "400"
 msgstr "400"
 
-#: ui/components/exchange-setup.slint:253
+#: ui/components/exchange-setup.slint:306
 msgid ""
 "1. Open this address and sign in. 2. Copy the address of the page you end on "
 "and paste it below."
@@ -3382,37 +3402,37 @@ msgstr ""
 "1. Abre esta dirección e inicia sesión. 2. Copia la dirección de la página "
 "en la que terminas y pégala abajo."
 
-#: ui/components/exchange-setup.slint:260 ui/views/mail-reading-pane.slint:550
+#: ui/components/exchange-setup.slint:313 ui/views/mail-reading-pane.slint:550
 #: ui/views/mail-reading-pane.slint:2072
 msgid "Open in browser"
 msgstr "Abrir en el navegador"
 
-#: ui/components/exchange-setup.slint:261 ui/views/mail-reading-pane.slint:237
+#: ui/components/exchange-setup.slint:314 ui/views/mail-reading-pane.slint:237
 msgid "Copy address"
 msgstr "Copiar dirección"
 
-#: ui/components/exchange-setup.slint:265
+#: ui/components/exchange-setup.slint:318
 msgid "Address or code from the browser"
 msgstr "Dirección o código del navegador"
 
-#: ui/components/exchange-setup.slint:267
+#: ui/components/exchange-setup.slint:320
 msgid "Paste it here"
 msgstr "Pégalo aquí"
 
-#: ui/components/exchange-setup.slint:275
+#: ui/components/exchange-setup.slint:328
 msgid "Finish sign-in"
 msgstr "Finalizar inicio de sesión"
 
-#: ui/components/exchange-setup.slint:283
+#: ui/components/exchange-setup.slint:336
 msgid "Go to the address below on any device and enter this code:"
 msgstr ""
 "Ve a la dirección de abajo en cualquier dispositivo e introduce este código:"
 
-#: ui/components/exchange-setup.slint:298
+#: ui/components/exchange-setup.slint:351
 msgid "Open address"
 msgstr "Abrir dirección"
 
-#: ui/components/exchange-setup.slint:299
+#: ui/components/exchange-setup.slint:352
 msgid "Copy code"
 msgstr "Copiar código"
 
@@ -3919,26 +3939,6 @@ msgstr "Tiempo de espera de conexión en segundos (vacío = 30)"
 #: ui/components/mail-security-fields.slint:172
 msgid "Maximum simultaneous IMAP connections (empty = unlimited; 1–20)"
 msgstr "Máximo de conexiones IMAP simultáneas (vacío = sin límite; 1–20)"
-
-#: ui/components/mail-security-fields.slint:174
-msgid "Proxy"
-msgstr "Proxy"
-
-#: ui/components/mail-security-fields.slint:183
-msgid "Proxy host"
-msgstr "Host del proxy"
-
-#: ui/components/mail-security-fields.slint:185
-msgid "Proxy port"
-msgstr "Puerto del proxy"
-
-#: ui/components/mail-security-fields.slint:187
-msgid "Proxy user name (empty = no login)"
-msgstr "Usuario del proxy (vacío = sin inicio de sesión)"
-
-#: ui/components/mail-security-fields.slint:189
-msgid "Proxy password (empty = keep the saved one)"
-msgstr "Contraseña del proxy (vacío = conservar la guardada)"
 
 #: ui/components/mail-security-fields.slint:191
 msgid ""
@@ -8239,6 +8239,13 @@ msgstr "Restaurar"
 #: ui/window-chrome.slint:205 ui/window-chrome.slint:242
 msgid "Maximize"
 msgstr "Maximizar"
+
+#~ msgid ""
+#~ "Signs in to Microsoft 365 directly with OAuth, with no IMAP, SMTP or "
+#~ "proxy. No password is typed here or stored."
+#~ msgstr ""
+#~ "Inicia sesión directamente en Microsoft 365 con OAuth, sin IMAP, SMTP ni "
+#~ "proxy. Aquí no se escribe ni se guarda ninguna contraseña."
 
 #~ msgid ""
 #~ "The proxy applies to IMAP and SMTP only, and must not require a login."

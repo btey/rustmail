@@ -100,6 +100,7 @@ pub fn spawn(
 /// OAuth token cache, Basic for generic servers via the keyring).
 pub async fn transport_for(
     db: &Db,
+    mail_db: &Db,
     tokens: &TokenProvider,
     credential_store: CredentialStoreHandle,
     account_id: i64,
@@ -118,11 +119,17 @@ pub async fn transport_for(
         _ => {
             let user = cfg.username.clone().unwrap_or_default();
             let pass =
-                secrets::load_async(credential_store, account_id, Slot::CaldavPassword).await?;
+                secrets::load_async(credential_store.clone(), account_id, Slot::CaldavPassword)
+                    .await?;
             DavAuth::Basic(user, pass)
         }
     };
-    Ok(Some(HttpTransport::new(auth, &cfg.base_url)?))
+    let proxy = crate::proxy_url::for_account(mail_db, &credential_store, account_id).await?;
+    Ok(Some(HttpTransport::new(
+        auth,
+        &cfg.base_url,
+        proxy.as_deref(),
+    )?))
 }
 
 async fn run_cycle(
@@ -203,7 +210,9 @@ async fn run_cycle(
             .await?;
             bus.emit(crate::events::CoreEvent::CalendarUpdated { account_id });
         }
-        let transport = HttpTransport::new(DavAuth::Bearer(token), &cfg.base_url)?;
+        let proxy = crate::proxy_url::for_account(mail_db, &credential_store, account_id).await?;
+        let transport =
+            HttpTransport::new(DavAuth::Bearer(token), &cfg.base_url, proxy.as_deref())?;
         let self_email = mail_db
             .read(move |conn| Ok(repo::accounts::get(conn, account_id)?.map(|a| a.email)))
             .await?
@@ -214,7 +223,7 @@ async fn run_cycle(
             .read(move |conn| Ok(repo::accounts::get(conn, account_id)?.map(|a| a.email)))
             .await?
             .unwrap_or_default();
-        match transport_for(db, tokens, credential_store, account_id).await? {
+        match transport_for(db, mail_db, tokens, credential_store.clone(), account_id).await? {
             Some(transport) => sync_account(db, bus, &transport, account_id, &self_email).await,
             None => return Ok(()),
         }

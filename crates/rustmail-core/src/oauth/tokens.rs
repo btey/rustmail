@@ -32,6 +32,9 @@ pub struct TokenProvider {
     refresh_locks: Arc<Mutex<HashMap<i64, Arc<Mutex<()>>>>>,
     credentials: CredentialStoreHandle,
     oauth_platform: OAuthRedirectBrokerHandle,
+    /// Proxy setting of each running account (the proxy password stays in the
+    /// credential store and is read when a request is made).
+    proxies: Arc<std::sync::Mutex<HashMap<i64, crate::models::MailConnectionSettings>>>,
 }
 
 const PLATFORM_GOOGLE_PREFIX: &str = "rustmail-platform-google-v1:";
@@ -147,7 +150,38 @@ impl TokenProvider {
             refresh_locks: Arc::default(),
             credentials,
             oauth_platform,
+            proxies: Arc::default(),
         }
+    }
+
+    /// Remember the account's proxy setting so its token requests use it.
+    pub fn set_proxy(&self, account_id: i64, connection: &crate::models::MailConnectionSettings) {
+        let mut proxy = connection.clone();
+        // Only the proxy fields are needed; do not keep the rest in memory.
+        proxy.client_key_pem = crate::models::SecretString::default();
+        proxy.proxy_password = crate::models::SecretString::default();
+        if let Ok(mut proxies) = self.proxies.lock() {
+            proxies.insert(account_id, proxy);
+        }
+    }
+
+    /// The account's proxy URL for token requests; `None` without a proxy.
+    async fn proxy_url(&self, account_id: i64) -> Result<Option<String>> {
+        let known = self
+            .proxies
+            .lock()
+            .ok()
+            .and_then(|proxies| proxies.get(&account_id).cloned());
+        let Some(mut connection) = known else {
+            return Ok(None);
+        };
+        if !connection.proxy_username.is_empty()
+            && let Ok(password) =
+                secrets::load_async(self.credentials.clone(), account_id, Slot::ProxyPassword).await
+        {
+            connection.proxy_password = crate::models::SecretString::new(password);
+        }
+        crate::proxy_url::for_connection(&connection)
     }
 
     /// Drop a provider-rejected access token. The next request performs a
@@ -291,7 +325,8 @@ impl TokenProvider {
             form.push(("client_secret".to_string(), cs));
         }
 
-        let body = post_form(cfg.token_url, &form).await?;
+        let proxy = self.proxy_url(account_id).await?;
+        let body = post_form_via(cfg.token_url, &form, proxy.as_deref()).await?;
         let tok: TokenResponse = serde_json::from_str(&body).map_err(|_| {
             // invalid_grant / consent_required => the scope was never granted.
             if token_error_requires_reauth(&body) {
@@ -358,7 +393,8 @@ impl TokenProvider {
             form.push(("client_secret".to_string(), cs));
         }
 
-        let body = post_form(cfg.token_url, &form).await?;
+        let proxy = self.proxy_url(account_id).await?;
+        let body = post_form_via(cfg.token_url, &form, proxy.as_deref()).await?;
         let tok: TokenResponse = serde_json::from_str(&body).map_err(|_| {
             if token_error_requires_reauth(&body) {
                 CoreError::NeedsReauth
@@ -648,6 +684,40 @@ mod tests {
             provider.access_token(17, Provider::Gmail).await.unwrap(),
             "access-token"
         );
+    }
+
+    #[cfg(desktop)]
+    #[tokio::test]
+    async fn token_requests_use_the_registered_account_proxy_with_its_login() {
+        let directory = tempfile::tempdir().unwrap();
+        let credentials: CredentialStoreHandle = Arc::new(
+            secrets::DevelopmentFileCredentialStore::new(directory.path().join("credentials.json")),
+        );
+        let provider = TokenProvider::new(
+            credentials.clone(),
+            Arc::new(crate::oauth::redirect::LoopbackRedirectBroker::default()),
+        );
+        assert_eq!(provider.proxy_url(5).await.unwrap(), None);
+        let mut connection = crate::models::MailConnectionSettings {
+            proxy: crate::models::ProxyKind::Socks5,
+            proxy_host: "proxy.example.org".into(),
+            proxy_port: 1080,
+            proxy_username: "ben".into(),
+            ..Default::default()
+        };
+        secrets::store_async(credentials.clone(), 5, Slot::ProxyPassword, "p@ss".into())
+            .await
+            .unwrap();
+        provider.set_proxy(5, &connection);
+        assert_eq!(
+            provider.proxy_url(5).await.unwrap().as_deref(),
+            Some("socks5h://ben:p%40ss@proxy.example.org:1080")
+        );
+        // Another account is unaffected; removing the proxy takes effect.
+        assert_eq!(provider.proxy_url(6).await.unwrap(), None);
+        connection.proxy = crate::models::ProxyKind::None;
+        provider.set_proxy(5, &connection);
+        assert_eq!(provider.proxy_url(5).await.unwrap(), None);
     }
 
     #[cfg(desktop)]

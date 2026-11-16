@@ -6,7 +6,8 @@
 use super::*;
 use std::sync::{Arc, Mutex};
 use rustmail_core::exchange::{
-    AddExchangeAccountArgs, ExchangeCloud, ExchangeEndpoint, ExchangeSettings, ExchangeSignIn,
+    AddExchangeAccountArgs, ExchangeCloud, ExchangeEndpoint, ExchangeProxy, ExchangeSettings,
+    ExchangeSignIn,
     auth::{AuthorizationRequest, TokenSet},
     settings::LOOPBACK_REDIRECT_URI,
 };
@@ -15,6 +16,7 @@ use rustmail_core::exchange::{
 pub(super) struct PendingManual {
     core: CoreMailSource,
     settings: ExchangeSettings,
+    proxy: ExchangeProxy,
     request: AuthorizationRequest,
     email: String,
     display_name: Option<String>,
@@ -50,6 +52,42 @@ pub(super) fn settings_from_form(app: &AppWindow) -> ExchangeSettings {
         shared_mailbox: ui.get_mailbox().trim().to_owned(),
         ..ExchangeSettings::default()
     }
+}
+
+/// The proxy typed into the form. `Err` carries the message to show.
+fn proxy_from_form(app: &AppWindow) -> Result<ExchangeProxy, UiMessage> {
+    let ui = app.global::<ExchangeSetupUi>();
+    proxy_from_fields(
+        ui.get_proxy_kind().as_str(),
+        ui.get_proxy_host().as_str(),
+        ui.get_proxy_port().as_str(),
+        ui.get_proxy_username().as_str(),
+        ui.get_proxy_password().as_str(),
+    )
+}
+
+fn proxy_from_fields(
+    kind: &str,
+    host: &str,
+    port: &str,
+    username: &str,
+    password: &str,
+) -> Result<ExchangeProxy, UiMessage> {
+    let port = match port.trim() {
+        "" => 0,
+        text => text
+            .parse::<u16>()
+            .ok()
+            .filter(|port| *port != 0)
+            .ok_or_else(|| UiMessage::plain("Proxy port must be between 1 and 65535."))?,
+    };
+    Ok(ExchangeProxy {
+        kind: rustmail_core::models::ProxyKind::parse(kind).unwrap_or_default(),
+        host: host.trim().to_owned(),
+        port,
+        username: username.trim().to_owned(),
+        password: rustmail_core::models::SecretString::new(password),
+    })
 }
 
 fn failed(error: impl std::fmt::Display) -> UiTaskUpdate {
@@ -111,10 +149,11 @@ async fn finish(
     if let Some(account_id) = edit {
         let result = core
             .file_core()
-            .update_exchange_account(
+            .update_exchange_account_with_proxy(
                 account_id,
                 args.display_name.clone(),
                 args.exchange.clone(),
+                args.proxy.clone(),
                 Some(tokens),
             )
             .await;
@@ -200,6 +239,28 @@ pub(super) fn begin(
     let edit = Some(ui.get_edit_account_id())
         .filter(|id| *id != 0)
         .map(i64::from);
+    let proxy = match proxy_from_form(app) {
+        Ok(proxy) => proxy,
+        Err(message) => {
+            app.set_sync_status(message);
+            return;
+        }
+    };
+    // Every sign-in request goes through the proxy of the form. A saved
+    // password that was left blank comes from the credential store.
+    let proxy_url = match edit {
+        Some(account_id) if proxy.password.is_empty() && !proxy.username.is_empty() => runtime
+            .block_on(core.file_core().exchange_proxy_url(account_id, &proxy)),
+        _ => proxy.url(),
+    };
+    let mut settings = settings;
+    match proxy_url {
+        Ok(url) => settings.proxy_url = url.unwrap_or_default(),
+        Err(error) => {
+            app.set_sync_status(UiMessage::detail("Exchange sign-in failed: {}", error));
+            return;
+        }
+    }
     // Editing an account: settings that do not change what the sign-in was
     // issued for are saved at once, with no new sign-in.
     if let Some(account_id) = edit {
@@ -234,7 +295,13 @@ pub(super) fn begin(
                 }
                 let update = match core
                     .file_core()
-                    .update_exchange_account(account_id, display_name, settings, None)
+                    .update_exchange_account_with_proxy(
+                        account_id,
+                        display_name,
+                        settings,
+                        Some(proxy),
+                        None,
+                    )
                     .await
                 {
                     Ok(account) => done(
@@ -268,6 +335,7 @@ pub(super) fn begin(
                 *pending.borrow_mut() = Some(PendingManual {
                     core,
                     settings,
+                    proxy,
                     request,
                     email,
                     display_name,
@@ -307,6 +375,7 @@ pub(super) fn begin(
                             email,
                             display_name,
                             exchange: settings,
+                            proxy: Some(proxy),
                         };
                         finish(core, args, edit, tokens, weak, updates).await;
                     }
@@ -344,6 +413,7 @@ pub(super) fn begin(
                             email,
                             display_name,
                             exchange: settings,
+                            proxy: Some(proxy),
                         };
                         finish(core, args, edit, tokens, weak, updates).await;
                     }
@@ -397,8 +467,18 @@ pub(super) fn register(
             if let Ok(mut slot) = original.lock() {
                 *slot = Some((i64::from(account_id), settings.clone()));
             }
+            let proxy = core
+                .file_core()
+                .exchange_account_proxy(i64::from(account_id))
+                .await
+                .unwrap_or_default();
             let _ = weak.upgrade_in_event_loop(move |app| {
                 let ui = app.global::<ExchangeSetupUi>();
+                ui.set_proxy_kind(proxy.kind.as_str().into());
+                ui.set_proxy_host(proxy.host.into());
+                ui.set_proxy_port(if proxy.port == 0 { String::new() } else { proxy.port.to_string() }.into());
+                ui.set_proxy_username(proxy.username.into());
+                ui.set_proxy_password("".into());
                 ui.set_sign_in(settings.sign_in.as_str().into());
                 ui.set_client_id(settings.client_id.into());
                 ui.set_tenant(settings.tenant.into());
@@ -438,6 +518,7 @@ pub(super) fn register(
             let PendingManual {
                 core,
                 settings,
+                proxy,
                 request,
                 email,
                 display_name,
@@ -453,6 +534,7 @@ pub(super) fn register(
                         email,
                         display_name,
                         exchange: settings,
+                        proxy: Some(proxy),
                     };
                     finish(core, args, edit, tokens, weak, updates).await;
                 }
@@ -504,5 +586,32 @@ pub(super) fn register(
         begin(
             app, &state, &runtime, &updates, &opener, &pending, &original, email,
         );
+    }
+}
+
+#[cfg(test)]
+mod proxy_form_tests {
+    use super::*;
+
+    #[test]
+    fn the_proxy_fields_become_one_proxy_or_a_clear_error() {
+        let proxy = proxy_from_fields("socks5", " proxy.example.org ", "1080", " ben ", "sesame")
+            .unwrap();
+        assert_eq!(proxy.kind, rustmail_core::models::ProxyKind::Socks5);
+        assert_eq!((proxy.host.as_str(), proxy.port), ("proxy.example.org", 1080));
+        assert_eq!(proxy.username, "ben");
+        assert_eq!(proxy.password.expose(), "sesame");
+        assert_eq!(
+            proxy.url().unwrap().as_deref(),
+            Some("socks5h://ben:sesame@proxy.example.org:1080")
+        );
+        // No proxy: the other fields are ignored.
+        let none = proxy_from_fields("none", "ignored", "", "ben", "x").unwrap();
+        assert_eq!(none.url().unwrap(), None);
+        // A bad port is refused, and a proxy without host or port has no URL.
+        assert!(proxy_from_fields("http", "h", "70000", "", "").is_err());
+        assert!(proxy_from_fields("http", "h", "0", "", "").is_err());
+        assert!(proxy_from_fields("http", "", "3128", "", "").unwrap().url().is_err());
+        assert!(proxy_from_fields("http", "h", "", "", "").unwrap().url().is_err());
     }
 }

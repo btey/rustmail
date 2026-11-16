@@ -93,11 +93,11 @@ pub struct HttpTransport {
 impl HttpTransport {
     /// Bind credentials to one origin. Server-provided hrefs, persisted
     /// calendar URLs, and redirects can never forward them elsewhere.
-    pub fn new(auth: DavAuth, base_url: &str) -> Result<Self> {
+    pub fn new(auth: DavAuth, base_url: &str, proxy: Option<&str>) -> Result<Self> {
         let base_url = validated_dav_url(base_url)?;
         let origin = base_url.origin();
         let redirect_origin = origin.clone();
-        let client = reqwest::Client::builder()
+        let mut builder = reqwest::Client::builder()
             .user_agent("rustmail-caldav/0.1")
             .timeout(std::time::Duration::from_secs(45))
             .redirect(reqwest::redirect::Policy::custom(move |attempt| {
@@ -108,7 +108,14 @@ impl HttpTransport {
                 } else {
                     attempt.follow()
                 }
-            }))
+            }));
+        if let Some(proxy) = proxy {
+            builder = builder.proxy(
+                reqwest::Proxy::all(proxy)
+                    .map_err(|e| CoreError::CalDav(format!("proxy setting: {e}")))?,
+            );
+        }
+        let client = builder
             .build()
             .map_err(|e| CoreError::CalDav(format!("http client: {e}")))?;
         Ok(Self {
@@ -246,5 +253,55 @@ mod url_tests {
         ] {
             assert!(validated_dav_url(unsafe_url).is_err(), "{unsafe_url}");
         }
+    }
+}
+
+#[cfg(test)]
+mod proxy_tests {
+    use super::*;
+    use crate::proxy_url::test_proxy;
+
+    #[tokio::test]
+    async fn requests_go_through_the_account_proxy_with_its_login() {
+        let (port, heads) = test_proxy::http_proxy("{}").await;
+        let proxy = format!("http://ben:sesame@127.0.0.1:{port}/");
+        let transport = HttpTransport::new(
+            DavAuth::Basic("user".into(), "pass".into()),
+            "http://127.0.0.1:9/dav/",
+            Some(&proxy),
+        )
+        .unwrap();
+        let reply = transport
+            .request("PROPFIND", "http://127.0.0.1:9/dav/", Some("0"), &[], None)
+            .await
+            .unwrap();
+        assert_eq!(reply.status, 200);
+        let heads = heads.lock().unwrap();
+        assert!(
+            heads[0].starts_with("PROPFIND http://127.0.0.1:9/dav/ "),
+            "{}",
+            heads[0]
+        );
+        let login = format!(
+            "proxy-authorization: Basic {}",
+            test_proxy::basic("ben", "sesame")
+        );
+        assert!(
+            heads[0].to_lowercase().contains(&login.to_lowercase()),
+            "{}",
+            heads[0]
+        );
+    }
+
+    #[test]
+    fn an_invalid_proxy_address_is_refused() {
+        assert!(
+            HttpTransport::new(
+                DavAuth::Bearer("t".into()),
+                "http://127.0.0.1:9/dav/",
+                Some("not a proxy")
+            )
+            .is_err()
+        );
     }
 }

@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-16 14:57+0000\n"
+"POT-Creation-Date: 2026-11-16 18:58+0000\n"
 "PO-Revision-Date: 2026-09-15 12:00+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Turkish\n"
@@ -1524,7 +1524,7 @@ msgstr ""
 msgid "Choose Gmail or Outlook OAuth."
 msgstr "Gmail veya Outlook OAuth seçin."
 
-#: ui/app.slint:554 ui/components/exchange-setup.slint:307
+#: ui/app.slint:554 ui/components/exchange-setup.slint:360
 msgid "Complete sign-in in your browser, or choose Cancel here."
 msgstr "Oturum açmayı tarayıcınızda tamamlayın veya burada İptal'i seçin."
 
@@ -3102,59 +3102,59 @@ msgstr "E-posta şablonu silinsin mi?"
 msgid "Delete this template from this device?"
 msgstr "Bu şablon bu cihazdan silinsin mi?"
 
-#: ui/components/exchange-setup.slint:55
+#: ui/components/exchange-setup.slint:62
 msgid "Paste address"
 msgstr "Adresi yapıştır"
 
-#: ui/components/exchange-setup.slint:59
+#: ui/components/exchange-setup.slint:66
 msgid "Device code"
 msgstr "Cihaz kodu"
 
-#: ui/components/exchange-setup.slint:63
+#: ui/components/exchange-setup.slint:70
 msgid "Browser"
 msgstr "Tarayıcı"
 
-#: ui/components/exchange-setup.slint:75
+#: ui/components/exchange-setup.slint:82
 msgid "Resource"
 msgstr "Kaynak"
 
-#: ui/components/exchange-setup.slint:76
+#: ui/components/exchange-setup.slint:83
 msgid "Scopes"
 msgstr "Kapsamlar"
 
-#: ui/components/exchange-setup.slint:84
+#: ui/components/exchange-setup.slint:91
 msgid "Worldwide"
 msgstr "Dünya geneli"
 
-#: ui/components/exchange-setup.slint:85
+#: ui/components/exchange-setup.slint:92
 msgid "US Gov."
 msgstr "ABD Kamu"
 
-#: ui/components/exchange-setup.slint:86
+#: ui/components/exchange-setup.slint:93
 msgid "China"
 msgstr "Çin"
 
-#: ui/components/exchange-setup.slint:87
+#: ui/components/exchange-setup.slint:94
 msgid "Germany"
 msgstr "Almanya"
 
-#: ui/components/exchange-setup.slint:88 ui/components/sidebar.slint:343
+#: ui/components/exchange-setup.slint:95 ui/components/sidebar.slint:343
 msgid "Other"
 msgstr "Diğer"
 
-#: ui/components/exchange-setup.slint:109
+#: ui/components/exchange-setup.slint:116
 msgid ""
-"Signs in to Microsoft 365 directly with OAuth, with no IMAP, SMTP or proxy. "
-"No password is typed here or stored."
+"Signs in to Microsoft 365 directly with OAuth, with no IMAP or SMTP. No "
+"password is typed here or stored."
 msgstr ""
-"Microsoft 365'e IMAP, SMTP veya proxy olmadan doğrudan OAuth ile bağlanır. "
-"Burada parola girilmez veya saklanmaz."
+"Microsoft 365'e doğrudan OAuth ile, IMAP veya SMTP olmadan bağlanır. Burada "
+"parola girilmez ve saklanmaz."
 
-#: ui/components/exchange-setup.slint:113
+#: ui/components/exchange-setup.slint:120
 msgid "Sign-in method"
 msgstr "Oturum açma yöntemi"
 
-#: ui/components/exchange-setup.slint:119
+#: ui/components/exchange-setup.slint:126
 msgid ""
 "Paste address: Rustmail shows a sign-in address. Open it in any browser, "
 "sign in, then paste the address the browser ends on (or its code) here."
@@ -3163,7 +3163,7 @@ msgstr ""
 "tarayıcıda açın, oturum açın, ardından tarayıcının vardığı adresi (veya "
 "kodu) buraya yapıştırın."
 
-#: ui/components/exchange-setup.slint:121
+#: ui/components/exchange-setup.slint:128
 msgid ""
 "Device code: Rustmail shows a short code. Enter it at the Microsoft address "
 "on any device, then wait here."
@@ -3171,7 +3171,7 @@ msgstr ""
 "Cihaz kodu: Rustmail kısa bir kod gösterir. Herhangi bir cihazda Microsoft "
 "adresine girin, ardından burada bekleyin."
 
-#: ui/components/exchange-setup.slint:122
+#: ui/components/exchange-setup.slint:129
 msgid ""
 "Browser: Rustmail opens your browser and waits for it to return to this "
 "computer. This needs a client ID of your own app registration with a http://"
@@ -3181,23 +3181,23 @@ msgstr ""
 "Bunun için http://localhost yönlendirmeli kendi uygulama kaydınızın istemci "
 "kimliği gerekir."
 
-#: ui/components/exchange-setup.slint:128
+#: ui/components/exchange-setup.slint:135
 msgid "Display name · Optional"
 msgstr "Görünen ad · İsteğe bağlı"
 
-#: ui/components/exchange-setup.slint:130
+#: ui/components/exchange-setup.slint:137
 msgid "Shown in the account list"
 msgstr "Hesap listesinde gösterilir"
 
-#: ui/components/exchange-setup.slint:137
+#: ui/components/exchange-setup.slint:144
 msgid "Client ID · Optional"
 msgstr "İstemci kimliği · İsteğe bağlı"
 
-#: ui/components/exchange-setup.slint:139
+#: ui/components/exchange-setup.slint:146
 msgid "Built-in: Microsoft Office client"
 msgstr "Yerleşik: Microsoft Office istemcisi"
 
-#: ui/components/exchange-setup.slint:145
+#: ui/components/exchange-setup.slint:152
 msgid ""
 "The built-in client ID is Microsoft's own Office app, not Rustmail's. It "
 "signs in with the Resource style below. Your organization's sign-in log "
@@ -3212,7 +3212,7 @@ msgstr ""
 "başarısız olursa Microsoft Entra ID'de kendi uygulama kaydınızın istemci "
 "kimliğini girin."
 
-#: ui/components/exchange-setup.slint:146
+#: ui/components/exchange-setup.slint:153
 msgid ""
 "Using the client ID of your own app registration. Allow public client flows "
 "for it in Microsoft Entra ID."
@@ -3220,31 +3220,31 @@ msgstr ""
 "Kendi uygulama kaydınızın istemci kimliği kullanılıyor. Microsoft Entra "
 "ID'de bunun için genel istemci akışlarına izin verin."
 
-#: ui/components/exchange-setup.slint:152
+#: ui/components/exchange-setup.slint:159
 msgid "Tenant · Optional"
 msgstr "Kiracı · İsteğe bağlı"
 
-#: ui/components/exchange-setup.slint:154
+#: ui/components/exchange-setup.slint:161
 msgid "common, organizations, a tenant ID or contoso.com"
 msgstr "common, organizations, bir kiracı kimliği veya contoso.com"
 
-#: ui/components/exchange-setup.slint:161
+#: ui/components/exchange-setup.slint:168
 msgid "Redirect URI · Optional"
 msgstr "Yönlendirme URI'si · İsteğe bağlı"
 
-#: ui/components/exchange-setup.slint:163
+#: ui/components/exchange-setup.slint:170
 msgid "http://localhost"
 msgstr "http://localhost"
 
-#: ui/components/exchange-setup.slint:163
+#: ui/components/exchange-setup.slint:170
 msgid "urn:ietf:wg:oauth:2.0:oob"
 msgstr "urn:ietf:wg:oauth:2.0:oob"
 
-#: ui/components/exchange-setup.slint:168
+#: ui/components/exchange-setup.slint:175
 msgid "Sign-in style"
 msgstr "Oturum açma biçimi"
 
-#: ui/components/exchange-setup.slint:174
+#: ui/components/exchange-setup.slint:181
 msgid ""
 "Resource: Microsoft gives the permissions already approved for the app, so "
 "no scopes are asked for (the classic sign-in, as DavMail does). Needed for "
@@ -3254,7 +3254,7 @@ msgstr ""
 "yüzden kapsam istenmez (DavMail'in yaptığı gibi klasik oturum açma). "
 "Microsoft'un yerleşik Office istemcisi için gereklidir."
 
-#: ui/components/exchange-setup.slint:175
+#: ui/components/exchange-setup.slint:182
 msgid ""
 "Scopes: Rustmail asks Microsoft for the permissions listed below. This needs "
 "your own app registration with those permissions."
@@ -3262,70 +3262,90 @@ msgstr ""
 "Kapsamlar: Rustmail, Microsoft'tan aşağıda listelenen izinleri ister. Bu "
 "izinlere sahip kendi uygulama kaydınız gerekir."
 
-#: ui/components/exchange-setup.slint:181
+#: ui/components/exchange-setup.slint:188
 msgid "Scopes · Optional"
 msgstr "Kapsamlar · İsteğe bağlı"
 
-#: ui/components/exchange-setup.slint:183
+#: ui/components/exchange-setup.slint:190
 msgid "Default: mail, calendar and contacts"
 msgstr "Varsayılan: posta, takvim ve kişiler"
 
-#: ui/components/exchange-setup.slint:188
+#: ui/components/exchange-setup.slint:195
 msgid "Cloud"
 msgstr "Bulut"
 
-#: ui/components/exchange-setup.slint:195
+#: ui/components/exchange-setup.slint:202
 msgid "Login address"
 msgstr "Oturum açma adresi"
 
-#: ui/components/exchange-setup.slint:197
+#: ui/components/exchange-setup.slint:204
 msgid "https://login.example.org"
 msgstr "https://login.example.org"
 
-#: ui/components/exchange-setup.slint:204
+#: ui/components/exchange-setup.slint:211
 msgid "Graph address"
 msgstr "Graph adresi"
 
-#: ui/components/exchange-setup.slint:206
+#: ui/components/exchange-setup.slint:213
 msgid "https://graph.example.org"
 msgstr "https://graph.example.org"
 
-#: ui/components/exchange-setup.slint:213
+#: ui/components/exchange-setup.slint:220
 msgid "Shared mailbox · Optional"
 msgstr "Paylaşılan posta kutusu · İsteğe bağlı"
 
-#: ui/components/exchange-setup.slint:215
+#: ui/components/exchange-setup.slint:222
 msgid "shared@example.com"
 msgstr "shared@example.com"
 
-#: ui/components/exchange-setup.slint:222
+#: ui/components/exchange-setup.slint:227
+msgid "Proxy"
+msgstr "Vekil sunucu"
+
+#: ui/components/exchange-setup.slint:241
+msgid "Proxy host"
+msgstr "Vekil sunucu adresi"
+
+#: ui/components/exchange-setup.slint:249
+msgid "Proxy port"
+msgstr "Vekil sunucu portu"
+
+#: ui/components/exchange-setup.slint:258
+msgid "Proxy user name (empty = no login)"
+msgstr "Vekil sunucu kullanıcı adı (boş = oturum açma yok)"
+
+#: ui/components/exchange-setup.slint:266
+msgid "Proxy password (empty = keep the saved one)"
+msgstr "Vekil sunucu parolası (boş = kayıtlı olanı koru)"
+
+#: ui/components/exchange-setup.slint:275
 msgid "Work offline for this account"
 msgstr "Bu hesap için çevrimdışı çalış"
 
-#: ui/components/exchange-setup.slint:223
+#: ui/components/exchange-setup.slint:276
 msgid ""
 "No requests are made; changes wait and are sent when you go back online."
 msgstr ""
 "İstek gönderilmez; değişiklikler bekler ve yeniden çevrimiçi olduğunuzda "
 "gönderilir."
 
-#: ui/components/exchange-setup.slint:233
+#: ui/components/exchange-setup.slint:286
 msgid "Calendar history in days · Optional"
 msgstr "Gün olarak takvim geçmişi · İsteğe bağlı"
 
-#: ui/components/exchange-setup.slint:235
+#: ui/components/exchange-setup.slint:288
 msgid "90"
 msgstr "90"
 
-#: ui/components/exchange-setup.slint:242
+#: ui/components/exchange-setup.slint:295
 msgid "Calendar ahead in days · Optional"
 msgstr "Gün olarak ileri takvim · İsteğe bağlı"
 
-#: ui/components/exchange-setup.slint:244
+#: ui/components/exchange-setup.slint:297
 msgid "400"
 msgstr "400"
 
-#: ui/components/exchange-setup.slint:253
+#: ui/components/exchange-setup.slint:306
 msgid ""
 "1. Open this address and sign in. 2. Copy the address of the page you end on "
 "and paste it below."
@@ -3333,36 +3353,36 @@ msgstr ""
 "1. Bu adresi açın ve oturum açın. 2. Vardığınız sayfanın adresini kopyalayıp "
 "aşağıya yapıştırın."
 
-#: ui/components/exchange-setup.slint:260 ui/views/mail-reading-pane.slint:550
+#: ui/components/exchange-setup.slint:313 ui/views/mail-reading-pane.slint:550
 #: ui/views/mail-reading-pane.slint:2072
 msgid "Open in browser"
 msgstr "Tarayıcıda aç"
 
-#: ui/components/exchange-setup.slint:261 ui/views/mail-reading-pane.slint:237
+#: ui/components/exchange-setup.slint:314 ui/views/mail-reading-pane.slint:237
 msgid "Copy address"
 msgstr "Adresi kopyala"
 
-#: ui/components/exchange-setup.slint:265
+#: ui/components/exchange-setup.slint:318
 msgid "Address or code from the browser"
 msgstr "Tarayıcıdan adres veya kod"
 
-#: ui/components/exchange-setup.slint:267
+#: ui/components/exchange-setup.slint:320
 msgid "Paste it here"
 msgstr "Buraya yapıştırın"
 
-#: ui/components/exchange-setup.slint:275
+#: ui/components/exchange-setup.slint:328
 msgid "Finish sign-in"
 msgstr "Oturum açmayı bitir"
 
-#: ui/components/exchange-setup.slint:283
+#: ui/components/exchange-setup.slint:336
 msgid "Go to the address below on any device and enter this code:"
 msgstr "Herhangi bir cihazda aşağıdaki adrese gidin ve bu kodu girin:"
 
-#: ui/components/exchange-setup.slint:298
+#: ui/components/exchange-setup.slint:351
 msgid "Open address"
 msgstr "Adresi aç"
 
-#: ui/components/exchange-setup.slint:299
+#: ui/components/exchange-setup.slint:352
 msgid "Copy code"
 msgstr "Kodu kopyala"
 
@@ -3861,26 +3881,6 @@ msgstr "Bağlantı zaman aşımı, saniye (boş = 30)"
 #: ui/components/mail-security-fields.slint:172
 msgid "Maximum simultaneous IMAP connections (empty = unlimited; 1–20)"
 msgstr "En fazla eşzamanlı IMAP bağlantısı (boş = sınırsız; 1–20)"
-
-#: ui/components/mail-security-fields.slint:174
-msgid "Proxy"
-msgstr "Vekil sunucu"
-
-#: ui/components/mail-security-fields.slint:183
-msgid "Proxy host"
-msgstr "Vekil sunucu adresi"
-
-#: ui/components/mail-security-fields.slint:185
-msgid "Proxy port"
-msgstr "Vekil sunucu portu"
-
-#: ui/components/mail-security-fields.slint:187
-msgid "Proxy user name (empty = no login)"
-msgstr "Vekil sunucu kullanıcı adı (boş = oturum açma yok)"
-
-#: ui/components/mail-security-fields.slint:189
-msgid "Proxy password (empty = keep the saved one)"
-msgstr "Vekil sunucu parolası (boş = kayıtlı olanı koru)"
 
 #: ui/components/mail-security-fields.slint:191
 msgid ""
@@ -8150,6 +8150,13 @@ msgstr "Önceki boyuta getir"
 #: ui/window-chrome.slint:205 ui/window-chrome.slint:242
 msgid "Maximize"
 msgstr "Ekranı kapla"
+
+#~ msgid ""
+#~ "Signs in to Microsoft 365 directly with OAuth, with no IMAP, SMTP or "
+#~ "proxy. No password is typed here or stored."
+#~ msgstr ""
+#~ "Microsoft 365'e IMAP, SMTP veya proxy olmadan doğrudan OAuth ile "
+#~ "bağlanır. Burada parola girilmez veya saklanmaz."
 
 #~ msgid ""
 #~ "The proxy applies to IMAP and SMTP only, and must not require a login."

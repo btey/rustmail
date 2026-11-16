@@ -66,11 +66,16 @@ pub struct HttpTransport {
 }
 
 impl HttpTransport {
-    pub fn new(username: String, password: String, base_url: &str) -> Result<Self> {
+    pub fn new(
+        username: String,
+        password: String,
+        base_url: &str,
+        proxy: Option<&str>,
+    ) -> Result<Self> {
         let base = validated_url(base_url)?;
         let origin = base.origin();
         let redirect_origin = origin.clone();
-        let client = reqwest::Client::builder()
+        let mut builder = reqwest::Client::builder()
             .user_agent("rustmail-carddav/0.1")
             .timeout(std::time::Duration::from_secs(45))
             .redirect(reqwest::redirect::Policy::custom(move |attempt| {
@@ -81,7 +86,14 @@ impl HttpTransport {
                 } else {
                     attempt.follow()
                 }
-            }))
+            }));
+        if let Some(proxy) = proxy {
+            builder = builder.proxy(
+                reqwest::Proxy::all(proxy)
+                    .map_err(|e| super::err(format!("proxy setting: {e}")))?,
+            );
+        }
+        let client = builder
             .build()
             .map_err(|e| super::err(format!("HTTP client: {e}")))?;
         Ok(Self {
@@ -205,5 +217,51 @@ impl Transport for MockTransport {
             .unwrap()
             .pop_front()
             .ok_or_else(|| super::err("mock transport exhausted"))
+    }
+}
+
+#[cfg(test)]
+mod proxy_tests {
+    use super::*;
+    use crate::proxy_url::test_proxy;
+
+    #[tokio::test]
+    async fn requests_go_through_the_account_proxy_with_its_login() {
+        let (port, heads) = test_proxy::http_proxy("{}").await;
+        let proxy = format!("http://ben:sesame@127.0.0.1:{port}/");
+        let transport = HttpTransport::new(
+            "user".into(),
+            "pass".into(),
+            "http://127.0.0.1:9/dav/",
+            Some(&proxy),
+        )
+        .unwrap();
+        let reply = transport
+            .request(
+                "PROPFIND",
+                "http://127.0.0.1:9/dav/",
+                Some("0"),
+                &[],
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(reply.status, 200);
+        let heads = heads.lock().unwrap();
+        assert!(
+            heads[0].starts_with("PROPFIND http://127.0.0.1:9/dav/ "),
+            "{}",
+            heads[0]
+        );
+        let login = format!(
+            "proxy-authorization: Basic {}",
+            test_proxy::basic("ben", "sesame")
+        );
+        assert!(
+            heads[0].to_lowercase().contains(&login.to_lowercase()),
+            "{}",
+            heads[0]
+        );
     }
 }

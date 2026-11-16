@@ -21,6 +21,63 @@ pub struct AddExchangeAccountArgs {
     pub email: String,
     pub display_name: Option<String>,
     pub exchange: ExchangeSettings,
+    /// The proxy of the account, used for the sign-in checks and saved with
+    /// it; `None` leaves the account's saved proxy as it is (none for a new
+    /// account).
+    #[serde(default)]
+    pub proxy: Option<ExchangeProxy>,
+}
+
+/// The proxy fields of the Exchange account form. The password is never
+/// serialized; it goes to the credential store.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ExchangeProxy {
+    pub kind: crate::models::ProxyKind,
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    #[serde(skip)]
+    pub password: crate::models::SecretString,
+}
+
+impl ExchangeProxy {
+    /// The proxy fields of a stored account (the password stays empty).
+    pub fn from_connection(connection: &crate::models::MailConnectionSettings) -> Self {
+        Self {
+            kind: connection.proxy,
+            host: connection.proxy_host.clone(),
+            port: connection.proxy_port,
+            username: connection.proxy_username.clone(),
+            password: Default::default(),
+        }
+    }
+
+    /// Write these fields into the account's connection settings. Without a
+    /// proxy there is no login either.
+    pub(crate) fn apply(&self, connection: &mut crate::models::MailConnectionSettings) {
+        connection.proxy = self.kind;
+        connection.proxy_host = self.host.trim().to_owned();
+        connection.proxy_port = self.port;
+        let with_proxy = self.kind != crate::models::ProxyKind::None;
+        connection.proxy_username = if with_proxy {
+            self.username.trim().to_owned()
+        } else {
+            String::new()
+        };
+        connection.proxy_password = if with_proxy && !connection.proxy_username.is_empty() {
+            self.password.clone()
+        } else {
+            Default::default()
+        };
+    }
+
+    /// The URL for the HTTP clients; `None` without a proxy.
+    pub fn url(&self) -> Result<Option<String>> {
+        let mut connection = crate::models::MailConnectionSettings::default();
+        self.apply(&mut connection);
+        crate::proxy_url::for_connection(&connection)
+    }
 }
 
 pub(crate) mod calendar;
@@ -64,44 +121,9 @@ pub(crate) fn tokens_for(
 /// (CONNECT) proxy, or a SOCKS5 proxy that resolves the host names itself
 /// (`socks5h`). A proxy login, when set, travels in the URL's user info.
 pub(crate) fn settings_for(config: &AccountConfig) -> Result<ExchangeSettings> {
-    use crate::models::ProxyKind;
-    let connection = &config.settings.connection;
-    let mut settings = connection.exchange.clone();
-    match connection.proxy {
-        ProxyKind::None => {}
-        ProxyKind::Http | ProxyKind::Socks5 => {
-            let host = connection.proxy_host.trim();
-            let scheme = if connection.proxy == ProxyKind::Http {
-                "http"
-            } else {
-                "socks5h"
-            };
-            let mut url = url::Url::parse(&format!("{scheme}://{host}:{}", connection.proxy_port))
-                .ok()
-                .filter(|url| {
-                    url.host_str().is_some()
-                        && !host.is_empty()
-                        && connection.proxy_port != 0
-                        && url.username().is_empty()
-                })
-                .ok_or_else(|| {
-                    crate::error::CoreError::Other(
-                        "The proxy host or port of this account is not valid.".into(),
-                    )
-                })?;
-            if !connection.proxy_username.is_empty() {
-                let login = url.set_username(&connection.proxy_username).is_ok()
-                    && url
-                        .set_password(Some(connection.proxy_password.expose()))
-                        .is_ok();
-                if !login {
-                    return Err(crate::error::CoreError::Other(
-                        "The proxy login of this account is not valid.".into(),
-                    ));
-                }
-            }
-            settings.proxy_url = url.to_string();
-        }
+    let mut settings = config.settings.connection.exchange.clone();
+    if let Some(url) = crate::proxy_url::for_connection(&config.settings.connection)? {
+        settings.proxy_url = url;
     }
     Ok(settings)
 }
