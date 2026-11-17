@@ -27,6 +27,8 @@ pub struct CardDavObject {
     pub remote_exists: bool,
     pub dirty: bool,
     pub deleted: bool,
+    /// Local edit counter; a push clears `dirty` only for the revision it sent.
+    pub revision: i64,
 }
 
 fn config_row(row: &Row<'_>) -> rusqlite::Result<CardDavConfig> {
@@ -65,6 +67,7 @@ fn object_row(row: &Row<'_>) -> rusqlite::Result<CardDavObject> {
         remote_exists: row.get::<_, i64>(6)? != 0,
         dirty: row.get::<_, i64>(7)? != 0,
         deleted: row.get::<_, i64>(8)? != 0,
+        revision: row.get(9)?,
     })
 }
 
@@ -287,7 +290,7 @@ pub fn object_etags(conn: &Connection, book_id: i64) -> Result<Vec<(String, Opti
 
 pub fn dirty_objects(conn: &Connection, account_id: i64) -> Result<Vec<CardDavObject>> {
     let mut stmt = conn.prepare(
-        "SELECT o.id,o.addressbook_id,o.contact_id,o.href,o.etag,o.vcard_raw,o.remote_exists,o.dirty,o.deleted
+        "SELECT o.id,o.addressbook_id,o.contact_id,o.href,o.etag,o.vcard_raw,o.remote_exists,o.dirty,o.deleted,o.revision
          FROM carddav_objects o JOIN carddav_addressbooks b ON b.id=o.addressbook_id
          WHERE b.account_id=?1 AND b.enabled=1 AND b.read_only=0 AND o.dirty=1 ORDER BY o.id",
     )?;
@@ -450,7 +453,7 @@ pub fn remove_remote(conn: &Connection, book_id: i64, href: &str) -> Result<()> 
 
 pub fn mark_saved_contact_dirty(conn: &Connection, contact_id: i64) -> Result<()> {
     conn.execute(
-        "UPDATE carddav_objects SET dirty=1 WHERE contact_id=?1 AND deleted=0",
+        "UPDATE carddav_objects SET dirty=1,revision=revision+1 WHERE contact_id=?1 AND deleted=0",
         [contact_id],
     )?;
     Ok(())
@@ -458,21 +461,25 @@ pub fn mark_saved_contact_dirty(conn: &Connection, contact_id: i64) -> Result<()
 
 pub fn mark_deleted_contact(conn: &Connection, contact_id: i64) -> Result<bool> {
     let changed = conn.execute(
-        "UPDATE carddav_objects SET contact_id=NULL,dirty=1,deleted=1 WHERE contact_id=?1",
+        "UPDATE carddav_objects SET contact_id=NULL,dirty=1,deleted=1,revision=revision+1 WHERE contact_id=?1",
         [contact_id],
     )?;
     Ok(changed > 0)
 }
 
+/// After a successful push: record the server's copy. `revision` is the one
+/// that was sent; a contact edited meanwhile stays dirty for the next cycle.
 pub fn clear_dirty(
     conn: &Connection,
     object_id: i64,
     etag: Option<&str>,
     vcard: &str,
+    revision: i64,
 ) -> Result<()> {
     conn.execute(
-        "UPDATE carddav_objects SET etag=?2,vcard_raw=?3,remote_exists=1,dirty=0 WHERE id=?1",
-        params![object_id, etag, vcard],
+        "UPDATE carddav_objects SET etag=?2,vcard_raw=?3,remote_exists=1,
+           dirty=CASE WHEN revision=?4 THEN 0 ELSE dirty END WHERE id=?1",
+        params![object_id, etag, vcard, revision],
     )?;
     Ok(())
 }
@@ -493,7 +500,7 @@ pub fn attach_new_contact(conn: &Connection, account_id: i64, contact_id: i64) -
     // existing remote contact, update that resource instead of creating a
     // duplicate vCard on the same server.
     if conn.execute(
-        "UPDATE carddav_objects SET dirty=1
+        "UPDATE carddav_objects SET dirty=1,revision=revision+1
          WHERE contact_id=?1 AND deleted=0 AND addressbook_id IN
            (SELECT id FROM carddav_addressbooks WHERE account_id=?2)",
         params![contact_id, account_id],

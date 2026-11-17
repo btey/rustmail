@@ -40,6 +40,7 @@ async fn push_contacts(ctx: &SyncCtx, config: &AccountConfig, client: &GraphMail
             continue;
         };
         let id = object.id;
+        let revision = object.revision;
         let outcome: Result<()> = async {
             if object.deleted {
                 if object.remote_exists {
@@ -99,8 +100,9 @@ async fn push_contacts(ctx: &SyncCtx, config: &AccountConfig, client: &GraphMail
                         ctx.db
                             .write(move |conn| {
                                 conn.execute(
-                                    "UPDATE carddav_objects SET dirty=0 WHERE id=?1",
-                                    [id],
+                                    "UPDATE carddav_objects
+                                     SET dirty=CASE WHEN revision=?2 THEN 0 ELSE dirty END WHERE id=?1",
+                                    rusqlite::params![id, revision],
                                 )?;
                                 Ok(())
                             })
@@ -113,7 +115,7 @@ async fn push_contacts(ctx: &SyncCtx, config: &AccountConfig, client: &GraphMail
                         }
                         ctx.db
                             .write(move |conn| {
-                                repo::carddav::clear_dirty(conn, id, key.as_deref(), &vcard)
+                                repo::carddav::clear_dirty(conn, id, key.as_deref(), &vcard, revision)
                             })
                             .await?;
                     }
@@ -127,8 +129,9 @@ async fn push_contacts(ctx: &SyncCtx, config: &AccountConfig, client: &GraphMail
                     .write(move |conn| {
                         conn.execute(
                             "UPDATE carddav_objects SET href=?2,etag=?3,vcard_raw=?4,
-                               remote_exists=1,dirty=0 WHERE id=?1",
-                            rusqlite::params![id, graph_id, key, vcard],
+                               remote_exists=1,
+                               dirty=CASE WHEN revision=?5 THEN 0 ELSE dirty END WHERE id=?1",
+                            rusqlite::params![id, graph_id, key, vcard, revision],
                         )?;
                         Ok(())
                     })

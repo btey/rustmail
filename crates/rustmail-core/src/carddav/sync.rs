@@ -252,10 +252,13 @@ async fn push_dirty(db: &Db, transport: &dyn Transport, account_id: i64) -> Resu
             response.etag = get.etag;
         }
         let id = object.id;
+        let revision = object.revision;
         let etag = response.etag.filter(|etag| !etag.trim().is_empty());
         let missing_etag = etag.is_none();
-        db.write(move |conn| repo::carddav::clear_dirty(conn, id, etag.as_deref(), &saved_body))
-            .await?;
+        db.write(move |conn| {
+            repo::carddav::clear_dirty(conn, id, etag.as_deref(), &saved_body, revision)
+        })
+        .await?;
         if missing_etag {
             return Err(super::err(format!(
                 "server stored {target} but did not return its required ETag"
@@ -756,6 +759,87 @@ END:VCARD</c:address-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:props
                 .as_deref()
                 .unwrap()
                 .contains("EMAIL;TYPE=PREF:ada@example.test")
+        );
+    }
+
+    #[tokio::test]
+    async fn an_edit_made_during_a_push_stays_dirty() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(&dir.path().join("mail.db")).unwrap();
+        let contact = db
+            .write(|conn| {
+                crate::db::testutil::seed_account(conn);
+                repo::carddav::upsert_config(
+                    conn,
+                    &repo::carddav::CardDavConfig {
+                        account_id: 1,
+                        base_url: "https://dav.test/".into(),
+                        username: "me".into(),
+                        principal_url: None,
+                        home_set_url: "https://dav.test/books/me/".into(),
+                        enabled: true,
+                        last_error: None,
+                    },
+                )?;
+                let book = repo::carddav::upsert_addressbook(
+                    conn,
+                    1,
+                    "https://dav.test/books/me/default/",
+                    Some("Contacts"),
+                    false,
+                )?;
+                let record = vcard::parse(
+                    "BEGIN:VCARD\nVERSION:4.0\nUID:ada\nFN:Ada\nEMAIL:ada@example.test\nEND:VCARD",
+                )?;
+                repo::carddav::upsert_remote(
+                    conn,
+                    1,
+                    book,
+                    "/books/me/default/ada.vcf",
+                    Some("\"old\""),
+                    "old",
+                    &record,
+                )?;
+                let id = repo::contacts::list_records(conn, "", 10)?[0].id;
+                repo::carddav::mark_saved_contact_dirty(conn, id)?;
+                Ok(id)
+            })
+            .await
+            .unwrap();
+        // The push has read the row at this revision ...
+        let sent = db
+            .read(|conn| repo::carddav::dirty_objects(conn, 1))
+            .await
+            .unwrap()
+            .remove(0);
+        // ... and the contact is edited again before the answer arrives.
+        db.write(move |conn| repo::carddav::mark_saved_contact_dirty(conn, contact))
+            .await
+            .unwrap();
+        let (id, revision) = (sent.id, sent.revision);
+        db.write(move |conn| {
+            repo::carddav::clear_dirty(conn, id, Some("\"new\""), "sent", revision)
+        })
+        .await
+        .unwrap();
+        let still = db
+            .read(|conn| repo::carddav::dirty_objects(conn, 1))
+            .await
+            .unwrap();
+        assert_eq!(still.len(), 1, "the newer edit must still be sent");
+        assert_eq!(still[0].etag.as_deref(), Some("\"new\""));
+        // A push of the current revision clears it.
+        let (id, revision) = (still[0].id, still[0].revision);
+        db.write(move |conn| {
+            repo::carddav::clear_dirty(conn, id, Some("\"newer\""), "sent", revision)
+        })
+        .await
+        .unwrap();
+        assert!(
+            db.read(|conn| repo::carddav::dirty_objects(conn, 1))
+                .await
+                .unwrap()
+                .is_empty()
         );
     }
 
