@@ -202,9 +202,11 @@ jobs:
         run: cargo install cargo-audit --locked --version 0.22.2
       - name: Audit the locked dependency graph
         # The first four exceptions are unmaintained notices in optional/build
-        # or Slint/Blitz typography dependencies. The last three cover crates
+        # or Slint/Blitz typography dependencies. The next three cover crates
         # folded into zbus 6: remove them when Slint, ashpd, and ksni migrate
-        # from zbus 5. These are maintenance notices, not vulnerability waivers.
+        # from zbus 5. The final two (humantime, chrono) are unmaintained
+        # notices with no drop-in replacement yet; revisit when upstream moves.
+        # These are maintenance notices, not vulnerability waivers.
         # Deny every other warning and all known vulnerabilities.
         run: |
           for lockfile in Cargo.lock; do
@@ -216,5 +218,7 @@ jobs:
               --ignore RUSTSEC-2026-0370 \
               --ignore RUSTSEC-2026-0371 \
               --ignore RUSTSEC-2026-0372 \
-              --ignore RUSTSEC-2026-0441
+              --ignore RUSTSEC-2026-0441 \
+              --ignore RUSTSEC-2026-0542 \
+              --ignore RUSTSEC-2026-0543
           done
