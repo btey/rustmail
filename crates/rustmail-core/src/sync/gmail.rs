@@ -104,12 +104,25 @@ struct HistoryPage {
 }
 
 impl GmailApi {
-    fn new(ctx: SyncCtx, account: AccountConfig) -> Result<Self> {
-        let http = Client::builder()
+    /// The Gmail REST client, through the account's proxy when it has one.
+    async fn new(ctx: SyncCtx, account: AccountConfig) -> Result<Self> {
+        let proxy = crate::proxy_url::for_account(&ctx.db, &ctx.credentials, account.id).await?;
+        Self::with_proxy(ctx, account, proxy.as_deref())
+    }
+
+    fn with_proxy(ctx: SyncCtx, account: AccountConfig, proxy: Option<&str>) -> Result<Self> {
+        let mut builder = Client::builder()
             .connect_timeout(std::time::Duration::from_secs(10))
             .timeout(HTTP_TIMEOUT)
             .redirect(reqwest::redirect::Policy::none())
-            .user_agent(concat!("Rustmail/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("Rustmail/", env!("CARGO_PKG_VERSION")));
+        if let Some(proxy) = proxy {
+            builder = builder.proxy(
+                reqwest::Proxy::all(proxy)
+                    .map_err(|error| CoreError::Network(format!("proxy setting: {error}")))?,
+            );
+        }
+        let http = builder
             .build()
             .map_err(|error| CoreError::Network(error.to_string()))?;
         Ok(Self { http, ctx, account })
@@ -1287,7 +1300,7 @@ pub(crate) async fn create_user_folder(
     config: &AccountConfig,
     name: &str,
 ) -> Result<()> {
-    let api = GmailApi::new(ctx.clone(), config.clone())?;
+    let api = GmailApi::new(ctx.clone(), config.clone()).await?;
     api.create_label(name, None).await?;
     sync_labels(ctx, config, &api).await
 }
@@ -1304,7 +1317,7 @@ pub(crate) async fn rename_user_folder(
         .read(move |conn| repo::gmail::provider_label_for_folder(conn, account_id, folder_id))
         .await?
         .ok_or_else(|| CoreError::NotFound(format!("Gmail folder {folder_id}")))?;
-    let api = GmailApi::new(ctx.clone(), config.clone())?;
+    let api = GmailApi::new(ctx.clone(), config.clone()).await?;
     api.update_label(&provider_id, name, None).await?;
     sync_labels(ctx, config, &api).await
 }
@@ -1320,7 +1333,7 @@ pub(crate) async fn delete_user_folder(
         .read(move |conn| repo::gmail::provider_label_for_folder(conn, account_id, folder_id))
         .await?
         .ok_or_else(|| CoreError::NotFound(format!("Gmail folder {folder_id}")))?;
-    let api = GmailApi::new(ctx.clone(), config.clone())?;
+    let api = GmailApi::new(ctx.clone(), config.clone()).await?;
     api.delete_label(&provider_id).await?;
     sync_labels(ctx, config, &api).await
 }
@@ -3660,7 +3673,7 @@ async fn run_actor(
     let account_id = config.id;
     debug_assert_eq!(config.provider, Provider::Gmail);
     debug_assert_eq!(config.auth_kind, AuthKind::Oauth2);
-    let api = match GmailApi::new(ctx.clone(), config.clone()) {
+    let api = match GmailApi::new(ctx.clone(), config.clone()).await {
         Ok(api) => api,
         Err(error) => {
             tracing::error!(account_id, %error, "could not create Gmail provider");
@@ -3789,7 +3802,7 @@ async fn run_actor(
 
 async fn run_reader(ctx: SyncCtx, config: AccountConfig, mut rx: mpsc::Receiver<PriorityFetchCmd>) {
     let account_id = config.id;
-    let api = match GmailApi::new(ctx.clone(), config.clone()) {
+    let api = match GmailApi::new(ctx.clone(), config.clone()).await {
         Ok(api) => api,
         Err(error) => {
             tracing::error!(account_id, %error, "could not create Gmail reader");
@@ -3893,6 +3906,94 @@ async fn fetch_attachment(ctx: &SyncCtx, api: &GmailApi, attachment_id: i64) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn gmail_api_requests_go_through_the_account_proxy() {
+        use crate::accounts::secrets::{self, CredentialStoreHandle};
+        use crate::models::{MailConnectionSettings, ProxyKind, SecretString};
+        let (port, heads) = crate::proxy_url::test_proxy::http_proxy("{}").await;
+        let dir = tempfile::tempdir().unwrap();
+        let credentials: CredentialStoreHandle = std::sync::Arc::new(
+            secrets::DevelopmentFileCredentialStore::new(dir.path().join("credentials.json")),
+        );
+        let ctx = SyncCtx {
+            db: crate::db::Db::open(&dir.path().join("mail.db")).unwrap(),
+            calendar_db: crate::db::Db::open_calendar(&dir.path().join("calendar.db")).unwrap(),
+            bus: crate::events::EventBus::new(),
+            paths: std::sync::Arc::new(crate::Paths::for_tests(dir.path())),
+            tokens: crate::oauth::tokens::TokenProvider::new(
+                credentials.clone(),
+                std::sync::Arc::new(crate::oauth::redirect::LoopbackRedirectBroker::default()),
+            ),
+            credentials: credentials.clone(),
+        };
+        let mut config = ctx
+            .db
+            .write(move |conn| {
+                let id = repo::accounts::insert(
+                    conn,
+                    &repo::accounts::NewAccount {
+                        email: "me@example.test",
+                        display_name: None,
+                        avatar_url: None,
+                        provider: Provider::Gmail,
+                        auth_kind: AuthKind::Oauth2,
+                        mail_protocol: crate::MailProtocol::Imap,
+                        username: "me@example.test",
+                        jmap_url: "",
+                        jmap_account_id: None,
+                        imap_host: "imap.gmail.com",
+                        imap_port: 993,
+                        smtp_host: "smtp.gmail.com",
+                        smtp_port: 465,
+                    },
+                )?;
+                Ok(repo::accounts::get_config(conn, id)?.unwrap())
+            })
+            .await
+            .unwrap();
+        config.settings.connection = MailConnectionSettings {
+            proxy: ProxyKind::Http,
+            proxy_host: "127.0.0.1".into(),
+            proxy_port: port,
+            proxy_username: "ben".into(),
+            proxy_password: SecretString::new("sesame"),
+            ..Default::default()
+        };
+        let (id, settings) = (config.id, config.settings.clone());
+        ctx.db
+            .write(move |conn| repo::accounts::set_settings(conn, id, &settings))
+            .await
+            .unwrap();
+        secrets::store_async(
+            credentials,
+            id,
+            crate::accounts::secrets::Slot::ProxyPassword,
+            "sesame".into(),
+        )
+        .await
+        .unwrap();
+        let api = GmailApi::new(ctx, config).await.unwrap();
+        let result = api
+            .http
+            .get("https://gmail.googleapis.com/gmail/v1/users/me/labels")
+            .send()
+            .await;
+        assert!(result.is_err(), "the fake proxy cannot speak TLS");
+        let heads = heads.lock().unwrap();
+        let head = heads.first().expect("the proxy saw no request");
+        assert!(
+            head.starts_with("CONNECT gmail.googleapis.com:443 "),
+            "{head}"
+        );
+        assert!(
+            head.to_lowercase().contains(&format!(
+                "proxy-authorization: basic {}",
+                crate::proxy_url::test_proxy::basic("ben", "sesame").to_lowercase()
+            )),
+            "{head}"
+        );
+    }
 
     #[test]
     fn history_deduplicates_threads_and_advances_only_on_final_page() {

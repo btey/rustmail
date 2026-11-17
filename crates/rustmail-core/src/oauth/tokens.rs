@@ -565,6 +565,8 @@ pub async fn post_form_via(
     proxy: Option<&str>,
 ) -> Result<String> {
     const MAX_OAUTH_RESPONSE_BODY_BYTES: usize = 1024 * 1024;
+    let scoped = proxy.is_none().then(crate::proxy_url::current).flatten();
+    let proxy = proxy.or(scoped.as_deref());
     let proxied;
     static HTTP: once_cell::sync::Lazy<std::result::Result<reqwest::Client, String>> =
         once_cell::sync::Lazy::new(|| {

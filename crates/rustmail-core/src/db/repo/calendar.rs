@@ -25,7 +25,7 @@ macro_rules! sync_event_select {
             "description, attendees_json, join_url, rsvp_status, is_local, ",
             "calendar_id, rrule, starts_at, ends_at, all_day, status, method, ",
             "reminder_minutes, ",
-            "ical_uid, sequence, caldav_href, etag, ical_raw, deleted, tzid ",
+            "ical_uid, sequence, caldav_href, etag, ical_raw, deleted, tzid, revision ",
             "FROM calendar_events ",
             $tail
         )
@@ -73,6 +73,8 @@ pub struct SyncRow {
     pub deleted: bool,
     /// Time zone of a recurring series (a Windows or IANA name), when known.
     pub tzid: Option<String>,
+    /// Local edits so far; a push clears `dirty` only if it is unchanged.
+    pub revision: i64,
 }
 
 fn sync_row(row: &Row) -> rusqlite::Result<SyncRow> {
@@ -85,6 +87,7 @@ fn sync_row(row: &Row) -> rusqlite::Result<SyncRow> {
         ical_raw: row.get("ical_raw")?,
         deleted: row.get::<_, i64>("deleted")? != 0,
         tzid: row.get("tzid")?,
+        revision: row.get("revision")?,
     })
 }
 
@@ -406,7 +409,7 @@ pub fn update_local_fields(
         "UPDATE calendar_events SET
             summary = ?2, description = ?3, location = ?4, join_url = ?5,
             starts_at = ?6, ends_at = ?7, all_day = ?8, attendees_json = ?9,
-            sequence = sequence + 1, dirty = 1
+            sequence = sequence + 1, dirty = 1, revision = revision + 1
          WHERE id = ?1",
         params![
             args.event_id,
@@ -428,7 +431,7 @@ pub fn update_local_fields(
 /// notification gate is reset so a changed lead can fire again.
 pub fn set_reminder(conn: &Connection, event_id: i64, minutes: Option<i64>) -> Result<()> {
     conn.execute(
-        "UPDATE calendar_events SET reminder_minutes = ?2, notified_at = NULL, dirty = 1
+        "UPDATE calendar_events SET reminder_minutes = ?2, notified_at = NULL, dirty = 1, revision = revision + 1
          WHERE id = ?1",
         params![event_id, minutes],
     )?;
@@ -438,7 +441,7 @@ pub fn set_reminder(conn: &Connection, event_id: i64, minutes: Option<i64>) -> R
 /// Set or clear the recurrence rule of one event and flag it for the push.
 pub fn set_rrule(conn: &Connection, event_id: i64, rrule: Option<&str>) -> Result<()> {
     conn.execute(
-        "UPDATE calendar_events SET rrule = ?2, sequence = sequence + 1, dirty = 1
+        "UPDATE calendar_events SET rrule = ?2, sequence = sequence + 1, dirty = 1, revision = revision + 1
          WHERE id = ?1",
         params![event_id, rrule],
     )?;
@@ -448,7 +451,7 @@ pub fn set_rrule(conn: &Connection, event_id: i64, rrule: Option<&str>) -> Resul
 /// Flag our own RSVP change for the CalDAV push (PARTSTAT PUT).
 pub fn mark_dirty(conn: &Connection, event_id: i64) -> Result<()> {
     conn.execute(
-        "UPDATE calendar_events SET dirty = 1 WHERE id = ?1",
+        "UPDATE calendar_events SET dirty = 1, revision = revision + 1 WHERE id = ?1",
         params![event_id],
     )?;
     Ok(())
@@ -471,7 +474,9 @@ pub fn hard_delete(conn: &Connection, event_id: i64) -> Result<()> {
     Ok(())
 }
 
-/// After a successful PUT: record the server's identity for the row.
+/// After a successful PUT: record the server's identity for the row. `revision`
+/// is the revision that was sent; a row edited meanwhile stays dirty so the
+/// next push carries the newer edit.
 pub fn clear_dirty_set_etag(
     conn: &Connection,
     event_id: i64,
@@ -479,12 +484,15 @@ pub fn clear_dirty_set_etag(
     href: &str,
     etag: Option<&str>,
     ical_raw: &str,
+    revision: i64,
 ) -> Result<()> {
     conn.execute(
-        "UPDATE calendar_events SET dirty = 0, calendar_id = ?2, caldav_href = ?3,
+        "UPDATE calendar_events SET
+                dirty = CASE WHEN revision = ?6 THEN 0 ELSE dirty END,
+                calendar_id = ?2, caldav_href = ?3,
                 etag = COALESCE(?4, etag), ical_raw = ?5
          WHERE id = ?1",
-        params![event_id, calendar_id, href, etag, ical_raw],
+        params![event_id, calendar_id, href, etag, ical_raw, revision],
     )?;
     Ok(())
 }
@@ -975,11 +983,25 @@ mod tests {
         );
 
         // Successful push clears dirty and records server identity.
-        clear_dirty_set_etag(&c, id, cal, "/cal/u1.ics", Some("\"e2\""), "ICSDATA").unwrap();
+        clear_dirty_set_etag(&c, id, cal, "/cal/u1.ics", Some("\"e2\""), "ICSDATA", 1).unwrap();
         assert!(dirty_rows(&c, 1).unwrap().is_empty());
         let row = sync_row_for(&c, id).unwrap().unwrap();
         assert_eq!(row.etag.as_deref(), Some("\"e2\""));
         assert_eq!(row.caldav_href.as_deref(), Some("/cal/u1.ics"));
+
+        // An edit that arrives while a push is on its way keeps the row dirty:
+        // the push cleared only the revision it sent.
+        let sent = sync_row_for(&c, id).unwrap().unwrap().revision;
+        set_reminder(&c, id, Some(5)).unwrap();
+        clear_dirty_set_etag(&c, id, cal, "/cal/u1.ics", Some("\"e2b\""), "ICSDATA", sent).unwrap();
+        assert_eq!(
+            dirty_rows(&c, 1).unwrap().len(),
+            1,
+            "the newer edit is still to push"
+        );
+        let newer = sync_row_for(&c, id).unwrap().unwrap().revision;
+        clear_dirty_set_etag(&c, id, cal, "/cal/u1.ics", Some("\"e2\""), "ICSDATA", newer).unwrap();
+        assert!(dirty_rows(&c, 1).unwrap().is_empty());
 
         // Now the same remote upsert applies (row is clean).
         upsert_remote(&c, 1, cal, "/cal/u1.ics", "\"e3\"", "ICS2", &remote).unwrap();

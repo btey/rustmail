@@ -59,6 +59,34 @@ pub(crate) async fn for_account(
     for_connection(&config.settings.connection)
 }
 
+tokio::task_local! {
+    static SCOPED: Option<String>;
+}
+
+/// Run `future` with the account's proxy URL as the proxy of every HTTP
+/// client built through [`current`] inside it (Graph and Google calendar
+/// APIs, OAuth requests). The scope follows the awaited future only, not
+/// tasks it spawns.
+pub(crate) async fn scoped<F: std::future::Future>(proxy: Option<String>, future: F) -> F::Output {
+    SCOPED.scope(proxy, future).await
+}
+
+/// The proxy URL set by the innermost [`scoped`] call, if any.
+pub(crate) fn current() -> Option<String> {
+    SCOPED.try_with(Clone::clone).ok().flatten()
+}
+
+/// `builder` with the scoped proxy applied, when there is one.
+pub(crate) fn apply_scoped(builder: reqwest::ClientBuilder) -> Result<reqwest::ClientBuilder> {
+    match current() {
+        Some(url) => Ok(builder.proxy(
+            reqwest::Proxy::all(url)
+                .map_err(|error| CoreError::Network(format!("proxy setting: {error}")))?,
+        )),
+        None => Ok(builder),
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod test_proxy {
     use std::sync::{Arc, Mutex};
@@ -110,6 +138,7 @@ pub(crate) mod test_proxy {
 
 #[cfg(test)]
 mod tests {
+    use super::test_proxy;
     use super::*;
     use crate::models::SecretString;
 
@@ -141,5 +170,65 @@ mod tests {
         let mut bad = connection(ProxyKind::Http, "");
         bad.proxy_port = 0;
         assert!(for_connection(&bad).is_err());
+    }
+
+    /// The recorded head of the first request the fake proxy saw: HTTPS
+    /// targets arrive as `CONNECT host:443` with the proxy login.
+    fn assert_connect(heads: &std::sync::Mutex<Vec<String>>, target: &str) {
+        let heads = heads.lock().unwrap();
+        let head = heads.first().expect("the proxy saw no request");
+        assert!(head.starts_with(&format!("CONNECT {target} ")), "{head}");
+        let login = format!(
+            "proxy-authorization: Basic {}",
+            test_proxy::basic("ben", "sesame")
+        );
+        assert!(
+            head.to_lowercase().contains(&login.to_lowercase()),
+            "{head}"
+        );
+    }
+
+    #[tokio::test]
+    async fn graph_calls_inside_a_scope_go_through_the_proxy() {
+        let (port, heads) = test_proxy::http_proxy("{}").await;
+        let proxy = format!("http://ben:sesame@127.0.0.1:{port}/");
+        // The fake proxy cannot speak TLS, so the call fails after CONNECT.
+        let result = scoped(Some(proxy), crate::graph::list_calendars("token")).await;
+        assert!(result.is_err());
+        assert_connect(&heads, "graph.microsoft.com:443");
+    }
+
+    #[tokio::test]
+    async fn google_calendar_calls_inside_a_scope_go_through_the_proxy() {
+        let (port, heads) = test_proxy::http_proxy("{}").await;
+        let proxy = format!("http://ben:sesame@127.0.0.1:{port}/");
+        let result = scoped(Some(proxy), crate::googlecal::list_calendars("token")).await;
+        assert!(result.is_err());
+        assert_connect(&heads, "www.googleapis.com:443");
+    }
+
+    #[tokio::test]
+    async fn oauth_token_requests_inside_a_scope_go_through_the_proxy() {
+        let (port, heads) = test_proxy::http_proxy("{}").await;
+        let proxy = format!("http://ben:sesame@127.0.0.1:{port}/");
+        let form = [("grant_type".to_owned(), "authorization_code".to_owned())];
+        let result = scoped(
+            Some(proxy),
+            crate::oauth::tokens::post_form("https://oauth2.googleapis.com/token", &form),
+        )
+        .await;
+        assert!(result.is_err());
+        assert_connect(&heads, "oauth2.googleapis.com:443");
+    }
+
+    #[tokio::test]
+    async fn the_scope_ends_with_the_call_and_a_missing_proxy_is_no_proxy() {
+        assert_eq!(current(), None);
+        assert_eq!(scoped(None, async { current() }).await, None);
+        assert_eq!(
+            scoped(Some("http://p:1/".into()), async { current() }).await,
+            Some("http://p:1/".to_owned())
+        );
+        assert_eq!(current(), None);
     }
 }

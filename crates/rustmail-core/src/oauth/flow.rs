@@ -276,18 +276,27 @@ async fn google_identity_from_access_token(access_token: &str) -> Result<OAuthId
         picture: Option<String>,
     }
 
+    fn builder() -> reqwest::ClientBuilder {
+        reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(30))
+            .redirect(reqwest::redirect::Policy::none())
+    }
     static HTTP: once_cell::sync::Lazy<std::result::Result<reqwest::Client, String>> =
         once_cell::sync::Lazy::new(|| {
-            reqwest::Client::builder()
-                .connect_timeout(std::time::Duration::from_secs(10))
-                .timeout(std::time::Duration::from_secs(30))
-                .redirect(reqwest::redirect::Policy::none())
+            builder()
                 .build()
                 .map_err(|error| format!("Google identity HTTP client: {error}"))
         });
-    let http = HTTP
-        .as_ref()
-        .map_err(|message| CoreError::Network(message.clone()))?;
+    let http = if crate::proxy_url::current().is_some() {
+        crate::proxy_url::apply_scoped(builder())?
+            .build()
+            .map_err(|error| CoreError::Network(format!("Google identity HTTP client: {error}")))?
+    } else {
+        HTTP.as_ref()
+            .cloned()
+            .map_err(|message| CoreError::Network(message.clone()))?
+    };
     let response = http
         .get("https://openidconnect.googleapis.com/v1/userinfo")
         .bearer_auth(access_token)

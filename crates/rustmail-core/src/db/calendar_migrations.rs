@@ -152,6 +152,12 @@ ALTER TABLE caldav_config_v2 RENAME TO caldav_config;
 ALTER TABLE calendar_events ADD COLUMN reminder_minutes INTEGER
   CHECK (reminder_minutes IS NULL OR (reminder_minutes >= 0 AND reminder_minutes <= 40320));
 "#,
+    r#"
+-- Counts the local edits of an event. A push clears the dirty flag only when
+-- the row still has the revision it sent, so an edit made while the push was
+-- on its way is not lost.
+ALTER TABLE calendar_events ADD COLUMN revision INTEGER NOT NULL DEFAULT 0;
+"#,
 ];
 pub const LATEST_VERSION: i64 = MIGRATIONS.len() as i64;
 
@@ -215,7 +221,7 @@ mod tests {
         assert_eq!(
             conn.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
                 .unwrap(),
-            3
+            4
         );
         let violations = conn
             .prepare("PRAGMA foreign_key_check")

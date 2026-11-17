@@ -121,8 +121,17 @@ async fn push_row(db: &Db, token: &str, account_id: i64, row: &SyncRow) -> Resul
                 None => return Err(CoreError::CalDav("synced event without calendar".into())),
             };
             let href = href.clone();
+            let revision = row.revision;
             db.write(move |conn| {
-                repo::calendar::clear_dirty_set_etag(conn, event_id, calendar_id, &href, None, "")
+                repo::calendar::clear_dirty_set_etag(
+                    conn,
+                    event_id,
+                    calendar_id,
+                    &href,
+                    None,
+                    "",
+                    revision,
+                )
             })
             .await?;
         }
@@ -148,8 +157,17 @@ async fn push_row(db: &Db, token: &str, account_id: i64, row: &SyncRow) -> Resul
                 return Err(CoreError::Other("graph create returned no event id".into()));
             }
             let calendar_id = default.id;
+            let revision = row.revision;
             db.write(move |conn| {
-                repo::calendar::clear_dirty_set_etag(conn, event_id, calendar_id, &id, None, "")
+                repo::calendar::clear_dirty_set_etag(
+                    conn,
+                    event_id,
+                    calendar_id,
+                    &id,
+                    None,
+                    "",
+                    revision,
+                )
             })
             .await?;
         }

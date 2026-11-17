@@ -199,10 +199,11 @@ async fn push_row(
                         "\"{subject}\" was changed here and on Microsoft 365. The server's version was kept and your edit was saved as \"{subject} (your edit)\"."
                     ),
                 });
+                let revision = row.revision;
                 db.write(move |conn| {
                     conn.execute(
-                        "UPDATE calendar_events SET dirty = 0 WHERE id = ?1",
-                        [event_id],
+                        "UPDATE calendar_events SET dirty = 0 WHERE id = ?1 AND revision = ?2",
+                        rusqlite::params![event_id, revision],
                     )?;
                     Ok(())
                 })
@@ -213,6 +214,7 @@ async fn push_row(
             let href = href.clone();
             // A series keeps the text that lists its cancelled dates.
             let raw = row.ical_raw.clone().unwrap_or_default();
+            let revision = row.revision;
             db.write(move |conn| {
                 repo::calendar::clear_dirty_set_etag(
                     conn,
@@ -221,6 +223,7 @@ async fn push_row(
                     &href,
                     version.as_deref(),
                     &raw,
+                    revision,
                 )
             })
             .await?;
@@ -242,8 +245,17 @@ async fn push_row(
             };
             let id = client.create_event(Some(&default.url), &payload).await?;
             let calendar_id = default.id;
+            let revision = row.revision;
             db.write(move |conn| {
-                repo::calendar::clear_dirty_set_etag(conn, event_id, calendar_id, &id, None, "")
+                repo::calendar::clear_dirty_set_etag(
+                    conn,
+                    event_id,
+                    calendar_id,
+                    &id,
+                    None,
+                    "",
+                    revision,
+                )
             })
             .await?;
         }

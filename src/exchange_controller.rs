@@ -66,6 +66,32 @@ fn proxy_from_form(app: &AppWindow) -> Result<ExchangeProxy, UiMessage> {
     )
 }
 
+/// The texts a saved proxy puts in the form: kind, host, port and user name.
+/// The password is never shown: an empty field with the same user name keeps
+/// the saved one.
+fn proxy_form_texts(proxy: &ExchangeProxy) -> [String; 4] {
+    [
+        proxy.kind.as_str().to_owned(),
+        proxy.host.clone(),
+        if proxy.port == 0 {
+            String::new()
+        } else {
+            proxy.port.to_string()
+        },
+        proxy.username.clone(),
+    ]
+}
+
+fn fill_proxy_fields(app: &AppWindow, proxy: ExchangeProxy) {
+    let ui = app.global::<ExchangeSetupUi>();
+    let [kind, host, port, username] = proxy_form_texts(&proxy);
+    ui.set_proxy_kind(kind.into());
+    ui.set_proxy_host(host.into());
+    ui.set_proxy_port(port.into());
+    ui.set_proxy_username(username.into());
+    ui.set_proxy_password("".into());
+}
+
 fn proxy_from_fields(
     kind: &str,
     host: &str,
@@ -474,11 +500,7 @@ pub(super) fn register(
                 .unwrap_or_default();
             let _ = weak.upgrade_in_event_loop(move |app| {
                 let ui = app.global::<ExchangeSetupUi>();
-                ui.set_proxy_kind(proxy.kind.as_str().into());
-                ui.set_proxy_host(proxy.host.into());
-                ui.set_proxy_port(if proxy.port == 0 { String::new() } else { proxy.port.to_string() }.into());
-                ui.set_proxy_username(proxy.username.into());
-                ui.set_proxy_password("".into());
+                fill_proxy_fields(&app, proxy);
                 ui.set_sign_in(settings.sign_in.as_str().into());
                 ui.set_client_id(settings.client_id.into());
                 ui.set_tenant(settings.tenant.into());
@@ -613,5 +635,27 @@ mod proxy_form_tests {
         assert!(proxy_from_fields("http", "h", "0", "", "").is_err());
         assert!(proxy_from_fields("http", "", "3128", "", "").unwrap().url().is_err());
         assert!(proxy_from_fields("http", "h", "", "", "").unwrap().url().is_err());
+    }
+
+    #[test]
+    fn a_saved_proxy_fills_the_form_without_its_password_and_reads_back() {
+        let saved = proxy_from_fields("socks5", "proxy.example.org", "1080", "ben", "sesame")
+            .unwrap();
+        let [kind, host, port, username] = proxy_form_texts(&saved);
+        assert_eq!(
+            (kind.as_str(), host.as_str(), port.as_str(), username.as_str()),
+            ("socks5", "proxy.example.org", "1080", "ben")
+        );
+        // Saving with the password field left empty keeps the user name.
+        let back = proxy_from_fields(&kind, &host, &port, &username, "").unwrap();
+        assert_eq!(back.kind, rustmail_core::models::ProxyKind::Socks5);
+        assert_eq!((back.host.as_str(), back.port), ("proxy.example.org", 1080));
+        assert_eq!(back.username, "ben");
+        assert!(back.password.is_empty());
+        // An account without a proxy clears the fields an earlier edit left.
+        assert_eq!(
+            proxy_form_texts(&ExchangeProxy::default()),
+            ["none".to_owned(), String::new(), String::new(), String::new()]
+        );
     }
 }

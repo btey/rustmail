@@ -123,6 +123,7 @@ async fn push_row(
     let event_id = row.event.id;
     let etag = resp.etag.clone();
     let href = href_path.clone();
+    let revision = row.revision;
     db.write(move |conn| {
         repo::calendar::clear_dirty_set_etag(
             conn,
@@ -131,6 +132,7 @@ async fn push_row(
             &href,
             etag.as_deref(),
             &body,
+            revision,
         )
     })
     .await?;

@@ -2139,6 +2139,12 @@ async fn delete_everything_clears_the_exchange_cache_and_tokens() {
     use rustmail_core::accounts::secrets::{CredentialStore, Slot};
     let temp = tempfile::tempdir().unwrap();
     let shared = seeded();
+    shared.lock().unwrap().events = vec![
+        r#"{"id":"EV1","iCalUId":"UID1","type":"singleInstance","subject":"Planning","isAllDay":false,"isCancelled":false,
+            "start":{"dateTime":"2026-07-01T12:00:00.0000000","timeZone":"UTC"},
+            "end":{"dateTime":"2026-07-01T13:00:00.0000000","timeZone":"UTC"}}"#
+            .replace('\n', ""),
+    ];
     shared.lock().unwrap().contacts = vec![
         r#"{"id":"C1","changeKey":"k1","displayName":"Ann Lee","emailAddresses":[{"address":"ann@example.org"}]}"#.into(),
     ];
@@ -2157,8 +2163,35 @@ async fn delete_everything_clears_the_exchange_cache_and_tokens() {
         }
     };
     assert!(count("SELECT COUNT(*) FROM exchange_messages").await > 0);
+    core.calendar_sync_now(Some(account.id)).await;
+    let calendar_count = |sql: &'static str| {
+        let db = core.calendar_db.clone();
+        async move {
+            db.read(move |conn| Ok(conn.query_row(sql, [], |row| row.get::<_, i64>(0))?))
+                .await
+                .unwrap()
+        }
+    };
+    for _ in 0..100 {
+        if calendar_count("SELECT COUNT(*) FROM calendar_events").await > 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(calendar_count("SELECT COUNT(*) FROM calendar_events").await > 0);
+    assert!(calendar_count("SELECT COUNT(*) FROM calendars").await > 0);
 
     core.delete_all_local_data().await.unwrap();
+
+    assert_eq!(
+        calendar_count("SELECT COUNT(*) FROM calendar_events").await,
+        0
+    );
+    assert_eq!(calendar_count("SELECT COUNT(*) FROM calendars").await, 0);
+    assert_eq!(
+        calendar_count("SELECT COUNT(*) FROM caldav_config").await,
+        0
+    );
 
     assert_eq!(count("SELECT COUNT(*) FROM exchange_messages").await, 0);
     assert_eq!(count("SELECT COUNT(*) FROM exchange_folders").await, 0);

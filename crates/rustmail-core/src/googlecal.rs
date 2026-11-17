@@ -15,18 +15,30 @@ const MAX_CALENDAR_LIST_PAGES: usize = 100;
 const MAX_CALENDARS: usize = 10_000;
 const MAX_PAGE_TOKEN_BYTES: usize = 16 * 1024;
 
-fn calendar_http_client() -> Result<&'static reqwest::Client> {
+fn calendar_client_builder() -> reqwest::ClientBuilder {
+    reqwest::Client::builder()
+        .user_agent("rustmail-google-calendar/0.1")
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(30))
+        .redirect(reqwest::redirect::Policy::none())
+}
+
+/// The shared client, or a client through the account's proxy when the call
+/// runs inside `proxy_url::scoped`.
+fn calendar_http_client() -> Result<reqwest::Client> {
     static HTTP: once_cell::sync::Lazy<std::result::Result<reqwest::Client, String>> =
         once_cell::sync::Lazy::new(|| {
-            reqwest::Client::builder()
-                .user_agent("rustmail-google-calendar/0.1")
-                .connect_timeout(std::time::Duration::from_secs(10))
-                .timeout(std::time::Duration::from_secs(30))
-                .redirect(reqwest::redirect::Policy::none())
+            calendar_client_builder()
                 .build()
                 .map_err(|error| format!("Google Calendar HTTP client: {error}"))
         });
+    if crate::proxy_url::current().is_some() {
+        return crate::proxy_url::apply_scoped(calendar_client_builder())?
+            .build()
+            .map_err(|error| CoreError::Network(format!("Google Calendar HTTP client: {error}")));
+    }
     HTTP.as_ref()
+        .cloned()
         .map_err(|message| CoreError::Network(message.clone()))
 }
 

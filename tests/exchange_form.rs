@@ -1,5 +1,5 @@
-//! The Exchange account form: the sign-in method buttons and the per-account
-//! offline switch can be reached with the pointer. The form's height depends
+//! The Exchange account form: the sign-in method buttons, the per-account
+//! offline switch and the proxy fields can be reached with the pointer. The form's height depends
 //! on wrapped text, so the controls are found by clicking down the form
 //! rather than at fixed positions.
 
@@ -52,7 +52,7 @@ fn click(ui: &ExchangeFormHarness, x: f32, y: f32) {
 #[test]
 fn the_sign_in_buttons_and_the_offline_switch_work_with_the_pointer() {
     let window = MinimalSoftwareWindow::new(RepaintBufferType::ReusedBuffer);
-    slint::platform::set_platform(Box::new(Headless(window))).unwrap();
+    slint::platform::set_platform(Box::new(Headless(window.clone()))).unwrap();
     let ui = ExchangeFormHarness::new().unwrap();
     ui.window().set_size(slint::PhysicalSize::new(520, 3000));
     ui.show().unwrap();
@@ -115,4 +115,64 @@ fn the_sign_in_buttons_and_the_offline_switch_work_with_the_pointer() {
         }
     }
     assert!(toggled, "the offline switch can be turned on while editing");
+
+    // The proxy fields appear once a proxy kind is chosen and take typed text,
+    // each into its own property. (The kind itself is a combo box; the test
+    // sets it the way its `selected` callback does.)
+    setup.set_edit_account_id(0);
+    setup.set_proxy_kind("socks5".into());
+    ui.window()
+        .dispatch_event(WindowEvent::WindowActiveChanged(true));
+    // Typing needs a laid-out and drawn form.
+    let mut pixels = vec![slint::platform::software_renderer::Rgb565Pixel(0); 520 * 3000];
+    window.request_redraw();
+    window.draw_if_needed(|renderer| {
+        renderer.render(&mut pixels, 520);
+    });
+    let mut typed = std::collections::BTreeSet::new();
+    for y in (0..3000).step_by(4) {
+        setup.set_proxy_host("".into());
+        setup.set_proxy_port("".into());
+        setup.set_proxy_username("".into());
+        setup.set_proxy_password("".into());
+        // A click that opened the proxy kind's list is closed again.
+        type_text(&ui, "\u{1b}");
+        click(&ui, 200.0, y as f32);
+        type_text(&ui, "7");
+        for (name, value) in [
+            ("host", setup.get_proxy_host()),
+            ("port", setup.get_proxy_port()),
+            ("user name", setup.get_proxy_username()),
+            ("password", setup.get_proxy_password()),
+        ] {
+            if value.as_str() == "7" {
+                typed.insert(name);
+            }
+        }
+    }
+    assert_eq!(
+        typed.into_iter().collect::<Vec<_>>(),
+        ["host", "password", "port", "user name"],
+        "each proxy field takes typed text"
+    );
+
+    // No proxy: the fields are gone, so typing reaches none of them.
+    setup.set_proxy_kind("none".into());
+    for y in (0..3000).step_by(4) {
+        setup.set_proxy_host("".into());
+        click(&ui, 200.0, y as f32);
+        type_text(&ui, "7");
+        assert_eq!(
+            setup.get_proxy_host().as_str(),
+            "",
+            "no host field at y={y}"
+        );
+    }
+}
+
+fn type_text(ui: &ExchangeFormHarness, text: &str) {
+    ui.window()
+        .dispatch_event(WindowEvent::KeyPressed { text: text.into() });
+    ui.window()
+        .dispatch_event(WindowEvent::KeyReleased { text: text.into() });
 }

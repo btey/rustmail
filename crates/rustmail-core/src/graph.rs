@@ -15,18 +15,30 @@ const MAX_GRAPH_PAGINATION_URL_BYTES: usize = 16 * 1024;
 const MAX_GRAPH_CALENDAR_PAGES: usize = 100;
 const MAX_GRAPH_CALENDARS: usize = 10_000;
 
-fn graph_http_client() -> Result<&'static reqwest::Client> {
+fn graph_client_builder() -> reqwest::ClientBuilder {
+    reqwest::Client::builder()
+        .user_agent("rustmail-graph/0.1")
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(30))
+        .redirect(reqwest::redirect::Policy::none())
+}
+
+/// The shared client, or a client through the account's proxy when the call
+/// runs inside `proxy_url::scoped`.
+fn graph_http_client() -> Result<reqwest::Client> {
     static HTTP: once_cell::sync::Lazy<std::result::Result<reqwest::Client, String>> =
         once_cell::sync::Lazy::new(|| {
-            reqwest::Client::builder()
-                .user_agent("rustmail-graph/0.1")
-                .connect_timeout(std::time::Duration::from_secs(10))
-                .timeout(std::time::Duration::from_secs(30))
-                .redirect(reqwest::redirect::Policy::none())
+            graph_client_builder()
                 .build()
                 .map_err(|error| format!("graph HTTP client: {error}"))
         });
+    if crate::proxy_url::current().is_some() {
+        return crate::proxy_url::apply_scoped(graph_client_builder())?
+            .build()
+            .map_err(|error| CoreError::Network(format!("graph HTTP client: {error}")));
+    }
     HTTP.as_ref()
+        .cloned()
         .map_err(|message| CoreError::Network(message.clone()))
 }
 

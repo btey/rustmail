@@ -3234,6 +3234,15 @@ impl Core {
         account_id: i64,
         open_url: impl FnOnce(String) -> std::result::Result<(), String> + Send,
     ) -> Result<Account> {
+        let proxy = proxy_url::for_account(&self.db, &self.credentials, account_id).await?;
+        proxy_url::scoped(proxy, self.reauth_account_in_proxy(account_id, open_url)).await
+    }
+
+    async fn reauth_account_in_proxy(
+        &self,
+        account_id: i64,
+        open_url: impl FnOnce(String) -> std::result::Result<(), String> + Send,
+    ) -> Result<Account> {
         let account = self
             .db
             .read(move |conn| repo::accounts::get(conn, account_id))
@@ -6558,6 +6567,15 @@ impl Core {
 
     /// Write a just-created event into the Microsoft 365 calendar via Graph.
     async fn push_event_to_graph(&self, account_id: i64, args: &CreateEventArgs) -> Result<()> {
+        let proxy = proxy_url::for_account(&self.db, &self.credentials, account_id).await?;
+        proxy_url::scoped(proxy, self.push_event_to_graph_in_proxy(account_id, args)).await
+    }
+
+    async fn push_event_to_graph_in_proxy(
+        &self,
+        account_id: i64,
+        args: &CreateEventArgs,
+    ) -> Result<()> {
         let token = self
             .tokens
             .access_token_for_scope(
@@ -7079,6 +7097,19 @@ impl Core {
         account_id: i64,
         open_url: impl FnOnce(String) -> std::result::Result<(), String> + Send,
     ) -> Result<Vec<Calendar>> {
+        let proxy = proxy_url::for_account(&self.db, &self.credentials, account_id).await?;
+        proxy_url::scoped(
+            proxy,
+            self.connect_google_calendar_in_proxy(account_id, open_url),
+        )
+        .await
+    }
+
+    async fn connect_google_calendar_in_proxy(
+        &self,
+        account_id: i64,
+        open_url: impl FnOnce(String) -> std::result::Result<(), String> + Send,
+    ) -> Result<Vec<Calendar>> {
         let account = self
             .db
             .read(move |conn| repo::accounts::get(conn, account_id))
@@ -7209,6 +7240,22 @@ impl Core {
         end_ms: i64,
         open_url: impl FnOnce(String) -> std::result::Result<(), String> + Send,
     ) -> Result<graph::OnlineMeeting> {
+        let proxy = proxy_url::for_account(&self.db, &self.credentials, account_id).await?;
+        proxy_url::scoped(
+            proxy,
+            self.create_teams_meeting_in_proxy(account_id, subject, start_ms, end_ms, open_url),
+        )
+        .await
+    }
+
+    async fn create_teams_meeting_in_proxy(
+        &self,
+        account_id: i64,
+        subject: &str,
+        start_ms: i64,
+        end_ms: i64,
+        open_url: impl FnOnce(String) -> std::result::Result<(), String> + Send,
+    ) -> Result<graph::OnlineMeeting> {
         let token = self
             .graph_token_with_consent(
                 account_id,
@@ -7225,6 +7272,19 @@ impl Core {
     /// persists them under a "microsoft"-kind config; the shared calendar
     /// task then pulls via calendarView delta.
     pub async fn connect_microsoft_calendar(
+        &self,
+        account_id: i64,
+        open_url: impl FnOnce(String) -> std::result::Result<(), String> + Send,
+    ) -> Result<Vec<Calendar>> {
+        let proxy = proxy_url::for_account(&self.db, &self.credentials, account_id).await?;
+        proxy_url::scoped(
+            proxy,
+            self.connect_microsoft_calendar_in_proxy(account_id, open_url),
+        )
+        .await
+    }
+
+    async fn connect_microsoft_calendar_in_proxy(
         &self,
         account_id: i64,
         open_url: impl FnOnce(String) -> std::result::Result<(), String> + Send,
@@ -10933,7 +10993,7 @@ mod thread_read_tests {
             })
             .await
             .unwrap();
-        assert_eq!(calendar_contract, (3, 1, false, "ok".to_owned()));
+        assert_eq!(calendar_contract, (4, 1, false, "ok".to_owned()));
     }
 }
 

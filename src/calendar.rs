@@ -1373,4 +1373,29 @@ mod tests {
         );
         assert_eq!(text, "a@x.org: busy\nb@x.org: free\nc@x.org: away\nd@x.org: free");
     }
+
+    #[test]
+    fn free_busy_ignores_slots_that_only_touch_the_event_and_reports_maybe_busy() {
+        use rustmail_core::exchange::client::BusySlot;
+        let slot = |start_ms, end_ms, status: &str| BusySlot { start_ms, end_ms, status: status.into() };
+        let text = free_busy_summary(
+            &[
+                // Ends exactly when the event starts / starts when it ends.
+                ("a@x.org".into(), vec![slot(0, 50, "busy"), slot(200, 300, "busy")]),
+                ("b@x.org".into(), vec![slot(60, 80, "tentative")]),
+                // A free slot first must not hide a busy one after it.
+                ("c@x.org".into(), vec![slot(60, 70, "free"), slot(80, 90, "busy")]),
+                ("d@x.org".into(), vec![]),
+                // Working elsewhere is not busy.
+                ("e@x.org".into(), vec![slot(60, 90, "workingElsewhere")]),
+            ],
+            50,
+            200,
+        );
+        assert_eq!(
+            text,
+            "a@x.org: free\nb@x.org: maybe busy\nc@x.org: busy\nd@x.org: free\ne@x.org: free"
+        );
+        assert_eq!(free_busy_summary(&[], 0, 1), "");
+    }
 }

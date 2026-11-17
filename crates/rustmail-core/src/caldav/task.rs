@@ -180,7 +180,12 @@ async fn run_cycle(
     // Microsoft calendars sync over Graph (no CalDAV endpoint exists);
     // everything else goes through the DAV transport.
     let result = if cfg.kind == "microsoft" {
-        crate::graphcal::sync_account(db, bus, tokens, account_id).await
+        let proxy = crate::proxy_url::for_account(mail_db, &credential_store, account_id).await?;
+        crate::proxy_url::scoped(
+            proxy,
+            crate::graphcal::sync_account(db, bus, tokens, account_id),
+        )
+        .await
     } else if cfg.kind == "exchange" {
         // Exchange Online: the mail account's own sign-in, through its Graph client.
         let mail = mail_db
@@ -203,7 +208,10 @@ async fn run_cycle(
     } else if cfg.kind == "google" {
         let token = tokens.access_token(account_id, Provider::Gmail).await?;
         if refresh_collections {
-            let discovered = crate::googlecal::list_calendars(&token).await?;
+            let scoped =
+                crate::proxy_url::for_account(mail_db, &credential_store, account_id).await?;
+            let discovered =
+                crate::proxy_url::scoped(scoped, crate::googlecal::list_calendars(&token)).await?;
             db.write(move |conn| {
                 crate::googlecal::reconcile_calendars(conn, account_id, &discovered).map(|_| ())
             })
