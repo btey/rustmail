@@ -451,6 +451,25 @@ pub fn upsert_unmapped_remote(
     Ok(())
 }
 
+/// The server no longer lists a vCard. A contact edited here and not yet
+/// pushed is not dropped silently: the object stays, marked as not existing
+/// on the server, so the next push creates it again (CardDAV `If-None-Match`,
+/// Graph create) with the local edit. A contact deleted here, or untouched
+/// since the last pull, is removed as before. Returns `false` when the local
+/// edit was kept.
+pub fn remove_pulled_remote(conn: &Connection, book_id: i64, href: &str) -> Result<bool> {
+    let kept = conn.execute(
+        "UPDATE carddav_objects SET remote_exists=0,etag=NULL
+         WHERE addressbook_id=?1 AND href=?2 AND dirty=1 AND deleted=0 AND contact_id IS NOT NULL",
+        params![book_id, href],
+    )?;
+    if kept > 0 {
+        return Ok(false);
+    }
+    remove_remote(conn, book_id, href)?;
+    Ok(true)
+}
+
 pub fn remove_remote(conn: &Connection, book_id: i64, href: &str) -> Result<()> {
     let object: Option<(i64, Option<i64>, bool)> = conn.query_row(
         "SELECT id,contact_id,owns_contact FROM carddav_objects WHERE addressbook_id=?1 AND href=?2",

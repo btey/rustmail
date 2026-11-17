@@ -51,7 +51,7 @@ async fn accept_server_version(
         .await?;
     if response.status == 404 {
         let href = href.to_owned();
-        db.write(move |conn| repo::carddav::remove_remote(conn, book_id, &href))
+        db.write(move |conn| repo::carddav::remove_pulled_remote(conn, book_id, &href))
             .await?;
         return Ok(());
     }
@@ -515,7 +515,7 @@ async fn sync_addressbook(
         db.write(move |conn| {
             let tx = conn.transaction()?;
             for href in removed {
-                repo::carddav::remove_remote(&tx, book_id, &href)?;
+                repo::carddav::remove_pulled_remote(&tx, book_id, &href)?;
             }
             tx.commit()?;
             Ok(())
@@ -1040,6 +1040,129 @@ END:VCARD</c:address-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:props
         let seen = transport.seen.lock().unwrap();
         assert_eq!(seen[0].0, "PUT");
         assert_eq!(seen[1].0, "GET");
+    }
+
+    #[tokio::test]
+    async fn a_contact_removed_on_the_server_keeps_its_local_edit_and_is_created_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(&dir.path().join("mail.db")).unwrap();
+        let (book, ada) = db
+            .write(|conn| {
+                crate::db::testutil::seed_account(conn);
+                let book = repo::carddav::upsert_addressbook(
+                    conn,
+                    1,
+                    "https://dav.test/books/me/default/",
+                    Some("Contacts"),
+                    false,
+                )?;
+                for (href, name) in [("/ada.vcf", "Ada"), ("/grace.vcf", "Grace")] {
+                    let card = format!(
+                        "BEGIN:VCARD\nVERSION:4.0\nUID:{name}\nFN:{name}\nEMAIL:{}@example.test\nEND:VCARD",
+                        name.to_lowercase()
+                    );
+                    let record = vcard::parse(&card)?;
+                    repo::carddav::upsert_remote(
+                        conn,
+                        1,
+                        book,
+                        href,
+                        Some("\"1\""),
+                        &card,
+                        &record,
+                    )?;
+                }
+                let records = repo::contacts::list_records(conn, "", 10)?;
+                let ada = records.iter().find(|r| r.name == "Ada").unwrap().id;
+                Ok((book, ada))
+            })
+            .await
+            .unwrap();
+        db.write(move |conn| {
+            conn.execute("UPDATE contacts SET name='Ada Lovelace' WHERE id=?1", [ada])?;
+            repo::carddav::mark_saved_contact_dirty(conn, ada)?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+        // The server dropped both. Grace was untouched here, Ada was edited.
+        let kept = db
+            .write(move |conn| {
+                Ok((
+                    repo::carddav::remove_pulled_remote(conn, book, "/ada.vcf")?,
+                    repo::carddav::remove_pulled_remote(conn, book, "/grace.vcf")?,
+                ))
+            })
+            .await
+            .unwrap();
+        assert_eq!(kept, (false, true), "only the edited contact is kept");
+        let (names, remote_exists, etag) = db
+            .read(move |conn| {
+                let names: Vec<String> = repo::contacts::list_records(conn, "", 10)?
+                    .into_iter()
+                    .map(|record| record.name)
+                    .collect();
+                let (remote_exists, etag): (i64, Option<String>) = conn.query_row(
+                    "SELECT remote_exists,etag FROM carddav_objects WHERE href='/ada.vcf'",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )?;
+                Ok((names, remote_exists, etag))
+            })
+            .await
+            .unwrap();
+        assert_eq!(names, vec!["Ada Lovelace".to_owned()]);
+        assert_eq!((remote_exists, etag), (0, None));
+
+        // The next push creates it again instead of matching a stale ETag.
+        db.write(|conn| {
+            repo::carddav::upsert_config(
+                conn,
+                &repo::carddav::CardDavConfig {
+                    account_id: 1,
+                    base_url: "https://dav.test/".into(),
+                    username: "me".into(),
+                    principal_url: None,
+                    home_set_url: "https://dav.test/books/me/".into(),
+                    enabled: true,
+                    last_error: None,
+                },
+            )
+        })
+        .await
+        .unwrap();
+        let transport = MockTransport::new(vec![DavResponse {
+            status: 201,
+            etag: Some("\"new\"".into()),
+            ..Default::default()
+        }]);
+        assert!(push_dirty(&db, &transport, 1).await.unwrap());
+        {
+            let seen = transport.seen.lock().unwrap();
+            assert_eq!(seen.len(), 1);
+            assert_eq!(seen[0].0, "PUT");
+            assert!(
+                seen[0]
+                    .2
+                    .iter()
+                    .any(|(name, value)| name == "If-None-Match" && value == "*")
+            );
+            assert!(seen[0].4.as_deref().unwrap().contains("Ada Lovelace"));
+        }
+        let (dirty, remote_exists) = db
+            .read(|conn| {
+                let dirty = repo::carddav::dirty_objects(conn, 1)?.len();
+                let remote: i64 = conn.query_row(
+                    "SELECT remote_exists FROM carddav_objects WHERE href='/ada.vcf'",
+                    [],
+                    |r| r.get(0),
+                )?;
+                Ok((dirty, remote))
+            })
+            .await
+            .unwrap();
+        assert_eq!((dirty, remote_exists), (0, 1));
     }
 
     #[tokio::test]

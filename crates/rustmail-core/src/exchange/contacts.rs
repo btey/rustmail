@@ -308,7 +308,7 @@ async fn sync_folder(
                     for item in &items {
                         match item {
                             ContactChange::Removed(id) => {
-                                repo::carddav::remove_remote(&tx, book_id, id)?;
+                                repo::carddav::remove_pulled_remote(&tx, book_id, id)?;
                             }
                             ContactChange::Upsert(contact) => {
                                 let uid = format!("graph-{}", contact.id);

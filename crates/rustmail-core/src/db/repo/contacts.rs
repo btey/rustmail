@@ -13,7 +13,7 @@ fn saved_contact_predicate(alias: &str) -> String {
         "({alias}.is_managed = 1 OR {alias}.is_favorite = 1 OR EXISTS (
             SELECT 1 FROM carddav_objects co
             WHERE co.contact_id = {alias}.id
-              AND co.remote_exists = 1 AND co.deleted = 0
+              AND (co.remote_exists = 1 OR co.dirty = 1) AND co.deleted = 0
         ))"
     )
 }

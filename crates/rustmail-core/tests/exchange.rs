@@ -48,6 +48,9 @@ struct State {
     search_hits: Vec<&'static str>,
     /// Contacts and events the first delta returns, then the changes.
     contacts: Vec<String>,
+    /// Contacts of the sub-folder CF2 ("Team") of the contact folder CF1; none
+    /// when empty, and the folder is then not listed at all.
+    team_contacts: Vec<String>,
     contact_changes: Vec<String>,
     /// The change key the server reports for contact C1 (empty: "k1").
     contact_key: String,
@@ -98,9 +101,15 @@ const FOLDERS: [(&str, &str, &str); 4] = [
 ];
 
 async fn serve(shared: Shared) -> String {
+    serve_named(shared, None).await
+}
+
+/// Like `serve`, but the links in its answers name `public_root` (a host the
+/// client only reaches through a proxy) instead of the listening address.
+async fn serve_named(shared: Shared, public_root: Option<&str>) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
-    let root = base.clone();
+    let root = public_root.map_or_else(|| base.clone(), str::to_owned);
     tokio::spawn(async move {
         loop {
             let Ok((mut stream, _)) = listener.accept().await else {
@@ -436,6 +445,24 @@ fn route(
         ("GET", "/contactFolders") => json(
             200,
             r#"{"value":[{"id":"CF1","displayName":"Contacts"}]}"#.into(),
+        ),
+        ("GET", "/contactFolders/CF1/childFolders") if !state.team_contacts.is_empty() => json(
+            200,
+            r#"{"value":[{"id":"CF2","displayName":"Team"}]}"#.into(),
+        ),
+        ("GET", p) if p.starts_with("/contactFolders/") && p.ends_with("/childFolders") => {
+            json(200, r#"{"value":[]}"#.into())
+        }
+        ("GET", "/contactFolders/CF2/contacts/delta") => json(
+            200,
+            format!(
+                r#"{{"value":[{}],"@odata.deltaLink":"{root}/graph/v1.0/me/contactFolders/CF2/contacts/delta?$deltatoken=C"}}"#,
+                if query.contains("deltatoken") {
+                    String::new()
+                } else {
+                    state.team_contacts.join(",")
+                }
+            ),
         ),
         ("GET", "/contactFolders/CF1/contacts/delta") => {
             let items: Vec<String> = if query.contains("deltatoken") {
@@ -2091,6 +2118,132 @@ async fn a_contact_changed_on_the_server_meanwhile_is_not_overwritten() {
 }
 
 #[tokio::test]
+async fn contacts_in_sub_folders_are_read_with_the_folder_path_as_name() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    {
+        let mut state = shared.lock().unwrap();
+        state.contacts = vec![
+            r#"{"id":"C1","changeKey":"k1","displayName":"Ann Lee","emailAddresses":[{"address":"ann@example.org"}]}"#.into(),
+        ];
+        state.team_contacts = vec![
+            r#"{"id":"T1","changeKey":"t1","displayName":"Tom Team","emailAddresses":[{"address":"tom@example.org"}]}"#.into(),
+        ];
+    }
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let books = core
+        .db
+        .read(|conn| {
+            let mut stmt =
+                conn.prepare("SELECT display_name,url FROM carddav_addressbooks ORDER BY url")?;
+            Ok(stmt
+                .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        books,
+        vec![
+            ("Contacts".to_owned(), "graph:CF1".to_owned()),
+            ("Contacts / Team".to_owned(), "graph:CF2".to_owned()),
+        ]
+    );
+    let found = core
+        .list_contacts("tom".into(), Some(account.id), 5)
+        .await
+        .unwrap();
+    assert!(found.iter().any(|c| c.email == "tom@example.org"));
+}
+
+#[tokio::test]
+async fn a_contact_removed_on_the_server_keeps_a_local_edit_and_is_created_again() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().contacts = vec![
+        r#"{"id":"C1","changeKey":"k1","displayName":"Ann Lee","emailAddresses":[{"address":"ann@example.org"}],"companyName":"Acme"}"#.into(),
+    ];
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let id = ann_id(&core).await;
+    // The folder refuses writes for now, so the edit is still waiting when
+    // the server's removal arrives.
+    core.db
+        .write(|conn| {
+            conn.execute("UPDATE carddav_addressbooks SET read_only=1", [])?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let mut record = core
+        .list_contact_records("ann".into(), 5)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|c| c.id == id)
+        .unwrap();
+    record.company = "Local edit".into();
+    record.account_ids = vec![account.id];
+    core.save_contact(record).await.unwrap();
+    shared.lock().unwrap().contact_changes =
+        vec![r#"{"id":"C1","@removed":{"reason":"deleted"}}"#.into()];
+    core.sync_now(Some(account.id)).await.unwrap();
+    let (company, remote_exists) = core
+        .db
+        .read(move |conn| {
+            Ok((
+                conn.query_row("SELECT company FROM contacts WHERE id=?1", [id], |r| {
+                    r.get::<_, String>(0)
+                })?,
+                conn.query_row(
+                    "SELECT remote_exists FROM carddav_objects WHERE contact_id=?1",
+                    [id],
+                    |r| r.get::<_, i64>(0),
+                )?,
+            ))
+        })
+        .await
+        .unwrap();
+    assert_eq!(company, "Local edit", "the removal did not delete the edit");
+    assert_eq!(remote_exists, 0);
+    assert!(
+        seen(&shared, "POST /graph/v1.0/me/contactFolders/CF1/contacts").is_empty(),
+        "nothing is sent while the folder is read only"
+    );
+
+    // Once writable again, the edit is created as a new contact.
+    core.db
+        .write(|conn| {
+            conn.execute("UPDATE carddav_addressbooks SET read_only=0", [])?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    let posts = seen(&shared, "POST /graph/v1.0/me/contactFolders/CF1/contacts");
+    assert_eq!(posts.len(), 1, "{:?}", shared.lock().unwrap().log);
+    assert!(posts[0].contains("Local edit"), "{}", posts[0]);
+    let href = core
+        .db
+        .read(move |conn| {
+            Ok(conn.query_row(
+                "SELECT href FROM carddav_objects WHERE contact_id=?1",
+                [id],
+                |r| r.get::<_, String>(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(href, "NEWC");
+    assert_eq!(core.pending_changes(Some(account.id)).await.unwrap(), 0);
+}
+
+#[tokio::test]
 async fn the_organization_directory_can_be_searched() {
     let temp = tempfile::tempdir().unwrap();
     let shared = seeded();
@@ -2874,6 +3027,97 @@ async fn recording_proxy() -> (u16, Arc<Mutex<Vec<String>>>) {
         }
     });
     (port, heads)
+}
+
+/// A SOCKS5 proxy (no login) that records the host names it is asked for and
+/// relays every connection to `target`, so a request really completes
+/// through it.
+async fn relaying_socks5_proxy(target: std::net::SocketAddr) -> (u16, Arc<Mutex<Vec<String>>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let asked: Arc<Mutex<Vec<String>>> = Arc::default();
+    let record = asked.clone();
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut client, _)) = listener.accept().await else {
+                return;
+            };
+            let record = record.clone();
+            tokio::spawn(async move {
+                let mut head = [0u8; 2];
+                client.read_exact(&mut head).await.unwrap();
+                let mut methods = vec![0u8; usize::from(head[1])];
+                client.read_exact(&mut methods).await.unwrap();
+                client.write_all(&[5, 0]).await.unwrap();
+                let mut request = [0u8; 4];
+                client.read_exact(&mut request).await.unwrap();
+                assert_eq!(request[3], 3, "the name must go to the proxy");
+                let mut len = [0u8; 1];
+                client.read_exact(&mut len).await.unwrap();
+                let mut name = vec![0u8; usize::from(len[0])];
+                client.read_exact(&mut name).await.unwrap();
+                let mut port = [0u8; 2];
+                client.read_exact(&mut port).await.unwrap();
+                record
+                    .lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(&name).into_owned());
+                let mut upstream = tokio::net::TcpStream::connect(target).await.unwrap();
+                client
+                    .write_all(&[5, 0, 0, 1, 127, 0, 0, 1, 0, 0])
+                    .await
+                    .unwrap();
+                let _ = tokio::io::copy_bidirectional(&mut client, &mut upstream).await;
+            });
+        }
+    });
+    (port, asked)
+}
+
+#[tokio::test]
+async fn a_whole_account_syncs_mail_and_contacts_through_its_socks5_proxy() {
+    use rustmail_core::exchange::ExchangeProxy;
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().contacts = vec![
+        r#"{"id":"C1","changeKey":"k1","displayName":"Ann Lee","emailAddresses":[{"address":"ann@example.org"}]}"#.into(),
+    ];
+    let base = serve_named(shared.clone(), Some("http://localhost:9")).await;
+    let target: std::net::SocketAddr = base.trim_start_matches("http://").parse().unwrap();
+    let (port, asked) = relaying_socks5_proxy(target).await;
+    let core = start(temp.path()).await;
+    // Port 9 is closed: only the proxy can reach the server, and it gets the
+    // host name to resolve (socks5h).
+    let mut exchange = settings("http://localhost:9");
+    exchange.custom_graph_url = "http://localhost:9/graph".into();
+    let account = core
+        .add_exchange_account(
+            AddExchangeAccountArgs {
+                email: "me@example.org".into(),
+                display_name: Some("Me".into()),
+                exchange,
+                proxy: Some(ExchangeProxy {
+                    kind: ProxyKind::Socks5,
+                    host: "127.0.0.1".into(),
+                    port,
+                    username: String::new(),
+                    password: SecretString::new(""),
+                }),
+            },
+            tokens(),
+        )
+        .await
+        .unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    assert!(
+        !rows(&core).await.is_empty(),
+        "mail arrived through the proxy: {:?}",
+        shared.lock().unwrap().log
+    );
+    assert!(ann_id(&core).await > 0, "contacts arrived too");
+    let asked = asked.lock().unwrap();
+    assert!(!asked.is_empty());
+    assert!(asked.iter().all(|name| name == "localhost"), "{asked:?}");
 }
 
 #[tokio::test]

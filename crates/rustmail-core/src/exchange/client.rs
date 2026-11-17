@@ -19,6 +19,8 @@ const MAX_JSON_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_MIME_BYTES: usize = 35 * 1024 * 1024;
 const MAX_NEXT_LINK_BYTES: usize = 16 * 1024;
 const MAX_ATTEMPTS: usize = 4;
+/// Levels of contact folders read below the top one (the top level is 1).
+const MAX_CONTACT_FOLDER_DEPTH: usize = 4;
 const MAX_PAGES: usize = 2_000;
 const MAX_FOLDERS: usize = 5_000;
 const MAX_FOLDER_DEPTH: usize = 24;
@@ -1129,32 +1131,44 @@ impl GraphMail {
 
     /// The contact folders of the mailbox (the default "Contacts" included).
     pub async fn contact_folders(&self) -> Result<Vec<(String, String)>> {
-        let mut url = self.endpoint(&["contactFolders"]);
-        url.query_pairs_mut()
-            .append_pair("$select", "id,displayName")
-            .append_pair("$top", "100");
-        let mut link = Some(url);
         let mut out = Vec::new();
-        let mut pages = 0;
-        while let Some(url) = link.take() {
-            pages += 1;
-            if pages > MAX_PAGES {
-                return Err(CoreError::Network("too many contact folder pages".into()));
-            }
-            let value = self.json(reqwest::Method::GET, url, None, &[]).await?;
-            for item in value["value"].as_array().into_iter().flatten() {
-                if let Some(id) = item["id"].as_str() {
-                    out.push((
-                        id.to_owned(),
-                        item["displayName"]
-                            .as_str()
-                            .unwrap_or("Contacts")
-                            .to_owned(),
-                    ));
+        // (parent id, name prefix, depth); `None` lists the top level.
+        let mut queue = std::collections::VecDeque::from([(None::<String>, String::new(), 0usize)]);
+        while let Some((parent, prefix, depth)) = queue.pop_front() {
+            let mut url = match &parent {
+                Some(id) => self.endpoint(&["contactFolders", id, "childFolders"]),
+                None => self.endpoint(&["contactFolders"]),
+            };
+            url.query_pairs_mut()
+                .append_pair("$select", "id,displayName")
+                .append_pair("$top", "100");
+            let mut link = Some(url);
+            let mut pages = 0;
+            while let Some(url) = link.take() {
+                pages += 1;
+                if pages > MAX_PAGES {
+                    return Err(CoreError::Network("too many contact folder pages".into()));
+                }
+                let value = self.json(reqwest::Method::GET, url, None, &[]).await?;
+                for item in value["value"].as_array().into_iter().flatten() {
+                    if let Some(id) = item["id"].as_str() {
+                        let name = format!(
+                            "{prefix}{}",
+                            item["displayName"].as_str().unwrap_or("Contacts")
+                        );
+                        if depth + 1 < MAX_CONTACT_FOLDER_DEPTH {
+                            queue.push_back((Some(id.to_owned()), format!("{name} / "), depth + 1));
+                        }
+                        out.push((id.to_owned(), name));
+                    }
+                }
+                if let Some(next) = value["@odata.nextLink"].as_str() {
+                    link = Some(self.trusted_link(next)?);
                 }
             }
-            if let Some(next) = value["@odata.nextLink"].as_str() {
-                link = Some(self.trusted_link(next)?);
+            // Stop early; the caller refuses a mailbox with too many folders.
+            if out.len() > 1_000 {
+                break;
             }
         }
         Ok(out)
