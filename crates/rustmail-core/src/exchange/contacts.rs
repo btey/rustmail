@@ -315,7 +315,7 @@ async fn sync_folder(
                                 match record_for(contact, photos.get(&contact.id).cloned()) {
                                     Some(record) => {
                                         let vcard = crate::carddav::vcard::serialize(&record, &uid);
-                                        repo::carddav::upsert_remote(
+                                        if !repo::carddav::upsert_pulled_remote(
                                             &tx,
                                             account_id,
                                             book_id,
@@ -323,7 +323,9 @@ async fn sync_folder(
                                             contact.change_key.as_deref(),
                                             &vcard,
                                             &record,
-                                        )?;
+                                        )? {
+                                            tracing::info!(id=%contact.id, "kept a local contact edit over the server version");
+                                        }
                                     }
                                     // No e-mail address: the contact cannot be shown
                                     // in the e-mail keyed directory; remember it only.

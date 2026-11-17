@@ -902,6 +902,7 @@ export component AppWindow inherits Window {
     in-out property <int> offline_waiting: 0;
     // Local time (HH:MM) an account last finished fetching in this session.
     in-out property <string> last_sync_text: "";
+    in-out property <string> last_sync_failed_text: "";
     in property <[EmailTile]> email_tiles: [];
     in property <[EmailLink]> email_links: [];
     // The renderer reports the total laid-out content height while retaining
@@ -1472,6 +1473,7 @@ export component AppWindow inherits Window {
             offline_active: root.offline_active;
             offline_waiting: root.offline_waiting;
             last_sync_text: root.last_sync_text;
+            last_sync_failed_text: root.last_sync_failed_text;
             can_load_more: root.can_load_more;
             loading_more: root.mail_loading_more;
             list_content_revision: root.mail_list_revision;

@@ -317,6 +317,34 @@ pub fn mark_addressbook_read_only(conn: &Connection, id: i64) -> Result<()> {
     Ok(())
 }
 
+/// A server vCard seen by a regular pull. A contact edited here and not yet
+/// pushed is kept as it is: its next push then meets the changed server
+/// version and takes the conflict path (CardDAV re-reads, Exchange keeps
+/// both), instead of the pull silently dropping the edit or undoing a delete.
+/// Returns `false` when the local edit was kept.
+pub fn upsert_pulled_remote(
+    conn: &Connection,
+    account_id: i64,
+    book_id: i64,
+    href: &str,
+    etag: Option<&str>,
+    vcard: &str,
+    record: &ContactRecord,
+) -> Result<bool> {
+    let pending: Option<i64> = conn
+        .query_row(
+            "SELECT dirty FROM carddav_objects WHERE addressbook_id=?1 AND href=?2",
+            params![book_id, href],
+            |r| r.get(0),
+        )
+        .optional()?;
+    if pending.unwrap_or(0) != 0 {
+        return Ok(false);
+    }
+    upsert_remote(conn, account_id, book_id, href, etag, vcard, record)?;
+    Ok(true)
+}
+
 /// Merge a server vCard into the unified contact row and bind its DAV object.
 pub fn upsert_remote(
     conn: &Connection,

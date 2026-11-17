@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-16 18:58+0000\n"
+"POT-Creation-Date: 2026-11-17 14:38+0000\n"
 "PO-Revision-Date: 2026-09-15 12:00+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Turkish\n"
@@ -16,7 +16,7 @@ msgstr ""
 msgid "Jan"
 msgstr "Oca"
 
-#: ui/app.slint:94 ui/views/mail-list-pane.slint:314
+#: ui/app.slint:94 ui/views/mail-list-pane.slint:315
 msgid "January"
 msgstr "Ocak"
 
@@ -24,7 +24,7 @@ msgstr "Ocak"
 msgid "Feb"
 msgstr "Şub"
 
-#: ui/app.slint:95 ui/views/mail-list-pane.slint:315
+#: ui/app.slint:95 ui/views/mail-list-pane.slint:316
 msgid "February"
 msgstr "Şubat"
 
@@ -32,7 +32,7 @@ msgstr "Şubat"
 msgid "Mar"
 msgstr "Mar"
 
-#: ui/app.slint:96 ui/views/mail-list-pane.slint:316
+#: ui/app.slint:96 ui/views/mail-list-pane.slint:317
 msgid "March"
 msgstr "Mart"
 
@@ -40,11 +40,11 @@ msgstr "Mart"
 msgid "Apr"
 msgstr "Nis"
 
-#: ui/app.slint:97 ui/views/mail-list-pane.slint:317
+#: ui/app.slint:97 ui/views/mail-list-pane.slint:318
 msgid "April"
 msgstr "Nisan"
 
-#: ui/app.slint:98 ui/views/mail-list-pane.slint:318
+#: ui/app.slint:98 ui/views/mail-list-pane.slint:319
 msgid "May"
 msgstr "May"
 
@@ -52,7 +52,7 @@ msgstr "May"
 msgid "Jun"
 msgstr "Haz"
 
-#: ui/app.slint:99 ui/views/mail-list-pane.slint:319
+#: ui/app.slint:99 ui/views/mail-list-pane.slint:320
 msgid "June"
 msgstr "Haziran"
 
@@ -60,7 +60,7 @@ msgstr "Haziran"
 msgid "Jul"
 msgstr "Tem"
 
-#: ui/app.slint:100 ui/views/mail-list-pane.slint:320
+#: ui/app.slint:100 ui/views/mail-list-pane.slint:321
 msgid "July"
 msgstr "Temmuz"
 
@@ -68,7 +68,7 @@ msgstr "Temmuz"
 msgid "Aug"
 msgstr "Ağu"
 
-#: ui/app.slint:101 ui/views/mail-list-pane.slint:321
+#: ui/app.slint:101 ui/views/mail-list-pane.slint:322
 msgid "August"
 msgstr "Ağustos"
 
@@ -76,7 +76,7 @@ msgstr "Ağustos"
 msgid "Sep"
 msgstr "Eyl"
 
-#: ui/app.slint:102 ui/views/mail-list-pane.slint:322
+#: ui/app.slint:102 ui/views/mail-list-pane.slint:323
 msgid "September"
 msgstr "Eylül"
 
@@ -84,7 +84,7 @@ msgstr "Eylül"
 msgid "Oct"
 msgstr "Eki"
 
-#: ui/app.slint:103 ui/views/mail-list-pane.slint:323
+#: ui/app.slint:103 ui/views/mail-list-pane.slint:324
 msgid "October"
 msgstr "Ekim"
 
@@ -92,7 +92,7 @@ msgstr "Ekim"
 msgid "Nov"
 msgstr "Kas"
 
-#: ui/app.slint:104 ui/views/mail-list-pane.slint:324
+#: ui/app.slint:104 ui/views/mail-list-pane.slint:325
 msgid "November"
 msgstr "Kasım"
 
@@ -100,7 +100,7 @@ msgstr "Kasım"
 msgid "Dec"
 msgstr "Ara"
 
-#: ui/app.slint:105 ui/views/mail-list-pane.slint:325
+#: ui/app.slint:105 ui/views/mail-list-pane.slint:326
 msgid "December"
 msgstr "Aralık"
 
@@ -184,7 +184,7 @@ msgstr "Konuşma geçmişi mevcut"
 msgid "New address-book entry"
 msgstr "Yeni adres defteri kaydı"
 
-#: ui/app.slint:137 ui/app.slint:996 ui/components/composer-fields.slint:80
+#: ui/app.slint:137 ui/app.slint:997 ui/components/composer-fields.slint:80
 #: ui/dialogs/compose-dialog.slint:39
 msgid "No connected account"
 msgstr "Bağlı hesap yok"
@@ -1632,107 +1632,107 @@ msgstr "İleti yükleniyor…"
 msgid "Rustmail"
 msgstr "Rustmail"
 
-#: ui/app.slint:1220 ui/app.slint:1233
+#: ui/app.slint:1221 ui/app.slint:1234
 msgid "Global Labels (local only)"
 msgstr "Genel Etiketler (yalnızca yerel)"
 
-#: ui/app.slint:2157
+#: ui/app.slint:2159
 msgid "Empty Trash?"
 msgstr "Çöp kutusu boşaltılsın mı?"
 
-#: ui/app.slint:2157 ui/views/files-view.slint:539
+#: ui/app.slint:2159 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr "Kalıcı olarak silinsin mi?"
 
-#: ui/app.slint:2161
+#: ui/app.slint:2163
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 "Bağlı tüm hesaplardaki Çöp kutusunda bulunan iletiler kalıcı olarak silinsin "
 "mi?"
 
-#: ui/app.slint:2162
+#: ui/app.slint:2164
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr "Bu hesabın Çöp kutusundaki tüm iletiler kalıcı olarak silinsin mi?"
 
-#: ui/app.slint:2164
+#: ui/app.slint:2166
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr "Seçili konuşmalar Çöp kutusundan kalıcı olarak silinsin mi?"
 
-#: ui/app.slint:2165
+#: ui/app.slint:2167
 msgid "Permanently delete this conversation from Trash?"
 msgstr "Bu konuşma Çöp kutusundan kalıcı olarak silinsin mi?"
 
-#: ui/app.slint:2166 ui/components/calendar.slint:988
+#: ui/app.slint:2168 ui/components/calendar.slint:988
 msgid "This action cannot be undone."
 msgstr "Bu işlem geri alınamaz."
 
-#: ui/app.slint:2167
+#: ui/app.slint:2169
 msgid "Empty Trash"
 msgstr "Çöp kutusunu boşalt"
 
-#: ui/app.slint:2167 ui/views/files-view.slint:621
+#: ui/app.slint:2169 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr "Kalıcı olarak sil"
 
-#: ui/app.slint:2349
+#: ui/app.slint:2351
 msgid "Mailbox startup failed"
 msgstr "Posta kutusu başlatılamadı"
 
-#: ui/app.slint:2355
+#: ui/app.slint:2357
 msgid "Rustmail could not open local storage"
 msgstr "Rustmail yerel depolamayı açamadı"
 
-#: ui/app.slint:2368
+#: ui/app.slint:2370
 msgid "Diagnostic ID: {}"
 msgstr "Tanılama kimliği: {}"
 
-#: ui/app.slint:2371
+#: ui/app.slint:2373
 msgid "Diagnostic ID {}"
 msgstr "Tanılama kimliği {}"
 
-#: ui/app.slint:2376
+#: ui/app.slint:2378
 msgid "Retry"
 msgstr "Yeniden dene"
 
-#: ui/app.slint:2384 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2386 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr "Tanılama bilgilerini kopyala"
 
-#: ui/app.slint:2450 ui/app.slint:2535 ui/app.slint:2593
+#: ui/app.slint:2452 ui/app.slint:2537 ui/app.slint:2595
 msgid "Dismiss"
 msgstr "Yoksay"
 
-#: ui/app.slint:2470 ui/app.slint:2475
+#: ui/app.slint:2472 ui/app.slint:2477
 msgid "Sent and linked"
 msgstr "Gönderildi ve bağlandı"
 
-#: ui/app.slint:2493
+#: ui/app.slint:2495
 msgid "Task moved to Waiting for"
 msgstr "Görev Beklenenler'e taşındı"
 
-#: ui/app.slint:2493
+#: ui/app.slint:2495
 msgid "Task marked as done"
 msgstr "Görev tamamlandı olarak işaretlendi"
 
-#: ui/app.slint:2502
+#: ui/app.slint:2504
 msgid "Follow-up in {} days"
 msgstr "{} gün içinde takip"
 
-#: ui/app.slint:2511
+#: ui/app.slint:2513
 msgid "Follow-up added to the calendar"
 msgstr "Takip takvime eklendi"
 
-#: ui/app.slint:2521
+#: ui/app.slint:2523
 msgid "Back to board"
 msgstr "Panoya dön"
 
-#: ui/app.slint:2580 ui/components/linked-task-banner.slint:116
+#: ui/app.slint:2582 ui/components/linked-task-banner.slint:116
 #: ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr "Görevi aç"
 
-#: ui/app.slint:2626 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2628 ui/components/workspace-navigation.slint:126
 #: ui/dialogs/settings-dialog.slint:2153
 msgid "Tasks"
 msgstr "Görevler"
@@ -2994,7 +2994,7 @@ msgstr "Açık"
 msgid "Off"
 msgstr "Kapalı"
 
-#: ui/components/controls.slint:246 ui/views/mail-list-pane.slint:444
+#: ui/components/controls.slint:246 ui/views/mail-list-pane.slint:445
 msgid "Clear selection"
 msgstr "Seçimi temizle"
 
@@ -3494,12 +3494,12 @@ msgstr "Düzenli ifade"
 msgid "Text to look for"
 msgstr "Aranacak metin"
 
-#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:503
+#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:504
 #: ui/views/mail-reading-pane.slint:555 ui/views/mail-reading-pane.slint:943
 msgid "Mark as read"
 msgstr "Okundu olarak işaretle"
 
-#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:504
+#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:505
 #: ui/views/mail-reading-pane.slint:555 ui/views/mail-reading-pane.slint:943
 msgid "Mark as unread"
 msgstr "Okunmadı olarak işaretle"
@@ -3508,7 +3508,7 @@ msgstr "Okunmadı olarak işaretle"
 msgid "Star"
 msgstr "Yıldızla"
 
-#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:1022
+#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:1023
 #: ui/views/mail-reading-pane.slint:575
 msgid "Archive"
 msgstr "Arşivle"
@@ -3518,7 +3518,7 @@ msgid "Mark as spam"
 msgstr "İstenmeyen olarak işaretle"
 
 #: ui/components/filter-rules.slint:161 ui/dialogs/settings-dialog.slint:2284
-#: ui/views/mail-list-pane.slint:1024 ui/views/mail-reading-pane.slint:559
+#: ui/views/mail-list-pane.slint:1025 ui/views/mail-reading-pane.slint:559
 #: ui/views/mail-reading-pane.slint:972
 msgid "Move to trash"
 msgstr "Çöp kutusuna taşı"
@@ -3989,7 +3989,7 @@ msgstr "Genel etiketi sil"
 msgid "Delete label from {}"
 msgstr "{} içindeki etiketi sil"
 
-#: ui/components/sidebar.slint:67 ui/views/mail-list-pane.slint:1104
+#: ui/components/sidebar.slint:67 ui/views/mail-list-pane.slint:1105
 msgid "New email"
 msgstr "Yeni e-posta"
 
@@ -4842,7 +4842,7 @@ msgid ""
 msgstr ""
 "İptal edilen ileti taslak olarak kalır. Uygulama o saatte açık olmalıdır."
 
-#: ui/dialogs/scheduled-dialog.slint:69 ui/views/mail-list-pane.slint:599
+#: ui/dialogs/scheduled-dialog.slint:69 ui/views/mail-list-pane.slint:600
 #: ui/views/mail-reading-pane.slint:806
 msgid "(No subject)"
 msgstr "(Konu yok)"
@@ -4967,7 +4967,7 @@ msgstr "6 ay · Önerilen"
 msgid "1 year"
 msgstr "1 yıl"
 
-#: ui/dialogs/settings-dialog.slint:532 ui/views/mail-list-pane.slint:376
+#: ui/dialogs/settings-dialog.slint:532 ui/views/mail-list-pane.slint:377
 msgid "All mail"
 msgstr "Tüm e-postalar"
 
@@ -5903,7 +5903,7 @@ msgstr "Yeni ileti yaz"
 msgid "C"
 msgstr "C"
 
-#: ui/dialogs/settings-dialog.slint:2280 ui/views/mail-list-pane.slint:374
+#: ui/dialogs/settings-dialog.slint:2280 ui/views/mail-list-pane.slint:375
 msgid "Search mail"
 msgstr "E-posta ara"
 
@@ -5911,7 +5911,7 @@ msgstr "E-posta ara"
 msgid "/"
 msgstr "/"
 
-#: ui/dialogs/settings-dialog.slint:2281 ui/views/mail-list-pane.slint:466
+#: ui/dialogs/settings-dialog.slint:2281 ui/views/mail-list-pane.slint:467
 msgid "Archive selected message"
 msgstr "Seçili iletiyi arşivle"
 
@@ -6936,151 +6936,155 @@ msgid_plural "Offline · {n} changes waiting"
 msgstr[0] "Çevrimdışı · {n} değişiklik bekliyor"
 msgstr[1] "Çevrimdışı · {n} değişiklik bekliyor"
 
-#: ui/views/mail-list-pane.slint:326 ui/views/mail-list-pane.slint:339
+#: ui/views/mail-list-pane.slint:327 ui/views/mail-list-pane.slint:340
 msgid "Earlier"
 msgstr "Daha önce"
 
-#: ui/views/mail-list-pane.slint:331
+#: ui/views/mail-list-pane.slint:332
 msgid "Yesterday"
 msgstr "Dün"
 
-#: ui/views/mail-list-pane.slint:332
+#: ui/views/mail-list-pane.slint:333
 msgid "This week"
 msgstr "Bu hafta"
 
-#: ui/views/mail-list-pane.slint:333
+#: ui/views/mail-list-pane.slint:334
 msgid "Last week"
 msgstr "Geçen hafta"
 
-#: ui/views/mail-list-pane.slint:334
+#: ui/views/mail-list-pane.slint:335
 msgid "This month"
 msgstr "Bu ay"
 
-#: ui/views/mail-list-pane.slint:335
+#: ui/views/mail-list-pane.slint:336
 msgid "Last month"
 msgstr "Geçen ay"
 
-#: ui/views/mail-list-pane.slint:337
+#: ui/views/mail-list-pane.slint:338
 msgid "{} {}"
 msgstr "{} {}"
 
-#: ui/views/mail-list-pane.slint:371
+#: ui/views/mail-list-pane.slint:372
 msgid "Show folders"
 msgstr "Klasörleri göster"
 
-#: ui/views/mail-list-pane.slint:371
+#: ui/views/mail-list-pane.slint:372
 msgid "Hide folders"
 msgstr "Klasörleri gizle"
 
-#: ui/views/mail-list-pane.slint:377
+#: ui/views/mail-list-pane.slint:378
 msgid "Unread"
 msgstr "Okunmamış"
 
-#: ui/views/mail-list-pane.slint:378
+#: ui/views/mail-list-pane.slint:379
 msgid "Starred"
 msgstr "Yıldızlı"
 
-#: ui/views/mail-list-pane.slint:379 ui/views/mail-list-pane.slint:604
+#: ui/views/mail-list-pane.slint:380 ui/views/mail-list-pane.slint:605
 msgid "Has attachments"
 msgstr "Ek içeriyor"
 
-#: ui/views/mail-list-pane.slint:382
+#: ui/views/mail-list-pane.slint:383
 msgid "Filter mail"
 msgstr "E-postaları filtrele"
 
-#: ui/views/mail-list-pane.slint:385
+#: ui/views/mail-list-pane.slint:386
 msgid "Synchronizing mail"
 msgstr "E-postalar eşitleniyor"
 
-#: ui/views/mail-list-pane.slint:385
+#: ui/views/mail-list-pane.slint:386
+msgid "Reload mail (fetching failed at {})"
+msgstr "E-postayı yeniden yükle (alma {} saatinde başarısız oldu)"
+
+#: ui/views/mail-list-pane.slint:386
 msgid "Reload mail (updated {})"
 msgstr "E-postayı yeniden yükle (güncellendi {})"
 
-#: ui/views/mail-list-pane.slint:385
+#: ui/views/mail-list-pane.slint:386
 msgid "Reload mail"
 msgstr "E-postaları yeniden yükle"
 
-#: ui/views/mail-list-pane.slint:407 ui/views/mail-list-pane.slint:412
+#: ui/views/mail-list-pane.slint:408 ui/views/mail-list-pane.slint:413
 msgid "Fetching mail…"
 msgstr "E-posta alınıyor…"
 
-#: ui/views/mail-list-pane.slint:444
+#: ui/views/mail-list-pane.slint:445
 msgid "Select all messages on this page"
 msgstr "Bu sayfadaki tüm iletileri seç"
 
-#: ui/views/mail-list-pane.slint:475 ui/views/mail-list-pane.slint:1023
+#: ui/views/mail-list-pane.slint:476 ui/views/mail-list-pane.slint:1024
 #: ui/views/mail-reading-pane.slint:576
 msgid "Move to spam"
 msgstr "İstenmeyene taşı"
 
-#: ui/views/mail-list-pane.slint:484
+#: ui/views/mail-list-pane.slint:485
 msgid "Delete selected permanently"
 msgstr "Seçilenleri kalıcı olarak sil"
 
-#: ui/views/mail-list-pane.slint:497 ui/views/mail-reading-pane.slint:1193
+#: ui/views/mail-list-pane.slint:498 ui/views/mail-reading-pane.slint:1193
 msgid "More message actions"
 msgstr "Diğer ileti işlemleri"
 
-#: ui/views/mail-list-pane.slint:505 ui/views/mail-list-pane.slint:1019
+#: ui/views/mail-list-pane.slint:506 ui/views/mail-list-pane.slint:1020
 #: ui/views/mail-reading-pane.slint:565
 msgid "Star message"
 msgstr "İletiye yıldız ekle"
 
-#: ui/views/mail-list-pane.slint:506 ui/views/mail-list-pane.slint:1019
+#: ui/views/mail-list-pane.slint:507 ui/views/mail-list-pane.slint:1020
 #: ui/views/mail-reading-pane.slint:565
 msgid "Remove star"
 msgstr "Yıldızı kaldır"
 
-#: ui/views/mail-list-pane.slint:507
+#: ui/views/mail-list-pane.slint:508
 msgid "Create tasks"
 msgstr "Görev oluştur"
 
-#: ui/views/mail-list-pane.slint:599
+#: ui/views/mail-list-pane.slint:600
 msgid "{}, {}"
 msgstr "{}, {}"
 
-#: ui/views/mail-list-pane.slint:601
+#: ui/views/mail-list-pane.slint:602
 msgid "Profile: {}"
 msgstr "Profil: {}"
 
-#: ui/views/mail-list-pane.slint:602
+#: ui/views/mail-list-pane.slint:603
 msgid "{} messages"
 msgstr "{} ileti"
 
-#: ui/views/mail-list-pane.slint:605
+#: ui/views/mail-list-pane.slint:606
 msgid "Replied"
 msgstr "Yanıtlandı"
 
-#: ui/views/mail-list-pane.slint:735
+#: ui/views/mail-list-pane.slint:736
 msgid "{} messages in this conversation"
 msgstr "Bu konuşmada {} ileti"
 
-#: ui/views/mail-list-pane.slint:820
+#: ui/views/mail-list-pane.slint:821
 msgid "Account: {}"
 msgstr "Hesap: {}"
 
-#: ui/views/mail-list-pane.slint:1009
+#: ui/views/mail-list-pane.slint:1010
 msgid "Deselect {}"
 msgstr "Seçimini kaldır: {}"
 
-#: ui/views/mail-list-pane.slint:1017
+#: ui/views/mail-list-pane.slint:1018
 msgid "Open in new tab"
 msgstr "Yeni sekmede aç"
 
-#: ui/views/mail-list-pane.slint:1024 ui/views/mail-reading-pane.slint:540
+#: ui/views/mail-list-pane.slint:1025 ui/views/mail-reading-pane.slint:540
 #: ui/views/mail-reading-pane.slint:577
 msgid "Delete permanently…"
 msgstr "Kalıcı olarak sil…"
 
-#: ui/views/mail-list-pane.slint:1081 ui/views/onboarding-view.slint:142
+#: ui/views/mail-list-pane.slint:1082 ui/views/onboarding-view.slint:142
 msgid "Opening your mailbox…"
 msgstr "Posta kutunuz açılıyor…"
 
-#: ui/views/mail-list-pane.slint:1081
+#: ui/views/mail-list-pane.slint:1082
 msgid "Nothing here"
 msgstr "Burada hiçbir şey yok"
 
-#: ui/views/mail-list-pane.slint:1082
+#: ui/views/mail-list-pane.slint:1083
 msgid "Try another folder or search term."
 msgstr "Başka bir klasör veya arama terimi deneyin."
 
@@ -7353,11 +7357,11 @@ msgstr "Kurşuni"
 msgid "Use across all accounts (local only)"
 msgstr "Tüm hesaplarda kullan (yalnızca yerel)"
 
-#: ui/views/mail-view.slint:354
+#: ui/views/mail-view.slint:356
 msgid "Message list width"
 msgstr "İleti listesi genişliği"
 
-#: ui/views/mail-view.slint:701
+#: ui/views/mail-view.slint:704
 msgid "Close folders"
 msgstr "Klasörleri kapat"
 

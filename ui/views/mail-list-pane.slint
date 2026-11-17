@@ -186,6 +186,7 @@ export component MailListPane inherits Rectangle {
     private property <string> offline-text: root.offline_waiting == 0 ? @tr("Offline")
         : @tr("Offline · {n} change waiting" | "Offline · {n} changes waiting" % root.offline_waiting);
     in property <string> last_sync_text: "";
+    in property <string> last_sync_failed_text: "";
     in property <bool> can_load_more: false;
     in property <bool> loading_more: false;
     in property <int> content_revision: 0;
@@ -382,7 +383,7 @@ export component MailListPane inherits Rectangle {
                             filter-tooltip: @tr("Filter mail");
                             filter-accessible-id: "mail-filter-button";
                             refresh-enabled: !root.sync_in_progress;
-                            refresh-tooltip: root.sync_in_progress ? @tr("Synchronizing mail") : root.last_sync_text != "" ? @tr("Reload mail (updated {})", root.last_sync_text) : @tr("Reload mail");
+                            refresh-tooltip: root.sync_in_progress ? @tr("Synchronizing mail") : root.last_sync_failed_text != "" ? @tr("Reload mail (fetching failed at {})", root.last_sync_failed_text) : root.last_sync_text != "" ? @tr("Reload mail (updated {})", root.last_sync_text) : @tr("Reload mail");
                             refresh-accessible-id: "mail-refresh-button";
                             leading-clicked => {
                                 if (root.single-pane-navigation) {

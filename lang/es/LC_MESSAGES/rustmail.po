@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-16 18:58+0000\n"
+"POT-Creation-Date: 2026-11-17 14:38+0000\n"
 "PO-Revision-Date: 2026-09-20 23:21+0000\n"
 "Last-Translator: Admin <admin@rustmail.org>\n"
 "Language-Team: Spanish <https://translate.rustmail.org/projects/rustmail/"
@@ -18,7 +18,7 @@ msgstr ""
 msgid "Jan"
 msgstr "ene"
 
-#: ui/app.slint:94 ui/views/mail-list-pane.slint:314
+#: ui/app.slint:94 ui/views/mail-list-pane.slint:315
 msgid "January"
 msgstr "enero"
 
@@ -26,7 +26,7 @@ msgstr "enero"
 msgid "Feb"
 msgstr "feb"
 
-#: ui/app.slint:95 ui/views/mail-list-pane.slint:315
+#: ui/app.slint:95 ui/views/mail-list-pane.slint:316
 msgid "February"
 msgstr "febrero"
 
@@ -34,7 +34,7 @@ msgstr "febrero"
 msgid "Mar"
 msgstr "mar"
 
-#: ui/app.slint:96 ui/views/mail-list-pane.slint:316
+#: ui/app.slint:96 ui/views/mail-list-pane.slint:317
 msgid "March"
 msgstr "marzo"
 
@@ -42,11 +42,11 @@ msgstr "marzo"
 msgid "Apr"
 msgstr "abr"
 
-#: ui/app.slint:97 ui/views/mail-list-pane.slint:317
+#: ui/app.slint:97 ui/views/mail-list-pane.slint:318
 msgid "April"
 msgstr "abril"
 
-#: ui/app.slint:98 ui/views/mail-list-pane.slint:318
+#: ui/app.slint:98 ui/views/mail-list-pane.slint:319
 msgid "May"
 msgstr "mayo"
 
@@ -54,7 +54,7 @@ msgstr "mayo"
 msgid "Jun"
 msgstr "jun"
 
-#: ui/app.slint:99 ui/views/mail-list-pane.slint:319
+#: ui/app.slint:99 ui/views/mail-list-pane.slint:320
 msgid "June"
 msgstr "junio"
 
@@ -62,7 +62,7 @@ msgstr "junio"
 msgid "Jul"
 msgstr "jul"
 
-#: ui/app.slint:100 ui/views/mail-list-pane.slint:320
+#: ui/app.slint:100 ui/views/mail-list-pane.slint:321
 msgid "July"
 msgstr "julio"
 
@@ -70,7 +70,7 @@ msgstr "julio"
 msgid "Aug"
 msgstr "ago"
 
-#: ui/app.slint:101 ui/views/mail-list-pane.slint:321
+#: ui/app.slint:101 ui/views/mail-list-pane.slint:322
 msgid "August"
 msgstr "agosto"
 
@@ -78,7 +78,7 @@ msgstr "agosto"
 msgid "Sep"
 msgstr "sept"
 
-#: ui/app.slint:102 ui/views/mail-list-pane.slint:322
+#: ui/app.slint:102 ui/views/mail-list-pane.slint:323
 msgid "September"
 msgstr "septiembre"
 
@@ -86,7 +86,7 @@ msgstr "septiembre"
 msgid "Oct"
 msgstr "oct"
 
-#: ui/app.slint:103 ui/views/mail-list-pane.slint:323
+#: ui/app.slint:103 ui/views/mail-list-pane.slint:324
 msgid "October"
 msgstr "octubre"
 
@@ -94,7 +94,7 @@ msgstr "octubre"
 msgid "Nov"
 msgstr "nov"
 
-#: ui/app.slint:104 ui/views/mail-list-pane.slint:324
+#: ui/app.slint:104 ui/views/mail-list-pane.slint:325
 msgid "November"
 msgstr "noviembre"
 
@@ -102,7 +102,7 @@ msgstr "noviembre"
 msgid "Dec"
 msgstr "dic"
 
-#: ui/app.slint:105 ui/views/mail-list-pane.slint:325
+#: ui/app.slint:105 ui/views/mail-list-pane.slint:326
 msgid "December"
 msgstr "diciembre"
 
@@ -186,7 +186,7 @@ msgstr "Historial de conversaciones disponible"
 msgid "New address-book entry"
 msgstr "Nueva entrada de contactos"
 
-#: ui/app.slint:137 ui/app.slint:996 ui/components/composer-fields.slint:80
+#: ui/app.slint:137 ui/app.slint:997 ui/components/composer-fields.slint:80
 #: ui/dialogs/compose-dialog.slint:39
 msgid "No connected account"
 msgstr "No hay ninguna cuenta conectada"
@@ -1667,109 +1667,109 @@ msgstr "Cargando mensaje…"
 msgid "Rustmail"
 msgstr "Rustmail"
 
-#: ui/app.slint:1220 ui/app.slint:1233
+#: ui/app.slint:1221 ui/app.slint:1234
 msgid "Global Labels (local only)"
 msgstr "Etiquetas globales (solo locales)"
 
-#: ui/app.slint:2157
+#: ui/app.slint:2159
 msgid "Empty Trash?"
 msgstr "¿Vaciar la papelera?"
 
-#: ui/app.slint:2157 ui/views/files-view.slint:539
+#: ui/app.slint:2159 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr "¿Eliminar permanentemente?"
 
-#: ui/app.slint:2161
+#: ui/app.slint:2163
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 "¿Eliminar permanentemente todos los mensajes de la papelera de todas las "
 "cuentas conectadas?"
 
-#: ui/app.slint:2162
+#: ui/app.slint:2164
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr ""
 "¿Eliminar permanentemente todos los mensajes de la papelera de esta cuenta?"
 
-#: ui/app.slint:2164
+#: ui/app.slint:2166
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr ""
 "¿Eliminar permanentemente las conversaciones seleccionadas de la papelera?"
 
-#: ui/app.slint:2165
+#: ui/app.slint:2167
 msgid "Permanently delete this conversation from Trash?"
 msgstr "¿Eliminar permanentemente esta conversación de la papelera?"
 
-#: ui/app.slint:2166 ui/components/calendar.slint:988
+#: ui/app.slint:2168 ui/components/calendar.slint:988
 msgid "This action cannot be undone."
 msgstr "Esta acción no se puede deshacer."
 
-#: ui/app.slint:2167
+#: ui/app.slint:2169
 msgid "Empty Trash"
 msgstr "Vaciar la papelera"
 
-#: ui/app.slint:2167 ui/views/files-view.slint:621
+#: ui/app.slint:2169 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr "Eliminar permanentemente"
 
-#: ui/app.slint:2349
+#: ui/app.slint:2351
 msgid "Mailbox startup failed"
 msgstr "Error al iniciar el buzón"
 
-#: ui/app.slint:2355
+#: ui/app.slint:2357
 msgid "Rustmail could not open local storage"
 msgstr "Rustmail no pudo abrir el almacenamiento local"
 
-#: ui/app.slint:2368
+#: ui/app.slint:2370
 msgid "Diagnostic ID: {}"
 msgstr "ID de diagnóstico: {}"
 
-#: ui/app.slint:2371
+#: ui/app.slint:2373
 msgid "Diagnostic ID {}"
 msgstr "ID de diagnóstico {}"
 
-#: ui/app.slint:2376
+#: ui/app.slint:2378
 msgid "Retry"
 msgstr "Reintentar"
 
-#: ui/app.slint:2384 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2386 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr "Copiar datos de diagnóstico"
 
-#: ui/app.slint:2450 ui/app.slint:2535 ui/app.slint:2593
+#: ui/app.slint:2452 ui/app.slint:2537 ui/app.slint:2595
 msgid "Dismiss"
 msgstr "Descartar"
 
-#: ui/app.slint:2470 ui/app.slint:2475
+#: ui/app.slint:2472 ui/app.slint:2477
 msgid "Sent and linked"
 msgstr "Enviado y vinculado"
 
-#: ui/app.slint:2493
+#: ui/app.slint:2495
 msgid "Task moved to Waiting for"
 msgstr "Tarea movida a En espera"
 
-#: ui/app.slint:2493
+#: ui/app.slint:2495
 msgid "Task marked as done"
 msgstr "Tarea marcada como hecha"
 
-#: ui/app.slint:2502
+#: ui/app.slint:2504
 msgid "Follow-up in {} days"
 msgstr "Seguimiento en {} días"
 
-#: ui/app.slint:2511
+#: ui/app.slint:2513
 msgid "Follow-up added to the calendar"
 msgstr "Seguimiento añadido al calendario"
 
-#: ui/app.slint:2521
+#: ui/app.slint:2523
 msgid "Back to board"
 msgstr "Volver al tablero"
 
-#: ui/app.slint:2580 ui/components/linked-task-banner.slint:116
+#: ui/app.slint:2582 ui/components/linked-task-banner.slint:116
 #: ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr "Abrir tarea"
 
-#: ui/app.slint:2626 ui/components/workspace-navigation.slint:126
+#: ui/app.slint:2628 ui/components/workspace-navigation.slint:126
 #: ui/dialogs/settings-dialog.slint:2153
 msgid "Tasks"
 msgstr "Tareas"
@@ -3043,7 +3043,7 @@ msgstr "Activado"
 msgid "Off"
 msgstr "Desactivado"
 
-#: ui/components/controls.slint:246 ui/views/mail-list-pane.slint:444
+#: ui/components/controls.slint:246 ui/views/mail-list-pane.slint:445
 msgid "Clear selection"
 msgstr "Limpiar selección"
 
@@ -3544,12 +3544,12 @@ msgstr "Expresión regular"
 msgid "Text to look for"
 msgstr "Texto que buscar"
 
-#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:503
+#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:504
 #: ui/views/mail-reading-pane.slint:555 ui/views/mail-reading-pane.slint:943
 msgid "Mark as read"
 msgstr "Marcar como leído"
 
-#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:504
+#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:505
 #: ui/views/mail-reading-pane.slint:555 ui/views/mail-reading-pane.slint:943
 msgid "Mark as unread"
 msgstr "Marcar como no leído"
@@ -3558,7 +3558,7 @@ msgstr "Marcar como no leído"
 msgid "Star"
 msgstr "Destacar"
 
-#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:1022
+#: ui/components/filter-rules.slint:161 ui/views/mail-list-pane.slint:1023
 #: ui/views/mail-reading-pane.slint:575
 msgid "Archive"
 msgstr "Archivar"
@@ -3568,7 +3568,7 @@ msgid "Mark as spam"
 msgstr "Marcar como spam"
 
 #: ui/components/filter-rules.slint:161 ui/dialogs/settings-dialog.slint:2284
-#: ui/views/mail-list-pane.slint:1024 ui/views/mail-reading-pane.slint:559
+#: ui/views/mail-list-pane.slint:1025 ui/views/mail-reading-pane.slint:559
 #: ui/views/mail-reading-pane.slint:972
 msgid "Move to trash"
 msgstr "Mover a la papelera"
@@ -4047,7 +4047,7 @@ msgstr "Eliminar etiqueta global"
 msgid "Delete label from {}"
 msgstr "Eliminar etiqueta de {}"
 
-#: ui/components/sidebar.slint:67 ui/views/mail-list-pane.slint:1104
+#: ui/components/sidebar.slint:67 ui/views/mail-list-pane.slint:1105
 msgid "New email"
 msgstr "Nuevo correo"
 
@@ -4902,7 +4902,7 @@ msgstr ""
 "Al cancelar, el mensaje se conserva como borrador. La aplicación debe estar "
 "abierta a esa hora."
 
-#: ui/dialogs/scheduled-dialog.slint:69 ui/views/mail-list-pane.slint:599
+#: ui/dialogs/scheduled-dialog.slint:69 ui/views/mail-list-pane.slint:600
 #: ui/views/mail-reading-pane.slint:806
 msgid "(No subject)"
 msgstr "(Sin asunto)"
@@ -5029,7 +5029,7 @@ msgstr "6 meses · Recomendado"
 msgid "1 year"
 msgstr "1 año"
 
-#: ui/dialogs/settings-dialog.slint:532 ui/views/mail-list-pane.slint:376
+#: ui/dialogs/settings-dialog.slint:532 ui/views/mail-list-pane.slint:377
 msgid "All mail"
 msgstr "Todo el correo"
 
@@ -5980,7 +5980,7 @@ msgstr "Redactar un mensaje nuevo"
 msgid "C"
 msgstr "C"
 
-#: ui/dialogs/settings-dialog.slint:2280 ui/views/mail-list-pane.slint:374
+#: ui/dialogs/settings-dialog.slint:2280 ui/views/mail-list-pane.slint:375
 msgid "Search mail"
 msgstr "Buscar correo"
 
@@ -5988,7 +5988,7 @@ msgstr "Buscar correo"
 msgid "/"
 msgstr "/"
 
-#: ui/dialogs/settings-dialog.slint:2281 ui/views/mail-list-pane.slint:466
+#: ui/dialogs/settings-dialog.slint:2281 ui/views/mail-list-pane.slint:467
 msgid "Archive selected message"
 msgstr "Archivar el mensaje seleccionado"
 
@@ -7025,151 +7025,155 @@ msgid_plural "Offline · {n} changes waiting"
 msgstr[0] "Sin conexión · {n} cambio en espera"
 msgstr[1] "Sin conexión · {n} cambios en espera"
 
-#: ui/views/mail-list-pane.slint:326 ui/views/mail-list-pane.slint:339
+#: ui/views/mail-list-pane.slint:327 ui/views/mail-list-pane.slint:340
 msgid "Earlier"
 msgstr "Anteriormente"
 
-#: ui/views/mail-list-pane.slint:331
+#: ui/views/mail-list-pane.slint:332
 msgid "Yesterday"
 msgstr "Ayer"
 
-#: ui/views/mail-list-pane.slint:332
+#: ui/views/mail-list-pane.slint:333
 msgid "This week"
 msgstr "Esta semana"
 
-#: ui/views/mail-list-pane.slint:333
+#: ui/views/mail-list-pane.slint:334
 msgid "Last week"
 msgstr "La semana pasada"
 
-#: ui/views/mail-list-pane.slint:334
+#: ui/views/mail-list-pane.slint:335
 msgid "This month"
 msgstr "Este mes"
 
-#: ui/views/mail-list-pane.slint:335
+#: ui/views/mail-list-pane.slint:336
 msgid "Last month"
 msgstr "El mes pasado"
 
-#: ui/views/mail-list-pane.slint:337
+#: ui/views/mail-list-pane.slint:338
 msgid "{} {}"
 msgstr "{} {}"
 
-#: ui/views/mail-list-pane.slint:371
+#: ui/views/mail-list-pane.slint:372
 msgid "Show folders"
 msgstr "Mostrar carpetas"
 
-#: ui/views/mail-list-pane.slint:371
+#: ui/views/mail-list-pane.slint:372
 msgid "Hide folders"
 msgstr "Ocultar carpetas"
 
-#: ui/views/mail-list-pane.slint:377
+#: ui/views/mail-list-pane.slint:378
 msgid "Unread"
 msgstr "No leídos"
 
-#: ui/views/mail-list-pane.slint:378
+#: ui/views/mail-list-pane.slint:379
 msgid "Starred"
 msgstr "Destacados"
 
-#: ui/views/mail-list-pane.slint:379 ui/views/mail-list-pane.slint:604
+#: ui/views/mail-list-pane.slint:380 ui/views/mail-list-pane.slint:605
 msgid "Has attachments"
 msgstr "Con adjuntos"
 
-#: ui/views/mail-list-pane.slint:382
+#: ui/views/mail-list-pane.slint:383
 msgid "Filter mail"
 msgstr "Filtrar correo"
 
-#: ui/views/mail-list-pane.slint:385
+#: ui/views/mail-list-pane.slint:386
 msgid "Synchronizing mail"
 msgstr "Sincronizando correo"
 
-#: ui/views/mail-list-pane.slint:385
+#: ui/views/mail-list-pane.slint:386
+msgid "Reload mail (fetching failed at {})"
+msgstr "Recargar correo (la descarga falló a las {})"
+
+#: ui/views/mail-list-pane.slint:386
 msgid "Reload mail (updated {})"
 msgstr "Recargar correo (actualizado {})"
 
-#: ui/views/mail-list-pane.slint:385
+#: ui/views/mail-list-pane.slint:386
 msgid "Reload mail"
 msgstr "Recargar correo"
 
-#: ui/views/mail-list-pane.slint:407 ui/views/mail-list-pane.slint:412
+#: ui/views/mail-list-pane.slint:408 ui/views/mail-list-pane.slint:413
 msgid "Fetching mail…"
 msgstr "Obteniendo correo…"
 
-#: ui/views/mail-list-pane.slint:444
+#: ui/views/mail-list-pane.slint:445
 msgid "Select all messages on this page"
 msgstr "Seleccionar todos los mensajes de esta página"
 
-#: ui/views/mail-list-pane.slint:475 ui/views/mail-list-pane.slint:1023
+#: ui/views/mail-list-pane.slint:476 ui/views/mail-list-pane.slint:1024
 #: ui/views/mail-reading-pane.slint:576
 msgid "Move to spam"
 msgstr "Mover a spam"
 
-#: ui/views/mail-list-pane.slint:484
+#: ui/views/mail-list-pane.slint:485
 msgid "Delete selected permanently"
 msgstr "Eliminar seleccionados permanentemente"
 
-#: ui/views/mail-list-pane.slint:497 ui/views/mail-reading-pane.slint:1193
+#: ui/views/mail-list-pane.slint:498 ui/views/mail-reading-pane.slint:1193
 msgid "More message actions"
 msgstr "Más acciones del mensaje"
 
-#: ui/views/mail-list-pane.slint:505 ui/views/mail-list-pane.slint:1019
+#: ui/views/mail-list-pane.slint:506 ui/views/mail-list-pane.slint:1020
 #: ui/views/mail-reading-pane.slint:565
 msgid "Star message"
 msgstr "Destacar mensaje"
 
-#: ui/views/mail-list-pane.slint:506 ui/views/mail-list-pane.slint:1019
+#: ui/views/mail-list-pane.slint:507 ui/views/mail-list-pane.slint:1020
 #: ui/views/mail-reading-pane.slint:565
 msgid "Remove star"
 msgstr "Quitar destacado"
 
-#: ui/views/mail-list-pane.slint:507
+#: ui/views/mail-list-pane.slint:508
 msgid "Create tasks"
 msgstr "Crear tareas"
 
-#: ui/views/mail-list-pane.slint:599
+#: ui/views/mail-list-pane.slint:600
 msgid "{}, {}"
 msgstr "{}, {}"
 
-#: ui/views/mail-list-pane.slint:601
+#: ui/views/mail-list-pane.slint:602
 msgid "Profile: {}"
 msgstr "Perfil: {}"
 
-#: ui/views/mail-list-pane.slint:602
+#: ui/views/mail-list-pane.slint:603
 msgid "{} messages"
 msgstr "{} mensajes"
 
-#: ui/views/mail-list-pane.slint:605
+#: ui/views/mail-list-pane.slint:606
 msgid "Replied"
 msgstr "Respondido"
 
-#: ui/views/mail-list-pane.slint:735
+#: ui/views/mail-list-pane.slint:736
 msgid "{} messages in this conversation"
 msgstr "{} mensajes en esta conversación"
 
-#: ui/views/mail-list-pane.slint:820
+#: ui/views/mail-list-pane.slint:821
 msgid "Account: {}"
 msgstr "Cuenta: {}"
 
-#: ui/views/mail-list-pane.slint:1009
+#: ui/views/mail-list-pane.slint:1010
 msgid "Deselect {}"
 msgstr "Deseleccionar {}"
 
-#: ui/views/mail-list-pane.slint:1017
+#: ui/views/mail-list-pane.slint:1018
 msgid "Open in new tab"
 msgstr "Abrir en una pestaña nueva"
 
-#: ui/views/mail-list-pane.slint:1024 ui/views/mail-reading-pane.slint:540
+#: ui/views/mail-list-pane.slint:1025 ui/views/mail-reading-pane.slint:540
 #: ui/views/mail-reading-pane.slint:577
 msgid "Delete permanently…"
 msgstr "Eliminar permanentemente…"
 
-#: ui/views/mail-list-pane.slint:1081 ui/views/onboarding-view.slint:142
+#: ui/views/mail-list-pane.slint:1082 ui/views/onboarding-view.slint:142
 msgid "Opening your mailbox…"
 msgstr "Abriendo tu buzón…"
 
-#: ui/views/mail-list-pane.slint:1081
+#: ui/views/mail-list-pane.slint:1082
 msgid "Nothing here"
 msgstr "No hay nada aquí"
 
-#: ui/views/mail-list-pane.slint:1082
+#: ui/views/mail-list-pane.slint:1083
 msgid "Try another folder or search term."
 msgstr "Prueba otra carpeta o término de búsqueda."
 
@@ -7442,11 +7446,11 @@ msgstr "Pizarra"
 msgid "Use across all accounts (local only)"
 msgstr "Usar en todas las cuentas (solo local)"
 
-#: ui/views/mail-view.slint:354
+#: ui/views/mail-view.slint:356
 msgid "Message list width"
 msgstr "Ancho de la lista de mensajes"
 
-#: ui/views/mail-view.slint:701
+#: ui/views/mail-view.slint:704
 msgid "Close folders"
 msgstr "Cerrar carpetas"
 

@@ -11,6 +11,7 @@ mod autostart;
 mod browser;
 pub use browser::ExternalUrlOpener;
 mod calendar;
+mod calendar_save;
 mod compose_controller;
 mod compose_editor;
 mod contacts;
@@ -85,9 +86,9 @@ use account_controller::*;
 use calendar::start_of_week;
 use calendar::{
     LocalCalendarState, RepeatForm, apply_calendar, find_occurrence, first_of_month,
-    free_busy_summary, refresh_calendar_events, repeat_form_from_rrule, rrule_from_repeat_form,
+    free_busy_summary, refresh_calendar_events, repeat_form_from_rrule,
 };
-use chrono::{Duration as ChronoDuration, Local, NaiveDate, NaiveTime, TimeZone};
+use chrono::{Duration as ChronoDuration, Local, NaiveDate, TimeZone};
 use compose_controller::*;
 use compose_editor::{ComposeEditorStyle, LazyComposeEditor, RenderedComposeEditor};
 use contacts::{
@@ -103,8 +104,8 @@ use rustmail_core::config::Paths;
 use rustmail_core::models::ThreadCursor;
 use rustmail_core::models::{
     Account, AccountConfig, AddPasswordAccountArgs, CalendarConnection, CardDavConnection,
-    ContactRecord, ContactRecordCursor, ContactRecordPage, CreateEventArgs, DraftAttachmentIn,
-    Label, MailProfile, MailProtocol, Provider, Settings, Snippet, UpdateEventArgs,
+    ContactRecord, ContactRecordCursor, ContactRecordPage, DraftAttachmentIn,
+    Label, MailProfile, MailProtocol, Provider, Settings, Snippet,
 };
 #[cfg(test)]
 use mail::fixture_messages;
@@ -2889,39 +2890,10 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         let Some(app) = app_weak.upgrade() else {
             return;
         };
-        let parsed = NaiveDate::parse_from_str(date.trim(), "%Y-%m-%d").and_then(|date| {
-            NaiveTime::parse_from_str(time.trim(), "%H:%M").map(|time| (date, time))
-        });
-        let Ok((date, time)) = parsed else {
-            app.set_sync_status(UiMessage::plain(
-                "Use YYYY-MM-DD and a 24-hour time such as 09:30.",
-            ));
-            return;
-        };
-        let Ok(duration) = duration.trim().parse::<i32>() else {
-            app.set_sync_status(UiMessage::plain(
-                "Event duration must be a number of minutes.",
-            ));
-            return;
-        };
-        if title.trim().is_empty() || !(15..=1440).contains(&duration) {
-            app.set_sync_status(UiMessage::plain(
-                "Add a title and choose a duration from 15 to 1440 minutes.",
-            ));
-            return;
-        }
-        let Some(start) = Local.from_local_datetime(&date.and_time(time)).earliest() else {
-            app.set_sync_status(UiMessage::plain(
-                "That local time does not exist in the current time zone.",
-            ));
-            return;
-        };
         let Some(core) = inbox_for_calendar_save.borrow().core.clone() else {
             app.set_sync_status(UiMessage::plain("Calendar storage is unavailable."));
             return;
         };
-        let starts_at = start.timestamp_millis();
-        let ends_at = (start + ChronoDuration::minutes(i64::from(duration))).timestamp_millis();
         let occurrence_date = app.get_calendar_occurrence_date();
         let occurrence_minutes = app.get_calendar_occurrence_minutes();
         let editing_event = editing_event_for_save.get().and_then(|event_id| {
@@ -2934,140 +2906,44 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             .filter(|event| event.is_local)
             .cloned()
         });
-        // Reminder and repeat, checked before anything is saved.
-        let reminder = match app.get_calendar_event_reminder() {
-            minutes if minutes < 0 => None,
-            minutes => Some(i64::from(minutes)),
-        };
-        let repeat = RepeatForm {
-            kind: app.get_calendar_event_repeat().to_string(),
-            interval: app.get_calendar_event_interval().to_string(),
-            weekdays: app.get_calendar_event_weekdays(),
-            end_kind: app.get_calendar_event_end_kind().to_string(),
-            end_value: app.get_calendar_event_end_value().to_string(),
-        };
-        let wanted_rule = match rrule_from_repeat_form(&repeat, date) {
-            Ok(rule) => Some(rule),
-            // A rule the editor cannot show stays as it is.
-            Err("custom") => None,
-            Err(reason) => {
-                app.set_sync_status(match reason {
-                    "The repeat interval must be a number from 1 to 999." => UiMessage::plain(
-                        "The repeat interval must be a number from 1 to 999.",
-                    ),
-                    "The number of events must be from 1 to 999." => {
-                        UiMessage::plain("The number of events must be from 1 to 999.")
-                    }
-                    "Use YYYY-MM-DD for the last day of the repeat." => {
-                        UiMessage::plain("Use YYYY-MM-DD for the last day of the repeat.")
-                    }
-                    _ => UiMessage::plain("The repeat must not end before the event starts."),
-                });
-                return;
-            }
-        };
-        let only_this_occurrence = app.get_calendar_event_series()
-            && app.get_calendar_event_scope() == "occurrence"
-            && editing_event.is_some();
-        let result = if let Some(event) = editing_event.clone() {
-            if only_this_occurrence {
-                runtime_for_calendar_save
-                    .block_on(core.file_core().exchange_edit_occurrence(
-                        i64::from(event.id),
-                        event.occurrence_start,
-                        Some(title.trim().to_owned()),
-                        Some(starts_at),
-                        Some(ends_at),
-                    ))
-                    .map(|()| i64::from(event.id))
-                    .map_err(|error| error.to_string())
-            } else {
-                // A series is moved as a whole: the change the person made to
-                // this occurrence is applied to the series' own first start.
-                let (series_start, series_end) = if event.recurrence.is_empty() {
-                    (starts_at, ends_at)
-                } else {
-                    let first = runtime_for_calendar_save
-                        .block_on(core.file_core().calendar_event(i64::from(event.id)))
-                        .ok()
-                        .flatten()
-                        .map_or(event.occurrence_start, |master| master.starts_at);
-                    let shifted = first + (starts_at - event.occurrence_start);
-                    (shifted, shifted + (ends_at - starts_at))
-                };
-                runtime_for_calendar_save
-                    .block_on(core.update_event(UpdateEventArgs {
-                        event_id: i64::from(event.id),
-                        summary: title.trim().to_owned(),
-                        description: (!event.description.is_empty()).then_some(event.description),
-                        location: (!event.location.is_empty()).then_some(event.location),
-                        join_url: (!event.join_url.is_empty()).then_some(event.join_url),
-                        starts_at: series_start,
-                        ends_at: series_end,
-                        all_day: event.all_day,
-                        attendees: event.attendee_addresses,
-                        notify: false,
-                    }))
-                    .map(|updated| updated.id)
-            }
-        } else {
-            let account_id = inbox_for_calendar_save
+        let form = calendar_save::EventForm {
+            title: title.to_string(),
+            date: date.to_string(),
+            time: time.to_string(),
+            duration: duration.to_string(),
+            reminder_minutes: app.get_calendar_event_reminder(),
+            repeat: RepeatForm {
+                kind: app.get_calendar_event_repeat().to_string(),
+                interval: app.get_calendar_event_interval().to_string(),
+                weekdays: app.get_calendar_event_weekdays(),
+                end_kind: app.get_calendar_event_end_kind().to_string(),
+                end_value: app.get_calendar_event_end_value().to_string(),
+            },
+            this_occurrence_only: app.get_calendar_event_series()
+                && app.get_calendar_event_scope() == "occurrence",
+            new_event_account_id: inbox_for_calendar_save
                 .borrow()
                 .connected_accounts
                 .first()
                 .map(|account| account.id)
-                .unwrap_or(0);
-            runtime_for_calendar_save
-                .block_on(core.create_event(CreateEventArgs {
-                    account_id,
-                    calendar_id: None,
-                    summary: title.trim().to_owned(),
-                    description: None,
-                    location: None,
-                    join_url: None,
-                    starts_at,
-                    ends_at,
-                    all_day: false,
-                    attendees: Vec::new(),
-                }))
-                .map(|created| created.id)
+                .unwrap_or(0),
         };
-        let saved_id = match result {
-            Ok(id) => id,
-            Err(error) => {
-                app.set_sync_status(UiMessage::detail("Could not save event: {}", error));
+        let saved = match calendar_save::save_event(
+            &core,
+            &runtime_for_calendar_save,
+            &form,
+            editing_event,
+        ) {
+            Ok(saved) => saved,
+            Err(message) => {
+                app.set_sync_status(message);
                 return;
             }
         };
-        // The reminder and the repeat rule apply to the event itself, not to
-        // one occurrence of it.
-        let mut options_error = None;
-        if !only_this_occurrence {
-            let original_reminder = editing_event.as_ref().and_then(|event| event.reminder_minutes);
-            if reminder != original_reminder
-                && let Err(error) =
-                    runtime_for_calendar_save
-                        .block_on(core.file_core().set_event_reminder(saved_id, reminder))
-            {
-                options_error = Some(error.to_string());
-            }
-            let original_rule = editing_event
-                .as_ref()
-                .map(|event| event.recurrence.as_str())
-                .filter(|rule| !rule.is_empty())
-                .map(str::to_owned);
-            if let Some(rule) = wanted_rule
-                && rule != original_rule
-                && let Err(error) = runtime_for_calendar_save
-                    .block_on(core.file_core().set_event_recurrence(saved_id, rule))
-            {
-                options_error = Some(error.to_string());
-            }
-        }
         let today = Local::now().date_naive();
         let mut calendar = calendar_for_save.borrow_mut();
-        calendar.selected_date = date;
-        calendar.visible_month = first_of_month(date);
+        calendar.selected_date = saved.date;
+        calendar.visible_month = first_of_month(saved.date);
         let refresh_result = refresh_calendar_events(
             &core,
             &runtime_for_calendar_save,
@@ -3078,7 +2954,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         editing_event_for_save.set(None);
         app.set_calendar_event_editing(false);
         app.set_calendar_editor_open(false);
-        match (options_error, refresh_result) {
+        match (saved.options_error, refresh_result) {
             (Some(error), _) => app.set_sync_status(UiMessage::detail(
                 "Event saved, but its reminder or repeat could not be set: {}",
                 error,

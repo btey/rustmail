@@ -554,6 +554,24 @@ pub(super) fn apply_connected_account_rows(app: &AppWindow, rows: Vec<AccountRow
     app.set_connected_accounts(ModelRc::new(VecModel::from(rows)));
 }
 
+/// The time the refresh button reports for a failed fetch: the time of the new
+/// failure, the old one while an account still has an error, none once no
+/// account has one. `None` leaves the shown text as it is.
+fn failed_sync_text(
+    new_failure: bool,
+    any_error: bool,
+    shown: &str,
+    now: &str,
+) -> Option<String> {
+    if new_failure {
+        Some(now.to_owned())
+    } else if !any_error && !shown.is_empty() {
+        Some(String::new())
+    } else {
+        None
+    }
+}
+
 pub(super) fn apply_account_states(
     app: &AppWindow,
     inbox_state: &Rc<RefCell<InboxState>>,
@@ -562,6 +580,7 @@ pub(super) fn apply_account_states(
     let mut state_guard = inbox_state.borrow_mut();
     let mut changed = false;
     let mut finished_sync = false;
+    let mut failed_sync = false;
     for account in &mut state_guard.connected_accounts {
         if let Some((sync_state, sync_error)) = states.get(&account.id) {
             if account.sync_state != *sync_state {
@@ -572,6 +591,7 @@ pub(super) fn apply_account_states(
                 changed = true;
             }
             if account.sync_error != *sync_error {
+                failed_sync |= sync_error.is_some();
                 account.sync_error.clone_from(sync_error);
                 changed = true;
             }
@@ -581,6 +601,20 @@ pub(super) fn apply_account_states(
         let now = chrono::Local::now();
         state_guard.last_mail_sync_ms = Some(now.timestamp_millis());
         app.set_last_sync_text(now.format("%H:%M").to_string().into());
+    }
+    // A failed fetch is shown on the refresh button until a later one works.
+    let any_error = state_guard
+        .connected_accounts
+        .iter()
+        .any(|account| account.sync_error.is_some());
+    let failed_text = failed_sync_text(
+        failed_sync,
+        any_error,
+        &app.get_last_sync_failed_text(),
+        &chrono::Local::now().format("%H:%M").to_string(),
+    );
+    if let Some(text) = failed_text {
+        app.set_last_sync_failed_text(text.into());
     }
     drop(state_guard);
     if changed {
@@ -823,5 +857,23 @@ mod advanced_option_tests {
         options.max_connections = "".into();
         options.timeout_secs = "601".into();
         assert!(apply_advanced_options(&options, &mut connection).is_err());
+    }
+}
+
+#[cfg(test)]
+mod failed_sync_text_tests {
+    use super::failed_sync_text;
+
+    #[test]
+    fn the_refresh_button_reports_a_failed_fetch_until_none_is_left() {
+        // A new failure shows its time, replacing an older one.
+        assert_eq!(failed_sync_text(true, true, "", "14:32").as_deref(), Some("14:32"));
+        assert_eq!(failed_sync_text(true, true, "13:00", "14:32").as_deref(), Some("14:32"));
+        // Still failing, nothing new: the shown time stays.
+        assert_eq!(failed_sync_text(false, true, "14:32", "14:40"), None);
+        // Every account recovered: the text is cleared.
+        assert_eq!(failed_sync_text(false, false, "14:32", "14:40").as_deref(), Some(""));
+        // Nothing wrong and nothing shown: nothing to do.
+        assert_eq!(failed_sync_text(false, false, "", "14:40"), None);
     }
 }

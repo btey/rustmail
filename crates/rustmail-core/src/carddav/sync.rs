@@ -481,15 +481,19 @@ async fn sync_addressbook(
                     continue;
                 };
                 match vcard::parse(&card) {
-                    Ok(record) => repo::carddav::upsert_remote(
-                        &tx,
-                        account_id,
-                        book_id,
-                        &href,
-                        item.etag.as_deref(),
-                        &card,
-                        &record,
-                    )?,
+                    Ok(record) => {
+                        if !repo::carddav::upsert_pulled_remote(
+                            &tx,
+                            account_id,
+                            book_id,
+                            &href,
+                            item.etag.as_deref(),
+                            &card,
+                            &record,
+                        )? {
+                            tracing::info!(href=%item.href, "kept a local contact edit over the server version");
+                        }
+                    }
                     Err(error) => {
                         tracing::warn!(href=%item.href, %error, "retaining unsupported CardDAV resource");
                         repo::carddav::upsert_unmapped_remote(
@@ -760,6 +764,136 @@ END:VCARD</c:address-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:props
                 .unwrap()
                 .contains("EMAIL;TYPE=PREF:ada@example.test")
         );
+    }
+
+    #[tokio::test]
+    async fn a_pull_keeps_a_contact_edited_here_and_a_contact_deleted_here() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(&dir.path().join("mail.db")).unwrap();
+        let (book, ada, grace) = db
+            .write(|conn| {
+                crate::db::testutil::seed_account(conn);
+                let book = repo::carddav::upsert_addressbook(
+                    conn,
+                    1,
+                    "https://dav.test/books/me/default/",
+                    Some("Contacts"),
+                    false,
+                )?;
+                for (href, name, email) in [
+                    ("/ada.vcf", "Ada", "ada@example.test"),
+                    ("/grace.vcf", "Grace", "grace@example.test"),
+                ] {
+                    let card = format!(
+                        "BEGIN:VCARD\nVERSION:4.0\nUID:{name}\nFN:{name}\nEMAIL:{email}\nEND:VCARD"
+                    );
+                    let record = vcard::parse(&card)?;
+                    repo::carddav::upsert_remote(
+                        conn,
+                        1,
+                        book,
+                        href,
+                        Some("\"1\""),
+                        &card,
+                        &record,
+                    )?;
+                }
+                let records = repo::contacts::list_records(conn, "", 10)?;
+                let id = |name: &str| records.iter().find(|r| r.name == name).unwrap().id;
+                Ok((book, id("Ada"), id("Grace")))
+            })
+            .await
+            .unwrap();
+        db.write(move |conn| {
+            conn.execute("UPDATE contacts SET name='Ada Lovelace' WHERE id=?1", [ada])?;
+            repo::carddav::mark_saved_contact_dirty(conn, ada)?;
+            repo::carddav::mark_deleted_contact(conn, grace)?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+        // The server changed both meanwhile.
+        let kept = db
+            .write(move |conn| {
+                let mut kept = Vec::new();
+                for (href, name, email) in [
+                    ("/ada.vcf", "Ada Server", "ada@example.test"),
+                    ("/grace.vcf", "Grace Server", "grace@example.test"),
+                ] {
+                    let card = format!(
+                        "BEGIN:VCARD\nVERSION:4.0\nUID:{name}\nFN:{name}\nEMAIL:{email}\nEND:VCARD"
+                    );
+                    let record = vcard::parse(&card)?;
+                    kept.push(repo::carddav::upsert_pulled_remote(
+                        conn,
+                        1,
+                        book,
+                        href,
+                        Some("\"2\""),
+                        &card,
+                        &record,
+                    )?);
+                }
+                Ok(kept)
+            })
+            .await
+            .unwrap();
+        assert_eq!(kept, vec![false, false], "both local changes are kept");
+        let (names, dirty, etag) = db
+            .read(move |conn| {
+                let names: Vec<String> = repo::contacts::list_records(conn, "", 10)?
+                    .into_iter()
+                    .map(|record| record.name)
+                    .collect();
+                let dirty = repo::carddav::dirty_objects(conn, 1)?;
+                let etag: String = conn.query_row(
+                    "SELECT etag FROM carddav_objects WHERE href='/ada.vcf'",
+                    [],
+                    |r| r.get(0),
+                )?;
+                Ok((names, dirty, etag))
+            })
+            .await
+            .unwrap();
+        assert_eq!(
+            names,
+            vec!["Ada Lovelace".to_owned()],
+            "Grace stays deleted"
+        );
+        assert_eq!(dirty.len(), 2, "both still wait for their push");
+        assert_eq!(
+            etag, "\"1\"",
+            "the push keeps matching against the version it edited"
+        );
+
+        // Once pushed, a pull applies server changes again.
+        db.write(move |conn| {
+            conn.execute("UPDATE carddav_objects SET dirty=0,deleted=0", [])?;
+            let card =
+                "BEGIN:VCARD\nVERSION:4.0\nUID:a\nFN:Ada Server\nEMAIL:ada@example.test\nEND:VCARD";
+            let record = vcard::parse(card)?;
+            assert!(repo::carddav::upsert_pulled_remote(
+                conn,
+                1,
+                book,
+                "/ada.vcf",
+                Some("\"3\""),
+                card,
+                &record,
+            )?);
+            Ok(())
+        })
+        .await
+        .unwrap();
+        let name = db
+            .read(|conn| {
+                Ok(repo::contacts::list_records(conn, "ada", 10)?
+                    .remove(0)
+                    .name)
+            })
+            .await
+            .unwrap();
+        assert_eq!(name, "Ada Server");
     }
 
     #[tokio::test]

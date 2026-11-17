@@ -64,6 +64,7 @@ export component MailView inherits FocusScope {
     in property <bool> offline_active: false;
     in property <int> offline_waiting: 0;
     in property <string> last_sync_text: "";
+    in property <string> last_sync_failed_text: "";
     in property <bool> can_load_more: false;
     in property <bool> loading_more: false;
     in property <int> list_content_revision: 0;
@@ -309,6 +310,7 @@ export component MailView inherits FocusScope {
                 offline_active: root.offline_active;
                 offline_waiting: root.offline_waiting;
                 last_sync_text: root.last_sync_text;
+                last_sync_failed_text: root.last_sync_failed_text;
                 can_load_more: root.can_load_more;
                 loading_more: root.loading_more;
                 content_revision: root.list_content_revision;
@@ -543,6 +545,7 @@ export component MailView inherits FocusScope {
                 offline_active: root.offline_active;
                 offline_waiting: root.offline_waiting;
                 last_sync_text: root.last_sync_text;
+                last_sync_failed_text: root.last_sync_failed_text;
                 can_load_more: root.can_load_more;
                 loading_more: root.loading_more;
                 content_revision: root.list_content_revision;
