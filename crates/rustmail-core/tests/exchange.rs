@@ -51,6 +51,8 @@ struct State {
     /// Contacts of the sub-folder CF2 ("Team") of the contact folder CF1; none
     /// when empty, and the folder is then not listed at all.
     team_contacts: Vec<String>,
+    /// Name the server gives the sub-folder CF2 (empty: "Team").
+    team_name: String,
     contact_changes: Vec<String>,
     /// The change key the server reports for contact C1 (empty: "k1").
     contact_key: String,
@@ -448,8 +450,20 @@ fn route(
         ),
         ("GET", "/contactFolders/CF1/childFolders") if !state.team_contacts.is_empty() => json(
             200,
-            r#"{"value":[{"id":"CF2","displayName":"Team"}]}"#.into(),
+            format!(
+                r#"{{"value":[{{"id":"CF2","displayName":"{}"}}]}}"#,
+                if state.team_name.is_empty() {
+                    "Team"
+                } else {
+                    &state.team_name
+                }
+            ),
         ),
+        ("GET", "/contacts/T1") => json(
+            200,
+            r#"{"id":"T1","changeKey":"t1","displayName":"Tom Team","emailAddresses":[{"address":"tom@example.org"}]}"#.into(),
+        ),
+        ("PATCH", "/contacts/T1") => json(200, r#"{"id":"T1","changeKey":"t2"}"#.into()),
         ("GET", p) if p.starts_with("/contactFolders/") && p.ends_with("/childFolders") => {
             json(200, r#"{"value":[]}"#.into())
         }
@@ -2157,6 +2171,100 @@ async fn contacts_in_sub_folders_are_read_with_the_folder_path_as_name() {
         .await
         .unwrap();
     assert!(found.iter().any(|c| c.email == "tom@example.org"));
+}
+
+async fn address_books(core: &Core) -> Vec<(String, String)> {
+    core.db
+        .read(|conn| {
+            let mut stmt =
+                conn.prepare("SELECT display_name,url FROM carddav_addressbooks ORDER BY url")?;
+            Ok(stmt
+                .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?)
+        })
+        .await
+        .unwrap()
+}
+
+fn team_state() -> Shared {
+    let shared = seeded();
+    shared.lock().unwrap().team_contacts = vec![
+        r#"{"id":"T1","changeKey":"t1","displayName":"Tom Team","emailAddresses":[{"address":"tom@example.org"}]}"#.into(),
+    ];
+    shared
+}
+
+#[tokio::test]
+async fn a_renamed_contact_sub_folder_keeps_its_address_book_under_the_new_name() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = team_state();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let before = address_books(&core).await;
+    assert_eq!(
+        before[1],
+        ("Contacts / Team".to_owned(), "graph:CF2".to_owned())
+    );
+    shared.lock().unwrap().team_name = "Crew".into();
+    core.sync_now(Some(account.id)).await.unwrap();
+    let after = address_books(&core).await;
+    // Same row (same url), new name, and no second book.
+    assert_eq!(after.len(), 2, "{after:?}");
+    assert_eq!(
+        after[1],
+        ("Contacts / Crew".to_owned(), "graph:CF2".to_owned())
+    );
+}
+
+#[tokio::test]
+async fn a_contact_sub_folder_deleted_on_the_server_keeps_its_contacts_here() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = team_state();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    // The folder is gone from the listing; the next sync must not fail or
+    // drop what was already pulled from it.
+    shared.lock().unwrap().team_contacts.clear();
+    core.sync_now(Some(account.id)).await.unwrap();
+    let found = core
+        .list_contacts("tom".into(), Some(account.id), 5)
+        .await
+        .unwrap();
+    assert!(found.iter().any(|c| c.email == "tom@example.org"));
+    assert_eq!(address_books(&core).await.len(), 2);
+}
+
+#[tokio::test]
+async fn an_edit_to_a_contact_in_a_sub_folder_is_written_back_to_that_contact() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = team_state();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let mut record = core
+        .list_contact_records("tom".into(), 5)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|c| c.email == "tom@example.org")
+        .unwrap();
+    record.company = "Team Corp".into();
+    record.account_ids = vec![account.id];
+    core.save_contact(record).await.unwrap();
+    core.sync_now(Some(account.id)).await.unwrap();
+    let patches = seen(&shared, "PATCH /graph/v1.0/me/contacts/T1");
+    assert_eq!(patches.len(), 1, "{:?}", shared.lock().unwrap().log);
+    assert!(patches[0].contains("Team Corp"));
+    assert!(
+        seen(&shared, "POST /graph/v1.0/me/contactFolders/CF1/contacts").is_empty(),
+        "an edit is not a new contact"
+    );
+    assert_eq!(core.pending_changes(Some(account.id)).await.unwrap(), 0);
 }
 
 #[tokio::test]

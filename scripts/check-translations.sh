@@ -6,7 +6,7 @@ command -v slint-tr-extractor >/dev/null || {
   echo "slint-tr-extractor 1.18.1 is required" >&2
   exit 1
 }
-command -v msgmerge >/dev/null || {
+command -v msgfmt >/dev/null && command -v msgattrib >/dev/null && command -v msgmerge >/dev/null || {
   echo "GNU gettext is required" >&2
   exit 1
 }
@@ -35,6 +35,24 @@ for language in de es fr tr; do
   diff -u \
     <(sed '/^"POT-Creation-Date:/d' "lang/$language/LC_MESSAGES/rustmail.po") \
     <(sed '/^"POT-Creation-Date:/d' "$work_dir/rustmail-$language.po")
+done
+
+# Same extra checks CI used to run on its own, so a local run cannot pass while
+# CI fails: valid catalogs and format strings, and nothing untranslated, fuzzy
+# or obsolete (reworded strings leave obsolete entries behind).
+for language in de es fr tr; do
+  catalog="lang/$language/LC_MESSAGES/rustmail.po"
+  msgfmt --check --check-header --check-format \
+    -o "$work_dir/rustmail-$language.mo" "$catalog"
+  for kind in --untranslated --only-fuzzy --only-obsolete; do
+    found=$(msgattrib "$kind" --no-obsolete "$catalog")
+    [[ $kind == --only-obsolete ]] && found=$(msgattrib --only-obsolete "$catalog")
+    if [[ -n $found ]]; then
+      echo "$catalog has ${kind#--} entries:" >&2
+      printf '%s\n' "$found" | grep -E '^(#~ )?msgid' | head -10 >&2
+      exit 1
+    fi
+  done
 done
 
 bash scripts/check-ui-message-catalog.sh

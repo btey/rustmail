@@ -110,14 +110,6 @@ jobs:
         run: |
           command -v slint-tr-extractor >/dev/null || cargo install slint-tr-extractor --version 1.18.1 --locked
           bash scripts/check-translations.sh
-          for language in es; do
-            catalog="lang/$language/LC_MESSAGES/rustmail.po"
-            msgfmt --check --check-header --check-format \
-              -o "/tmp/rustmail-$language.mo" "$catalog"
-            test -z "$(msgattrib --untranslated --no-obsolete "$catalog")"
-            test -z "$(msgattrib --only-fuzzy --no-obsolete "$catalog")"
-            test -z "$(msgattrib --only-obsolete "$catalog")"
-          done
       - name: Run the default test suite
         run: cargo test --workspace --all-targets --locked
       - name: Test the vendored Blitz patches
