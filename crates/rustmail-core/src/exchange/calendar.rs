@@ -26,8 +26,10 @@ pub(crate) async fn connect(
     client: &GraphMail,
     account_id: i64,
     graph_base: &str,
+    own_address: &str,
 ) -> Result<()> {
     let discovered = client.calendars().await?;
+    let own_address = own_address.to_owned();
     if discovered.is_empty() {
         return Err(CoreError::CalDav("no calendars found".into()));
     }
@@ -51,7 +53,7 @@ pub(crate) async fn connect(
                 &tx,
                 account_id,
                 &c.id,
-                c.name.as_deref(),
+                Some(display_name(c, &own_address)).as_deref(),
                 c.hex_color.as_deref(),
                 !c.can_edit,
             )?;
@@ -74,6 +76,24 @@ pub(crate) async fn connect(
         Ok(())
     })
     .await
+}
+
+/// The calendar's name; one that belongs to someone else (shared with you)
+/// also says whose it is, so it is not mistaken for your own "Calendar".
+fn display_name(calendar: &crate::graph::GraphCalendar, own_address: &str) -> String {
+    let name = calendar.name.as_deref().unwrap_or("Calendar");
+    let owner = calendar
+        .owner_name
+        .as_deref()
+        .or(calendar.owner_address.as_deref());
+    let someone_else = calendar
+        .owner_address
+        .as_deref()
+        .is_some_and(|address| !address.eq_ignore_ascii_case(own_address.trim()));
+    match owner {
+        Some(owner) if someone_else => format!("{name} ({owner})"),
+        _ => name.to_owned(),
+    }
 }
 
 /// One calendar cycle for the account. Returns whether anything changed.

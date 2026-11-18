@@ -299,6 +299,9 @@ pub(super) fn begin(
         let offline = ui.get_work_offline();
         let days = |text: slint::SharedString| text.trim().parse::<u32>().unwrap_or(0);
         let (past_days, future_days) = (days(ui.get_calendar_past()), days(ui.get_calendar_future()));
+        let flag_reminders = ui.get_flag_reminders();
+        let limit_kb = days(ui.get_message_limit()).saturating_mul(1024);
+        let body_days = days(ui.get_body_days());
         if unchanged {
             app.set_account_setup_in_progress(true);
             app.set_sync_status(UiMessage::plain("Checking the sign-in with Microsoft Graph…"));
@@ -318,6 +321,20 @@ pub(super) fn begin(
                     .await
                 {
                     tracing::warn!("could not save the calendar window: {error}");
+                }
+                if let Err(error) = core
+                    .file_core()
+                    .set_exchange_flag_reminders(account_id, flag_reminders)
+                    .await
+                {
+                    tracing::warn!("could not save the flag reminders switch: {error}");
+                }
+                if let Err(error) = core
+                    .file_core()
+                    .set_exchange_offline_limits(account_id, limit_kb, body_days)
+                    .await
+                {
+                    tracing::warn!("could not save the offline limits: {error}");
                 }
                 let update = match core
                     .file_core()
@@ -515,6 +532,9 @@ pub(super) fn register(
                 let days = |days: u32| if days == 0 { String::new() } else { days.to_string() };
                 ui.set_calendar_past(days(settings.calendar_past_days).into());
                 ui.set_calendar_future(days(settings.calendar_future_days).into());
+                ui.set_flag_reminders(settings.flag_reminders);
+                ui.set_message_limit(days(settings.message_limit_kb.div_ceil(1024)).into());
+                ui.set_body_days(days(settings.body_days).into());
                 ui.set_force_sign_in(force);
                 ui.set_edit_account_id(account_id);
             });

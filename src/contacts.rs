@@ -24,6 +24,42 @@ pub(crate) fn lines_of(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// The largest picture file read when one is chosen.
+const MAX_PICTURE_FILE_BYTES: u64 = 25 * 1024 * 1024;
+/// The longest side of a stored contact picture.
+const PHOTO_SIDE: u32 = 256;
+
+/// Turn a chosen picture file into what is stored: scaled down to fit
+/// `PHOTO_SIDE` pixels and saved as JPEG, so a phone photo of several MB fits
+/// under the stored-picture limit. Fails with a sentence for the user.
+pub(crate) fn prepare_photo(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let decoded = image::load_from_memory(bytes)
+        .map_err(|_| "that file is not a picture Rustmail can read".to_owned())?;
+    let small = decoded.thumbnail(PHOTO_SIDE, PHOTO_SIDE).into_rgb8();
+    let mut out = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 85)
+        .encode_image(&small)
+        .map_err(|error| error.to_string())?;
+    if out.len() > rustmail_core::models::MAX_CONTACT_PHOTO_BYTES {
+        return Err("the picture is too large".to_owned());
+    }
+    Ok(out)
+}
+
+/// Read a picture file (bounded) and prepare it with [`prepare_photo`].
+pub(crate) fn photo_from_file(path: &std::path::Path) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+    let file = std::fs::File::open(path).map_err(|error| error.to_string())?;
+    let mut bytes = Vec::new();
+    file.take(MAX_PICTURE_FILE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    if bytes.len() as u64 > MAX_PICTURE_FILE_BYTES {
+        return Err("the picture file is larger than 25 MiB".to_owned());
+    }
+    prepare_photo(&bytes)
+}
+
 /// A stored contact picture as a Slint image; `None` when it cannot be decoded.
 pub(crate) fn photo_image(bytes: &[u8]) -> Option<slint::Image> {
     let decoded = image::load_from_memory(bytes).ok()?.into_rgba8();
@@ -619,6 +655,26 @@ fn same_sidebar_row(a: &ContactSidebarRow, b: &ContactSidebarRow) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_big_picture_is_scaled_down_to_a_small_jpeg() {
+        let mut png = Vec::new();
+        let source = image::RgbaImage::from_fn(2000, 1000, |x, y| {
+            image::Rgba([(x % 251) as u8, (y % 241) as u8, ((x + y) % 239) as u8, 255])
+        });
+        image::DynamicImage::ImageRgba8(source)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        assert!(png.len() > 512 * 1024, "the test picture is big: {}", png.len());
+        let stored = super::prepare_photo(&png).unwrap();
+        assert!(stored.len() <= rustmail_core::models::MAX_CONTACT_PHOTO_BYTES);
+        let back = image::load_from_memory(&stored).unwrap();
+        assert_eq!((back.width(), back.height()), (256, 128));
+        assert!(super::photo_image(&stored).is_some());
+        // Not a picture: a sentence, no panic.
+        assert!(super::prepare_photo(b"not an image").unwrap_err().contains("not a picture"));
+        assert!(super::prepare_photo(&[]).is_err());
+    }
+
     use super::*;
 
     fn contact(email: &str) -> ContactRecord {

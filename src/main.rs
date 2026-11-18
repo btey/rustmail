@@ -2459,6 +2459,77 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         app.set_contact_save_status(UiMessage::plain("Contact deleted."));
     });
 
+    // Choose or remove the picture of a saved contact. The picture is scaled
+    // down and stored with the contact; CardDAV and Microsoft 365 contacts
+    // send it with their next push.
+    let app_weak = app.as_weak();
+    let contacts_for_photo = Rc::clone(&contact_state);
+    let inbox_for_photo = Rc::clone(&state);
+    let runtime_for_photo = Rc::clone(&runtime);
+    let set_photo = Rc::new(move |id: i32, choose: bool| {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        let Some(core) = inbox_for_photo.borrow().core.clone() else {
+            app.set_contact_save_status(UiMessage::plain(
+                "Could not save: contact storage is unavailable.",
+            ));
+            return;
+        };
+        let photo = if choose {
+            let title = ui_message::translated(&app, &UiMessage::plain("Choose a picture"));
+            let Some(path) = rfd::FileDialog::new()
+                .set_title(title.to_string())
+                .add_filter("Pictures", &["png", "jpg", "jpeg", "gif", "webp"])
+                .pick_file()
+            else {
+                return;
+            };
+            match contacts::photo_from_file(&path) {
+                Ok(bytes) => Some(bytes),
+                Err(error) => {
+                    app.set_contact_save_status(UiMessage::detail(
+                        "Could not set the picture: {}",
+                        error,
+                    ));
+                    return;
+                }
+            }
+        } else {
+            None
+        };
+        let image = photo.as_deref().and_then(contacts::photo_image);
+        if let Err(error) =
+            runtime_for_photo.block_on(core.set_contact_photo(i64::from(id), photo.clone()))
+        {
+            app.set_contact_save_status(UiMessage::detail(
+                "Could not set the picture: {}",
+                error,
+            ));
+            return;
+        }
+        {
+            let mut directory = contacts_for_photo.borrow_mut();
+            if let Some(contact) = directory
+                .contacts
+                .iter_mut()
+                .find(|contact| contact.id == i64::from(id))
+            {
+                contact.has_photo = photo.is_some();
+            }
+            directory.photo = image.map(|image| (i64::from(id), image));
+        }
+        apply_contact_directory(&app, &contacts_for_photo);
+        app.set_contact_save_status(if choose {
+            UiMessage::plain("Contact picture saved.")
+        } else {
+            UiMessage::plain("Contact picture removed.")
+        });
+    });
+    let choose_photo = Rc::clone(&set_photo);
+    app.on_choose_contact_photo(move |id| choose_photo(id, true));
+    app.on_remove_contact_photo(move |id| set_photo(id, false));
+
     // Contacts are not part of the launch-critical snapshot. Loading the
     // directory only when its workspace is opened keeps startup I/O and the
     // retained Slint model proportional to what the user is actually viewing.
@@ -2782,6 +2853,9 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         app.set_calendar_event_repeat(form.kind.into());
         app.set_calendar_event_interval(form.interval.into());
         app.set_calendar_event_weekdays(form.weekdays);
+        app.set_calendar_event_monthly(form.monthly.into());
+        app.set_calendar_event_month_days(form.month_days.into());
+        app.set_calendar_event_month_weekday(form.month_weekday.into());
         app.set_calendar_event_end_kind(form.end_kind.into());
         app.set_calendar_event_end_value(form.end_value.into());
         // A repeating Microsoft 365 event can be changed for one occurrence.
@@ -3022,6 +3096,9 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 kind: app.get_calendar_event_repeat().to_string(),
                 interval: app.get_calendar_event_interval().to_string(),
                 weekdays: app.get_calendar_event_weekdays(),
+                monthly: app.get_calendar_event_monthly().to_string(),
+                month_days: app.get_calendar_event_month_days().to_string(),
+                month_weekday: app.get_calendar_event_month_weekday().to_string(),
                 end_kind: app.get_calendar_event_end_kind().to_string(),
                 end_value: app.get_calendar_event_end_value().to_string(),
             },
@@ -7879,9 +7956,11 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             app.set_render_status(UiMessage::detail("Mail refresh failed: {}", error));
         }
         // Microsoft 365 mailboxes also hold mail that was never downloaded:
-        // once typing pauses, ask the server and let the hits join the list.
+        // once typing pauses, ask the server (only where the open view looks:
+        // its account and folder) and let the hits join the list.
         let generation = server_search_generation.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-        let (core, exchange_accounts) = {
+        app.set_server_search_state(0);
+        let (core, targets) = {
             let state = state_for_search.borrow();
             let accounts: Vec<i64> = state
                 .account_configs
@@ -7889,17 +7968,23 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 .filter(|config| config.mail_protocol == rustmail_core::models::MailProtocol::Exchange)
                 .map(|config| config.id)
                 .collect();
-            (state.core.clone(), accounts)
+            let targets = if accounts.is_empty() {
+                Vec::new()
+            } else {
+                mail_scope::server_search_targets(state.scope, &accounts)
+            };
+            (state.core.clone(), targets)
         };
         let query = query.trim().to_owned();
         let Some(core) = core else {
             return;
         };
-        if query.chars().count() < 3 || exchange_accounts.is_empty() {
+        if query.chars().count() < 3 || targets.is_empty() {
             return;
         }
         let latest = Arc::clone(&server_search_generation);
         let updates = ui_task_tx_for_server_search.clone();
+        let weak = app.as_weak();
         runtime_for_search.spawn(async move {
             tokio::time::sleep(std::time::Duration::from_millis(700)).await;
             // Typing went on: that keystroke starts its own search.
@@ -7907,6 +7992,19 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             if !current() {
                 return;
             }
+            let show = {
+                let latest = Arc::clone(&latest);
+                move |state: i32, added: i32| {
+                    let latest = Arc::clone(&latest);
+                    let _ = weak.upgrade_in_event_loop(move |app| {
+                        // A newer search owns the line.
+                        if latest.load(std::sync::atomic::Ordering::SeqCst) == generation {
+                            app.set_server_search_added(added);
+                            app.set_server_search_state(state);
+                        }
+                    });
+                }
+            };
             let send = |message: UiMessage| {
                 let updates = updates.clone();
                 async move {
@@ -7926,20 +8024,37 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                         .await;
                 }
             };
+            show(1, 0);
             send(UiMessage::plain("Searching Microsoft 365…")).await;
             let mut added = 0;
-            for account_id in exchange_accounts {
+            for target in targets {
                 if !current() {
                     return;
                 }
-                match core.exchange_search(account_id, &query).await {
+                let found = match target {
+                    mail_scope::ServerSearchTarget::Account(account_id) => {
+                        core.exchange_search(account_id, &query).await
+                    }
+                    mail_scope::ServerSearchTarget::Folder(folder_id) => {
+                        core.exchange_search_folder(folder_id, &query).await
+                    }
+                    mail_scope::ServerSearchTarget::Role(account_id, role) => {
+                        core.exchange_search_role(account_id, role, &query).await
+                    }
+                };
+                match found {
                     Ok(count) => added += count,
                     Err(error) => {
+                        show(4, 0);
                         send(UiMessage::detail("Microsoft 365 search failed: {}", error)).await;
                         return;
                     }
                 }
             }
+            show(
+                if added == 0 { 3 } else { 2 },
+                i32::try_from(added).unwrap_or(i32::MAX),
+            );
             send(if added == 0 {
                 UiMessage::plain("Microsoft 365 search finished.")
             } else {
@@ -8817,6 +8932,9 @@ fn reset_event_options(app: &AppWindow) {
     app.set_calendar_event_repeat("none".into());
     app.set_calendar_event_interval("1".into());
     app.set_calendar_event_weekdays(0);
+    app.set_calendar_event_monthly("date".into());
+    app.set_calendar_event_month_days("".into());
+    app.set_calendar_event_month_weekday("".into());
     app.set_calendar_event_end_kind("never".into());
     app.set_calendar_event_end_value("".into());
     app.set_calendar_event_more_open(false);

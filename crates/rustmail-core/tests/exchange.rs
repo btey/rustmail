@@ -62,6 +62,10 @@ struct State {
     uploads: Vec<String>,
     /// The picture of contact C1 (empty: none).
     contact_photo: Vec<u8>,
+    /// Folders made through the API: (id, name, parent id).
+    made_folders: Vec<(String, String, Option<String>)>,
+    /// A second calendar, shared with the account by someone else.
+    shared_calendar: bool,
 }
 
 type Shared = Arc<Mutex<State>>;
@@ -79,8 +83,15 @@ fn message_json(m: &Msg) -> String {
         .lines()
         .find_map(|l| l.strip_prefix("Subject: "))
         .unwrap_or("");
+    // A message whose text carries `X-Test-Flag-Due: <ISO UTC>` has a due date.
+    let due = m
+        .raw
+        .lines()
+        .find_map(|l| l.strip_prefix("X-Test-Flag-Due: "))
+        .map(|due| format!(r#","dueDateTime":{{"dateTime":"{due}","timeZone":"UTC"}}"#))
+        .unwrap_or_default();
     format!(
-        r#"{{"id":"{}","subject":"{}","isRead":{},"isDraft":false,"flag":{{"flagStatus":"{}"}},"categories":[{}],"receivedDateTime":"2026-01-01T10:00:00Z","hasAttachments":false,"parentFolderId":"{}"}}"#,
+        r#"{{"id":"{}","subject":"{}","isRead":{},"isDraft":false,"flag":{{"flagStatus":"{}"{due}}},"categories":[{}],"receivedDateTime":"2026-01-01T10:00:00Z","hasAttachments":false,"parentFolderId":"{}"}}"#,
         m.id,
         subject,
         m.read,
@@ -250,14 +261,88 @@ fn route(
     match (method, rest) {
         ("GET", "/mailFolders") => {
             let hidden = state.hidden_folders.clone();
-            let items: Vec<String> = FOLDERS
+            let made = state.made_folders.clone();
+            let count = |id: &str| {
+                made.iter()
+                    .filter(|(_, _, parent)| parent.as_deref() == Some(id))
+                    .count()
+            };
+            let mut items: Vec<String> = FOLDERS
                 .iter()
                 .filter(|(id, _, _)| !hidden.contains(id))
+                .map(|(id, name, _)| {
+                    format!(
+                        r#"{{"id":"{id}","displayName":"{name}","childFolderCount":{}}}"#,
+                        count(id)
+                    )
+                })
+                .collect();
+            for (id, name, _) in made.iter().filter(|(_, _, parent)| parent.is_none()) {
+                items.push(format!(
+                    r#"{{"id":"{id}","displayName":"{name}","childFolderCount":{}}}"#,
+                    count(id)
+                ));
+            }
+            json(200, format!(r#"{{"value":[{}]}}"#, items.join(",")))
+        }
+        ("GET", p) if p.starts_with("/mailFolders/") && p.ends_with("/childFolders") => {
+            let parent = p
+                .trim_start_matches("/mailFolders/")
+                .trim_end_matches("/childFolders");
+            let items: Vec<String> = state
+                .made_folders
+                .iter()
+                .filter(|(_, _, of)| of.as_deref() == Some(parent))
                 .map(|(id, name, _)| {
                     format!(r#"{{"id":"{id}","displayName":"{name}","childFolderCount":0}}"#)
                 })
                 .collect();
             json(200, format!(r#"{{"value":[{}]}}"#, items.join(",")))
+        }
+        ("POST", p)
+            if p == "/mailFolders"
+                || (p.starts_with("/mailFolders/") && p.ends_with("/childFolders")) =>
+        {
+            let parent = p
+                .strip_prefix("/mailFolders/")
+                .map(|rest| rest.trim_end_matches("/childFolders").to_owned());
+            let name = serde_json::from_str::<serde_json::Value>(body).unwrap()["displayName"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            state.next_id += 1;
+            let id = format!("NF{}", state.next_id);
+            state.made_folders.push((id.clone(), name, parent));
+            json(201, format!(r#"{{"id":"{id}"}}"#))
+        }
+        ("PATCH", p) if p.starts_with("/mailFolders/") => {
+            let id = p.trim_start_matches("/mailFolders/");
+            let name = serde_json::from_str::<serde_json::Value>(body).unwrap()["displayName"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            for folder in state.made_folders.iter_mut().filter(|f| f.0 == id) {
+                folder.1 = name.clone();
+            }
+            json(200, "{}".into())
+        }
+        ("POST", p) if p.starts_with("/mailFolders/") && p.ends_with("/permanentDelete") => {
+            let id = p
+                .trim_start_matches("/mailFolders/")
+                .trim_end_matches("/permanentDelete")
+                .to_owned();
+            // A folder takes its sub-folders with it.
+            let mut gone = vec![id];
+            while let Some(found) = state
+                .made_folders
+                .iter()
+                .find(|f| f.2.as_ref().is_some_and(|parent| gone.contains(parent)) && !gone.contains(&f.0))
+                .map(|f| f.0.clone())
+            {
+                gone.push(found);
+            }
+            state.made_folders.retain(|f| !gone.contains(&f.0));
+            (204, String::new(), Vec::new(), "text/plain")
         }
         ("GET", p) if p.starts_with("/mailFolders/") && !p.contains("/messages") => {
             let name = p.trim_start_matches("/mailFolders/");
@@ -310,6 +395,19 @@ fn route(
         ("GET", p) if p.starts_with("/messages/") && !p.contains("/$value") => {
             let id = p.trim_start_matches("/messages/");
             match state.messages.iter().find(|m| m.id == id) {
+                Some(m) if query.contains("internetMessageHeaders") => {
+                    let headers: Vec<String> = m
+                        .raw
+                        .lines()
+                        .take_while(|line| !line.is_empty())
+                        .filter_map(|line| line.split_once(": "))
+                        .map(|(name, value)| format!(r#"{{"name":"{name}","value":"{value}"}}"#))
+                        .collect();
+                    json(
+                        200,
+                        format!(r#"{{"id":"{id}","internetMessageHeaders":[{}]}}"#, headers.join(",")),
+                    )
+                }
                 Some(m) => json(
                     200,
                     format!(r#"{{"id":"{id}","parentFolderId":"{}"}}"#, m.folder),
@@ -374,7 +472,7 @@ fn route(
             json(201, format!(r#"{{"id":"{id}"}}"#))
         }
         ("POST", "/sendMail") => (202, String::new(), Vec::new(), "text/plain"),
-        ("GET", "/messages") if query.contains("search") => {
+        ("GET", p) if query.contains("search") && p.ends_with("/messages") => {
             let hits = state.search_hits.clone();
             let items: Vec<String> = state
                 .messages
@@ -494,8 +592,18 @@ fn route(
         }
         ("GET", "/calendars") => json(
             200,
-            r#"{"value":[{"id":"CAL1","name":"Calendar","isDefaultCalendar":true,"canEdit":true}]}"#
-                .into(),
+            if state.shared_calendar {
+                r#"{"value":[{"id":"CAL1","name":"Calendar","isDefaultCalendar":true,"canEdit":true,"owner":{"name":"Me","address":"ME@example.org"}},{"id":"CAL2","name":"Calendar","isDefaultCalendar":false,"canEdit":false,"owner":{"name":"Bob Boss","address":"bob@example.org"}}]}"#
+            } else {
+                r#"{"value":[{"id":"CAL1","name":"Calendar","isDefaultCalendar":true,"canEdit":true}]}"#
+            }
+            .into(),
+        ),
+        ("GET", "/calendars/CAL2/calendarView/delta") => json(
+            200,
+            format!(
+                r#"{{"value":[],"@odata.deltaLink":"{root}/graph/v1.0/me/calendars/CAL2/calendarView/delta?$deltatoken=S"}}"#
+            ),
         ),
         ("GET", "/calendars/CAL1/calendarView/delta") => {
             let items: Vec<String> = if query.contains("deltatoken") {
@@ -595,6 +703,7 @@ fn tokens() -> TokenSet {
         refresh_token: Some("REFRESH0".into()),
         expires_in: Some(3600),
         scope: None,
+        identity: None,
     }
 }
 
@@ -615,6 +724,20 @@ async fn add(core: &Core, base: &str) -> Account {
             email: "me@example.org".into(),
             display_name: Some("Me".into()),
             exchange: settings(base),
+            proxy: None,
+        },
+        tokens(),
+    )
+    .await
+    .unwrap()
+}
+
+async fn add_with(core: &Core, exchange: ExchangeSettings) -> Account {
+    core.add_exchange_account(
+        AddExchangeAccountArgs {
+            email: "me@example.org".into(),
+            display_name: Some("Me".into()),
+            exchange,
             proxy: None,
         },
         tokens(),
@@ -678,6 +801,226 @@ fn log_has(shared: &Shared, needle: &str) -> bool {
         .log
         .iter()
         .any(|(line, _)| line.contains(needle))
+}
+
+#[tokio::test]
+async fn a_sign_in_for_another_person_is_refused_and_the_name_is_filled_in() {
+    use rustmail_core::exchange::auth::SignInIdentity;
+    let temp = tempfile::tempdir().unwrap();
+    let base = serve(seeded()).await;
+    let core = start(temp.path()).await;
+    let who = |address: &str| TokenSet {
+        identity: Some(SignInIdentity {
+            address: address.into(),
+            name: Some("Ana Ruiz".into()),
+        }),
+        ..tokens()
+    };
+    let args = |email: &str, name: Option<&str>, shared: &str| AddExchangeAccountArgs {
+        email: email.into(),
+        display_name: name.map(str::to_owned),
+        exchange: ExchangeSettings {
+            shared_mailbox: shared.into(),
+            ..settings(&base)
+        },
+        proxy: None,
+    };
+    // Another person signed in: nothing is saved.
+    let refused = core
+        .add_exchange_account(args("me@example.org", None, ""), who("bob@example.org"))
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(refused.contains("bob@example.org") && refused.contains("me@example.org"));
+    assert!(core.list_accounts().await.unwrap().is_empty());
+    // The right person, no typed name: Microsoft's name is used.
+    let account = core
+        .add_exchange_account(args("me@example.org", None, ""), who("ME@example.org"))
+        .await
+        .unwrap();
+    assert_eq!(account.display_name.as_deref(), Some("Ana Ruiz"));
+}
+
+#[tokio::test]
+async fn folders_are_made_renamed_and_deleted_on_the_server() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let names = |core: &Core| {
+        let core = core.clone();
+        async move {
+            let mut all: Vec<(String, bool, bool)> = core
+                .list_folders(None)
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|f| (f.imap_name, f.can_rename, f.can_delete))
+                .collect();
+            all.sort();
+            all
+        }
+    };
+    // System folders stay fixed, others may be managed.
+    let before = names(&core).await;
+    assert!(
+        before.contains(&("Inbox".into(), false, false)),
+        "{before:?}"
+    );
+
+    core.create_folder(account.id, None, "Projects".into())
+        .await
+        .unwrap();
+    let projects = core
+        .list_folders(None)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|f| f.imap_name == "Projects")
+        .unwrap();
+    assert!(projects.can_rename && projects.can_delete);
+    core.create_folder(account.id, Some(projects.id), "2026".into())
+        .await
+        .unwrap();
+    assert!(
+        names(&core).await.iter().any(|f| f.0 == "Projects/2026"),
+        "{:?}",
+        names(&core).await
+    );
+    assert!(log_has(
+        &shared,
+        "POST /graph/v1.0/me/mailFolders/NF1/childFolders"
+    ));
+
+    core.rename_folder(projects.id, "Work".into())
+        .await
+        .unwrap();
+    let after = names(&core).await;
+    assert!(after.iter().any(|f| f.0 == "Work"), "{after:?}");
+    assert!(after.iter().any(|f| f.0 == "Work/2026"), "{after:?}");
+    assert!(
+        !after.iter().any(|f| f.0.starts_with("Projects")),
+        "{after:?}"
+    );
+
+    // System folders are refused before any request.
+    let inbox = core
+        .list_folders(None)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|f| f.imap_name == "Inbox")
+        .unwrap();
+    assert!(core.delete_folder(inbox.id).await.is_err());
+
+    core.delete_folder(projects.id).await.unwrap();
+    let last = names(&core).await;
+    assert!(!last.iter().any(|f| f.0.starts_with("Work")), "{last:?}");
+    assert!(log_has(
+        &shared,
+        "POST /graph/v1.0/me/mailFolders/NF1/permanentDelete"
+    ));
+}
+
+#[tokio::test]
+async fn a_calendar_shared_by_someone_says_whose_it_is_and_stays_read_only() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().shared_calendar = true;
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    let calendars = core.list_calendars(Some(account.id)).await.unwrap();
+    let mut names: Vec<(String, bool)> = calendars
+        .iter()
+        .map(|c| (c.display_name.clone().unwrap_or_default(), c.read_only))
+        .collect();
+    names.sort();
+    // Your own calendar keeps its name; someone else's names the owner.
+    assert_eq!(
+        names,
+        vec![
+            ("Calendar".to_owned(), false),
+            ("Calendar (Bob Boss)".to_owned(), true)
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_flag_with_a_future_due_date_becomes_one_task_when_the_account_asks_for_it() {
+    let future = (chrono::Utc::now() + chrono::Duration::days(3))
+        .format("%Y-%m-%dT%H:%M:%S.0000000")
+        .to_string();
+    let past = (chrono::Utc::now() - chrono::Duration::days(3))
+        .format("%Y-%m-%dT%H:%M:%S.0000000")
+        .to_string();
+    let with_due = |subject: &str, due: &str| {
+        mail(subject, "a@example.org").replacen(
+            "Subject:",
+            &format!("X-Test-Flag-Due: {due}\r\nSubject:"),
+            1,
+        )
+    };
+    let flagged = |id: &str, raw: String| Msg {
+        id: id.into(),
+        folder: "inbox",
+        read: false,
+        flagged: true,
+        categories: "",
+        raw,
+    };
+    let count = |core: &Core| {
+        let core = core.clone();
+        async move {
+            core.task_threads(None)
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|t| (t.title, t.due_at))
+                .collect::<Vec<_>>()
+        }
+    };
+    let make = |remind: bool| {
+        let (future, past) = (future.clone(), past.clone());
+        async move {
+            let temp = tempfile::tempdir().unwrap();
+            let shared: Shared = Arc::new(Mutex::new(State {
+                messages: vec![
+                    flagged("F1", with_due("Soon", &future)),
+                    flagged("F2", with_due("Overdue", &past)),
+                    flagged("F3", mail("No date", "a@example.org")),
+                ],
+                ..State::default()
+            }));
+            let base = serve(shared).await;
+            let core = start(temp.path()).await;
+            let account = add_with(
+                &core,
+                ExchangeSettings {
+                    flag_reminders: remind,
+                    ..settings(&base)
+                },
+            )
+            .await;
+            core.sync_now(Some(account.id)).await.unwrap();
+            // A second sync must not make a second task.
+            core.sync_now(Some(account.id)).await.unwrap();
+            let tasks = count(&core).await;
+            (temp, core, tasks)
+        }
+    };
+    let (_keep_off, _core_off, off) = make(false).await;
+    assert!(off.is_empty(), "{off:?}");
+    let (_keep_on, _core_on, on) = make(true).await;
+    assert_eq!(on.len(), 1, "{on:?}");
+    assert_eq!(on[0].0, "Soon");
+    assert!(
+        on[0]
+            .1
+            .is_some_and(|due| due > chrono::Utc::now().timestamp_millis())
+    );
 }
 
 #[tokio::test]
@@ -1207,6 +1550,121 @@ async fn a_server_search_caches_the_hits_that_are_not_stored_yet() {
         core.exchange_search(account.id, "invoice").await.unwrap(),
         0
     );
+}
+
+#[tokio::test]
+async fn a_server_search_can_be_limited_to_a_folder_or_a_role() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let inbox = core
+        .list_folders(None)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|f| f.imap_name == "Inbox")
+        .unwrap();
+    core.exchange_search_folder(inbox.id, "invoice")
+        .await
+        .unwrap();
+    assert!(log_has(
+        &shared,
+        "GET /graph/v1.0/me/mailFolders/inbox/messages?%24search="
+    ));
+    core.exchange_search_role(account.id, "sent", "invoice")
+        .await
+        .unwrap();
+    assert!(log_has(
+        &shared,
+        "GET /graph/v1.0/me/mailFolders/sent/messages?%24search="
+    ));
+    // A role the mailbox does not map searches the whole account.
+    core.exchange_search_role(account.id, "archive", "invoice")
+        .await
+        .unwrap();
+    assert!(log_has(&shared, "GET /graph/v1.0/me/messages?%24search="));
+}
+
+/// The cached text of a message, by subject.
+async fn cached_text(core: &Core, subject: &'static str) -> Option<String> {
+    core.db
+        .read(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT COALESCE(b.text_body, '') FROM messages m
+                     LEFT JOIN message_bodies b ON b.message_id = m.id
+                     WHERE m.subject = ?1",
+                    [subject],
+                    |row| row.get::<_, String>(0),
+                )
+                .ok())
+        })
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn big_and_old_messages_are_kept_as_headers_when_the_account_says_so() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let big = format!("{}{}", mail("Big one", "a@example.org"), "x".repeat(3000));
+    shared.lock().unwrap().messages.push(Msg {
+        id: "MBIG".into(),
+        folder: "inbox",
+        read: false,
+        flagged: false,
+        categories: "",
+        raw: big,
+    });
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    // A 1 KiB limit: only the big message is cut.
+    let account = add_with(
+        &core,
+        ExchangeSettings {
+            message_limit_kb: 1,
+            ..settings(&base)
+        },
+    )
+    .await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let all = rows(&core).await;
+    assert_eq!(all.len(), 4, "{all:?}");
+    let big_text = cached_text(&core, "Big one").await.unwrap();
+    assert!(big_text.contains("larger than 1 KiB"), "{big_text}");
+    assert!(!big_text.contains("xxxx"));
+    assert!(
+        cached_text(&core, "One")
+            .await
+            .unwrap()
+            .contains("body of One")
+    );
+    assert!(log_has(&shared, "internetMessageHeaders"));
+    // The limits can also be changed later (they apply to what comes next).
+    core.set_exchange_offline_limits(account.id, 0, 0)
+        .await
+        .unwrap();
+    // An age window: everything received before today is kept as headers only.
+    let second = temp.path().join("second");
+    std::fs::create_dir_all(&second).unwrap();
+    let core2 = start(&second).await;
+    let account2 = add_with(
+        &core2,
+        ExchangeSettings {
+            body_days: 1,
+            ..settings(&base)
+        },
+    )
+    .await;
+    core2.sync_now(Some(account2.id)).await.unwrap();
+    let old = cached_text(&core2, "Two").await.unwrap();
+    assert!(old.contains("older than 1 days"), "{old}");
+    assert!(!old.contains("body of Two"));
+    // The title is still listed and searchable by its headers.
+    assert_eq!(rows(&core2).await.len(), 4);
 }
 
 #[tokio::test]

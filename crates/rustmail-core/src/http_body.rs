@@ -72,6 +72,11 @@ fn append_bounded(
     Ok(())
 }
 
+/// Whether `error` is the refusal of a body that grew past its ceiling.
+pub(crate) fn exceeded_limit(error: &CoreError) -> bool {
+    matches!(error, CoreError::Network(text) if text.ends_with("-byte response limit"))
+}
+
 fn too_large(context: &'static str, max_bytes: usize) -> CoreError {
     CoreError::Network(format!(
         "{context} exceeded the {max_bytes}-byte response limit"

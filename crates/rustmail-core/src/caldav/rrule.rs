@@ -41,6 +41,8 @@ struct Rule {
     until_ms: Option<i64>,
     /// weekly: plain weekdays; monthly: (ordinal, weekday) when ordinal != 0
     bydays: Vec<(i32, Weekday)>,
+    /// monthly: days of the month (negative: counted from the end)
+    bymonthdays: Vec<i32>,
     /// true when the rule has parts we don't support (BYSETPOS, BYMONTHDAY…)
     unsupported: bool,
 }
@@ -65,6 +67,7 @@ fn parse_rule(rrule: &str) -> Option<Rule> {
         count: None,
         until_ms: None,
         bydays: Vec::new(),
+        bymonthdays: Vec::new(),
         unsupported: false,
     };
     let mut saw_freq = false;
@@ -105,9 +108,24 @@ fn parse_rule(rrule: &str) -> Option<Rule> {
                     rule.bydays.push((ord, day));
                 }
             }
+            "BYMONTHDAY" => {
+                for tok in v.split(',') {
+                    match tok.trim().parse::<i32>() {
+                        Ok(day) if (1..=31).contains(&day) || (-31..=-1).contains(&day) => {
+                            rule.bymonthdays.push(day);
+                        }
+                        _ => rule.unsupported = true,
+                    }
+                }
+            }
             "WKST" | "BYHOUR" | "BYMINUTE" | "BYSECOND" => {}
-            _ => rule.unsupported = true, // BYSETPOS, BYMONTHDAY, BYMONTH, …
+            _ => rule.unsupported = true, // BYSETPOS, BYMONTH, …
         }
+    }
+    // A day list only makes sense for a monthly rule; together with weekdays
+    // it would need BYSETPOS-style filtering.
+    if !rule.bymonthdays.is_empty() && (rule.freq != Freq::Monthly || !rule.bydays.is_empty()) {
+        rule.unsupported = true;
     }
     saw_freq.then_some(rule)
 }
@@ -152,6 +170,28 @@ fn to_ms(naive: NaiveDateTime, all_day: bool, zone: Zone) -> Option<i64> {
                 .timestamp_millis(),
         )
     }
+}
+
+/// The listed days of a month in order; a day the month does not have (the
+/// 31st of April) is skipped, and a negative one counts from the end.
+fn days_of_month(year: i32, month: u32, days: &[i32]) -> Vec<chrono::NaiveDate> {
+    let Some(first) = chrono::NaiveDate::from_ymd_opt(year, month, 1) else {
+        return Vec::new();
+    };
+    let length = (1..=31)
+        .rev()
+        .find(|day| first.with_day(*day).is_some())
+        .unwrap_or(28) as i32;
+    let mut out: Vec<chrono::NaiveDate> = days
+        .iter()
+        .filter_map(|day| {
+            let day = if *day < 0 { length + 1 + day } else { *day };
+            u32::try_from(day).ok().and_then(|day| first.with_day(day))
+        })
+        .collect();
+    out.sort();
+    out.dedup();
+    out
 }
 
 /// Nth weekday of the month (ord > 0) or from the end (ord < 0).
@@ -231,16 +271,22 @@ fn candidates(rule: &Rule, dtstart: NaiveDateTime, horizon: NaiveDateTime) -> Ve
             let mut year = dtstart.year();
             let mut month = dtstart.month();
             let mut i = 0;
-            loop {
-                let date = match by_ord {
-                    Some((ord, day)) => nth_weekday(year, month, *ord, *day),
-                    None => chrono::NaiveDate::from_ymd_opt(year, month, dtstart.day()),
+            'months: loop {
+                let dates: Vec<chrono::NaiveDate> = if rule.bymonthdays.is_empty() {
+                    match by_ord {
+                        Some((ord, day)) => nth_weekday(year, month, *ord, *day),
+                        None => chrono::NaiveDate::from_ymd_opt(year, month, dtstart.day()),
+                    }
+                    .into_iter()
+                    .collect()
+                } else {
+                    days_of_month(year, month, &rule.bymonthdays)
                 };
-                if let Some(date) = date {
+                for date in dates {
                     let cand = date.and_time(time);
                     if cand >= dtstart {
                         if cand > horizon || out.len() >= MAX_CANDIDATES {
-                            break;
+                            break 'months;
                         }
                         out.push(cand);
                     }
@@ -834,5 +880,61 @@ mod tests {
         )
         .unwrap();
         assert_eq!(occ.len(), 2); // Jul 10 + Jul 11
+    }
+
+    #[test]
+    fn a_list_of_month_days_repeats_on_each_listed_day() {
+        // The 1st, the 15th and the last day, from Jan 15 2026, 4 events.
+        let start = local_ms(2026, 1, 15, 9, 0);
+        let occ = expand(
+            "FREQ=MONTHLY;BYMONTHDAY=1,15,-1;COUNT=4",
+            start,
+            HOUR,
+            false,
+            None,
+            0,
+            start + 120 * DAY,
+        )
+        .unwrap();
+        let starts: Vec<i64> = occ.iter().map(|o| o.start).collect();
+        assert_eq!(
+            starts,
+            vec![
+                local_ms(2026, 1, 15, 9, 0),
+                local_ms(2026, 1, 31, 9, 0),
+                local_ms(2026, 2, 1, 9, 0),
+                local_ms(2026, 2, 15, 9, 0),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_day_a_short_month_lacks_is_skipped_and_other_uses_are_unsupported() {
+        let start = local_ms(2026, 1, 31, 9, 0);
+        let occ = expand(
+            "FREQ=MONTHLY;BYMONTHDAY=31;COUNT=3",
+            start,
+            HOUR,
+            false,
+            None,
+            0,
+            start + 200 * DAY,
+        )
+        .unwrap();
+        // February, April and June have no 31st: Jan, Mar, May.
+        assert_eq!(occ[1].start, local_ms(2026, 3, 31, 9, 0));
+        assert_eq!(occ[2].start, local_ms(2026, 5, 31, 9, 0));
+        // A day list with a weekly rule, or with a bad day, is not expanded.
+        for rule in [
+            "FREQ=WEEKLY;BYMONTHDAY=1",
+            "FREQ=MONTHLY;BYMONTHDAY=0",
+            "FREQ=MONTHLY;BYMONTHDAY=32",
+            "FREQ=MONTHLY;BYMONTHDAY=1;BYDAY=2TU",
+        ] {
+            assert!(
+                expand(rule, start, HOUR, false, None, 0, start + 60 * DAY).is_none(),
+                "{rule}"
+            );
+        }
     }
 }

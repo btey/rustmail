@@ -113,6 +113,8 @@ export component ContactsView inherits Rectangle {
     callback new-contact;
     callback save-contact(int, string, string, string, string, string, string, string, string, string, string, bool);
     callback delete-contact(int);
+    callback choose-contact-photo(int);
+    callback remove-contact-photo(int);
     callback compose-to-contact(string);
 
     pagination := InfiniteScrollController {
@@ -681,6 +683,24 @@ export component ContactsView inherits Rectangle {
                                     wrap: word-wrap;
                                     vertical-alignment: center;
                                 }
+                            }
+                        }
+                        if root.selected-id > 0 && !root.is-suggested : HorizontalBox {
+                            height: 34px;
+                            padding: 0px;
+                            spacing: 8px;
+                            alignment: start;
+                            Button {
+                                height: 34px;
+                                width: max(120px, self.content-width + 28px);
+                                text: @tr("Choose picture");
+                                clicked => { root.choose-contact-photo(root.selected-id); }
+                            }
+                            if root.edit-has-photo : Button {
+                                height: 34px;
+                                width: max(120px, self.content-width + 28px);
+                                text: @tr("Remove picture");
+                                clicked => { root.remove-contact-photo(root.selected-id); }
                             }
                         }
                         if root.selected-id <= 0 && root.book-names.length > 1 : FieldLabel { label: @tr("ADDRESS BOOK"); }

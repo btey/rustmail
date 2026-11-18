@@ -310,6 +310,26 @@ impl From<(Option<ThreadCursor>, i64)> for ThreadPageRequest {
     }
 }
 
+/// Refuse a sign-in that Microsoft says belongs to a different person than
+/// the account address (a browser that was already signed in as someone
+/// else). A shared mailbox is opened by another person's sign-in, and a reply
+/// without an ID token cannot be checked, so neither is refused.
+fn ensure_signed_in_as(
+    tokens: &exchange::auth::TokenSet,
+    email: &str,
+    settings: &exchange::ExchangeSettings,
+) -> Result<()> {
+    match &tokens.identity {
+        Some(who) if settings.shared_mailbox().is_none() && !who.matches(email) => {
+            Err(CoreError::Auth(format!(
+                "Microsoft signed in {}, but this account is {email}. Sign in again with the right account.",
+                who.address
+            )))
+        }
+        _ => Ok(()),
+    }
+}
+
 #[derive(Clone)]
 pub struct Core {
     /// Mail, contacts, folders, and mail-side durable actions.
@@ -2141,6 +2161,7 @@ impl Core {
                 "the sign-in did not return a refresh token; sign in again".into(),
             ));
         }
+        ensure_signed_in_as(&tokens, &email, &settings)?;
         secrets::check_available_async(self.credentials.clone()).await?;
         self.recover_incomplete_account_credentials().await?;
 
@@ -2169,10 +2190,18 @@ impl Core {
         if let Some(proxy) = &proxy {
             proxy.apply(&mut connection);
         }
+        // Without a typed name, the one Microsoft sent with the sign-in.
         let name = args
             .display_name
             .map(|value| value.trim().to_owned())
-            .filter(|value| !value.is_empty());
+            .filter(|value| !value.is_empty())
+            .or_else(|| {
+                tokens
+                    .identity
+                    .as_ref()
+                    .filter(|who| who.matches(&email))
+                    .and_then(|who| who.name.clone())
+            });
         let existing = self
             .db
             .read({
@@ -2436,6 +2465,9 @@ impl Core {
         let mut new = settings;
         // The form has no offline switch: editing never changes it.
         new.work_offline = old.work_offline;
+        new.flag_reminders = old.flag_reminders;
+        new.message_limit_kb = old.message_limit_kb;
+        new.body_days = old.body_days;
         new.calendar_past_days = old.calendar_past_days;
         new.calendar_future_days = old.calendar_future_days;
         new.enabled = true;
@@ -2453,6 +2485,9 @@ impl Core {
             return Err(CoreError::Auth(
                 "the sign-in did not return a refresh token; sign in again".into(),
             ));
+        }
+        if let Some(tokens) = &tokens {
+            ensure_signed_in_as(tokens, &config.email, &new)?;
         }
         // Prove the (new) sign-in reaches the (new) mailbox before saving.
         let mut probe_settings = new.clone();
@@ -2601,7 +2636,47 @@ impl Core {
     /// how many messages were added. Needs a connection.
     pub async fn exchange_search(&self, account_id: i64, query: &str) -> Result<usize> {
         let (config, client) = self.exchange_client(account_id).await?;
-        exchange::sync::search_on_server(&self.sync_ctx(), &config, &client, query).await
+        exchange::sync::search_on_server(&self.sync_ctx(), &config, &client, None, query).await
+    }
+
+    /// Like [`Core::exchange_search`], but only in one folder (and not its
+    /// sub-folders). A folder of an account that is not a Microsoft 365
+    /// account has nothing to ask the server, so it adds nothing.
+    pub async fn exchange_search_folder(&self, folder_id: i64, query: &str) -> Result<usize> {
+        let folder = self
+            .db
+            .read(move |conn| repo::folders::get(conn, folder_id))
+            .await?
+            .ok_or_else(|| CoreError::NotFound(format!("folder {folder_id}")))?;
+        let config = self.folder_account_config(folder.account_id).await?;
+        if config.mail_protocol != MailProtocol::Exchange {
+            return Ok(0);
+        }
+        let client = exchange::graph_for(&self.sync_ctx(), &config)?;
+        let graph_id =
+            exchange::sync::graph_id_of_folder(&self.sync_ctx(), config.id, folder_id).await?;
+        exchange::sync::search_on_server(&self.sync_ctx(), &config, &client, Some(&graph_id), query)
+            .await
+    }
+
+    /// Like [`Core::exchange_search_folder`] for the account's folder that has
+    /// `role` (`models::roles`); with no such folder it searches the account.
+    pub async fn exchange_search_role(
+        &self,
+        account_id: i64,
+        role: &str,
+        query: &str,
+    ) -> Result<usize> {
+        let (config, client) = self.exchange_client(account_id).await?;
+        let graph_id = exchange::sync::graph_id_of_role(&self.sync_ctx(), account_id, role).await?;
+        exchange::sync::search_on_server(
+            &self.sync_ctx(),
+            &config,
+            &client,
+            graph_id.as_deref(),
+            query,
+        )
+        .await
     }
 
     /// How many local changes are waiting to reach their servers (queued mail
@@ -2685,6 +2760,67 @@ impl Core {
                 }
                 config.settings.connection.exchange.calendar_past_days = past_days.min(3650);
                 config.settings.connection.exchange.calendar_future_days = future_days.min(3650);
+                repo::accounts::set_settings(&tx, account_id, &config.settings)?;
+                tx.commit()?;
+                Ok(config.settings)
+            })
+            .await?;
+        if let Some(handle) = self.handles.read().await.get(&account_id).cloned() {
+            handle.update_settings(settings);
+        }
+        Ok(())
+    }
+
+    /// Set what an Exchange account downloads of each message: the largest
+    /// message (KiB, 0 = no limit, at most 1 GiB) and how many days back the
+    /// text is kept (0 = every listed message, at most 3650). The limits
+    /// apply to messages downloaded from now on; cached ones are kept.
+    pub async fn set_exchange_offline_limits(
+        &self,
+        account_id: i64,
+        message_limit_kb: u32,
+        body_days: u32,
+    ) -> Result<()> {
+        let settings = self
+            .db
+            .write(move |conn| {
+                let tx = conn.transaction()?;
+                let mut config = repo::accounts::get_config(&tx, account_id)?
+                    .ok_or_else(|| CoreError::NotFound(format!("account {account_id}")))?;
+                if config.mail_protocol != MailProtocol::Exchange {
+                    return Err(CoreError::Other(
+                        "this account is not a Microsoft 365 account".into(),
+                    ));
+                }
+                let exchange = &mut config.settings.connection.exchange;
+                exchange.message_limit_kb = message_limit_kb.min(1024 * 1024);
+                exchange.body_days = body_days.min(3650);
+                repo::accounts::set_settings(&tx, account_id, &config.settings)?;
+                tx.commit()?;
+                Ok(config.settings)
+            })
+            .await?;
+        if let Some(handle) = self.handles.read().await.get(&account_id).cloned() {
+            handle.update_settings(settings);
+        }
+        Ok(())
+    }
+
+    /// Whether a flagged message with a follow-up due date becomes a task
+    /// (from the next sync on; flags already cached are not revisited).
+    pub async fn set_exchange_flag_reminders(&self, account_id: i64, on: bool) -> Result<()> {
+        let settings = self
+            .db
+            .write(move |conn| {
+                let tx = conn.transaction()?;
+                let mut config = repo::accounts::get_config(&tx, account_id)?
+                    .ok_or_else(|| CoreError::NotFound(format!("account {account_id}")))?;
+                if config.mail_protocol != MailProtocol::Exchange {
+                    return Err(CoreError::Other(
+                        "this account is not a Microsoft 365 account".into(),
+                    ));
+                }
+                config.settings.connection.exchange.flag_reminders = on;
                 repo::accounts::set_settings(&tx, account_id, &config.settings)?;
                 tx.commit()?;
                 Ok(config.settings)
@@ -2799,7 +2935,13 @@ impl Core {
     pub async fn connect_exchange_calendar(&self, account_id: i64) -> Result<Vec<Calendar>> {
         let (config, client) = self.exchange_client(account_id).await?;
         let base = config.settings.connection.exchange.graph_base()?;
-        exchange::calendar::connect(&self.calendar_db, &client, account_id, &base).await?;
+        let own = config
+            .settings
+            .connection
+            .exchange
+            .shared_mailbox()
+            .map_or_else(|| config.email.clone(), str::to_owned);
+        exchange::calendar::connect(&self.calendar_db, &client, account_id, &base, &own).await?;
         self.spawn_cal_task(account_id).await;
         self.nudge_cal(Some(account_id)).await;
         self.calendar_db
@@ -4506,7 +4648,15 @@ impl Core {
             Some(folder_id) => Some(self.folder_for_child(account_id, folder_id).await?),
             None => None,
         };
-        if config.provider == Provider::Gmail {
+        if config.mail_protocol == MailProtocol::Exchange {
+            exchange::sync::create_folder(
+                &self.sync_ctx(),
+                &config,
+                parent.as_ref().map(|folder| folder.id),
+                &name,
+            )
+            .await?;
+        } else if config.provider == Provider::Gmail {
             if name.contains('/') {
                 return Err(CoreError::Other(
                     "folder names cannot contain the hierarchy separator \"/\"".into(),
@@ -4681,7 +4831,10 @@ impl Core {
         }
         let old_name = folder.imap_name.clone();
         let parent_prefix = old_name.rsplit_once(&delimiter).map(|(parent, _)| parent);
-        if config.mail_protocol == MailProtocol::Local {
+        if config.mail_protocol == MailProtocol::Exchange {
+            exchange::sync::rename_folder(&self.sync_ctx(), &config, folder_id, &old_name, &name)
+                .await?;
+        } else if config.mail_protocol == MailProtocol::Local {
             let new_name = parent_prefix
                 .map(|parent| format!("{parent}{delimiter}{name}"))
                 .unwrap_or(name);
@@ -4782,7 +4935,11 @@ impl Core {
             })
             .await?;
         tree.sort_by_key(|candidate| std::cmp::Reverse(candidate.imap_name.len()));
-        if config.mail_protocol == MailProtocol::Local {
+        if config.mail_protocol == MailProtocol::Exchange {
+            // The server removes the sub-folders with their parent.
+            exchange::sync::delete_folder(&self.sync_ctx(), &config, folder_id, &folder.imap_name)
+                .await?;
+        } else if config.mail_protocol == MailProtocol::Local {
             let root = local::scan::root_of(&config)?;
             let name = folder.imap_name.clone();
             let format = config.settings.connection.local_format;

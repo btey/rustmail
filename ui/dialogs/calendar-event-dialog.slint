@@ -63,6 +63,13 @@ export component CalendarEventDialog inherits Rectangle {
     in-out property <string> calendar_event_interval: "1";
     // Monday = 1 ... Sunday = 64.
     in-out property <int> calendar_event_weekdays: 0;
+    // Monthly rules: date (the start's day of the month) | weekday (the
+    // start's nth weekday, e.g. the second Tuesday) | days (a list such as 1, 15).
+    in-out property <string> calendar_event_monthly: "date";
+    in-out property <string> calendar_event_month_days: "";
+    // The nth weekday of a rule that was loaded (e.g. "2TU"); empty = take it
+    // from the start date.
+    in-out property <string> calendar_event_month_weekday: "";
     in-out property <string> calendar_event_end_kind: "never";
     in-out property <string> calendar_event_end_value: "";
     in-out property <bool> calendar_event_more_open: false;
@@ -83,8 +90,11 @@ export component CalendarEventDialog inherits Rectangle {
     private property <length> field-h: root.compact ? 44px : 38px;
     private property <bool> repeating: root.calendar_event_repeat != "none" && root.calendar_event_repeat != "custom";
     // Height of the repeat details (interval, weekdays, end).
+    private property <length> monthly-extra: root.calendar_event_repeat == "monthly"
+        ? root.chip-h + 10px + (root.calendar_event_monthly == "days" ? root.field-h + 10px : 0px)
+        : 0px;
     private property <length> repeat-detail-height: root.repeating
-        ? 22px + root.field-h + 10px + (root.calendar_event_repeat == "weekly" ? root.chip-h + 10px : 0px)
+        ? 22px + root.field-h + 10px + (root.calendar_event_repeat == "weekly" ? root.chip-h + 10px : 0px) + root.monthly-extra
             + 22px + root.chip-h + (root.calendar_event_end_kind != "never" ? 8px + root.field-h : 0px) + 6px
         : 0px;
     private property <length> scope-height: root.calendar_event_series ? 22px + root.chip-h + 14px : 0px;
@@ -273,7 +283,38 @@ export component CalendarEventDialog inherits Rectangle {
                                         }
                                     }
                                 }
-                                end-label := Text { x: 24px; y: interval-label.y + interval-label.height + 4px + form.field-h + 10px + (root.calendar_event_repeat == "weekly" ? root.chip-h + 10px : 0px); width: parent.width - 48px; height: max(18px, self.preferred-height); text: @tr("ENDS"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                                if root.calendar_event_repeat == "monthly" : Rectangle {
+                                    x: 0px;
+                                    y: interval-label.y + interval-label.height + 4px + form.field-h + 10px;
+                                    width: parent.width;
+                                    height: root.chip-h + (root.calendar_event_monthly == "days" ? 10px + form.field-h : 0px);
+                                    for option[index] in ["date", "weekday", "days"] : ChoiceChip {
+                                        x: 24px + index * ((parent.width - 48px - 16px) / 3 + 8px);
+                                        y: 0px;
+                                        width: (parent.width - 48px - 16px) / 3;
+                                        compact: root.compact;
+                                        accent: root.accent;
+                                        control-bg: root.control-bg;
+                                        title-color: root.title-color;
+                                        label: option == "date" ? @tr("Same date") : option == "weekday" ? @tr("Same weekday") : @tr("Chosen days");
+                                        selected: root.calendar_event_monthly == option;
+                                        clicked => {
+                                            root.calendar_event_monthly = option;
+                                            // A new choice of weekday follows the start date.
+                                            root.calendar_event_month_weekday = "";
+                                        }
+                                    }
+                                    if root.calendar_event_monthly == "days" : LineEdit {
+                                        x: 24px;
+                                        y: root.chip-h + 10px;
+                                        width: parent.width - 48px;
+                                        height: form.field-h;
+                                        text: root.calendar_event_month_days;
+                                        placeholder-text: @tr("Days of the month, e.g. 1, 15, -1");
+                                        edited(value) => { root.calendar_event_month_days = value; }
+                                    }
+                                }
+                                end-label := Text { x: 24px; y: interval-label.y + interval-label.height + 4px + form.field-h + 10px + (root.calendar_event_repeat == "weekly" ? root.chip-h + 10px : 0px) + root.monthly-extra; width: parent.width - 48px; height: max(18px, self.preferred-height); text: @tr("ENDS"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
                                 for option[index] in ["never", "count", "until"] : ChoiceChip {
                                     x: 24px + index * ((parent.width - 48px - 16px) / 3 + 8px);
                                     y: end-label.y + end-label.height + 4px;

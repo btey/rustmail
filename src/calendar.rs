@@ -283,6 +283,13 @@ pub(crate) struct RepeatForm {
     pub(crate) interval: String,
     /// Monday = 1 ... Sunday = 64.
     pub(crate) weekdays: i32,
+    /// Monthly rules: date (the start's day of the month) | weekday (the
+    /// nth weekday, e.g. the second Tuesday) | days (a list of days).
+    pub(crate) monthly: String,
+    /// `days`: day numbers such as "1, 15, -1" (-1 is the last day).
+    pub(crate) month_days: String,
+    /// `weekday`: the loaded rule's own day ("2TU"); empty = the start's.
+    pub(crate) month_weekday: String,
     /// never | count | until
     pub(crate) end_kind: String,
     pub(crate) end_value: String,
@@ -294,6 +301,9 @@ impl Default for RepeatForm {
             kind: "none".into(),
             interval: "1".into(),
             weekdays: 0,
+            monthly: "date".into(),
+            month_days: String::new(),
+            month_weekday: String::new(),
             end_kind: "never".into(),
             end_value: String::new(),
         }
@@ -329,6 +339,14 @@ pub(crate) fn repeat_form_from_rrule(rrule: &str) -> RepeatForm {
                 .into();
             }
             "INTERVAL" => form.interval = value.to_owned(),
+            "BYDAY" if form.kind == "monthly" && ordinal_weekday(value).is_some() => {
+                form.monthly = "weekday".into();
+                form.month_weekday = value.to_ascii_uppercase();
+            }
+            "BYMONTHDAY" if form.kind == "monthly" && month_days_ok(value) => {
+                form.monthly = "days".into();
+                form.month_days = value.split(',').map(str::trim).collect::<Vec<_>>().join(", ");
+            }
             "BYDAY" => {
                 for code in value.split(',') {
                     match WEEKDAY_CODES
@@ -362,6 +380,29 @@ pub(crate) fn repeat_form_from_rrule(rrule: &str) -> RepeatForm {
         form.kind = "custom".into();
     }
     form
+}
+
+/// "2TU" or "-1FR": one weekday with its place in the month.
+fn ordinal_weekday(value: &str) -> Option<(i32, usize)> {
+    let value = value.trim().to_ascii_uppercase();
+    if value.len() < 3 {
+        return None;
+    }
+    let (ordinal, code) = value.split_at(value.len() - 2);
+    let ordinal: i32 = ordinal.parse().ok()?;
+    let day = WEEKDAY_CODES.iter().position(|known| *known == code)?;
+    ((1..=4).contains(&ordinal) || ordinal == -1).then_some((ordinal, day))
+}
+
+/// Day numbers of a month: 1 to 31, or -1 to -31 from the end.
+fn month_days_ok(value: &str) -> bool {
+    let days: Vec<&str> = value.split(',').map(str::trim).collect();
+    !days.is_empty()
+        && days.len() <= 31
+        && days.iter().all(|day| {
+            day.parse::<i32>()
+                .is_ok_and(|n| (1..=31).contains(&n) || (-31..=-1).contains(&n))
+        })
 }
 
 /// The RRULE the editor's controls describe; `None` = does not repeat. The
@@ -405,6 +446,32 @@ pub(crate) fn rrule_from_repeat_form(
             .map(|(_, code)| *code)
             .collect();
         rule.push_str(&format!(";BYDAY={}", days.join(",")));
+    }
+    if form.kind == "monthly" {
+        match form.monthly.as_str() {
+            "weekday" => {
+                let own = Some(form.month_weekday.trim().to_ascii_uppercase())
+                    .filter(|value| ordinal_weekday(value).is_some());
+                let by_day = own.unwrap_or_else(|| {
+                    // The start's place in its month: the fifth is "last".
+                    let ordinal = (start.day() - 1) / 7 + 1;
+                    let ordinal = if ordinal > 4 { -1 } else { ordinal as i32 };
+                    format!(
+                        "{ordinal}{}",
+                        WEEKDAY_CODES[start.weekday().num_days_from_monday() as usize]
+                    )
+                });
+                rule.push_str(&format!(";BYDAY={by_day}"));
+            }
+            "days" => {
+                if !month_days_ok(&form.month_days) {
+                    return Err("Use day numbers from 1 to 31 separated by commas; -1 is the last day.");
+                }
+                let days: Vec<&str> = form.month_days.split(',').map(str::trim).collect();
+                rule.push_str(&format!(";BYMONTHDAY={}", days.join(",")));
+            }
+            _ => {}
+        }
     }
     match form.end_kind.as_str() {
         "count" => {
@@ -1302,6 +1369,7 @@ mod tests {
             weekdays: 1 | 4,
             end_kind: "count".into(),
             end_value: "10".into(),
+            ..RepeatForm::default()
         };
         let rule = rrule_from_repeat_form(&form, monday).unwrap().unwrap();
         assert_eq!(rule, "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE;COUNT=10");
@@ -1316,6 +1384,51 @@ mod tests {
         let rule = rrule_from_repeat_form(&until, monday).unwrap().unwrap();
         assert_eq!(rule, "FREQ=DAILY;UNTIL=20261224T235959Z");
         assert_eq!(repeat_form_from_rrule(&rule), until);
+    }
+
+    #[test]
+    fn monthly_rules_can_follow_the_weekday_or_name_the_days() {
+        // Tuesday 10 Nov 2026 is the second Tuesday; Tuesday 31 Mar 2026 the fifth.
+        let second_tuesday = NaiveDate::from_ymd_opt(2026, 11, 10).unwrap();
+        let weekday = RepeatForm {
+            kind: "monthly".into(),
+            monthly: "weekday".into(),
+            ..RepeatForm::default()
+        };
+        let rule = rrule_from_repeat_form(&weekday, second_tuesday).unwrap().unwrap();
+        assert_eq!(rule, "FREQ=MONTHLY;BYDAY=2TU");
+        let loaded = repeat_form_from_rrule(&rule);
+        assert_eq!((loaded.kind.as_str(), loaded.monthly.as_str()), ("monthly", "weekday"));
+        assert_eq!(loaded.month_weekday, "2TU");
+        // A loaded rule keeps its own weekday even when the start differs.
+        let other_start = NaiveDate::from_ymd_opt(2026, 11, 12).unwrap();
+        assert_eq!(
+            rrule_from_repeat_form(&loaded, other_start).unwrap().unwrap(),
+            "FREQ=MONTHLY;BYDAY=2TU"
+        );
+        // The fifth Tuesday of a month is "the last".
+        let fifth = NaiveDate::from_ymd_opt(2026, 3, 31).unwrap();
+        assert_eq!(
+            rrule_from_repeat_form(&weekday, fifth).unwrap().unwrap(),
+            "FREQ=MONTHLY;BYDAY=-1TU"
+        );
+        let days = RepeatForm {
+            kind: "monthly".into(),
+            interval: "2".into(),
+            monthly: "days".into(),
+            month_days: "1,15, -1".into(),
+            end_kind: "count".into(),
+            end_value: "6".into(),
+            ..RepeatForm::default()
+        };
+        let rule = rrule_from_repeat_form(&days, second_tuesday).unwrap().unwrap();
+        assert_eq!(rule, "FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=1,15,-1;COUNT=6");
+        let back = repeat_form_from_rrule(&rule);
+        assert_eq!((back.monthly.as_str(), back.month_days.as_str()), ("days", "1, 15, -1"));
+        for bad in ["", "0", "32", "a", "1,,2"] {
+            let form = RepeatForm { month_days: bad.into(), ..days.clone() };
+            assert!(rrule_from_repeat_form(&form, second_tuesday).is_err(), "{bad:?}");
+        }
     }
 
     #[test]
@@ -1346,8 +1459,12 @@ mod tests {
 
     #[test]
     fn rules_the_controls_cannot_show_stay_custom() {
-        assert_eq!(repeat_form_from_rrule("FREQ=MONTHLY;BYDAY=2TU").kind, "custom");
-        assert_eq!(repeat_form_from_rrule("FREQ=MONTHLY;BYMONTHDAY=1,15").kind, "custom");
+        // Not a weekday of the month, nor a list of days: still custom.
+        assert_eq!(repeat_form_from_rrule("FREQ=MONTHLY;BYDAY=MO,TU").kind, "custom");
+        assert_eq!(repeat_form_from_rrule("FREQ=MONTHLY;BYDAY=5TU").kind, "custom");
+        assert_eq!(repeat_form_from_rrule("FREQ=MONTHLY;BYMONTHDAY=0").kind, "custom");
+        assert_eq!(repeat_form_from_rrule("FREQ=YEARLY;BYMONTHDAY=1").kind, "custom");
+        assert_eq!(repeat_form_from_rrule("FREQ=MONTHLY;BYSETPOS=1").kind, "custom");
         assert_eq!(repeat_form_from_rrule("FREQ=HOURLY").kind, "custom");
         assert_eq!(repeat_form_from_rrule("").kind, "none");
         assert!(rrule_from_repeat_form(

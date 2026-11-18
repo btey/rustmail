@@ -182,6 +182,14 @@ export component MailListPane inherits Rectangle {
     in property <bool> mail_fetching: false;
     // Microsoft 365 accounts are offline: "Offline · N changes waiting".
     in property <bool> offline_active: false;
+    // Progress of a Microsoft 365 server search (empty: none).
+    in property <int> server_search_state: 0;
+    in property <int> server_search_added: 0;
+    private property <string> server-search-text: root.server_search_state == 1 ? @tr("Searching Microsoft 365…")
+        : root.server_search_state == 2 ? @tr("{n} message added from Microsoft 365" | "{n} messages added from Microsoft 365" % root.server_search_added)
+        : root.server_search_state == 3 ? @tr("Microsoft 365 search found nothing new")
+        : root.server_search_state == 4 ? @tr("Microsoft 365 search failed")
+        : "";
     in property <int> offline_waiting: 0;
     private property <string> offline-text: root.offline_waiting == 0 ? @tr("Offline")
         : @tr("Offline · {n} change waiting" | "Offline · {n} changes waiting" % root.offline_waiting);
@@ -400,17 +408,17 @@ export component MailListPane inherits Rectangle {
 
                     // Shown while any account is fetching, so an empty list or a
                     // late refresh is not mistaken for "no mail".
-                    if root.mail_fetching || root.offline_active : Rectangle {
+                    if root.mail_fetching || root.offline_active || root.server_search_state != 0 : Rectangle {
                         height: 26px;
                         background: root.surface;
                         z: 1;
                         accessible-role: text;
-                        accessible-label: root.offline_active ? root.offline-text : @tr("Fetching mail…");
+                        accessible-label: root.server_search_state != 0 ? root.server-search-text : root.offline_active ? root.offline-text : @tr("Fetching mail…");
                         Text {
                             x: root.compact ? LayoutMetrics.compact-inset : LayoutMetrics.content-inset;
                             width: parent.width - 2 * self.x;
                             height: parent.height;
-                            text: root.offline_active ? root.offline-text : @tr("Fetching mail…");
+                            text: root.server_search_state != 0 ? root.server-search-text : root.offline_active ? root.offline-text : @tr("Fetching mail…");
                             color: root.secondary-text;
                             font-size: TypeScale.caption;
                             vertical-alignment: center;

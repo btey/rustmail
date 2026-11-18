@@ -310,6 +310,9 @@ pub struct GraphCalendar {
     pub hex_color: Option<String>,
     pub is_default: bool,
     pub can_edit: bool,
+    /// Whose calendar it is, when Graph says (a calendar shared with you).
+    pub owner_name: Option<String>,
+    pub owner_address: Option<String>,
 }
 
 /// List the account's calendars.
@@ -335,6 +338,8 @@ pub async fn list_calendars(access_token: &str) -> Result<Vec<GraphCalendar>> {
                 continue;
             };
             out.push(GraphCalendar {
+                owner_name: None,
+                owner_address: None,
                 id: id.to_string(),
                 name: c
                     .get("name")

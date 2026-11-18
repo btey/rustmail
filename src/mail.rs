@@ -866,6 +866,29 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    pub async fn exchange_search_folder(
+        &self,
+        folder_id: i64,
+        query: &str,
+    ) -> Result<usize, String> {
+        self.core
+            .exchange_search_folder(folder_id, query)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    pub async fn exchange_search_role(
+        &self,
+        account_id: i64,
+        role: &str,
+        query: &str,
+    ) -> Result<usize, String> {
+        self.core
+            .exchange_search_role(account_id, role, query)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn set_account_mail_history(
         &self,
         account_id: i64,
@@ -1291,6 +1314,17 @@ impl CoreMailSource {
     pub async fn contact_photo(&self, id: i64) -> Result<Option<Vec<u8>>, String> {
         self.core
             .contact_photo(id)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    pub async fn set_contact_photo(
+        &self,
+        id: i64,
+        photo: Option<Vec<u8>>,
+    ) -> Result<(), String> {
+        self.core
+            .set_contact_photo(id, photo)
             .await
             .map_err(|error| error.to_string())
     }

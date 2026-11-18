@@ -71,6 +71,8 @@ pub struct GraphMessage {
     pub flagged: bool,
     pub categories: Vec<String>,
     pub received_ms: Option<i64>,
+    /// When the follow-up flag says it is due (UTC), if it has a due date.
+    pub flag_due_ms: Option<i64>,
     pub has_attachments: bool,
     pub parent_folder_id: Option<String>,
 }
@@ -452,6 +454,46 @@ impl GraphMail {
         ))
     }
 
+    /// Make a folder under `parent` (the top of the mailbox when `None`);
+    /// returns its Graph id.
+    pub async fn create_folder(&self, parent: Option<&str>, name: &str) -> Result<String> {
+        let url = match parent {
+            Some(parent) => self.endpoint(&["mailFolders", parent, "childFolders"]),
+            None => self.endpoint(&["mailFolders"]),
+        };
+        let value = self
+            .json(
+                reqwest::Method::POST,
+                url,
+                Some(&json!({ "displayName": name })),
+                &[],
+            )
+            .await?;
+        value["id"].as_str().map(str::to_owned).ok_or_else(|| {
+            CoreError::Network("Microsoft Graph returned no id for the new folder".into())
+        })
+    }
+
+    pub async fn rename_folder(&self, id: &str, name: &str) -> Result<()> {
+        let url = self.endpoint(&["mailFolders", id]);
+        self.json(
+            reqwest::Method::PATCH,
+            url,
+            Some(&json!({ "displayName": name })),
+            &[],
+        )
+        .await
+        .map(|_| ())
+    }
+
+    /// Delete a folder with everything in it, without the Deleted Items copy
+    /// (like an IMAP `DELETE`). A folder that is already gone counts as deleted.
+    pub async fn delete_folder(&self, id: &str) -> Result<()> {
+        let url = self.endpoint(&["mailFolders", id, "permanentDelete"]);
+        self.expect_gone(reqwest::Method::POST, url, Some(json!({})))
+            .await
+    }
+
     /// One page of changes in a folder. Pass `link` (a saved `deltaLink` or the
     /// previous page's `nextLink`) to continue; `received_after_ms` limits a
     /// first sync to recent mail.
@@ -558,6 +600,66 @@ impl GraphMail {
             return Err(status_error(raw.status, &raw.body));
         }
         Ok(raw.body)
+    }
+
+    /// Like [`GraphMail::message_mime`], but a message over `limit_bytes` gives
+    /// `None`: the download stops at the limit instead of reading it all.
+    pub async fn message_mime_within(
+        &self,
+        id: &str,
+        limit_bytes: usize,
+    ) -> Result<Option<Vec<u8>>> {
+        let url = self.endpoint(&["messages", id, "$value"]);
+        match self
+            .send(
+                reqwest::Method::GET,
+                url,
+                None,
+                &[("Prefer", "IdType=\"ImmutableId\"")],
+                limit_bytes.min(MAX_MIME_BYTES),
+                false,
+            )
+            .await
+        {
+            Ok(raw) if (200..300).contains(&raw.status) => Ok(Some(raw.body)),
+            Ok(raw) => Err(status_error(raw.status, &raw.body)),
+            Err(error) if crate::http_body::exceeded_limit(&error) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// The internet headers of a message, as header lines, without its body.
+    pub async fn message_headers(&self, id: &str) -> Result<Vec<u8>> {
+        let mut url = self.endpoint(&["messages", id]);
+        url.query_pairs_mut()
+            .append_pair("$select", "internetMessageHeaders");
+        let value = self
+            .json(
+                reqwest::Method::GET,
+                url,
+                None,
+                &[("Prefer", "IdType=\"ImmutableId\"")],
+            )
+            .await?;
+        let mut out = String::new();
+        for header in value["internetMessageHeaders"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .take(200)
+        {
+            let (Some(name), Some(text)) = (header["name"].as_str(), header["value"].as_str())
+            else {
+                continue;
+            };
+            // One line per header: Graph unfolds them.
+            if name.is_empty() || name.contains([':', '\r', '\n']) {
+                continue;
+            }
+            let text: String = text.chars().filter(|c| !c.is_control()).collect();
+            out.push_str(&format!("{name}: {}\r\n", text.trim()));
+        }
+        Ok(out.into_bytes())
     }
 
     pub async fn update_message(&self, id: &str, patch: &Value) -> Result<()> {
@@ -925,7 +1027,13 @@ fn checked_upload_url(value: &str) -> Result<url::Url> {
 impl GraphMail {
     /// Server-side search (`$search`) over the whole mailbox. The newest hits
     /// are not guaranteed to come first; Graph does not sort a search.
-    pub async fn search_messages(&self, query: &str, limit: usize) -> Result<Vec<GraphMessage>> {
+    /// Search the whole mailbox, or one folder (`folder`, a Graph id).
+    pub async fn search_messages(
+        &self,
+        folder: Option<&str>,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<GraphMessage>> {
         let cleaned: String = query
             .chars()
             .filter(|c| !c.is_control() && *c != '"' && *c != '\\')
@@ -935,7 +1043,10 @@ impl GraphMail {
         if cleaned.is_empty() {
             return Ok(Vec::new());
         }
-        let mut url = self.endpoint(&["messages"]);
+        let mut url = match folder {
+            Some(folder) => self.endpoint(&["mailFolders", folder, "messages"]),
+            None => self.endpoint(&["messages"]),
+        };
         url.query_pairs_mut()
             .append_pair("$search", &format!("\"{cleaned}\""))
             .append_pair("$top", &limit.clamp(1, 100).to_string())
@@ -1433,7 +1544,10 @@ impl GraphMail {
     pub async fn calendars(&self) -> Result<Vec<crate::graph::GraphCalendar>> {
         let mut url = self.endpoint(&["calendars"]);
         url.query_pairs_mut()
-            .append_pair("$select", "id,name,hexColor,isDefaultCalendar,canEdit")
+            .append_pair(
+                "$select",
+                "id,name,hexColor,isDefaultCalendar,canEdit,owner",
+            )
             .append_pair("$top", "100");
         let mut link = Some(url);
         let mut out = Vec::new();
@@ -1448,7 +1562,17 @@ impl GraphMail {
                 let Some(id) = c["id"].as_str() else {
                     continue;
                 };
+                let owner = |key: &str| {
+                    c["owner"][key]
+                        .as_str()
+                        .map(str::trim)
+                        .filter(|text| !text.is_empty() && text.len() <= 320)
+                        .filter(|text| !text.chars().any(char::is_control))
+                        .map(str::to_owned)
+                };
                 out.push(crate::graph::GraphCalendar {
+                    owner_name: owner("name"),
+                    owner_address: owner("address"),
                     id: id.to_owned(),
                     name: c["name"].as_str().map(str::to_owned),
                     hex_color: c["hexColor"]
@@ -1967,6 +2091,9 @@ fn parse_message(item: &Value, id: &str) -> GraphMessage {
             .as_str()
             .and_then(|value| chrono::DateTime::parse_from_rfc3339(value).ok())
             .map(|date| date.timestamp_millis()),
+        flag_due_ms: item
+            .pointer("/flag/dueDateTime")
+            .and_then(|due| crate::graph::parse_graph_time(Some(due), false)),
         has_attachments: item["hasAttachments"].as_bool().unwrap_or(false),
         parent_folder_id: item["parentFolderId"].as_str().map(str::to_owned),
     }
@@ -2460,14 +2587,14 @@ mod tests {
         })
         .await;
         let hits = client_for(&server, "")
-            .search_messages("tax \"return\"", 10)
+            .search_messages(None, "tax \"return\"", 10)
             .await
             .unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].subject, "Tax return");
         assert!(
             client_for(&server, "")
-                .search_messages("  ", 10)
+                .search_messages(None, "  ", 10)
                 .await
                 .unwrap()
                 .is_empty()

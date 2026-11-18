@@ -48,6 +48,66 @@ impl StandardMailbox {
     }
 }
 
+/// Where to ask Microsoft 365 when the search box is used in a scope.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ServerSearchTarget {
+    /// The whole mailbox of an account.
+    Account(i64),
+    /// One folder, by its local id.
+    Folder(i64),
+    /// An account's folder with this role (`models::roles`).
+    Role(i64, &'static str),
+}
+
+impl StandardMailbox {
+    /// The folder role the mailbox stands for; Starred is no folder.
+    pub(crate) const fn role(self) -> Option<&'static str> {
+        use rustmail_core::models::roles;
+        match self {
+            Self::Inbox => Some(roles::INBOX),
+            Self::Sent => Some(roles::SENT),
+            Self::Archive => Some(roles::ARCHIVE),
+            Self::Spam => Some(roles::SPAM),
+            Self::Trash => Some(roles::TRASH),
+            Self::Drafts => Some(roles::DRAFTS),
+            Self::Starred => None,
+        }
+    }
+}
+
+/// What a search typed in `scope` should ask the server, given the profile's
+/// Microsoft 365 accounts. A single account's mailbox asks only that account
+/// and only its folder; a folder asks that folder (the core ignores folders
+/// of other account types); views that span accounts ask every account.
+pub(crate) fn server_search_targets(
+    scope: Scope,
+    exchange_accounts: &[i64],
+) -> Vec<ServerSearchTarget> {
+    match scope {
+        Scope::Account { account_id, mailbox } if exchange_accounts.contains(&account_id) => {
+            vec![match mailbox.role() {
+                Some(role) => ServerSearchTarget::Role(account_id, role),
+                None => ServerSearchTarget::Account(account_id),
+            }]
+        }
+        Scope::Account { .. } => Vec::new(),
+        Scope::Folder(id) => vec![ServerSearchTarget::Folder(id)],
+        Scope::Unified(mailbox) => exchange_accounts
+            .iter()
+            .map(|&account_id| match mailbox.role() {
+                Some(role) => ServerSearchTarget::Role(account_id, role),
+                None => ServerSearchTarget::Account(account_id),
+            })
+            .collect(),
+        Scope::Important | Scope::Other | Scope::Label { .. } | Scope::Tasks(_) => {
+            exchange_accounts
+                .iter()
+                .map(|&account_id| ServerSearchTarget::Account(account_id))
+                .collect()
+        }
+    }
+}
+
 /// Which sidebar section a label is listed in. The id alone selects the
 /// label; the kind keeps the key identical to the row that was clicked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -282,6 +342,46 @@ impl<'de> serde::Deserialize<'de> for Scope {
 mod tests {
     use super::*;
     use rustmail_core::models::{AuthKind, MailProtocol, Provider};
+
+    #[test]
+    fn a_search_asks_only_the_server_places_the_scope_shows() {
+        use ServerSearchTarget::*;
+        let exchange = [7, 9];
+        assert_eq!(
+            server_search_targets(Scope::Unified(StandardMailbox::Inbox), &exchange),
+            vec![Role(7, "inbox"), Role(9, "inbox")]
+        );
+        assert_eq!(
+            server_search_targets(
+                Scope::Account {
+                    account_id: 9,
+                    mailbox: StandardMailbox::Sent
+                },
+                &exchange
+            ),
+            vec![Role(9, "sent")]
+        );
+        // Another kind of account has nothing to ask.
+        assert!(
+            server_search_targets(
+                Scope::Account {
+                    account_id: 3,
+                    mailbox: StandardMailbox::Inbox
+                },
+                &exchange
+            )
+            .is_empty()
+        );
+        assert_eq!(
+            server_search_targets(Scope::Folder(41), &exchange),
+            vec![Folder(41)]
+        );
+        assert_eq!(
+            server_search_targets(Scope::Unified(StandardMailbox::Starred), &exchange),
+            vec![Account(7), Account(9)]
+        );
+        assert!(server_search_targets(Scope::Important, &[]).is_empty());
+    }
 
     fn account(id: i64) -> Account {
         Account {

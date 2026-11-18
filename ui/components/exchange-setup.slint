@@ -37,6 +37,11 @@ export global ExchangeSetupUi {
     // Days of calendar kept behind and ahead ("" = the defaults).
     in-out property <string> calendar-past;
     in-out property <string> calendar-future;
+    // Offline mail limits: largest message in MB and days of message text
+    // ("" = no limit).
+    in-out property <bool> flag-reminders: false;
+    in-out property <string> message-limit;
+    in-out property <string> body-days;
     // "" (nothing running), "paste", "device" or "browser".
     in-out property <string> step;
     // The sign-in address (paste) or the verification address (device code).
@@ -297,6 +302,35 @@ export component ExchangeSetupFields inherits VerticalBox {
         placeholder: @tr("400");
         label-color: root.label-color;
         edited(value) => { ExchangeSetupUi.calendar-future = value; }
+    }
+
+    if ExchangeSetupUi.edit-account-id != 0 : SettingsSwitchRow {
+        enabled: root.enabled;
+        compact: true;
+        title: @tr("Tasks from flagged mail");
+        description: @tr("A flagged message with a follow-up date becomes a task due on that date.");
+        checked: ExchangeSetupUi.flag-reminders;
+        title-color: root.label-color;
+        description-color: root.body-text;
+        toggled(value) => { ExchangeSetupUi.flag-reminders = value; }
+    }
+    if ExchangeSetupUi.edit-account-id != 0 : FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Largest message to download in MB · Optional");
+        value: ExchangeSetupUi.message-limit;
+        placeholder: @tr("No limit");
+        label-color: root.label-color;
+        edited(value) => { ExchangeSetupUi.message-limit = value; }
+    }
+    if ExchangeSetupUi.edit-account-id != 0 : FormField {
+        enabled: root.enabled;
+        height: root.field-height;
+        label: @tr("Download message text for the last days · Optional");
+        value: ExchangeSetupUi.body-days;
+        placeholder: @tr("All listed mail");
+        label-color: root.label-color;
+        edited(value) => { ExchangeSetupUi.body-days = value; }
     }
 
     if ExchangeSetupUi.step == "paste" : VerticalBox {

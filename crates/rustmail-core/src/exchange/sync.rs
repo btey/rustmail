@@ -165,6 +165,110 @@ pub(crate) async fn cycle(
     Ok(more)
 }
 
+/// The Graph id of a local folder.
+async fn graph_id_of(ctx: &SyncCtx, account_id: i64, folder_id: i64) -> Result<String> {
+    ctx.db
+        .read(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT graph_id FROM exchange_folders WHERE account_id=?1 AND folder_id=?2",
+                    params![account_id, folder_id],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?)
+        })
+        .await?
+        .ok_or_else(|| CoreError::NotFound(format!("folder {folder_id}")))
+}
+
+/// The Graph id of the folder an Exchange account maps to `role`, if any.
+pub(crate) async fn graph_id_of_role(
+    ctx: &SyncCtx,
+    account_id: i64,
+    role: &str,
+) -> Result<Option<String>> {
+    let role = role.to_owned();
+    ctx.db
+        .read(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT x.graph_id FROM exchange_folders x
+                     JOIN folders f ON f.id = x.folder_id
+                     WHERE x.account_id=?1 AND f.role=?2",
+                    params![account_id, role],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?)
+        })
+        .await
+}
+
+/// The Graph id of a local folder.
+pub(crate) async fn graph_id_of_folder(
+    ctx: &SyncCtx,
+    account_id: i64,
+    folder_id: i64,
+) -> Result<String> {
+    graph_id_of(ctx, account_id, folder_id).await
+}
+
+/// Create a folder on the server (under `parent`, a local folder id) and list
+/// the mailbox's folders again so it shows up.
+pub(crate) async fn create_folder(
+    ctx: &SyncCtx,
+    config: &AccountConfig,
+    parent: Option<i64>,
+    name: &str,
+) -> Result<()> {
+    let client = super::graph_for(ctx, config)?;
+    let parent = match parent {
+        Some(folder_id) => Some(graph_id_of(ctx, config.id, folder_id).await?),
+        None => None,
+    };
+    client.create_folder(parent.as_deref(), name).await?;
+    sync_folders(ctx, config, &client).await.map(|_| ())
+}
+
+/// Rename a folder on the server, then the local folder and its children.
+pub(crate) async fn rename_folder(
+    ctx: &SyncCtx,
+    config: &AccountConfig,
+    folder_id: i64,
+    old_path: &str,
+    name: &str,
+) -> Result<()> {
+    let client = super::graph_for(ctx, config)?;
+    let graph_id = graph_id_of(ctx, config.id, folder_id).await?;
+    client.rename_folder(&graph_id, name).await?;
+    let new_path = match old_path.rsplit_once('/') {
+        Some((parent, _)) => format!("{parent}/{}", sanitize_name(name)),
+        None => sanitize_name(name),
+    };
+    let (account_id, old_path) = (config.id, old_path.to_owned());
+    ctx.db
+        .write(move |conn| repo::folders::rename_tree(conn, account_id, &old_path, &new_path, "/"))
+        .await?;
+    sync_folders(ctx, config, &client).await.map(|_| ())
+}
+
+/// Delete a folder (with its sub-folders and messages) on the server, then
+/// the local copies.
+pub(crate) async fn delete_folder(
+    ctx: &SyncCtx,
+    config: &AccountConfig,
+    folder_id: i64,
+    path: &str,
+) -> Result<()> {
+    let client = super::graph_for(ctx, config)?;
+    let graph_id = graph_id_of(ctx, config.id, folder_id).await?;
+    client.delete_folder(&graph_id).await?;
+    let (account_id, path) = (config.id, path.to_owned());
+    ctx.db
+        .write(move |conn| repo::folders::delete_tree(conn, account_id, &path, "/"))
+        .await?;
+    sync_folders(ctx, config, &client).await.map(|_| ())
+}
+
 fn sanitize_name(name: &str) -> String {
     let cleaned: String = name
         .chars()
@@ -226,15 +330,27 @@ async fn sync_folders(
     ctx.db
         .write(move |conn| {
             let tx = conn.transaction()?;
-            let none = repo::folders::FolderPermissions {
+            // The mailbox owner may manage every folder except the system ones.
+            let system = repo::folders::FolderPermissions {
                 can_create_children: false,
                 can_rename: false,
                 can_delete: false,
             };
+            let user = repo::folders::FolderPermissions {
+                can_create_children: true,
+                can_rename: true,
+                can_delete: true,
+            };
             let mut out = Vec::new();
             for (graph_id, path, role) in entries {
                 let folder_id = repo::folders::upsert_discovered(
-                    &tx, account_id, &path, Some("/"), role, true, none,
+                    &tx,
+                    account_id,
+                    &path,
+                    Some("/"),
+                    role,
+                    true,
+                    if role.is_some() { system } else { user },
                 )?;
                 tx.execute(
                     "INSERT INTO exchange_folders(account_id, graph_id, folder_id) VALUES (?1,?2,?3)
@@ -399,15 +515,20 @@ async fn save_link(
 
 /// Ask Microsoft 365 to search the whole mailbox and bring the hits that are
 /// not cached yet into the local database, where the normal search then finds
-/// them. Returns how many messages were added.
+/// them. Returns how many messages were added. `folder` limits the search to
+/// one Graph folder. The hits are not ordered here: once cached they are
+/// ranked with every other message by the local search (BM25 over subject,
+/// sender, recipients and body), because Graph's `$search` order is by date,
+/// not by relevance.
 pub(crate) async fn search_on_server(
     ctx: &SyncCtx,
     config: &AccountConfig,
     client: &GraphMail,
+    folder: Option<&str>,
     query: &str,
 ) -> Result<usize> {
     let account_id = config.id;
-    let hits = client.search_messages(query, 25).await?;
+    let hits = client.search_messages(folder, query, 25).await?;
     if hits.is_empty() {
         return Ok(0);
     }
@@ -634,7 +755,7 @@ async fn prepare(
                     });
                     continue;
                 }
-                let raw = match client.message_mime(&message.id).await {
+                let raw = match fetch_text(client, config, message).await {
                     Ok(raw) => raw,
                     // Gone again before it could be read.
                     Err(CoreError::NotFound(_)) => continue,
@@ -654,6 +775,60 @@ async fn prepare(
         }
     }
     Ok(plans)
+}
+
+/// The message as it is cached: whole, or (for a message past the account's
+/// offline limits) its headers with a note that the text stayed on the server.
+async fn fetch_text(
+    client: &GraphMail,
+    config: &AccountConfig,
+    message: &GraphMessage,
+) -> Result<Vec<u8>> {
+    let settings = &config.settings.connection.exchange;
+    let too_old = settings.body_days > 0
+        && message
+            .received_ms
+            .is_some_and(|at| at < now_ms() - i64::from(settings.body_days) * DAY_MS);
+    let limit = (settings.message_limit_kb > 0)
+        .then(|| usize::try_from(settings.message_limit_kb).unwrap_or(usize::MAX) * 1024);
+    let note = if too_old {
+        Some(format!(
+            "[This message is older than {} days, so its text was not downloaded. It is still in your Microsoft 365 mailbox.]",
+            settings.body_days
+        ))
+    } else {
+        match limit {
+            Some(limit) => match client.message_mime_within(&message.id, limit).await? {
+                Some(raw) => return Ok(raw),
+                None => Some(format!(
+                    "[This message is larger than {} KiB, so its text was not downloaded. It is still in your Microsoft 365 mailbox.]",
+                    settings.message_limit_kb
+                )),
+            },
+            None => None,
+        }
+    };
+    let Some(note) = note else {
+        return client.message_mime(&message.id).await;
+    };
+    let mut head = client.message_headers(&message.id).await?;
+    if head.is_empty() {
+        // Graph sent no headers: keep what the listing knows.
+        head = format!(
+            "Subject: {}\r\n",
+            message.subject.replace(['\r', '\n'], " ")
+        )
+        .into_bytes();
+    }
+    // The Message-ID keeps the cached copy matched with the server's.
+    if let Some(id) = &message.internet_message_id
+        && !String::from_utf8_lossy(&head)
+            .to_ascii_lowercase()
+            .contains("message-id:")
+    {
+        head.extend_from_slice(format!("Message-ID: {id}\r\n").as_bytes());
+    }
+    Ok(crate::nntp::placeholder_with_note(&head, &note))
 }
 
 fn has_pending_action(conn: &rusqlite::Connection, message_id: i64) -> Result<bool> {
@@ -678,11 +853,16 @@ async fn apply(
     let folder_id = folder.folder_id;
     let role = folder.role;
     let cache_dir = ctx.paths.mail_dir(account_id);
-    ctx.db
+    let remind = config.settings.connection.exchange.flag_reminders;
+    let (threads, reminders) = ctx
+        .db
         .write(move |conn| {
             let tx = conn.transaction()?;
             std::fs::create_dir_all(&cache_dir)?;
             let mut threads: HashSet<i64> = HashSet::new();
+            // Flagged messages with a due date: (thread, due, subject).
+            let mut reminders: Vec<(i64, i64)> = Vec::new();
+            let now = now_ms();
             for plan in &plans {
                 match plan {
                     Plan::Remove(graph_id) => {
@@ -752,6 +932,9 @@ async fn apply(
                         {
                             repo::threads::recompute(&tx, thread_id)?;
                             threads.insert(thread_id);
+                            if let Some(due) = reminder_due(remind, message, now) {
+                                reminders.push((thread_id, due));
+                            }
                         }
                     }
                     Plan::New(new) => {
@@ -808,14 +991,69 @@ async fn apply(
                         if thread_id != 0 {
                             repo::threads::recompute(&tx, thread_id)?;
                             threads.insert(thread_id);
+                            if let Some(due) = reminder_due(remind, message, now) {
+                                reminders.push((thread_id, due));
+                            }
                         }
                     }
                 }
             }
             tx.commit()?;
-            Ok(threads)
+            Ok((threads, reminders))
         })
-        .await
+        .await?;
+    if !reminders.is_empty() {
+        make_reminder_tasks(ctx, reminders).await;
+    }
+    Ok(threads)
+}
+
+/// The due time of a flag that should become a task: the account asked for
+/// reminders, the message is flagged, and the due date is not in the past
+/// (mail that was flagged long ago is not turned into a pile of overdue tasks).
+fn reminder_due(remind: bool, message: &GraphMessage, now: i64) -> Option<i64> {
+    if !remind || !message.flagged {
+        return None;
+    }
+    message.flag_due_ms.filter(|due| *due >= now)
+}
+
+/// One task per conversation (an existing one is left alone), due when the
+/// flag says. A failure only means no task this time.
+async fn make_reminder_tasks(ctx: &SyncCtx, reminders: Vec<(i64, i64)>) {
+    use crate::tasks::{ColumnKind, SqliteTaskStore, TaskDraft, TaskStore};
+    let made = ctx
+        .db
+        .write(move |conn| {
+            let mut made = 0;
+            // The tasks module seeds its first project when it is first used.
+            SqliteTaskStore::new(conn).ensure_default_project()?;
+            for (thread_id, due) in reminders {
+                let mut store = SqliteTaskStore::new(conn);
+                if !store.threads_with_tasks(Some(&[thread_id]))?.is_empty() {
+                    continue;
+                }
+                store.create_from_thread(
+                    thread_id,
+                    TaskDraft {
+                        title: None,
+                        project_id: None,
+                        status: ColumnKind::Next,
+                        due_at: Some(due),
+                        context_id: None,
+                        label_ids: Vec::new(),
+                    },
+                )?;
+                made += 1;
+            }
+            Ok(made)
+        })
+        .await;
+    match made {
+        Ok(made) if made > 0 => ctx.bus.emit(CoreEvent::TasksChanged),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(%error, "exchange: could not make a task from a flag"),
+    }
 }
 
 async fn graph_id_for(ctx: &SyncCtx, account_id: i64, message_id: i64) -> Result<Option<String>> {

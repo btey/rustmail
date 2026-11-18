@@ -29,6 +29,56 @@ pub struct TokenSet {
     pub expires_in: Option<i64>,
     /// Space-separated permissions the token carries, when Microsoft says.
     pub scope: Option<String>,
+    /// Who Microsoft says signed in, read from the ID token when one came
+    /// back (see [`SignInIdentity`]).
+    pub identity: Option<SignInIdentity>,
+}
+
+/// The person an ID token names. The token comes straight from the token
+/// endpoint over TLS in the reply to our own request, which OpenID Connect
+/// (Core 3.1.3.7) allows to be trusted without checking the signature; it is
+/// used only to confirm the address and suggest a name, never to authorize
+/// anything. A token that is oversized or malformed is ignored.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignInIdentity {
+    pub address: String,
+    pub name: Option<String>,
+}
+
+impl SignInIdentity {
+    pub fn from_id_token(token: &str) -> Option<Self> {
+        if token.is_empty() || token.len() > MAX_TOKEN_BYTES {
+            return None;
+        }
+        let claims = token.split('.').nth(1)?;
+        let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(claims.trim_end_matches('='))
+            .ok()?;
+        let claims: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+        let text = |key: &str| {
+            claims
+                .get(key)
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|value| !value.is_empty() && value.len() <= 320)
+                .filter(|value| !value.chars().any(char::is_control))
+        };
+        let address = ["email", "preferred_username", "upn"]
+            .into_iter()
+            .filter_map(text)
+            .find(|value| value.contains('@') && !value.contains(char::is_whitespace))?;
+        Some(Self {
+            address: address.to_owned(),
+            name: text("name").map(str::to_owned),
+        })
+    }
+
+    /// Whether the typed account address is the person who signed in. A
+    /// shared mailbox is opened by someone else's sign-in, so the caller
+    /// skips this check for it.
+    pub fn matches(&self, typed: &str) -> bool {
+        self.address.trim().eq_ignore_ascii_case(typed.trim())
+    }
 }
 
 // Tokens must never end up in a log line through `{:?}`.
@@ -64,6 +114,8 @@ struct TokenResponse {
     expires_in: Option<i64>,
     #[serde(default)]
     scope: Option<String>,
+    #[serde(default)]
+    id_token: Option<String>,
 }
 
 /// An authorization request ready to open in a browser.
@@ -182,6 +234,10 @@ fn parse_token_response(body: &str, sign_in: bool) -> Result<TokenSet> {
         refresh_token: token.refresh_token,
         expires_in: token.expires_in,
         scope: token.scope.filter(|scope| !scope.trim().is_empty()),
+        identity: token
+            .id_token
+            .as_deref()
+            .and_then(SignInIdentity::from_id_token),
     })
 }
 
@@ -955,6 +1011,7 @@ mod tests {
             refresh_token: Some("SECRET-REFRESH".into()),
             expires_in: Some(3600),
             scope: None,
+            identity: None,
         };
         let text = format!("{tokens:?}");
         assert!(!text.contains("SECRET"));
@@ -1288,5 +1345,51 @@ mod tests {
         )
         .to_string();
         assert!(text.contains("Resource sign-in style"), "{text}");
+    }
+
+    fn id_token(claims: &str) -> String {
+        let part = |text: &str| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(text);
+        format!("{}.{}.sig", part("{\"alg\":\"none\"}"), part(claims))
+    }
+
+    #[test]
+    fn the_identity_is_read_from_the_id_token() {
+        let token =
+            id_token(r#"{"preferred_username":"Ana@Contoso.com","name":"Ana Ruiz","oid":"x"}"#);
+        let who = SignInIdentity::from_id_token(&token).unwrap();
+        assert_eq!(who.address, "Ana@Contoso.com");
+        assert_eq!(who.name.as_deref(), Some("Ana Ruiz"));
+        assert!(who.matches(" ana@contoso.com "));
+        assert!(!who.matches("bob@contoso.com"));
+        // `email` wins over the sign-in name.
+        let both = id_token(r#"{"email":"a@b.com","preferred_username":"c@d.com"}"#);
+        assert_eq!(
+            SignInIdentity::from_id_token(&both).unwrap().address,
+            "a@b.com"
+        );
+    }
+
+    #[test]
+    fn a_bad_id_token_gives_no_identity() {
+        assert!(SignInIdentity::from_id_token("").is_none());
+        assert!(SignInIdentity::from_id_token("only-one-part").is_none());
+        assert!(SignInIdentity::from_id_token("a.!!!.c").is_none());
+        // A name that is not an address (guest accounts) is not trusted.
+        assert!(
+            SignInIdentity::from_id_token(&id_token(r#"{"preferred_username":"ana"}"#)).is_none()
+        );
+        assert!(SignInIdentity::from_id_token(&id_token(r#"{"email":"a b@c.com"}"#)).is_none());
+        let huge = format!("a.{}.c", "A".repeat(MAX_TOKEN_BYTES));
+        assert!(SignInIdentity::from_id_token(&huge).is_none());
+    }
+
+    #[test]
+    fn the_token_reply_carries_the_identity() {
+        let token = id_token(r#"{"email":"ana@contoso.com","name":"Ana"}"#);
+        let body = format!(r#"{{"access_token":"A","refresh_token":"R","id_token":"{token}"}}"#);
+        let tokens = parse_token_response(&body, true).unwrap();
+        assert_eq!(tokens.identity.unwrap().address, "ana@contoso.com");
+        let plain = parse_token_response(r#"{"access_token":"A"}"#, true).unwrap();
+        assert!(plain.identity.is_none());
     }
 }

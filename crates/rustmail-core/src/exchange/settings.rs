@@ -190,6 +190,15 @@ pub struct ExchangeSettings {
     pub calendar_past_days: u32,
     /// Days of calendar ahead kept (0 = the default, 400).
     pub calendar_future_days: u32,
+    /// Largest message (in KiB) whose text is downloaded; a bigger one is
+    /// kept as its headers with a note and stays on the server. 0 = no limit.
+    pub message_limit_kb: u32,
+    /// Messages received more than this many days ago are kept as headers
+    /// only, separately from the mail history that decides what is listed.
+    /// 0 = every listed message is downloaded whole.
+    pub body_days: u32,
+    /// Make a task from a flagged message that has a follow-up due date.
+    pub flag_reminders: bool,
 }
 
 /// The proxy URL can carry the proxy login, so `Debug` shows only where it
@@ -222,6 +231,9 @@ impl std::fmt::Debug for ExchangeSettings {
             .field("work_offline", &self.work_offline)
             .field("calendar_past_days", &self.calendar_past_days)
             .field("calendar_future_days", &self.calendar_future_days)
+            .field("message_limit_kb", &self.message_limit_kb)
+            .field("body_days", &self.body_days)
+            .field("flag_reminders", &self.flag_reminders)
             .finish()
     }
 }
@@ -244,6 +256,9 @@ impl Default for ExchangeSettings {
             work_offline: false,
             calendar_past_days: 0,
             calendar_future_days: 0,
+            message_limit_kb: 0,
+            body_days: 0,
+            flag_reminders: false,
         }
     }
 }
@@ -421,6 +436,13 @@ impl ExchangeSettings {
         }
         if !scopes.iter().any(|scope| scope == "offline_access") {
             scopes.insert(0, "offline_access".to_owned());
+        }
+        // `openid profile` make the token endpoint send an ID token, which
+        // names who signed in.
+        for scope in ["profile", "openid"] {
+            if !scopes.iter().any(|known| known == scope) {
+                scopes.insert(0, scope.to_owned());
+            }
         }
         scopes
     }
@@ -871,7 +893,13 @@ mod tests {
         settings.scopes = "Mail.Read Mail.Read User.Read".into();
         assert_eq!(
             settings.effective_scopes(),
-            vec!["offline_access", "Mail.Read", "User.Read"]
+            vec![
+                "openid",
+                "profile",
+                "offline_access",
+                "Mail.Read",
+                "User.Read"
+            ]
         );
         settings.scopes = "Mail.Read \"x".into();
         assert!(settings.validate().is_err());

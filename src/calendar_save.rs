@@ -178,6 +178,11 @@ pub(crate) fn save_event(
                 "Use YYYY-MM-DD for the last day of the repeat." => {
                     UiMessage::plain("Use YYYY-MM-DD for the last day of the repeat.")
                 }
+                "Use day numbers from 1 to 31 separated by commas; -1 is the last day." => {
+                    UiMessage::plain(
+                        "Use day numbers from 1 to 31 separated by commas; -1 is the last day.",
+                    )
+                }
                 _ => UiMessage::plain("The repeat must not end before the event starts."),
             });
         }
