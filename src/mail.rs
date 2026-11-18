@@ -1267,12 +1267,23 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
-    pub async fn save_contact(
+    pub async fn save_contact_in_book(
         &self,
         contact: rustmail_core::models::ContactRecord,
+        address_book: Option<i64>,
     ) -> Result<rustmail_core::models::ContactRecord, String> {
         self.core
-            .save_contact(contact)
+            .save_contact_in_book(contact, address_book)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    pub async fn list_addressbooks(
+        &self,
+        account_id: Option<i64>,
+    ) -> Result<Vec<rustmail_core::models::AddressBook>, String> {
+        self.core
+            .list_addressbooks(account_id)
             .await
             .map_err(|error| error.to_string())
     }

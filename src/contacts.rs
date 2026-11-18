@@ -5,7 +5,9 @@ use crate::{
     paged_visible_count,
 };
 use chrono::{Datelike, Local, TimeZone};
-use rustmail_core::models::{ContactRecord, ContactRecordCursor, ContactRecordPage};
+use rustmail_core::models::{
+    AddressBook, ContactRecord, ContactRecordCursor, ContactRecordPage,
+};
 use slint::{ComponentHandle, Model, VecModel};
 use std::{
     cell::RefCell,
@@ -53,6 +55,8 @@ pub(crate) struct ContactDirectoryState {
     pub(crate) using_core: bool,
     /// The picture of the selected contact, read when it was selected.
     pub(crate) photo: Option<(i64, slint::Image)>,
+    /// The books a new contact can go to, in the order of the selector.
+    pub(crate) new_books: Vec<i64>,
 }
 
 impl ContactDirectoryState {
@@ -74,6 +78,7 @@ impl ContactDirectoryState {
             editing_new: false,
             using_core,
             photo: None,
+            new_books: Vec::new(),
         }
     }
 
@@ -321,6 +326,40 @@ pub(crate) fn apply_contact_rows(app: &AppWindow, state: &Rc<RefCell<ContactDire
     sidebar_model.reconcile_by(sidebar_rows, |row| row.key.clone(), same_sidebar_row);
 }
 
+/// The address books a new contact can be saved to: enabled and writable
+/// ones, with the account's default first. Returns the ids and the labels.
+pub(crate) fn book_choices(books: &[AddressBook]) -> (Vec<i64>, Vec<String>) {
+    let mut usable: Vec<&AddressBook> = books
+        .iter()
+        .filter(|book| book.enabled && !book.read_only)
+        .collect();
+    usable.sort_by_key(|book| !book.is_default);
+    let labels = usable
+        .iter()
+        .map(|book| {
+            book.display_name
+                .as_deref()
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .unwrap_or(&book.url)
+                .to_owned()
+        })
+        .collect();
+    (usable.iter().map(|book| book.id).collect(), labels)
+}
+
+/// The book picked in the selector. A single choice is the account's default
+/// anyway, so it needs no explicit book.
+pub(crate) fn chosen_book(ids: &[i64], index: i32) -> Option<i64> {
+    if ids.len() < 2 {
+        return None;
+    }
+    usize::try_from(index)
+        .ok()
+        .and_then(|index| ids.get(index))
+        .copied()
+}
+
 pub(crate) fn clear_contact_form(app: &AppWindow) {
     app.set_contact_id(0);
     app.set_contact_name("".into());
@@ -342,6 +381,8 @@ pub(crate) fn clear_contact_form(app: &AppWindow) {
     app.set_contact_initials("?".into());
     app.set_contact_interactions(app.global::<I18n>().invoke_new_contact_entry());
     app.set_contact_last_interacted("".into());
+    app.set_contact_book_names(slint::ModelRc::default());
+    app.set_contact_book_index(0);
 }
 
 fn apply_contact_form(app: &AppWindow, contact: &ContactRecord) {
@@ -627,6 +668,45 @@ mod tests {
             suggestion_count: 0,
             account_counts: vec![(1, 61)],
         }
+    }
+
+    fn book(id: i64, name: Option<&str>, read_only: bool, enabled: bool, is_default: bool) -> AddressBook {
+        AddressBook {
+            id,
+            account_id: 1,
+            url: format!("https://dav.test/{id}/"),
+            display_name: name.map(str::to_owned),
+            read_only,
+            enabled,
+            is_default,
+            last_synced_at: None,
+        }
+    }
+
+    #[test]
+    fn only_writable_enabled_books_are_offered_with_the_default_first() {
+        let books = vec![
+            book(1, Some("Contacts / Team"), false, true, false),
+            book(2, Some("Locked"), true, true, false),
+            book(3, Some("Off"), false, false, false),
+            book(4, Some("Contacts"), false, true, true),
+            book(5, Some("  "), false, true, false),
+        ];
+        let (ids, labels) = book_choices(&books);
+        assert_eq!(ids, vec![4, 1, 5]);
+        assert_eq!(labels[..2], ["Contacts", "Contacts / Team"]);
+        // A book without a name shows its address.
+        assert_eq!(labels[2], "https://dav.test/5/");
+    }
+
+    #[test]
+    fn the_selector_names_a_book_only_when_there_is_a_real_choice() {
+        assert_eq!(chosen_book(&[], 0), None);
+        assert_eq!(chosen_book(&[4], 0), None);
+        assert_eq!(chosen_book(&[4, 1], 0), Some(4));
+        assert_eq!(chosen_book(&[4, 1], 1), Some(1));
+        assert_eq!(chosen_book(&[4, 1], 2), None);
+        assert_eq!(chosen_book(&[4, 1], -1), None);
     }
 
     #[test]

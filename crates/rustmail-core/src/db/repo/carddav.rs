@@ -540,9 +540,16 @@ pub fn contact(conn: &Connection, id: i64) -> Result<Option<ContactRecord>> {
     crate::db::repo::contacts::get_record(conn, id)
 }
 
-/// Queue a newly-created contact for the selected account's default writable
-/// address book. Existing contacts acquire mappings through server pull.
-pub fn attach_new_contact(conn: &Connection, account_id: i64, contact_id: i64) -> Result<bool> {
+/// Queue a newly-created contact for `book_id`, or for the selected account's
+/// default writable address book when none is given. A chosen book must belong
+/// to the account, be enabled and not be read-only. Existing contacts acquire
+/// mappings through server pull.
+pub fn attach_new_contact(
+    conn: &Connection,
+    account_id: i64,
+    contact_id: i64,
+    book_id: Option<i64>,
+) -> Result<bool> {
     // `save_record` merges by email. If a "new" UI entry resolved to an
     // existing remote contact, update that resource instead of creating a
     // duplicate vCard on the same server.
@@ -558,13 +565,18 @@ pub fn attach_new_contact(conn: &Connection, account_id: i64, contact_id: i64) -
     let book: Option<(i64, String)> = conn
         .query_row(
             "SELECT id,url FROM carddav_addressbooks
-         WHERE account_id=?1 AND enabled=1 AND read_only=0
+         WHERE account_id=?1 AND enabled=1 AND read_only=0 AND (?2 IS NULL OR id=?2)
          ORDER BY is_default DESC,id LIMIT 1",
-            [account_id],
+            params![account_id, book_id],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()?;
     let Some((book_id, book_url)) = book else {
+        if book_id.is_some() {
+            return Err(crate::error::CoreError::CardDav(
+                "the chosen address book is read-only, disabled or gone".into(),
+            ));
+        }
         return Ok(false);
     };
     let record = contact(conn, contact_id)?

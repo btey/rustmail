@@ -71,6 +71,11 @@ export component CalendarEventDialog inherits Rectangle {
     in property <bool> calendar_event_series: false;
     in-out property <string> calendar_event_scope: "all";
     in property <string> calendar_event_busy: "";
+    // Who is invited, as typed (comma, semicolon or line separated).
+    in-out property <string> calendar_event_attendees: "";
+    // The event belongs to a Microsoft 365 account, which can say who is free.
+    in property <bool> calendar_event_can_check: false;
+    callback calendar-check-availability();
     callback calendar-save-event(string, string, string, string, int);
     callback calendar-create-task();
 
@@ -83,11 +88,12 @@ export component CalendarEventDialog inherits Rectangle {
             + 22px + root.chip-h + (root.calendar_event_end_kind != "never" ? 8px + root.field-h : 0px) + 6px
         : 0px;
     private property <length> scope-height: root.calendar_event_series ? 22px + root.chip-h + 14px : 0px;
+    private property <length> attendee-height: 22px + root.field-h + 4px + 26px + (root.calendar_event_can_check ? root.chip-h + 4px : 0px) + 10px;
     private property <length> busy-height: root.calendar_event_busy != "" ? 22px + 40px + 6px : 0px;
     // The folded section: reminder chips, repeat chips and what follows.
     private property <length> more-height: 8px + 22px + 2 * (root.chip-h + 6px) + 10px + 22px + 2 * (root.chip-h + 6px)
         + (root.repeating ? 10px + root.repeat-detail-height : 0px)
-        + root.scope-height + root.busy-height + 12px;
+        + root.attendee-height + root.scope-height + root.busy-height + 12px;
     // Everything above the buttons.
     private property <length> form-height: 22px + 28px + 16px + 22px + root.field-h + 16px + 22px + root.field-h + 16px + 22px + root.field-h
         + 16px + 34px + (root.calendar_event_more_open ? root.more-height : 0px) + 24px;
@@ -291,6 +297,31 @@ export component CalendarEventDialog inherits Rectangle {
                                 }
                             }
 
+                            Rectangle {
+                                x: 0px;
+                                y: root.more-height - root.scope-height - root.busy-height - root.attendee-height - 4px;
+                                width: parent.width;
+                                height: root.attendee-height;
+                                attendee-label := Text { x: 24px; y: 0px; width: parent.width - 48px; height: max(18px, self.preferred-height); text: @tr("ATTENDEES"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
+                                LineEdit {
+                                    x: 24px;
+                                    y: attendee-label.y + attendee-label.height + 4px;
+                                    width: parent.width - 48px;
+                                    height: root.field-h;
+                                    text <=> root.calendar_event_attendees;
+                                    placeholder-text: @tr("name@example.com, other@example.com");
+                                }
+                                Text { x: 24px; y: attendee-label.height + 4px + root.field-h + 4px; width: parent.width - 48px; height: 26px; text: @tr("Invitations are sent when you save."); color: root.muted-text; font-size: TypeScale.caption; vertical-alignment: center; overflow: elide; }
+                                if root.calendar_event_can_check : Button {
+                                    x: 24px;
+                                    y: attendee-label.height + 4px + root.field-h + 4px + 26px + 4px;
+                                    width: max(150px, self.content-width + 28px);
+                                    height: root.chip-h;
+                                    text: @tr("Check availability");
+                                    enabled: root.calendar_event_attendees != "";
+                                    clicked => { root.calendar-check-availability(); }
+                                }
+                            }
                             if root.calendar_event_series : Rectangle {
                                 x: 0px;
                                 y: root.more-height - root.scope-height - root.busy-height - 4px;

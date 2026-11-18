@@ -9,7 +9,11 @@ use crate::{
     mail::CoreMailSource,
 };
 use chrono::{Duration as ChronoDuration, Local, NaiveDate, NaiveTime, TimeZone};
-use rustmail_core::models::{CreateEventArgs, UpdateEventArgs};
+use rustmail_core::models::{Address, CreateEventArgs, UpdateEventArgs};
+use std::collections::HashSet;
+
+/// Most people one event can invite from the editor.
+const MAX_ATTENDEES: usize = 50;
 
 /// What the editor shows, as typed.
 pub(crate) struct EventForm {
@@ -24,6 +28,84 @@ pub(crate) struct EventForm {
     pub(crate) this_occurrence_only: bool,
     /// Account a new event belongs to (0 = local only).
     pub(crate) new_event_account_id: i64,
+    /// Who is invited, as typed: addresses separated by commas, semicolons or
+    /// lines, each optionally written `Name <address>`.
+    pub(crate) attendees: String,
+}
+
+/// The start and end of the event the form describes, in milliseconds, when
+/// its date, time and duration can be read.
+pub(crate) fn event_window(date: &str, time: &str, duration: &str) -> Option<(i64, i64)> {
+    let date = NaiveDate::parse_from_str(date.trim(), "%Y-%m-%d").ok()?;
+    let time = NaiveTime::parse_from_str(time.trim(), "%H:%M").ok()?;
+    let minutes = duration.trim().parse::<i64>().ok().filter(|m| (15..=1440).contains(m))?;
+    let start = Local.from_local_datetime(&date.and_time(time)).earliest()?;
+    Some((
+        start.timestamp_millis(),
+        (start + ChronoDuration::minutes(minutes)).timestamp_millis(),
+    ))
+}
+
+/// Reads the attendee field. Blank entries and repeats of an address are
+/// dropped; the first spelling of a name wins.
+pub(crate) fn parse_attendees(text: &str) -> Result<Vec<Address>, UiMessage> {
+    let mut seen = HashSet::new();
+    let mut people = Vec::new();
+    for entry in text.split([',', ';', '\n']) {
+        let entry = entry.trim();
+        if entry.is_empty() {
+            continue;
+        }
+        let (name, email) = match (entry.find('<'), entry.rfind('>')) {
+            (Some(open), Some(close)) if open < close && close == entry.len() - 1 => (
+                Some(entry[..open].trim().trim_matches('"').trim().to_owned())
+                    .filter(|name| !name.is_empty()),
+                entry[open + 1..close].trim(),
+            ),
+            _ => (None, entry),
+        };
+        if !plausible_address(email) {
+            return Err(UiMessage::detail(
+                "Check this attendee address: {}",
+                entry.to_owned(),
+            ));
+        }
+        if seen.insert(email.to_ascii_lowercase()) {
+            people.push(Address {
+                name,
+                email: email.to_owned(),
+            });
+        }
+    }
+    if people.len() > MAX_ATTENDEES {
+        return Err(UiMessage::plain("Invite at most 50 people to one event."));
+    }
+    Ok(people)
+}
+
+/// One `@`, something before it, a dotted domain after it, no spaces.
+fn plausible_address(email: &str) -> bool {
+    let Some((local, domain)) = email.split_once('@') else {
+        return false;
+    };
+    !local.is_empty()
+        && !domain.contains('@')
+        && domain.contains('.')
+        && !domain.starts_with('.')
+        && !domain.ends_with('.')
+        && !email.chars().any(|c| c.is_whitespace() || c == '<' || c == '>')
+}
+
+/// The attendee field's text for an event being edited.
+pub(crate) fn attendee_field_text(people: &[Address]) -> String {
+    people
+        .iter()
+        .map(|person| match person.name.as_deref().map(str::trim) {
+            Some(name) if !name.is_empty() => format!("{name} <{}>", person.email),
+            _ => person.email.clone(),
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 pub(crate) struct SavedEvent {
@@ -62,6 +144,16 @@ pub(crate) fn save_event(
             "That local time does not exist in the current time zone.",
         ));
     };
+    let wanted_attendees = parse_attendees(&form.attendees)?;
+    let account_known = editing
+        .as_ref()
+        .map_or(form.new_event_account_id, |event| event.account_id)
+        != 0;
+    if !wanted_attendees.is_empty() && !account_known {
+        return Err(UiMessage::plain(
+            "Connect a mail account before inviting attendees.",
+        ));
+    }
     let starts_at = start.timestamp_millis();
     let ends_at = (start + ChronoDuration::minutes(i64::from(duration))).timestamp_millis();
     let title = form.title.trim().to_owned();
@@ -118,6 +210,28 @@ pub(crate) fn save_event(
                 let shifted = first + (starts_at - event.occurrence_start);
                 (shifted, shifted + (ends_at - starts_at))
             };
+            // Names already known are kept; invitations go out only when the
+            // list of addresses changed.
+            let emails = |people: &[Address]| {
+                people
+                    .iter()
+                    .map(|person| person.email.to_ascii_lowercase())
+                    .collect::<HashSet<_>>()
+            };
+            let attendees_changed = emails(&wanted_attendees) != emails(&event.attendee_addresses);
+            let attendees = wanted_attendees
+                .into_iter()
+                .map(|person| {
+                    let known = event
+                        .attendee_addresses
+                        .iter()
+                        .find(|old| old.email.eq_ignore_ascii_case(&person.email));
+                    Address {
+                        name: person.name.or_else(|| known.and_then(|old| old.name.clone())),
+                        email: person.email,
+                    }
+                })
+                .collect();
             runtime
                 .block_on(core.update_event(UpdateEventArgs {
                     event_id: i64::from(event.id),
@@ -128,8 +242,8 @@ pub(crate) fn save_event(
                     starts_at: series_start,
                     ends_at: series_end,
                     all_day: event.all_day,
-                    attendees: event.attendee_addresses,
-                    notify: false,
+                    attendees,
+                    notify: attendees_changed,
                 }))
                 .map(|updated| updated.id)
         }
@@ -145,7 +259,7 @@ pub(crate) fn save_event(
                 starts_at,
                 ends_at,
                 all_day: false,
-                attendees: Vec::new(),
+                attendees: wanted_attendees,
             }))
             .map(|created| created.id)
     };
@@ -223,6 +337,7 @@ mod tests {
             repeat: RepeatForm::default(),
             this_occurrence_only: false,
             new_event_account_id: 0,
+            attendees: String::new(),
         }
     }
 
@@ -331,6 +446,9 @@ mod tests {
         changed.date = "2030-03-07".into();
         changed.time = "14:00".into();
         changed.duration = "90".into();
+        // The editor shows the invited people; leaving the field alone keeps them.
+        changed.attendees = attendee_field_text(&editing.attendee_addresses);
+        assert_eq!(changed.attendees, "Ana <ana@example.test>");
         save_event(&fixture.core, &fixture.runtime, &changed, Some(editing))
             .map_err(|message| format!("{message:?}"))
             .unwrap();
@@ -344,6 +462,113 @@ mod tests {
         assert_eq!(event.join_url.as_deref(), Some("https://meet.example.test/x"));
         assert_eq!(event.attendees.len(), 1);
         assert_eq!(event.attendees[0].email, "ana@example.test");
+    }
+
+    #[test]
+    fn attendees_can_be_added_and_removed_when_editing() {
+        let fixture = fixture();
+        fixture
+            .runtime
+            .block_on(fixture.core.file_core().db.write(|conn| {
+                conn.execute(
+                    "INSERT INTO accounts (id,email,provider,auth_kind,username,imap_host,imap_port,smtp_host,smtp_port,created_at)
+                     VALUES (1,'me@example.test','imap','password','me','imap.example.test',993,'smtp.example.test',465,0)",
+                    [],
+                )?;
+                Ok(())
+            }))
+            .unwrap();
+        let mut invited = form("Review");
+        invited.new_event_account_id = 1;
+        invited.attendees = "Ana <ana@example.test>; ben@example.test".into();
+        save_event(&fixture.core, &fixture.runtime, &invited, None)
+            .map_err(|message| format!("{message:?}"))
+            .unwrap();
+        let emails = |fixture: &Fixture| {
+            stored(fixture)[0]
+                .attendees
+                .iter()
+                .map(|person| (person.email.clone(), person.name.clone()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            emails(&fixture),
+            vec![
+                ("ana@example.test".to_owned(), Some("Ana".to_owned())),
+                ("ben@example.test".to_owned(), None)
+            ]
+        );
+        // Another person joins; a name already known is kept when only the address is typed.
+        let mut edit = form("Review");
+        edit.date = "2030-03-06".into();
+        edit.attendees = "ana@example.test, ben@example.test, Cy <cy@example.test>".into();
+        save_event(&fixture.core, &fixture.runtime, &edit, Some(occurrence(&fixture, 0)))
+            .map_err(|message| format!("{message:?}"))
+            .unwrap();
+        let after = emails(&fixture);
+        assert_eq!(after.len(), 3);
+        assert_eq!(after[0], ("ana@example.test".to_owned(), Some("Ana".to_owned())));
+        assert_eq!(after[2], ("cy@example.test".to_owned(), Some("Cy".to_owned())));
+        // An empty field removes everyone.
+        let mut cleared = form("Review");
+        cleared.date = "2030-03-06".into();
+        save_event(&fixture.core, &fixture.runtime, &cleared, Some(occurrence(&fixture, 0)))
+            .map_err(|message| format!("{message:?}"))
+            .unwrap();
+        assert!(stored(&fixture)[0].attendees.is_empty());
+    }
+
+    #[test]
+    fn the_availability_window_needs_a_readable_date_time_and_length() {
+        let (start, end) = event_window("2030-03-06", "09:30", "45").unwrap();
+        assert_eq!(end - start, 45 * 60_000);
+        assert!(event_window("2030-03-06", "9h", "45").is_none());
+        assert!(event_window("soon", "09:30", "45").is_none());
+        assert!(event_window("2030-03-06", "09:30", "5").is_none());
+        assert!(event_window("2030-03-06", "09:30", "").is_none());
+    }
+
+    #[test]
+    fn a_bad_attendee_list_stores_nothing() {
+        let fixture = fixture();
+        for text in ["not-an-address", "ana@example", "a b@example.test", "ana@@example.test"] {
+            let mut bad = form("Review");
+            bad.new_event_account_id = 1;
+            bad.attendees = text.into();
+            assert!(
+                save_event(&fixture.core, &fixture.runtime, &bad, None).is_err(),
+                "{text}"
+            );
+        }
+        // Inviting needs an account to send from.
+        let mut local = form("Review");
+        local.attendees = "ana@example.test".into();
+        assert!(save_event(&fixture.core, &fixture.runtime, &local, None).is_err());
+        assert!(stored(&fixture).is_empty());
+    }
+
+    #[test]
+    fn the_attendee_field_reads_names_separators_and_repeats() {
+        let people = parse_attendees(
+            " Ana Diaz <ana@example.test>,\nben@example.test ; \"Cy, Jr\" <cy@example.test>;ANA@example.test,, ",
+        );
+        // A comma inside quotes splits the entry, so that spelling is refused
+        // instead of guessing.
+        assert!(people.is_err());
+        let people = parse_attendees(" Ana Diaz <ana@example.test>,\nben@example.test ; ANA@example.test,, ")
+            .map_err(|message| format!("{message:?}"))
+            .unwrap();
+        assert_eq!(people.len(), 2, "a repeated address is dropped");
+        assert_eq!(people[0].name.as_deref(), Some("Ana Diaz"));
+        assert_eq!(people[0].email, "ana@example.test");
+        assert_eq!(people[1].name, None);
+        assert_eq!(attendee_field_text(&people), "Ana Diaz <ana@example.test>, ben@example.test");
+        assert!(parse_attendees("  ,; ").unwrap().is_empty());
+        let many = (0..51)
+            .map(|n| format!("p{n}@example.test"))
+            .collect::<Vec<_>>()
+            .join(",");
+        assert!(parse_attendees(&many).is_err());
     }
 
     #[test]

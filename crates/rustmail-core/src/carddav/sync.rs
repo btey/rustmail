@@ -533,6 +533,7 @@ async fn sync_addressbook(
 mod tests {
     use super::*;
     use crate::carddav::http::{DavResponse, MockTransport};
+    use rusqlite::OptionalExtension;
     fn dav(body: &str) -> DavResponse {
         DavResponse {
             status: 207,
@@ -685,7 +686,7 @@ END:VCARD</c:address-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:props
                 "BEGIN:VCARD\nVERSION:3.0\nUID:temporary\nN:;;;;\nFN:Ada\nEMAIL:ada@example.test\nEND:VCARD",
             )?;
             let saved = repo::contacts::save_record(conn, &record, now_ms())?;
-            repo::carddav::attach_new_contact(conn, 1, saved.id)?;
+            repo::carddav::attach_new_contact(conn, 1, saved.id, None)?;
             Ok(())
         })
         .await
@@ -702,6 +703,97 @@ END:VCARD</c:address-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:props
         assert!(body.contains("VERSION:3.0"));
         assert!(body.contains("UID:urn:uuid:"));
         assert!(body.contains("N:;;;;"));
+    }
+
+    #[tokio::test]
+    async fn a_new_contact_goes_to_the_chosen_address_book() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(&dir.path().join("mail.db")).unwrap();
+        let (default_book, team_book, locked_book, other_account_book) = db
+            .write(|conn| {
+                crate::db::testutil::seed_account(conn);
+                let default_book = repo::carddav::upsert_addressbook(
+                    conn,
+                    1,
+                    "https://dav.test/books/me/default/",
+                    Some("Contacts"),
+                    false,
+                )?;
+                repo::carddav::ensure_default(conn, 1, default_book)?;
+                // A Microsoft 365 sub-folder has no path of its own.
+                let team_book = repo::carddav::upsert_addressbook(
+                    conn,
+                    1,
+                    "graph:AAMk-team",
+                    Some("Contacts / Team"),
+                    false,
+                )?;
+                let locked_book = repo::carddav::upsert_addressbook(
+                    conn,
+                    1,
+                    "https://dav.test/books/me/locked/",
+                    Some("Locked"),
+                    true,
+                )?;
+                conn.execute(
+                    "INSERT INTO accounts (id, email, provider, auth_kind, username,
+                     imap_host, imap_port, smtp_host, smtp_port, created_at)
+                     VALUES (2,'two@test.dev','imap','password','two','h',993,'h',587,0)",
+                    [],
+                )?;
+                let other = repo::carddav::upsert_addressbook(
+                    conn,
+                    2,
+                    "https://dav.test/books/two/default/",
+                    Some("Other"),
+                    false,
+                )?;
+                Ok((default_book, team_book, locked_book, other))
+            })
+            .await
+            .unwrap();
+        let place = |email: &'static str, book: Option<i64>, account: i64| {
+            let db = db.clone();
+            async move {
+                db.write(move |conn| {
+                    let record = vcard::parse(&format!(
+                        "BEGIN:VCARD\nVERSION:3.0\nUID:t\nFN:{email}\nEMAIL:{email}\nEND:VCARD"
+                    ))?;
+                    let saved = repo::contacts::save_record(conn, &record, now_ms())?;
+                    let attached = repo::carddav::attach_new_contact(conn, account, saved.id, book);
+                    let placed: Option<(i64, String)> = conn
+                        .query_row(
+                            "SELECT addressbook_id,href FROM carddav_objects WHERE contact_id=?1",
+                            [saved.id],
+                            |row| Ok((row.get(0)?, row.get(1)?)),
+                        )
+                        .optional()?;
+                    Ok((attached.map_err(|e| e.to_string()), placed))
+                })
+                .await
+                .unwrap()
+            }
+        };
+        // No choice: the default book.
+        let (attached, placed) = place("a@example.test", None, 1).await;
+        assert_eq!(attached, Ok(true));
+        assert_eq!(placed.unwrap().0, default_book);
+        // A chosen CardDAV book keeps its own path.
+        let (attached, placed) = place("b@example.test", Some(default_book), 1).await;
+        assert_eq!(attached, Ok(true));
+        assert!(placed.unwrap().1.starts_with("/books/me/default/"));
+        // A Microsoft 365 sub-folder is a book like any other.
+        let (attached, placed) = place("c@example.test", Some(team_book), 1).await;
+        assert_eq!(attached, Ok(true));
+        let (book, href) = placed.unwrap();
+        assert_eq!(book, team_book);
+        assert!(href.starts_with("new-"), "{href}");
+        // A read-only book or another account's book is refused, and nothing is queued.
+        for refused in [locked_book, other_account_book] {
+            let (attached, placed) = place("d@example.test", Some(refused), 1).await;
+            assert!(attached.is_err(), "{attached:?}");
+            assert!(placed.is_none());
+        }
     }
 
     #[tokio::test]

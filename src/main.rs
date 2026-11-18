@@ -2180,6 +2180,8 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
 
     let app_weak = app.as_weak();
     let contacts_for_new = Rc::clone(&contact_state);
+    let inbox_for_contact_new = Rc::clone(&state);
+    let runtime_for_contact_new = Rc::clone(&runtime);
     app.on_new_contact(move || {
         let Some(app) = app_weak.upgrade() else {
             return;
@@ -2187,8 +2189,29 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         let mut directory = contacts_for_new.borrow_mut();
         directory.selected_id = None;
         directory.editing_new = true;
+        let scope_account = directory
+            .scope
+            .strip_prefix("Account:")
+            .and_then(|value| value.parse::<i64>().ok());
+        directory.new_books.clear();
         drop(directory);
         clear_contact_form(&app);
+        // In an account's view the new contact can go to any of its writable
+        // address books, including Microsoft 365 contact sub-folders.
+        let core = inbox_for_contact_new.borrow().core.clone();
+        if let (Some(account_id), Some(core)) = (scope_account, core)
+            && let Ok(books) =
+                runtime_for_contact_new.block_on(core.list_addressbooks(Some(account_id)))
+        {
+            let (ids, labels) = contacts::book_choices(&books);
+            contacts_for_new.borrow_mut().new_books = ids;
+            app.set_contact_book_names(slint::ModelRc::new(slint::VecModel::from(
+                labels
+                    .into_iter()
+                    .map(slint::SharedString::from)
+                    .collect::<Vec<_>>(),
+            )));
+        }
         app.set_contact_has_selection(true);
         app.set_contact_save_status(UiMessage::plain(
             "Add an email address, then save the contact.",
@@ -2292,7 +2315,19 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 None
             };
             let saved = if let Some(core) = core.as_ref() {
-                match runtime_for_save.block_on(core.save_contact(record)) {
+                // The list is only valid while the selector shows it.
+                let shown = app.get_contact_book_names().row_count();
+                let book = if record.id <= 0 {
+                    let books = contacts_for_save.borrow();
+                    (books.new_books.len() == shown)
+                        .then(|| {
+                            contacts::chosen_book(&books.new_books, app.get_contact_book_index())
+                        })
+                        .flatten()
+                } else {
+                    None
+                };
+                match runtime_for_save.block_on(core.save_contact_in_book(record, book)) {
                     Ok(saved) => saved,
                     Err(error) => {
                         app.set_contact_save_status(UiMessage::detail(
@@ -2667,6 +2702,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
     let app_weak = app.as_weak();
     let calendar_for_editor = Rc::clone(&calendar_state);
     let editing_event_for_new = Rc::clone(&calendar_editing_event_id);
+    let inbox_for_new_event = Rc::clone(&state);
     app.on_calendar_open_editor(move || {
         let Some(app) = app_weak.upgrade() else {
             return;
@@ -2680,6 +2716,9 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         app.set_calendar_event_duration("60".into());
         app.set_calendar_event_color(0);
         reset_event_options(&app);
+        app.set_calendar_event_can_check(
+            availability_account(&calendar, &inbox_for_new_event.borrow(), None).is_some(),
+        );
         app.set_calendar_editor_open(true);
     });
 
@@ -2747,6 +2786,13 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         app.set_calendar_event_end_value(form.end_value.into());
         // A repeating Microsoft 365 event can be changed for one occurrence.
         app.set_calendar_event_series(microsoft && !event.recurrence.is_empty());
+        app.set_calendar_event_can_check(microsoft);
+        app.set_calendar_event_attendees(
+            calendar_save::attendee_field_text(&event.attendee_addresses).into(),
+        );
+        if !event.attendee_addresses.is_empty() {
+            app.set_calendar_event_more_open(true);
+        }
         if microsoft && !event.attendee_addresses.is_empty() {
             // One bounded request per opening of the editor, off the UI thread.
             let addresses: Vec<String> = event
@@ -2776,6 +2822,66 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             }
         }
         app.set_calendar_editor_open(true);
+    });
+
+    let app_weak = app.as_weak();
+    let calendar_for_check = Rc::clone(&calendar_state);
+    let editing_event_for_check = Rc::clone(&calendar_editing_event_id);
+    let runtime_for_check = Rc::clone(&runtime);
+    let inbox_for_check = Rc::clone(&state);
+    app.on_calendar_check_availability(move || {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        let Some((start_ms, end_ms)) = calendar_save::event_window(
+            app.get_calendar_event_date().as_str(),
+            app.get_calendar_event_time().as_str(),
+            app.get_calendar_event_duration().as_str(),
+        ) else {
+            app.set_sync_status(UiMessage::plain(
+                "Enter a valid date, time and duration to check availability.",
+            ));
+            return;
+        };
+        let people = match calendar_save::parse_attendees(app.get_calendar_event_attendees().as_str()) {
+            Ok(people) => people,
+            Err(message) => {
+                app.set_sync_status(message);
+                return;
+            }
+        };
+        let Some(account_id) = availability_account(
+            &calendar_for_check.borrow(),
+            &inbox_for_check.borrow(),
+            editing_event_for_check.get(),
+        ) else {
+            return;
+        };
+        let addresses: Vec<String> = people.into_iter().map(|person| person.email).take(20).collect();
+        let Some(core) = inbox_for_check
+            .borrow()
+            .core
+            .clone()
+            .map(|core| core.file_core())
+        else {
+            return;
+        };
+        app.set_calendar_event_busy("".into());
+        let weak = app.as_weak();
+        runtime_for_check.spawn(async move {
+            let text = match core
+                .exchange_free_busy(account_id, addresses, start_ms, end_ms)
+                .await
+            {
+                Ok(answers) => free_busy_summary(&answers, start_ms, end_ms),
+                Err(error) => format!("{error}"),
+            };
+            let _ = weak.upgrade_in_event_loop(move |app| {
+                if app.get_calendar_editor_open() {
+                    app.set_calendar_event_busy(text.into());
+                }
+            });
+        });
     });
 
     let app_weak = app.as_weak();
@@ -2927,6 +3033,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 .first()
                 .map(|account| account.id)
                 .unwrap_or(0),
+            attendees: app.get_calendar_event_attendees().to_string(),
         };
         let saved = match calendar_save::save_event(
             &core,
@@ -8682,6 +8789,28 @@ mod tests {
 }
 
 
+/// The Microsoft 365 account whose free/busy answers the editor can ask for:
+/// the account of the event being edited, or the one a new event goes to.
+fn availability_account(
+    calendar: &calendar::LocalCalendarState,
+    inbox: &InboxState,
+    editing: Option<i64>,
+) -> Option<i64> {
+    let account_id = match editing {
+        Some(id) => calendar
+            .events
+            .iter()
+            .find(|event| i64::from(event.id) == id)?
+            .account_id,
+        None => inbox.connected_accounts.first()?.id,
+    };
+    calendar
+        .accounts
+        .iter()
+        .any(|account| account.id == account_id && account.provider == "microsoft")
+        .then_some(account_id)
+}
+
 /// The event editor's reminder and repeat controls for a new or another event.
 fn reset_event_options(app: &AppWindow) {
     app.set_calendar_event_reminder(-1);
@@ -8694,4 +8823,6 @@ fn reset_event_options(app: &AppWindow) {
     app.set_calendar_event_series(false);
     app.set_calendar_event_scope("all".into());
     app.set_calendar_event_busy("".into());
+    app.set_calendar_event_attendees("".into());
+    app.set_calendar_event_can_check(false);
 }

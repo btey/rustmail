@@ -388,6 +388,10 @@ export global I18n {
         if (key == "Event deleted, but refresh failed: {}") { return @tr("Event deleted, but refresh failed: {}", argument); }
         if (key == "Event deleted.") { return @tr("Event deleted."); }
         if (key == "Use YYYY-MM-DD and a 24-hour time such as 09:30.") { return @tr("Use YYYY-MM-DD and a 24-hour time such as 09:30."); }
+        if (key == "Check this attendee address: {}") { return @tr("Check this attendee address: {}", argument); }
+        if (key == "Connect a mail account before inviting attendees.") { return @tr("Connect a mail account before inviting attendees."); }
+        if (key == "Invite at most 50 people to one event.") { return @tr("Invite at most 50 people to one event."); }
+        if (key == "Enter a valid date, time and duration to check availability.") { return @tr("Enter a valid date, time and duration to check availability."); }
         if (key == "Event duration must be a number of minutes.") { return @tr("Event duration must be a number of minutes."); }
         if (key == "Add a title and choose a duration from 15 to 1440 minutes.") { return @tr("Add a title and choose a duration from 15 to 1440 minutes."); }
         if (key == "That local time does not exist in the current time zone.") { return @tr("That local time does not exist in the current time zone."); }
@@ -806,6 +810,8 @@ export component AppWindow inherits Window {
     in property <LocalizedMessage> contact-save-message;
     property <string> contact_save_status: I18n.ui-message(root.contact-save-message.key, root.contact-save-message.argument, root.contact-save-message.second_argument, root.contact-save-message.third_argument);
     in property <bool> contact_has_selection: false;
+    in property <[string]> contact_book_names: [];
+    in-out property <int> contact_book_index: 0;
     in-out property <int> contact_id: -1;
     in-out property <string> contact_name: "";
     in-out property <string> contact_email: "";
@@ -859,6 +865,9 @@ export component AppWindow inherits Window {
     in property <bool> calendar_event_series: false;
     in-out property <string> calendar_event_scope: "all";
     in property <string> calendar_event_busy: "";
+    in-out property <string> calendar_event_attendees: "";
+    in property <bool> calendar_event_can_check: false;
+    callback calendar-check-availability();
     in-out property <string> calendar_occurrence_date: "";
     in-out property <int> calendar_occurrence_minutes: 0;
     in property <string> selected_scope: "Unified Inbox";
@@ -1675,6 +1684,8 @@ export component AppWindow inherits Window {
             favorite-count: root.contact_favorite_count;
             suggestion-count: root.contact_suggestion_count;
             has-selected: root.contact_has_selection;
+            book-names: root.contact_book_names;
+            book-index <=> root.contact_book_index;
             selected-id <=> root.contact_id;
             edit-name <=> root.contact_name;
             edit-email <=> root.contact_email;
@@ -1827,6 +1838,9 @@ export component AppWindow inherits Window {
             calendar_event_series: root.calendar_event_series;
             calendar_event_scope <=> root.calendar_event_scope;
             calendar_event_busy: root.calendar_event_busy;
+            calendar_event_attendees <=> root.calendar_event_attendees;
+            calendar_event_can_check: root.calendar_event_can_check;
+            calendar-check-availability => { root.calendar-check-availability(); }
             calendar-save-event(title, date, time, duration, color) => {
                 root.calendar-save-event(title, date, time, duration, color);
             }

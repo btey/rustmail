@@ -29,7 +29,10 @@ slint::slint! {
         in-out property <bool> series: false;
         in-out property <string> scope: "all";
         in property <string> busy;
+        in-out property <string> attendees;
+        in property <bool> can-check: false;
         callback saved(string);
+        callback checked;
         CalendarEventDialog {
             x: 0px;
             y: 0px;
@@ -55,6 +58,9 @@ slint::slint! {
             calendar_event_series: root.series;
             calendar_event_scope <=> root.scope;
             calendar_event_busy: root.busy;
+            calendar_event_attendees <=> root.attendees;
+            calendar_event_can_check: root.can-check;
+            calendar-check-availability => { root.checked(); }
             calendar-save-event(title, date, time, duration, color) => { root.saved(title); }
         }
     }
@@ -115,13 +121,23 @@ fn reminder_repeat_and_scope_can_be_chosen_with_the_pointer() {
     // With the section open: a reminder chip, a repeat chip.
     ui.set_more_open(true);
     assert!(
-        find(&ui, || ui.set_reminder(-1), || ui.get_reminder() == 15),
+        find(
+            &ui,
+            || {
+                ui.set_more_open(true);
+                ui.set_reminder(-1);
+            },
+            || ui.get_reminder() == 15
+        ),
         "the 15 min reminder can be chosen"
     );
     assert!(
         find(
             &ui,
-            || ui.set_repeat("none".into()),
+            || {
+                ui.set_more_open(true);
+                ui.set_repeat("none".into());
+            },
             || ui.get_repeat() == "weekly"
         ),
         "the Weekly repeat can be chosen"
@@ -133,6 +149,7 @@ fn reminder_repeat_and_scope_can_be_chosen_with_the_pointer() {
     let mut toggled = None;
     'scan: for y in (0..1300).step_by(4) {
         for x in (180..640).step_by(6) {
+            ui.set_more_open(true);
             ui.set_weekdays(0);
             ui.set_repeat("weekly".into());
             click(&ui, x as f32, y as f32);
@@ -144,6 +161,7 @@ fn reminder_repeat_and_scope_can_be_chosen_with_the_pointer() {
     }
     let (x, y, mask) = toggled.expect("a weekday chip can be clicked");
     assert!(mask.count_ones() == 1 && mask <= 64, "{mask}");
+    ui.set_more_open(true);
     ui.set_weekdays(mask);
     ui.set_repeat("weekly".into());
     click(&ui, x, y);
@@ -154,6 +172,7 @@ fn reminder_repeat_and_scope_can_be_chosen_with_the_pointer() {
         find(
             &ui,
             || {
+                ui.set_more_open(true);
                 ui.set_repeat("daily".into());
                 ui.set_end_kind("never".into());
             },
@@ -167,6 +186,7 @@ fn reminder_repeat_and_scope_can_be_chosen_with_the_pointer() {
     ui.set_scope("all".into());
     for y in (0..1300).step_by(4) {
         for x in (180..640).step_by(10) {
+            ui.set_more_open(true);
             click(&ui, x as f32, y as f32);
             assert_ne!(ui.get_scope(), "occurrence", "no scope without a series");
         }
@@ -175,7 +195,10 @@ fn reminder_repeat_and_scope_can_be_chosen_with_the_pointer() {
     assert!(
         find(
             &ui,
-            || ui.set_scope("all".into()),
+            || {
+                ui.set_more_open(true);
+                ui.set_scope("all".into());
+            },
             || ui.get_scope() == "occurrence"
         ),
         "This event only can be chosen for a series"
@@ -202,4 +225,68 @@ fn the_save_button_reports_the_title() {
         }
     }
     assert_eq!(saved.borrow().first().map(String::as_str), Some("Planning"));
+}
+
+#[test]
+fn the_attendee_field_takes_typed_text() {
+    let window = MinimalSoftwareWindow::new(RepaintBufferType::ReusedBuffer);
+    slint::platform::set_platform(Box::new(Headless(window))).unwrap();
+    let ui = EditorHarness::new().unwrap();
+    ui.window().set_size(slint::PhysicalSize::new(800, 1300));
+    ui.show().unwrap();
+    ui.set_more_open(true);
+    // Click across the panel and type: only the attendee field puts the
+    // text into the attendee property.
+    let mut reached = false;
+    'scan: for y in (0..1300).step_by(4) {
+        for x in (180..640).step_by(10) {
+            ui.set_attendees("".into());
+            click(&ui, x as f32, y as f32);
+            ui.window()
+                .dispatch_event(WindowEvent::KeyPressed { text: "z".into() });
+            ui.window()
+                .dispatch_event(WindowEvent::KeyReleased { text: "z".into() });
+            if ui.get_attendees() == "z" {
+                reached = true;
+                break 'scan;
+            }
+        }
+    }
+    assert!(reached, "the attendee field can be focused and typed into");
+}
+
+#[test]
+fn availability_can_be_checked_only_for_typed_attendees_of_a_microsoft_account() {
+    let window = MinimalSoftwareWindow::new(RepaintBufferType::ReusedBuffer);
+    slint::platform::set_platform(Box::new(Headless(window))).unwrap();
+    let ui = EditorHarness::new().unwrap();
+    ui.window().set_size(slint::PhysicalSize::new(800, 1300));
+    ui.show().unwrap();
+    ui.set_more_open(true);
+    let checks = Rc::new(RefCell::new(0));
+    let counter = Rc::clone(&checks);
+    ui.on_checked(move || *counter.borrow_mut() += 1);
+    let scan = |ui: &EditorHarness| {
+        for y in (0..1300).step_by(4) {
+            for x in (180..640).step_by(10) {
+                click(ui, x as f32, y as f32);
+            }
+        }
+    };
+    // Without a Microsoft 365 account there is no button, whatever is typed.
+    ui.set_attendees("ana@example.test".into());
+    scan(&ui);
+    assert_eq!(
+        *checks.borrow(),
+        0,
+        "no button without a Microsoft 365 account"
+    );
+    // With one, the button is disabled until someone is typed, then it works.
+    ui.set_can_check(true);
+    ui.set_attendees("".into());
+    scan(&ui);
+    assert_eq!(*checks.borrow(), 0, "disabled while the field is empty");
+    ui.set_attendees("ana@example.test".into());
+    scan(&ui);
+    assert!(*checks.borrow() > 0, "Check availability can be pressed");
 }

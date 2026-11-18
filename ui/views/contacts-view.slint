@@ -1,5 +1,5 @@
 import { InfiniteScrollController } from "../components/infinite-scroll-controller.slint";
-import { HorizontalBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
+import { ComboBox, HorizontalBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 import { ContactSidebarRow, ContactSidebarRowKind, ContactRow } from "../models.slint";
 import { Avatar } from "../components/avatar.slint";
 import { Button } from "../components/button.slint";
@@ -66,6 +66,9 @@ export component ContactsView inherits Rectangle {
     in-out property <string> edit-notes: "";
     in-out property <string> edit-tags: "";
     in-out property <bool> edit-favorite: false;
+    // Address books a new contact can go to; the selector shows with two or more.
+    in property <[string]> book-names: [];
+    in-out property <int> book-index: 0;
     in property <bool> is-suggested: false;
     in property <string> edit-initials: "?";
     in property <string> interaction-label: "";
@@ -679,6 +682,11 @@ export component ContactsView inherits Rectangle {
                                     vertical-alignment: center;
                                 }
                             }
+                        }
+                        if root.selected-id <= 0 && root.book-names.length > 1 : FieldLabel { label: @tr("ADDRESS BOOK"); }
+                        if root.selected-id <= 0 && root.book-names.length > 1 : ComboBox {
+                            model: root.book-names;
+                            current-index <=> root.book-index;
                         }
                         FieldLabel { label: @tr("NAME"); }
                         LineEdit { text <=> root.edit-name; placeholder-text: @tr("Full name"); }

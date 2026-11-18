@@ -582,6 +582,10 @@ fn reset(app: &AppWindow) {
     app.set_calendar_event_end_value("".into());
     app.set_calendar_event_series(false);
     app.set_calendar_event_busy("".into());
+    app.set_calendar_event_attendees("".into());
+    app.set_calendar_event_can_check(false);
+    app.set_contact_book_names(model(Vec::new()));
+    app.set_contact_book_index(0);
     app.set_rendering_info_open(false);
     app.set_oauth_setup_open(false);
     app.set_custom_oauth_open(false);
@@ -1048,6 +1052,11 @@ fn states() -> Vec<State> {
             app.set_calendar_event_busy(
                 "jamie.rivera@example.com: busy\npriya.shah@example.com: free".into(),
             );
+            app.set_calendar_event_can_check(true);
+            app.set_calendar_event_attendees(
+                "Jamie Rivera <jamie.rivera@example.com>, Priya Shah <priya.shah@example.com>"
+                    .into(),
+            );
             app.set_calendar_editor_open(true);
         }),
         State {
@@ -1072,6 +1081,15 @@ fn states() -> Vec<State> {
             })
         },
         state("contacts", |app| app.set_active_view("contacts".into())),
+        state("new contact with address book choice", |app| {
+            app.set_active_view("contacts".into());
+            app.set_contact_has_selection(true);
+            app.set_contact_id(0);
+            app.set_contact_book_names(model(vec![
+                "Contacts".into(),
+                "Contacts / Customers and partners / Europe".into(),
+            ]));
+        }),
         state("files", |app| app.set_active_view("files".into())),
         state("task badge on list rows", |app| {
             app.global::<TaskChips>().set_rows(model(vec![

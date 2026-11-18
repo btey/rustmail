@@ -6127,6 +6127,17 @@ impl Core {
     }
 
     pub async fn save_contact(&self, record: ContactRecord) -> Result<ContactRecord> {
+        self.save_contact_in_book(record, None).await
+    }
+
+    /// Save a contact. A new contact goes to `address_book` (a writable,
+    /// enabled book, which may be a Microsoft 365 contact sub-folder) instead
+    /// of the account's default one. The book decides the account.
+    pub async fn save_contact_in_book(
+        &self,
+        record: ContactRecord,
+        address_book: Option<i64>,
+    ) -> Result<ContactRecord> {
         let now_ms = chrono::Utc::now().timestamp_millis();
         let account_ids = record.account_ids.clone();
         let was_new = record.id <= 0;
@@ -6142,8 +6153,22 @@ impl Core {
                 };
                 let saved = repo::contacts::save_record(&tx, &record, now_ms)?;
                 if was_new || !was_saved {
-                    if account_ids.len() == 1 {
-                        repo::carddav::attach_new_contact(&tx, account_ids[0], saved.id)?;
+                    let book_account = match address_book {
+                        Some(book) => Some(
+                            tx.query_row(
+                                "SELECT account_id FROM carddav_addressbooks WHERE id=?1",
+                                [book],
+                                |row| row.get::<_, i64>(0),
+                            )
+                            .optional()?
+                            .ok_or_else(|| {
+                                CoreError::CardDav("the chosen address book is gone".into())
+                            })?,
+                        ),
+                        None => (account_ids.len() == 1).then(|| account_ids[0]),
+                    };
+                    if let Some(account_id) = book_account {
+                        repo::carddav::attach_new_contact(&tx, account_id, saved.id, address_book)?;
                     }
                 } else {
                     repo::carddav::mark_saved_contact_dirty(&tx, saved.id)?;
