@@ -222,9 +222,14 @@ pub(crate) async fn send_raw(
     raw: &[u8],
 ) -> Result<()> {
     if raw.len() > client::MAX_SIMPLE_MIME_BYTES {
-        draft::send_large(ctx, config, draft_id).await?;
+        draft::send_large(ctx, config, draft_id)
+            .await
+            .map_err(|error| client::during("sending a message", error))?;
     } else {
-        graph_for(ctx, config)?.send_mime(raw).await?;
+        graph_for(ctx, config)?
+            .send_mime(raw)
+            .await
+            .map_err(|error| client::during("sending a message", error))?;
     }
     // The server copy of the draft (if one was pushed) is not wanted now.
     draft::discard_after_send(ctx, config, draft_id).await;

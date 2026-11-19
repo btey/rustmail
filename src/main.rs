@@ -2778,14 +2778,14 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         let Some(app) = app_weak.upgrade() else {
             return;
         };
-        let calendar = calendar_for_editor.borrow();
+        let mut calendar = calendar_for_editor.borrow_mut();
         editing_event_for_new.set(None);
         app.set_calendar_event_editing(false);
         app.set_calendar_event_title("".into());
         app.set_calendar_event_date(calendar.selected_date.format("%Y-%m-%d").to_string().into());
         app.set_calendar_event_time("09:00".into());
         app.set_calendar_event_duration("60".into());
-        app.set_calendar_event_color(0);
+        calendar::load_event_targets(&app, &mut calendar, None);
         reset_event_options(&app);
         app.set_calendar_event_can_check(
             availability_account(&calendar, &inbox_for_new_event.borrow(), None).is_some(),
@@ -2841,7 +2841,11 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             .into(),
         );
         app.set_calendar_event_duration(event.duration_minutes.to_string().into());
-        app.set_calendar_event_color(event.color_index);
+        calendar::load_event_targets(
+            &app,
+            &mut calendar_for_edit.borrow_mut(),
+            Some(event.calendar_id),
+        );
         reset_event_options(&app);
         let form = repeat_form_from_rrule(&event.recurrence);
         app.set_calendar_event_reminder(
@@ -3066,7 +3070,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
     let runtime_for_calendar_save = Rc::clone(&runtime);
     let inbox_for_calendar_save = Rc::clone(&state);
     let editing_event_for_save = Rc::clone(&calendar_editing_event_id);
-    app.on_calendar_save_event(move |title, date, time, duration, _color| {
+    app.on_calendar_save_event(move |title, date, time, duration, target| {
         let Some(app) = app_weak.upgrade() else {
             return;
         };
@@ -3086,6 +3090,16 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             .filter(|event| event.is_local)
             .cloned()
         });
+        // The calendar chosen in the editor; only a new event uses it.
+        let chosen_target = calendar_for_save
+            .borrow()
+            .event_targets
+            .get(usize::try_from(target).unwrap_or(usize::MAX))
+            .cloned();
+        let device_only = editing_event.is_none()
+            && chosen_target
+                .as_ref()
+                .is_none_or(|target| target.calendar_id.is_none());
         let form = calendar_save::EventForm {
             title: title.to_string(),
             date: date.to_string(),
@@ -3104,12 +3118,12 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             },
             this_occurrence_only: app.get_calendar_event_series()
                 && app.get_calendar_event_scope() == "occurrence",
-            new_event_account_id: inbox_for_calendar_save
-                .borrow()
-                .connected_accounts
-                .first()
-                .map(|account| account.id)
-                .unwrap_or(0),
+            new_event_account_id: chosen_target
+                .as_ref()
+                .map_or(0, |target| target.account_id),
+            new_event_calendar_id: chosen_target
+                .as_ref()
+                .and_then(|target| target.calendar_id),
             attendees: app.get_calendar_event_attendees().to_string(),
         };
         let saved = match calendar_save::save_event(
@@ -3142,6 +3156,9 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             (Some(error), _) => app.set_sync_status(UiMessage::detail(
                 "Event saved, but its reminder or repeat could not be set: {}",
                 error,
+            )),
+            (None, Ok(())) if device_only => app.set_sync_status(UiMessage::plain(
+                "Event saved on this device only.",
             )),
             (None, Ok(())) => app.set_sync_status(UiMessage::plain(
                 "Event saved. Provider sync will run when enabled.",
@@ -4517,6 +4534,11 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         };
         let store_core = core.file_core();
         let active = view.to_string();
+        let watch_core = store_core.clone();
+        let watching = active == "calendar";
+        product_runtime.spawn(async move {
+            watch_core.set_calendar_watching(watching).await;
+        });
         product_runtime.spawn(async move {
             if active != "calendar" {
                 let _ = store_core.calendar_db.release_idle_connections().await;
@@ -7623,6 +7645,49 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             return;
         };
         if app.get_oauth_settings_saving() {
+            return;
+        }
+        // Microsoft 365 uses the mail account's own sign-in: no browser step.
+        let exchange_core = {
+            let state = state_for_calendar_connect.borrow();
+            state
+                .account_configs
+                .iter()
+                .any(|config| {
+                    config.id == i64::from(account_id)
+                        && config.mail_protocol == rustmail_core::models::MailProtocol::Exchange
+                })
+                .then(|| state.core.clone())
+                .flatten()
+        };
+        if let Some(core) = exchange_core {
+            app.set_sync_status(UiMessage::plain("Connecting the Microsoft 365 calendar..."));
+            let updates = updates_for_calendar_connect.clone();
+            runtime_for_calendar_connect.spawn(async move {
+                let result = core
+                    .connect_exchange_calendar(i64::from(account_id))
+                    .await;
+                let connections = core.load_calendar_connections().await.ok();
+                let calendar_error = Some((i64::from(account_id), result.as_ref().err().cloned()));
+                let message = match result {
+                    Ok(_) => UiMessage::plain("Calendar connected and initial sync started."),
+                    Err(error) => UiMessage::detail("Could not connect calendar: {}", error),
+                };
+                let _ = updates
+                    .send(UiTaskUpdate {
+                        message,
+                        accounts: None,
+                        calendar_connections: connections,
+                        carddav_connections: None,
+                        calendar_error,
+                        account_removal: None,
+                        clear_account_form: false,
+                        finishes_account_setup: false,
+                        finishes_oauth: false,
+                        close_to_tray: None,
+                    })
+                    .await;
+            });
             return;
         }
         if app.get_oauth_in_progress() {

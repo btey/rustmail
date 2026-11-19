@@ -1612,6 +1612,15 @@ impl CoreMailSource {
         Ok(())
     }
 
+    /// Connects the calendars of a Microsoft 365 account (its own sign-in).
+    pub async fn connect_exchange_calendar(&self, account_id: i64) -> Result<(), String> {
+        self.core
+            .connect_exchange_calendar(account_id)
+            .await
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn connect_caldav(
         &self,
         account_id: i64,

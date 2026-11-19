@@ -1,4 +1,4 @@
-import { HorizontalBox, ScrollView } from "std-widgets.slint";
+import { HorizontalBox, ScrollView, ComboBox } from "std-widgets.slint";
 import { Button } from "../components/button.slint";
 import { LineEdit } from "../components/controls.slint";
 import { TypeScale } from "../typography.slint";
@@ -54,7 +54,8 @@ export component CalendarEventDialog inherits Rectangle {
     in-out property <string> calendar_event_date: "";
     in-out property <string> calendar_event_time: "09:00";
     in-out property <string> calendar_event_duration: "60";
-    in-out property <int> calendar_event_color: 0;
+    in property <[string]> calendar_event_targets: [];
+    in-out property <int> calendar_event_target: 0;
     // -1 app default, 0 none, otherwise minutes before the start.
     in-out property <int> calendar_event_reminder: -1;
     // none | daily | weekly | monthly | yearly | custom (a rule the editor
@@ -157,28 +158,16 @@ export component CalendarEventDialog inherits Rectangle {
                         duration-label := Text { x: 24px; y: date-field.y + 54px; width: form.half; height: max(18px, max(self.preferred-height, calendar-label.preferred-height)); wrap: word-wrap; text: @tr("DURATION (MINUTES)"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
                         duration-field := LineEdit { x: 24px; y: duration-label.y + duration-label.height + 4px; width: form.half; height: form.field-h; text: root.calendar_event_duration; placeholder-text: @tr("60"); input-type: InputType.number; edited(value) => { root.calendar_event_duration = value; } }
                         calendar-label := Text { x: parent.width / 2 + 4px; y: duration-label.y; width: form.half; height: duration-label.height; wrap: word-wrap; text: @tr("CALENDAR"); color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; }
-                        HorizontalBox {
+                        ComboBox {
                             x: parent.width / 2 + 4px;
                             y: duration-field.y;
                             width: form.half;
                             height: form.field-h;
-                            spacing: 8px;
-                            for color in [0, 1, 2, 3] : Rectangle {
-                                width: max(30px, (parent.width - 24px) / 4);
-                                height: root.compact ? 44px : 36px;
-                                border-radius: 8px;
-                                border-width: root.calendar_event_color == color ? 2px : 0px;
-                                border-color: root.accent;
-                                background: root.control-bg;
-                                Rectangle { x: 10px; y: 10px; width: 16px; height: 16px; border-radius: 5px; background: color == 0 ? #3478f6 : color == 1 ? #8b5cf6 : color == 2 ? #e87924 : #26a269; }
-                                TouchArea {
-                                    accessible-role: radio-button;
-                                    accessible-label: color == 0 ? @tr("Blue calendar") : color == 1 ? @tr("Purple calendar") : color == 2 ? @tr("Orange calendar") : @tr("Green calendar");
-                                    accessible-checked: root.calendar_event_color == color;
-                                    clicked => { root.calendar_event_color = color; }
-                                    mouse-cursor: pointer;
-                                }
-                            }
+                            model: root.calendar_event_targets;
+                            current-index: root.calendar_event_target;
+                            enabled: !root.calendar_event_editing;
+                            accessible-label: @tr("CALENDAR");
+                            selected(value) => { root.calendar_event_target = self.current-index; }
                         }
 
                         // Reminder and repeat: folded away until asked for.
@@ -412,7 +401,7 @@ export component CalendarEventDialog inherits Rectangle {
                     text: root.calendar_event_editing ? @tr("Save") : @tr("Create");
                     primary: true;
                     enabled: root.calendar_event_title != "";
-                    clicked => { root.calendar-save-event(root.calendar_event_title, root.calendar_event_date, root.calendar_event_time, root.calendar_event_duration, root.calendar_event_color); }
+                    clicked => { root.calendar-save-event(root.calendar_event_title, root.calendar_event_date, root.calendar_event_time, root.calendar_event_duration, root.calendar_event_target); }
                 }
             }
         }

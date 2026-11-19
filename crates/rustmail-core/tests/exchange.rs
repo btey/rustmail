@@ -66,6 +66,10 @@ struct State {
     made_folders: Vec<(String, String, Option<String>)>,
     /// A second calendar, shared with the account by someone else.
     shared_calendar: bool,
+    /// The calendar list is refused (the sign-in lacks the calendar permission).
+    calendars_denied: bool,
+    /// Answer new events with this status (0: accept them).
+    event_post_status: u16,
 }
 
 type Shared = Arc<Mutex<State>>;
@@ -395,6 +399,12 @@ fn route(
         ("GET", p) if p.starts_with("/messages/") && !p.contains("/$value") => {
             let id = p.trim_start_matches("/messages/");
             match state.messages.iter().find(|m| m.id == id) {
+                Some(_) if query.contains("sentDateTime") => json(
+                    200,
+                    format!(
+                        r#"{{"id":"{id}","subject":"Café {id}","from":{{"emailAddress":{{"name":"Zoë","address":"z@example.org"}}}},"toRecipients":[{{"emailAddress":{{"name":"","address":"me@example.org"}}}}],"ccRecipients":[],"sentDateTime":"2026-01-02T10:00:00Z","body":{{"contentType":"text","content":"rebuilt text of {id}"}},"internetMessageId":"<rebuilt-{id}@example.org>"}}"#
+                    ),
+                ),
                 Some(m) if query.contains("internetMessageHeaders") => {
                     let headers: Vec<String> = m
                         .raw
@@ -423,6 +433,10 @@ fn route(
                 .trim_start_matches("/messages/")
                 .trim_end_matches("/$value");
             match state.messages.iter().find(|m| m.id == id) {
+                Some(m) if m.raw.contains("X-Test-No-Mime") => json(
+                    500,
+                    r#"{"error":{"code":"ErrorMimeContentConversionFailed","message":"MIME content conversion failed."}}"#.into(),
+                ),
                 Some(m) => (
                     200,
                     String::new(),
@@ -590,6 +604,10 @@ fn route(
                 ),
             )
         }
+        ("GET", "/calendars") if state.calendars_denied => json(
+            403,
+            r#"{"error":{"code":"ErrorAccessDenied","message":"Access is denied."}}"#.into(),
+        ),
         ("GET", "/calendars") => json(
             200,
             if state.shared_calendar {
@@ -672,6 +690,10 @@ fn route(
                 "start":{"dateTime":"2026-07-01T09:00:00.0000000","timeZone":"UTC"},
                 "end":{"dateTime":"2026-07-01T10:00:00.0000000","timeZone":"UTC"}}]}]}"#
                 .replace('\n', ""),
+        ),
+        ("POST", "/calendars/CAL1/events") if state.event_post_status != 0 => json(
+            state.event_post_status,
+            r#"{"error":{"code":"ErrorAccessDenied","message":"Access is denied."}}"#.into(),
         ),
         ("POST", "/calendars/CAL1/events") => json(201, r#"{"id":"EV-NEW"}"#.into()),
         ("PATCH", p) if p.starts_with("/events/") => json(200, "{}".into()),
@@ -1093,6 +1115,52 @@ async fn first_sync_reads_folders_roles_flags_and_bodies() {
     );
     // The sign-in was verified, then the refresh token was used.
     assert!(log_has(&shared, "GET /graph/v1.0/me/mailFolders/inbox?"));
+}
+
+#[tokio::test]
+async fn a_message_graph_cannot_turn_into_mime_is_rebuilt_and_does_not_stop_the_sync() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().messages.insert(
+        0,
+        Msg {
+            id: "M0".into(),
+            folder: "inbox",
+            read: false,
+            flagged: false,
+            categories: "",
+            raw: format!("X-Test-No-Mime: 1\r\n{}", mail("Broken", "x@example.org")),
+        },
+    );
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    // The other messages arrived too, and the broken one is readable.
+    let subjects: Vec<String> = rows(&core).await.into_iter().map(|row| row.0).collect();
+    assert_eq!(subjects.len(), 4, "{subjects:?}");
+    assert!(subjects.iter().any(|s| s == "One"), "{subjects:?}");
+    assert!(
+        subjects.iter().any(|s| s.starts_with("Café")),
+        "{subjects:?}"
+    );
+    // A second cycle does not ask for the message's MIME again.
+    let before = shared
+        .lock()
+        .unwrap()
+        .log
+        .iter()
+        .filter(|(l, _)| l.contains("M0/$value"))
+        .count();
+    core.sync_now(Some(account.id)).await.unwrap();
+    let after = shared
+        .lock()
+        .unwrap()
+        .log
+        .iter()
+        .filter(|(l, _)| l.contains("M0/$value"))
+        .count();
+    assert_eq!(before, after);
 }
 
 #[tokio::test]
@@ -2032,6 +2100,46 @@ async fn contacts_are_read_through_delta_and_removed_with_the_server_copy() {
         vec![r#"{"id":"C1","@removed":{"reason":"deleted"}}"#.into()];
     core.sync_now(Some(account.id)).await.unwrap();
     assert_eq!(ann(&core).await, None);
+}
+
+#[tokio::test]
+async fn an_event_made_in_outlook_shows_up_when_the_calendar_view_opens_without_toggling_the_calendar()
+ {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().events = vec![
+        r#"{"id":"EV1","iCalUId":"UID1","type":"singleInstance","subject":"Planning","isAllDay":false,"isCancelled":false,
+            "start":{"dateTime":"2026-07-01T12:00:00.0000000","timeZone":"UTC"},
+            "end":{"dateTime":"2026-07-01T13:00:00.0000000","timeZone":"UTC"}}"#
+            .replace('\n', ""),
+    ];
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    let window = (utc_ms(2026, 6, 1, 0), utc_ms(2026, 9, 1, 0));
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the first event", async || {
+        core.list_events(window.0, window.1).await.unwrap().len() == 1
+    })
+    .await;
+    // Someone adds an event in Outlook; the next delta reports it.
+    shared.lock().unwrap().event_changes = vec![
+        r#"{"id":"EV9","iCalUId":"UID9","type":"singleInstance","subject":"Made in Outlook","isAllDay":false,"isCancelled":false,
+            "start":{"dateTime":"2026-07-02T09:00:00.0000000","timeZone":"UTC"},
+            "end":{"dateTime":"2026-07-02T10:00:00.0000000","timeZone":"UTC"}}"#
+            .replace('\n', ""),
+    ];
+    // Opening the Calendar view reads the server at once.
+    core.set_calendar_watching(true).await;
+    wait_until("the event made in Outlook", async || {
+        core.list_events(window.0, window.1)
+            .await
+            .unwrap()
+            .iter()
+            .any(|event| event.summary.as_deref() == Some("Made in Outlook"))
+    })
+    .await;
+    core.set_calendar_watching(false).await;
 }
 
 #[tokio::test]
@@ -3800,4 +3908,148 @@ async fn the_proxy_of_the_form_is_used_for_the_check_and_saved_with_the_account(
             .await
             .is_err()
     );
+}
+
+fn new_event(account_id: i64, calendar_id: Option<i64>, summary: &str) -> CreateEventArgs {
+    CreateEventArgs {
+        account_id,
+        calendar_id,
+        summary: summary.into(),
+        description: None,
+        location: None,
+        join_url: None,
+        starts_at: utc_ms(2030, 3, 6, 9),
+        ends_at: utc_ms(2030, 3, 6, 10),
+        all_day: false,
+        attendees: vec![],
+    }
+}
+
+#[tokio::test]
+async fn a_calendar_that_could_not_be_connected_is_told_and_can_be_connected_later() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().calendars_denied = true;
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let mut events = core.bus.subscribe();
+    let account = add(&core, &base).await;
+    // The account is there, its calendar is not, and the person is told why.
+    assert!(
+        core.list_calendars(Some(account.id))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(core.list_calendar_connections().await.unwrap().is_empty());
+    let mut notice = None;
+    while let Ok(event) = events.try_recv() {
+        if let rustmail_core::events::CoreEvent::Notice { message, .. } = event {
+            notice = Some(message);
+        }
+    }
+    let notice = notice.expect("a notice about the calendar");
+    assert!(
+        notice.contains("calendar could not be connected") && notice.contains("denied"),
+        "{notice}"
+    );
+    // An event made now stays on this device: there is nothing to send it to.
+    core.create_event(new_event(account.id, None, "Too early"))
+        .await
+        .unwrap();
+    core.calendar_sync_now(Some(account.id)).await;
+    assert!(!log_has(
+        &shared,
+        "POST /graph/v1.0/me/calendars/CAL1/events"
+    ));
+
+    // Retry once the permission is there (Settings: Retry calendar).
+    shared.lock().unwrap().calendars_denied = false;
+    let calendars = core.connect_exchange_calendar(account.id).await.unwrap();
+    assert_eq!(calendars.len(), 1);
+    assert_eq!(core.list_calendar_connections().await.unwrap().len(), 1);
+    // Events can now be written to the calendar by choosing it.
+    core.create_event(new_event(account.id, Some(calendars[0].id), "On time"))
+        .await
+        .unwrap();
+    wait_until("the event on the server", async || {
+        log_has(&shared, "POST /graph/v1.0/me/calendars/CAL1/events")
+    })
+    .await;
+    let bodies = seen(&shared, "POST /graph/v1.0/me/calendars/CAL1/events");
+    assert!(bodies[0].contains("On time"), "{bodies:?}");
+}
+
+#[tokio::test]
+async fn an_event_the_server_refuses_is_shown_and_sent_again_when_it_works() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().event_post_status = 403;
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    let calendars = core.list_calendars(Some(account.id)).await.unwrap();
+    let mut events = core.bus.subscribe();
+    core.create_event(new_event(account.id, Some(calendars[0].id), "Refused"))
+        .await
+        .unwrap();
+    wait_until("the refusal to be shown", async || {
+        core.list_calendar_connections()
+            .await
+            .unwrap()
+            .iter()
+            .any(|c| {
+                c.last_error
+                    .as_deref()
+                    .is_some_and(|e| e.contains("Refused"))
+            })
+    })
+    .await;
+    let mut notice = None;
+    while let Ok(event) = events.try_recv() {
+        if let rustmail_core::events::CoreEvent::Notice { message, .. } = event {
+            notice = Some(message);
+        }
+    }
+    let notice = notice.expect("a notice about the event");
+    assert!(
+        notice.contains("\"Refused\"") && notice.contains("could not be sent"),
+        "{notice}"
+    );
+    // The event is kept (and tried again), not lost.
+    shared.lock().unwrap().event_post_status = 0;
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the event to be accepted", async || {
+        core.list_calendar_connections()
+            .await
+            .unwrap()
+            .iter()
+            .all(|c| c.last_error.is_none())
+    })
+    .await;
+    assert!(seen(&shared, "POST /graph/v1.0/me/calendars/CAL1/events").len() >= 2);
+}
+
+#[tokio::test]
+async fn inviting_people_to_a_microsoft_365_event_sends_no_second_mail() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    let calendars = core.list_calendars(Some(account.id)).await.unwrap();
+    let mut invited = new_event(account.id, Some(calendars[0].id), "Review");
+    invited.attendees = vec![rustmail_core::models::Address {
+        name: Some("Ann".into()),
+        email: "ann@example.org".into(),
+    }];
+    core.create_event(invited).await.unwrap();
+    wait_until("the event on the server", async || {
+        log_has(&shared, "POST /graph/v1.0/me/calendars/CAL1/events")
+    })
+    .await;
+    let bodies = seen(&shared, "POST /graph/v1.0/me/calendars/CAL1/events");
+    assert!(bodies[0].contains("ann@example.org"), "{bodies:?}");
+    // Microsoft 365 sends the invitation; a mail from here would be a second.
+    assert!(!log_has(&shared, "sendMail"));
 }

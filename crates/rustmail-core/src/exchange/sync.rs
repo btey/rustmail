@@ -759,6 +759,16 @@ async fn prepare(
                     Ok(raw) => raw,
                     // Gone again before it could be read.
                     Err(CoreError::NotFound(_)) => continue,
+                    // Graph cannot make this one message's MIME: keep what it
+                    // can say about it instead of stopping the folder (and
+                    // every message after it) on every cycle.
+                    Err(error) if super::client::is_mime_conversion_failure(&error) => {
+                        tracing::warn!(
+                            account_id,
+                            "exchange: a message has no MIME on the server, keeping a copy made from its JSON"
+                        );
+                        rebuilt_text(client, message).await?
+                    }
                     Err(error) => return Err(error),
                 };
                 let Ok(parsed) = crate::mime::parse_message(&raw) else {
@@ -829,6 +839,128 @@ async fn fetch_text(
         head.extend_from_slice(format!("Message-ID: {id}\r\n").as_bytes());
     }
     Ok(crate::nntp::placeholder_with_note(&head, &note))
+}
+
+/// A copy of a message whose MIME Graph cannot produce: its headers and body
+/// as Graph reports them, or (when even that fails) just its subject and a note.
+async fn rebuilt_text(client: &GraphMail, message: &GraphMessage) -> Result<Vec<u8>> {
+    let note = "[Microsoft 365 could not provide this message in its original form, so this copy was rebuilt from the information it gave. Attachments and some formatting may be missing. The original is still in your Microsoft 365 mailbox.]";
+    match client.message_json_copy(&message.id).await {
+        Ok(value) => Ok(mime_from_json(message, &value, note)),
+        Err(error @ (CoreError::Auth(_) | CoreError::NeedsReauth | CoreError::Offline)) => {
+            Err(error)
+        }
+        Err(_) => {
+            let mut head =
+                format!("Subject: {}\r\n", encode_header_text(&message.subject)).into_bytes();
+            if let Some(id) = &message.internet_message_id {
+                head.extend_from_slice(format!("Message-ID: {id}\r\n").as_bytes());
+            }
+            Ok(crate::nntp::placeholder_with_note(&head, note))
+        }
+    }
+}
+
+/// A header value that is safe on one line: plain ASCII stays, anything else
+/// becomes one encoded word.
+fn encode_header_text(text: &str) -> String {
+    use base64::Engine as _;
+    let clean: String = text
+        .chars()
+        .map(|ch| if ch.is_control() { ' ' } else { ch })
+        .collect();
+    if clean.is_ascii() {
+        return clean;
+    }
+    format!(
+        "=?UTF-8?B?{}?=",
+        base64::engine::general_purpose::STANDARD.encode(clean.as_bytes())
+    )
+}
+
+fn json_address(value: &serde_json::Value) -> Option<String> {
+    let address = value["emailAddress"]["address"].as_str()?.trim();
+    if address.is_empty()
+        || address
+            .chars()
+            .any(|ch| ch.is_control() || ch.is_whitespace())
+    {
+        return None;
+    }
+    let name = value["emailAddress"]["name"].as_str().unwrap_or("").trim();
+    Some(if name.is_empty() {
+        format!("<{address}>")
+    } else {
+        let encoded = encode_header_text(name);
+        if encoded.is_ascii() && !encoded.starts_with("=?") {
+            format!("\"{}\" <{address}>", encoded.replace(['\\', '"'], ""))
+        } else {
+            format!("{encoded} <{address}>")
+        }
+    })
+}
+
+fn json_addresses(value: &serde_json::Value) -> String {
+    value
+        .as_array()
+        .map(|list| {
+            list.iter()
+                .filter_map(json_address)
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_default()
+}
+
+/// MIME made from the JSON form of a message (see [`GraphMail::message_json_copy`]).
+fn mime_from_json(message: &GraphMessage, value: &serde_json::Value, note: &str) -> Vec<u8> {
+    use base64::Engine as _;
+    let subject = value["subject"].as_str().unwrap_or(&message.subject);
+    let mut out = format!("Subject: {}\r\n", encode_header_text(subject));
+    if let Some(from) = json_address(&value["from"]) {
+        out.push_str(&format!("From: {from}\r\n"));
+    }
+    let to = json_addresses(&value["toRecipients"]);
+    if !to.is_empty() {
+        out.push_str(&format!("To: {to}\r\n"));
+    }
+    let cc = json_addresses(&value["ccRecipients"]);
+    if !cc.is_empty() {
+        out.push_str(&format!("Cc: {cc}\r\n"));
+    }
+    let when = value["sentDateTime"]
+        .as_str()
+        .or_else(|| value["receivedDateTime"].as_str())
+        .and_then(|text| chrono::DateTime::parse_from_rfc3339(text).ok());
+    if let Some(when) = when {
+        out.push_str(&format!("Date: {}\r\n", when.to_rfc2822()));
+    }
+    let id = value["internetMessageId"]
+        .as_str()
+        .map(str::to_owned)
+        .or_else(|| message.internet_message_id.clone());
+    if let Some(id) = id.filter(|id| !id.contains(['\r', '\n'])) {
+        out.push_str(&format!("Message-ID: {id}\r\n"));
+    }
+    let content = value["body"]["content"].as_str().unwrap_or_default();
+    let html = value["body"]["contentType"]
+        .as_str()
+        .is_some_and(|kind| kind.eq_ignore_ascii_case("html"));
+    let body = if html {
+        format!("<p><i>{note}</i></p>{content}")
+    } else {
+        format!("{note}\r\n\r\n{content}")
+    };
+    out.push_str(&format!(
+        "MIME-Version: 1.0\r\nContent-Type: text/{}; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n",
+        if html { "html" } else { "plain" }
+    ));
+    let encoded = base64::engine::general_purpose::STANDARD.encode(body.as_bytes());
+    for line in encoded.as_bytes().chunks(76) {
+        out.push_str(&String::from_utf8_lossy(line));
+        out.push_str("\r\n");
+    }
+    out.into_bytes()
 }
 
 fn has_pending_action(conn: &rusqlite::Connection, message_id: i64) -> Result<bool> {
@@ -1323,7 +1455,9 @@ async fn execute(
             let Some(draft_id) = action.payload["draftId"].as_i64().or(action.message_id) else {
                 return Ok(());
             };
-            super::draft::push_draft(ctx, config, client, draft_id).await
+            super::draft::push_draft(ctx, config, client, draft_id)
+                .await
+                .map_err(|error| super::client::during("saving a draft", error))
         }
         "delete_draft" => match action.payload["graphId"].as_str() {
             Some(graph_id) => {

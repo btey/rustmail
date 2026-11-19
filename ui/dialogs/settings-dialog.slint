@@ -1875,23 +1875,23 @@ export component SettingsDialog inherits Rectangle {
                                         if !root.compact && account.calendar_connected : HorizontalBox {
                                             width: 122px;
                                             spacing: 8px;
-                                            if account.provider == "imap" : Button {
+                                            if account.provider == "imap" && account.mail_protocol != "exchange" : Button {
                                                 text: @tr("CalDAV");
                                                 height: 30px;
                                                 clicked => { root.open-caldav-settings(account); }
                                             }
-                                            if account.provider != "imap" : Text { text: @tr("Calendar"); color: root.body-text; font-size: TypeScale.caption; vertical-alignment: center; }
+                                            if account.provider != "imap" || account.mail_protocol == "exchange" : Text { text: @tr("Calendar"); color: root.body-text; font-size: TypeScale.caption; vertical-alignment: center; }
                                             Rectangle { horizontal-stretch: 1; }
                                             Switch { checked: account.calendar_enabled; toggled => { root.set_account_calendar_enabled(account.id, self.checked); } }
                                         }
-                                        if !root.compact && !account.calendar_connected && account.provider != "imap" : Button {
+                                        if !root.compact && !account.calendar_connected && (account.provider != "imap" || account.mail_protocol == "exchange") : Button {
                                             width: max(128px, self.content-width);
                                             height: 30px;
                                             text: account.calendar_status == "" ? @tr("Add calendar") : @tr("Retry calendar");
                                             enabled: !root.account_setup_in_progress && !root.oauth_in_progress && !root.oauth_settings_saving;
                                             clicked => { root.connect_account_calendar(account.id); }
                                         }
-                                        if !root.compact && !account.calendar_connected && account.provider == "imap" : Button {
+                                        if !root.compact && !account.calendar_connected && account.provider == "imap" && account.mail_protocol != "exchange" : Button {
                                             width: max(116px, self.content-width);
                                             height: 30px;
                                             text: @tr("Set up CalDAV");
@@ -2010,7 +2010,22 @@ export component SettingsDialog inherits Rectangle {
                                             background: account.profile_color;
                                         }
                                     }
-                                    if root.compact && account.provider == "imap" : HorizontalBox {
+                                    if root.compact && account.mail_protocol == "exchange" : HorizontalBox {
+                                        x: 24px;
+                                        y: profile-row.y + profile-row.height + 14px;
+                                        width: parent.width - 48px;
+                                        height: 36px;
+                                        spacing: 10px;
+                                        if !account.calendar_connected : Button {
+                                            text: account.calendar_status == "" ? @tr("Add calendar") : @tr("Retry calendar");
+                                            enabled: !root.account_setup_in_progress && !root.oauth_settings_saving;
+                                            clicked => { root.connect_account_calendar(account.id); }
+                                        }
+                                        if account.calendar_connected : Text { text: @tr("Calendar"); color: root.body-text; font-size: TypeScale.caption; vertical-alignment: center; }
+                                        Rectangle { horizontal-stretch: 1; }
+                                        if account.calendar_connected : Switch { checked: account.calendar_enabled; toggled => { root.set_account_calendar_enabled(account.id, self.checked); } }
+                                    }
+                                    if root.compact && account.provider == "imap" && account.mail_protocol != "exchange" : HorizontalBox {
                                         x: 24px;
                                         y: profile-row.y + profile-row.height + 14px;
                                         width: parent.width - 48px;

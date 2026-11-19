@@ -161,6 +161,22 @@ fn graph_error_text(body: &[u8]) -> String {
     crate::http_body::single_line_excerpt(&text, 300)
 }
 
+/// Say which operation an error belongs to ("saving a draft: ..."), for the
+/// errors that carry a message; sign-in and offline errors stay as they are.
+pub(crate) fn during(operation: &str, error: CoreError) -> CoreError {
+    match error {
+        CoreError::Network(message) => CoreError::Network(format!("{operation}: {message}")),
+        CoreError::Other(message) => CoreError::Other(format!("{operation}: {message}")),
+        other => other,
+    }
+}
+
+/// Whether Graph answered that it could not make the MIME of one message. The
+/// message is damaged on the server (or an unusual item); retrying never helps.
+pub(crate) fn is_mime_conversion_failure(error: &CoreError) -> bool {
+    matches!(error, CoreError::Network(message) if message.contains("ErrorMimeContentConversionFailed"))
+}
+
 fn status_error(status: u16, body: &[u8]) -> CoreError {
     let detail = graph_error_text(body);
     match status {
@@ -626,6 +642,23 @@ impl GraphMail {
             Err(error) if crate::http_body::exceeded_limit(&error) => Ok(None),
             Err(error) => Err(error),
         }
+    }
+
+    /// The parts of a message that Graph can give as JSON: used when it cannot
+    /// make the message's MIME (`ErrorMimeContentConversionFailed`).
+    pub async fn message_json_copy(&self, id: &str) -> Result<Value> {
+        let mut url = self.endpoint(&["messages", id]);
+        url.query_pairs_mut().append_pair(
+            "$select",
+            "subject,from,toRecipients,ccRecipients,sentDateTime,receivedDateTime,body,internetMessageId",
+        );
+        self.json(
+            reqwest::Method::GET,
+            url,
+            None,
+            &[("Prefer", "IdType=\"ImmutableId\"")],
+        )
+        .await
     }
 
     /// The internet headers of a message, as header lines, without its body.

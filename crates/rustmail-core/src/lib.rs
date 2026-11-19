@@ -347,6 +347,8 @@ pub struct Core {
     oauth_redirects: OAuthRedirectBrokerHandle,
     handles: Arc<RwLock<HashMap<i64, AccountHandle>>>,
     cal_handles: Arc<RwLock<HashMap<i64, caldav::task::CalTaskHandle>>>,
+    /// The Calendar view is open: Microsoft 365 calendars are read often.
+    calendar_watching: Arc<std::sync::atomic::AtomicBool>,
     card_handles: Arc<RwLock<HashMap<i64, carddav::task::CardDavTaskHandle>>>,
     /// Per-attachment single-flight locks. Concurrent preview/open/save calls
     /// share one remote fetch and cannot race the same `.download.part` file.
@@ -452,6 +454,7 @@ impl Core {
             oauth_redirects,
             handles: Arc::new(RwLock::new(HashMap::new())),
             cal_handles: Arc::new(RwLock::new(HashMap::new())),
+            calendar_watching: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             card_handles: Arc::new(RwLock::new(HashMap::new())),
             attachment_locks: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             #[cfg(feature = "local-embeddings")]
@@ -587,8 +590,14 @@ impl Core {
                         .read(|conn| repo::caldav::all_configs(conn))
                         .await
                 {
+                    let any = !cal_accounts.is_empty();
                     for cfg in cal_accounts {
                         core.spawn_cal_task(cfg.account_id).await;
+                    }
+                    // A calendar task first waits a whole sync interval; read
+                    // the servers once right away so the first look is current.
+                    if any {
+                        core.nudge_cal(None).await;
                     }
                 }
                 if let Ok(card_accounts) = core
@@ -765,6 +774,7 @@ impl Core {
             self.tokens.clone(),
             self.credentials.clone(),
             account_id,
+            self.calendar_watching.clone(),
         );
         self.cal_handles.write().await.insert(account_id, handle);
     }
@@ -2342,9 +2352,7 @@ impl Core {
         self.spawn_actor(cfg).await;
         // The calendars use the same sign-in; an account without the
         // Calendars permission just has none.
-        if let Err(error) = self.connect_exchange_calendar(id).await {
-            tracing::info!(account_id = id, %error, "exchange calendar not connected");
-        }
+        self.try_connect_exchange_calendar(id).await;
         self.db
             .read(move |conn| repo::accounts::get(conn, id))
             .await?
@@ -2607,10 +2615,38 @@ impl Core {
             .await?
             .ok_or_else(|| CoreError::NotFound("account".into()))?;
         self.spawn_actor(cfg).await;
+        if tokens.is_some() {
+            // A new sign-in may carry the calendar permission the first one
+            // lacked: connect the calendars now when they are not yet.
+            let connected = self
+                .calendar_db
+                .read(move |conn| repo::caldav::get_config(conn, account_id))
+                .await
+                .map(|config| config.is_some())
+                .unwrap_or(true);
+            if !connected {
+                self.try_connect_exchange_calendar(account_id).await;
+            }
+        }
         self.db
             .read(move |conn| repo::accounts::get(conn, account_id))
             .await?
             .ok_or_else(|| CoreError::NotFound("account".into()))
+    }
+
+    /// Connect the calendars of a Microsoft 365 account without failing the
+    /// caller. A failure is told to the person (the usual cause is a sign-in
+    /// without the calendar permission) instead of only being logged.
+    async fn try_connect_exchange_calendar(&self, account_id: i64) {
+        if let Err(error) = self.connect_exchange_calendar(account_id).await {
+            tracing::info!(account_id, %error, "exchange calendar not connected");
+            self.bus.emit(CoreEvent::Notice {
+                account_id,
+                message: format!(
+                    "The Microsoft 365 calendar could not be connected: {error}. Use Add calendar under Settings > Accounts to try again."
+                ),
+            });
+        }
     }
 
     async fn exchange_client(
@@ -2941,7 +2977,14 @@ impl Core {
             .exchange
             .shared_mailbox()
             .map_or_else(|| config.email.clone(), str::to_owned);
-        exchange::calendar::connect(&self.calendar_db, &client, account_id, &base, &own).await?;
+        exchange::calendar::connect(&self.calendar_db, &client, account_id, &base, &own)
+            .await
+            .map_err(|error| match error {
+                CoreError::NeedsReauth => CoreError::Auth(
+                    "Microsoft 365 needs a new sign-in; use Reconnect on the account".into(),
+                ),
+                other => other,
+            })?;
         self.spawn_cal_task(account_id).await;
         self.nudge_cal(Some(account_id)).await;
         self.calendar_db
@@ -6683,7 +6726,9 @@ impl Core {
             })
             .await?;
 
-        if !args.attendees.is_empty() {
+        // Microsoft 365 sends the invitations itself when the event reaches
+        // its calendar; a second mail from here would reach them twice.
+        if !args.attendees.is_empty() && !self.microsoft_sends_invitations(account_id).await {
             let Some(account) = account.as_ref() else {
                 return Err(CoreError::Other(
                     "connect a mail account before inviting attendees".into(),
@@ -6958,7 +7003,10 @@ impl Core {
             })
             .await?;
 
-        if args.notify && !args.attendees.is_empty() {
+        if args.notify
+            && !args.attendees.is_empty()
+            && !self.microsoft_sends_invitations(existing.account_id).await
+        {
             let account_id = existing.account_id;
             let account = self
                 .db
@@ -7665,6 +7713,19 @@ impl Core {
         self.nudge_cal(account_id).await;
     }
 
+    /// Tell the core whether the Calendar view is open. While it is, a
+    /// Microsoft 365 calendar is read about every 45 seconds (one delta request
+    /// per calendar, longer after failures) so an event made in Outlook shows
+    /// up without a manual refresh; opening the view reads at once.
+    pub async fn set_calendar_watching(&self, watching: bool) {
+        let before = self
+            .calendar_watching
+            .swap(watching, std::sync::atomic::Ordering::Relaxed);
+        if watching && !before {
+            self.nudge_cal(None).await;
+        }
+    }
+
     /// Queue a CalDAV write for the account's calendar task, when the account
     /// has one configured. No-op otherwise (purely local calendars).
     async fn enqueue_cal_push(&self, event_id: i64, account_id: i64, kind: &str) -> Result<()> {
@@ -7686,6 +7747,20 @@ impl Core {
             .await?;
         self.nudge_cal(Some(account_id)).await;
         Ok(())
+    }
+
+    /// The account's events go to a Microsoft 365 calendar, which mails the
+    /// invitations itself.
+    async fn microsoft_sends_invitations(&self, account_id: i64) -> bool {
+        if account_id == 0 {
+            return false;
+        }
+        self.calendar_db
+            .read(move |conn| repo::caldav::get_config(conn, account_id))
+            .await
+            .ok()
+            .flatten()
+            .is_some_and(|config| config.kind == "exchange" && config.enabled)
     }
 
     /// Draft + queue an email carrying an ICS part, through the normal send

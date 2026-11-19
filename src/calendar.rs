@@ -74,6 +74,8 @@ pub(crate) struct LocalCalendarState {
     pub(crate) agenda_filters: Rc<crate::retained_model::RetainedModel<CalendarAgendaFilterRow>>,
     // View filters never pause provider sync or change stored calendar visibility.
     pub(crate) agenda_hidden: HashSet<i64>,
+    /// Where a new event can be saved, as the editor's list shows them.
+    pub(crate) event_targets: Vec<crate::calendar_save::EventTarget>,
 }
 
 impl LocalCalendarState {
@@ -89,6 +91,7 @@ impl LocalCalendarState {
             agenda_rows: Rc::default(),
             agenda_filters: Rc::default(),
             agenda_hidden: HashSet::new(),
+            event_targets: Vec::new(),
         }
     }
 
@@ -972,6 +975,37 @@ fn event_row(
         status: event.status.clone().into(),
         source: if event.is_local { "local" } else { "provider" }.into(),
     }
+}
+
+/// Fills the editor's calendar list. A new event starts on the default
+/// calendar; an event being edited shows the calendar it lives in (the list
+/// is then locked: moving an event between calendars is not offered).
+pub(crate) fn load_event_targets(
+    app: &AppWindow,
+    state: &mut LocalCalendarState,
+    editing: Option<Option<i64>>,
+) {
+    let label = |key: &str| {
+        app.global::<I18n>()
+            .invoke_ui_message_calendar(key.into(), "".into(), "".into(), "".into())
+    };
+    let targets = crate::calendar_save::event_targets(
+        &state.sources,
+        &state.accounts,
+        label("Calendar").as_str(),
+        label("Local calendar").as_str(),
+    );
+    let chosen = match editing {
+        Some(calendar_id) => crate::calendar_save::target_of_event(&targets, calendar_id),
+        None => crate::calendar_save::default_target(&targets, &state.sources),
+    };
+    let labels: Vec<SharedString> = targets
+        .iter()
+        .map(|target| SharedString::from(target.label.as_str()))
+        .collect();
+    state.event_targets = targets;
+    app.set_calendar_event_targets(ModelRc::new(VecModel::from(labels)));
+    app.set_calendar_event_target(i32::try_from(chosen).unwrap_or(0));
 }
 
 pub(crate) fn apply_calendar(app: &AppWindow, state: &LocalCalendarState, today: NaiveDate) {

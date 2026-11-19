@@ -393,6 +393,9 @@ export global I18n {
         if (key == "Event deleted.") { return @tr("Event deleted."); }
         if (key == "Use YYYY-MM-DD and a 24-hour time such as 09:30.") { return @tr("Use YYYY-MM-DD and a 24-hour time such as 09:30."); }
         if (key == "Check this attendee address: {}") { return @tr("Check this attendee address: {}", argument); }
+        if (key == "Choose a connected calendar to invite attendees.") { return @tr("Choose a connected calendar to invite attendees."); }
+        if (key == "Event saved on this device only.") { return @tr("Event saved on this device only."); }
+        if (key == "Connecting the Microsoft 365 calendar...") { return @tr("Connecting the Microsoft 365 calendar..."); }
         if (key == "Connect a mail account before inviting attendees.") { return @tr("Connect a mail account before inviting attendees."); }
         if (key == "Invite at most 50 people to one event.") { return @tr("Invite at most 50 people to one event."); }
         if (key == "Enter a valid date, time and duration to check availability.") { return @tr("Enter a valid date, time and duration to check availability."); }
@@ -858,7 +861,9 @@ export component AppWindow inherits Window {
     in-out property <string> calendar_event_date: "";
     in-out property <string> calendar_event_time: "09:00";
     in-out property <string> calendar_event_duration: "60";
-    in-out property <int> calendar_event_color: 0;
+    // Where the event is saved: the calendars offered and the one chosen.
+    in-out property <[string]> calendar_event_targets: [];
+    in-out property <int> calendar_event_target: 0;
     // Reminder (-1 app default, 0 none, else minutes before), repeat rule
     // fields, which part of a repeating event an edit applies to, and a
     // free/busy summary of the attendees.
@@ -1845,7 +1850,8 @@ export component AppWindow inherits Window {
             calendar_event_date <=> root.calendar_event_date;
             calendar_event_time <=> root.calendar_event_time;
             calendar_event_duration <=> root.calendar_event_duration;
-            calendar_event_color <=> root.calendar_event_color;
+            calendar_event_targets: root.calendar_event_targets;
+            calendar_event_target <=> root.calendar_event_target;
             calendar_event_reminder <=> root.calendar_event_reminder;
             calendar_event_repeat <=> root.calendar_event_repeat;
             calendar_event_interval <=> root.calendar_event_interval;

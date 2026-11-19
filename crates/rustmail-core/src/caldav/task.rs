@@ -18,6 +18,28 @@ use super::sync::sync_account;
 const COLLECTION_REFRESH_SECS: i64 = 6 * 60 * 60;
 const MAX_ATTEMPTS: i64 = 8;
 
+/// How often a Microsoft 365 calendar is read while the Calendar view is open.
+/// Graph's change notifications need a public endpoint, which Rustmail does not
+/// have, so the app asks for the (cheap) delta itself: one request per calendar.
+pub(crate) const WATCH_POLL_SECS: u64 = 45;
+/// The longest wait after repeated failures while watching.
+const MAX_BACKOFF_SECS: u64 = 10 * 60;
+
+/// Seconds to wait before the next read of a calendar. Watched Microsoft 365
+/// calendars use the short poll (doubled after each failed cycle, up to ten
+/// minutes, and never shorter than the normal cadence's own failure wait);
+/// everything else keeps the configured cadence.
+pub(crate) fn next_poll_secs(configured_secs: u64, watching_exchange: bool, failures: u32) -> u64 {
+    if !watching_exchange {
+        return configured_secs;
+    }
+    WATCH_POLL_SECS
+        .saturating_mul(1u64 << failures.min(10))
+        .min(MAX_BACKOFF_SECS.max(WATCH_POLL_SECS))
+        .min(configured_secs.max(WATCH_POLL_SECS))
+        .max(WATCH_POLL_SECS)
+}
+
 #[derive(Clone)]
 pub struct CalTaskHandle {
     pub account_id: i64,
@@ -38,13 +60,27 @@ pub fn spawn(
     tokens: TokenProvider,
     credentials: CredentialStoreHandle,
     account_id: i64,
+    watching: std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> CalTaskHandle {
     let (tx, mut rx) = mpsc::channel::<()>(1);
     let handle = CalTaskHandle { account_id, tx };
     tokio::spawn(async move {
         let mut last_collection_refresh_ms = 0;
+        let mut failures: u32 = 0;
         loop {
-            let poll_delay = crate::sync::engine::configured_sync_interval(&mail_db).await;
+            let configured = crate::sync::engine::configured_sync_interval(&mail_db).await;
+            let watching_exchange = watching.load(std::sync::atomic::Ordering::Relaxed)
+                && db
+                    .read(move |conn| repo::caldav::get_config(conn, account_id))
+                    .await
+                    .ok()
+                    .flatten()
+                    .is_some_and(|cfg| cfg.enabled && cfg.kind == "exchange");
+            let poll_delay = std::time::Duration::from_secs(next_poll_secs(
+                configured.as_secs(),
+                watching_exchange,
+                failures,
+            ));
             let woke = tokio::select! {
                 m = rx.recv() => m.is_some(),
                 _ = tokio::time::sleep(poll_delay) => true,
@@ -69,11 +105,13 @@ pub fn spawn(
             .await
             {
                 Ok(()) => {
+                    failures = 0;
                     if refresh_collections {
                         last_collection_refresh_ms = now_ms();
                     }
                 }
                 Err(CoreError::NeedsReauth) => {
+                    failures = failures.saturating_add(1);
                     let _ = db
                         .write(move |conn| {
                             repo::caldav::set_config_error(conn, account_id, Some("needs_reauth"))
@@ -81,6 +119,7 @@ pub fn spawn(
                         .await;
                 }
                 Err(e) => {
+                    failures = failures.saturating_add(1);
                     tracing::warn!("caldav cycle for account {account_id} failed: {e}");
                     let msg = e.to_string();
                     let _ = db
@@ -237,13 +276,18 @@ async fn run_cycle(
         }
     };
 
+    // The Microsoft 365 cycle keeps its own status: a change the server
+    // refused must stay visible, so a finished cycle does not wipe it.
+    let keeps_own_status = cfg.kind == "exchange";
     match &result {
         Ok(_) => {
             db.write(move |conn| {
                 for (id, _) in &claimed {
                     repo::actions::set_state(conn, *id, "done", None)?;
                 }
-                repo::caldav::set_config_error(conn, account_id, None)?;
+                if !keeps_own_status {
+                    repo::caldav::set_config_error(conn, account_id, None)?;
+                }
                 Ok(())
             })
             .await?;
@@ -265,4 +309,24 @@ async fn run_cycle(
         }
     }
     result.map(|_| ())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_watched_microsoft_365_calendar_polls_fast_and_backs_off_after_failures() {
+        // Not watched: the configured cadence, failures or not.
+        assert_eq!(next_poll_secs(300, false, 0), 300);
+        assert_eq!(next_poll_secs(300, false, 5), 300);
+        // Watched: the short poll, doubling per failure, capped by the
+        // configured cadence (never below the short poll).
+        assert_eq!(next_poll_secs(900, true, 0), WATCH_POLL_SECS);
+        assert_eq!(next_poll_secs(900, true, 1), 90);
+        assert_eq!(next_poll_secs(900, true, 2), 180);
+        assert_eq!(next_poll_secs(900, true, 10), 600);
+        assert_eq!(next_poll_secs(60, true, 10), 60);
+        assert_eq!(next_poll_secs(10, true, 0), WATCH_POLL_SECS);
+    }
 }

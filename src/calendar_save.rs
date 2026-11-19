@@ -5,7 +5,10 @@
 
 use crate::{
     UiMessage,
-    calendar::{LocalCalendarEvent, RepeatForm, rrule_from_repeat_form},
+    calendar::{
+        LocalCalendarAccount, LocalCalendarEvent, LocalCalendarSource, RepeatForm,
+        rrule_from_repeat_form,
+    },
     mail::CoreMailSource,
 };
 use chrono::{Duration as ChronoDuration, Local, NaiveDate, NaiveTime, TimeZone};
@@ -26,11 +29,80 @@ pub(crate) struct EventForm {
     pub(crate) repeat: RepeatForm,
     /// A series is being edited and the person chose "this occurrence only".
     pub(crate) this_occurrence_only: bool,
-    /// Account a new event belongs to (0 = local only).
+    /// Account a new event belongs to (0 = this device only).
     pub(crate) new_event_account_id: i64,
+    /// Calendar a new event is written to; none keeps it on this device.
+    pub(crate) new_event_calendar_id: Option<i64>,
     /// Who is invited, as typed: addresses separated by commas, semicolons or
     /// lines, each optionally written `Name <address>`.
     pub(crate) attendees: String,
+}
+
+/// Where a new event can be saved: one of the connected calendars, or only on
+/// this device.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct EventTarget {
+    pub(crate) calendar_id: Option<i64>,
+    pub(crate) account_id: i64,
+    pub(crate) label: String,
+}
+
+/// The calendars the editor offers, in the order of the account list, then
+/// "this device only". A calendar that is switched off or read-only is not
+/// offered, so an event is never sent where it cannot be written.
+pub(crate) fn event_targets(
+    sources: &[LocalCalendarSource],
+    accounts: &[LocalCalendarAccount],
+    calendar_label: &str,
+    device_label: &str,
+) -> Vec<EventTarget> {
+    let mut targets: Vec<EventTarget> = sources
+        .iter()
+        .filter(|source| source.enabled && !source.read_only)
+        .filter_map(|source| {
+            let account = accounts.iter().find(|account| account.id == source.account_id)?;
+            let name = if source.name.trim().is_empty() {
+                calendar_label
+            } else {
+                source.name.trim()
+            };
+            Some(EventTarget {
+                calendar_id: Some(source.id),
+                account_id: source.account_id,
+                label: format!("{name} ({})", account.email),
+            })
+        })
+        .collect();
+    targets.push(EventTarget {
+        calendar_id: None,
+        account_id: 0,
+        label: device_label.to_owned(),
+    });
+    targets
+}
+
+/// The entry shown first for a new event: the default calendar of the first
+/// account that has one, else the first calendar, else this device.
+pub(crate) fn default_target(targets: &[EventTarget], sources: &[LocalCalendarSource]) -> usize {
+    targets
+        .iter()
+        .position(|target| {
+            target.calendar_id.is_some_and(|id| {
+                sources
+                    .iter()
+                    .any(|source| source.id == id && source.is_default)
+            })
+        })
+        .unwrap_or(0)
+}
+
+/// The entry of the calendar an existing event lives in (this device when it
+/// has none).
+pub(crate) fn target_of_event(targets: &[EventTarget], calendar_id: Option<i64>) -> usize {
+    targets
+        .iter()
+        .position(|target| target.calendar_id == calendar_id)
+        .unwrap_or(targets.len().saturating_sub(1))
 }
 
 /// The start and end of the event the form describes, in milliseconds, when
@@ -150,6 +222,11 @@ pub(crate) fn save_event(
         .map_or(form.new_event_account_id, |event| event.account_id)
         != 0;
     if !wanted_attendees.is_empty() && !account_known {
+        if form.new_event_account_id == 0 && editing.is_none() {
+            return Err(UiMessage::plain(
+                "Choose a connected calendar to invite attendees.",
+            ));
+        }
         return Err(UiMessage::plain(
             "Connect a mail account before inviting attendees.",
         ));
@@ -256,7 +333,7 @@ pub(crate) fn save_event(
         runtime
             .block_on(core.create_event(CreateEventArgs {
                 account_id: form.new_event_account_id,
-                calendar_id: None,
+                calendar_id: form.new_event_calendar_id,
                 summary: title,
                 description: None,
                 location: None,
@@ -342,6 +419,7 @@ mod tests {
             repeat: RepeatForm::default(),
             this_occurrence_only: false,
             new_event_account_id: 0,
+            new_event_calendar_id: None,
             attendees: String::new(),
         }
     }
@@ -757,5 +835,172 @@ mod tests {
             before
         );
         assert!(after.iter().all(|event| event.summary.as_deref() == Some("Standup")));
+    }
+
+    /// A mail account with an (unreachable) Microsoft 365 calendar on file.
+    fn exchange_calendar(fixture: &Fixture, read_only: bool, enabled: bool) -> i64 {
+        fixture
+            .runtime
+            .block_on(fixture.core.file_core().db.write(|conn| {
+                conn.execute(
+                    "INSERT INTO accounts (id,email,provider,auth_kind,username,imap_host,imap_port,smtp_host,smtp_port,created_at)
+                     VALUES (1,'me@example.test','imap','password','me','imap.example.test',993,'smtp.example.test',465,0)",
+                    [],
+                )?;
+                Ok(())
+            }))
+            .unwrap();
+        fixture
+            .runtime
+            .block_on(fixture.core.file_core().calendar_db.write(move |conn| {
+                use rustmail_core::db::repo::caldav;
+                caldav::upsert_config(
+                    conn,
+                    &caldav::CaldavConfig {
+                        account_id: 1,
+                        kind: "exchange".into(),
+                        base_url: "https://graph.example.test/v1.0".into(),
+                        username: None,
+                        principal_url: None,
+                        home_set_url: None,
+                        enabled: true,
+                        last_error: None,
+                    },
+                )?;
+                let id = caldav::upsert_calendar(
+                    conn,
+                    1,
+                    "CAL1",
+                    Some("Calendar"),
+                    Some("#0078d4"),
+                    read_only,
+                )?;
+                caldav::set_calendar_enabled(conn, id, enabled)?;
+                Ok(id)
+            }))
+            .unwrap()
+    }
+
+    fn source(id: i64, enabled: bool, read_only: bool, is_default: bool) -> LocalCalendarSource {
+        LocalCalendarSource {
+            id,
+            account_id: 1,
+            name: if id == 7 { String::new() } else { format!("Cal {id}") },
+            color: String::new(),
+            read_only,
+            enabled,
+            is_default,
+            last_synced_at: None,
+        }
+    }
+
+    fn account() -> LocalCalendarAccount {
+        LocalCalendarAccount {
+            id: 1,
+            name: "Me".into(),
+            email: "me@example.test".into(),
+            provider: "imap".into(),
+        }
+    }
+
+    #[test]
+    fn the_editor_offers_writable_calendars_then_this_device() {
+        let sources = [
+            source(3, true, false, false),
+            source(4, false, false, false),
+            source(5, true, true, false),
+            source(7, true, false, true),
+        ];
+        let targets = event_targets(&sources, &[account()], "Calendar", "Local calendar");
+        let labels: Vec<_> = targets.iter().map(|target| target.label.as_str()).collect();
+        // Switched-off and read-only calendars are not offered; a calendar
+        // without a name is called "Calendar".
+        assert_eq!(
+            labels,
+            [
+                "Cal 3 (me@example.test)",
+                "Calendar (me@example.test)",
+                "Local calendar"
+            ]
+        );
+        assert_eq!(targets[2].calendar_id, None);
+        assert_eq!(targets[2].account_id, 0);
+        // The default calendar is the one a new event starts on.
+        assert_eq!(default_target(&targets, &sources), 1);
+        // With no calendar the only entry is this device, and it is chosen.
+        let none = event_targets(&[], &[account()], "Calendar", "Local calendar");
+        assert_eq!(none.len(), 1);
+        assert_eq!(default_target(&none, &[]), 0);
+        // An event shows the calendar it lives in; one with none, this device.
+        assert_eq!(target_of_event(&targets, Some(7)), 1);
+        assert_eq!(target_of_event(&targets, None), 2);
+        assert_eq!(target_of_event(&targets, Some(99)), 2);
+    }
+
+    #[test]
+    fn a_new_event_is_written_to_the_calendar_chosen_in_the_editor() {
+        let fixture = fixture();
+        let calendar = exchange_calendar(&fixture, false, true);
+        let mut chosen = form("Review");
+        chosen.new_event_account_id = 1;
+        chosen.new_event_calendar_id = Some(calendar);
+        save_event(&fixture.core, &fixture.runtime, &chosen, None)
+            .map_err(|message| format!("{message:?}"))
+            .unwrap();
+        let events = stored(&fixture);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].calendar_id, Some(calendar));
+        assert_eq!(events[0].account_id, 1);
+        // The event is waiting to go to Microsoft 365, not only kept here.
+        let waiting = fixture
+            .runtime
+            .block_on(fixture.core.file_core().calendar_db.read(|conn| {
+                Ok(rustmail_core::db::repo::calendar::dirty_rows(conn, 1)?.len())
+            }))
+            .unwrap();
+        assert_eq!(waiting, 1);
+
+        // "This device only" keeps an event out of every account.
+        let mut local = form("Private");
+        local.date = "2030-03-07".into();
+        save_event(&fixture.core, &fixture.runtime, &local, None)
+            .map_err(|message| format!("{message:?}"))
+            .unwrap();
+        let private = stored(&fixture)
+            .into_iter()
+            .find(|event| event.summary.as_deref() == Some("Private"))
+            .unwrap();
+        assert_eq!((private.account_id, private.calendar_id), (0, None));
+    }
+
+    #[test]
+    fn a_read_only_or_switched_off_calendar_refuses_the_event() {
+        for (read_only, enabled, wanted) in [(true, true, "read-only"), (false, false, "disabled")] {
+            let fixture = fixture();
+            let calendar = exchange_calendar(&fixture, read_only, enabled);
+            let mut chosen = form("Review");
+            chosen.new_event_account_id = 1;
+            chosen.new_event_calendar_id = Some(calendar);
+            let error = save_event(&fixture.core, &fixture.runtime, &chosen, None)
+                .err()
+                .expect("the calendar cannot take the event");
+            assert!(format!("{error:?}").contains(wanted), "{error:?}");
+            assert!(stored(&fixture).is_empty());
+        }
+    }
+
+    #[test]
+    fn inviting_people_needs_a_calendar_of_a_connected_account() {
+        let fixture = fixture();
+        let mut invited = form("Review");
+        invited.attendees = "ana@example.test".into();
+        let error = save_event(&fixture.core, &fixture.runtime, &invited, None)
+            .err()
+            .expect("a device-only event cannot invite");
+        assert!(
+            format!("{error:?}").contains("Choose a connected calendar"),
+            "{error:?}"
+        );
+        assert!(stored(&fixture).is_empty());
     }
 }

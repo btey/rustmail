@@ -104,7 +104,7 @@ pub(crate) async fn sync_account(
     account_id: i64,
     (past_ms, future_ms): (i64, i64),
 ) -> Result<bool> {
-    let pushed = push_dirty(db, bus, client, account_id).await?;
+    let (pushed, mut failure) = push_dirty(db, bus, client, account_id).await?;
     let calendars = db
         .read(move |conn| repo::caldav::list_calendars(conn, Some(account_id)))
         .await?;
@@ -129,14 +129,11 @@ pub(crate) async fn sync_account(
             Err(error @ (CoreError::NeedsReauth | CoreError::Auth(_))) => return Err(error),
             Err(error) => {
                 tracing::warn!("exchange calendar {} sync failed: {error}", cal.id);
-                let message = error.to_string();
-                db.write(move |conn| {
-                    repo::caldav::set_config_error(conn, account_id, Some(&message))
-                })
-                .await?;
+                failure.get_or_insert_with(|| error.to_string());
             }
         }
     }
+    record_outcome(db, bus, account_id, failure).await;
     if changed_any {
         bus.emit(CoreEvent::CalendarUpdated { account_id });
     }
@@ -149,19 +146,58 @@ pub(crate) async fn sync_account(
     Ok(changed_any)
 }
 
-async fn push_dirty(db: &Db, bus: &EventBus, client: &GraphMail, account_id: i64) -> Result<bool> {
+/// Sends the local changes. A change that cannot be sent stays queued and is
+/// retried next cycle; the first failure is returned as text so the cycle can
+/// show it (it was only logged before, so a refused event looked saved).
+async fn push_dirty(
+    db: &Db,
+    bus: &EventBus,
+    client: &GraphMail,
+    account_id: i64,
+) -> Result<(bool, Option<String>)> {
     let rows = db
         .read(move |conn| repo::calendar::dirty_rows(conn, account_id))
         .await?;
     let mut any = false;
+    let mut failure = None;
     for row in rows {
         match push_row(db, bus, client, account_id, &row).await {
             Ok(()) => any = true,
             Err(error @ (CoreError::NeedsReauth | CoreError::Auth(_))) => return Err(error),
-            Err(error) => tracing::warn!("exchange push of event {} failed: {error}", row.event.id),
+            Err(error) => {
+                tracing::warn!("exchange push of event {} failed: {error}", row.event.id);
+                failure.get_or_insert_with(|| {
+                    let title = row.event.summary.clone().unwrap_or_default();
+                    format!("\"{title}\" could not be sent to Microsoft 365 ({error}); it stays here and is tried again")
+                });
+            }
         }
     }
-    Ok(any)
+    Ok((any, failure))
+}
+
+/// Keeps what the last cycle found where the account list shows it, and tells
+/// the person once when a new problem appears.
+async fn record_outcome(db: &Db, bus: &EventBus, account_id: i64, failure: Option<String>) {
+    let shown = failure.clone();
+    let previous = db
+        .write(move |conn| {
+            let previous = repo::caldav::get_config(conn, account_id)?.and_then(|c| c.last_error);
+            if previous != shown {
+                repo::caldav::set_config_error(conn, account_id, shown.as_deref())?;
+            }
+            Ok(previous)
+        })
+        .await
+        .unwrap_or(None);
+    if let Some(message) = failure
+        && previous.as_deref() != Some(message.as_str())
+    {
+        bus.emit(CoreEvent::Notice {
+            account_id,
+            message,
+        });
+    }
 }
 
 async fn push_row(
