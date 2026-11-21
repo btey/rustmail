@@ -241,6 +241,8 @@ export struct AccountRow {
     mail_protocol: string,
     status: string,
     sync_error: string,
+    // Local time of the last clean sync seen since the app started ("" until one).
+    last_synced: string,
     initials: string,
     avatar: image,
     avatar_small: image,

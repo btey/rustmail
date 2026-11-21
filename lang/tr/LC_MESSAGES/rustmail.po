@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-19 17:23+0000\n"
+"POT-Creation-Date: 2026-11-21 23:05+0000\n"
 "PO-Revision-Date: 2026-09-15 12:00+0000\n"
 "Last-Translator: Rustmail contributors\n"
 "Language-Team: Turkish\n"
@@ -5715,6 +5715,14 @@ msgstr "Çevrimdışı · otomatik yeniden deneniyor"
 #: ui/dialogs/settings-dialog.slint:1866
 msgid "Connected · JMAP"
 msgstr "Bağlı · JMAP"
+
+#: ui/dialogs/settings-dialog.slint:1866
+msgid "Connected · Microsoft 365"
+msgstr "Bağlı · Microsoft 365"
+
+#: ui/dialogs/settings-dialog.slint:1866
+msgid "Connected · Microsoft 365 · synced {}"
+msgstr "Bağlı · Microsoft 365 · eşitlendi {}"
 
 #: ui/dialogs/settings-dialog.slint:1866
 msgid "Connected · IMAP + SMTP"

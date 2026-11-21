@@ -72,6 +72,10 @@ struct State {
     event_post_status: u16,
     /// Answer the calendar CAL1's event reads with this status (0: answer them).
     calendar_view_status: u16,
+    /// A mail folder whose delta answers 500 (empty: none fails).
+    failing_folder: &'static str,
+    /// Answer the contact folder CF1's delta with this status (0: answer it).
+    contact_delta_status: u16,
 }
 
 type Shared = Arc<Mutex<State>>;
@@ -368,6 +372,13 @@ fn route(
                 .trim_start_matches("/mailFolders/")
                 .trim_end_matches("/messages/delta")
                 .to_owned();
+            if !state.failing_folder.is_empty() && state.failing_folder == folder {
+                return json(
+                    500,
+                    r#"{"error":{"code":"ErrorInternalServerError","message":"folder broken"}}"#
+                        .into(),
+                );
+            }
             if state.expired_delta && query.contains("deltatoken") {
                 state.expired_delta = false;
                 return json(
@@ -591,6 +602,10 @@ fn route(
                     state.team_contacts.join(",")
                 }
             ),
+        ),
+        ("GET", "/contactFolders/CF1/contacts/delta") if state.contact_delta_status != 0 => json(
+            state.contact_delta_status,
+            r#"{"error":{"code":"ErrorInternalServerError","message":"boom"}}"#.into(),
         ),
         ("GET", "/contactFolders/CF1/contacts/delta") => {
             let items: Vec<String> = if query.contains("deltatoken") {
@@ -1167,6 +1182,56 @@ async fn a_message_graph_cannot_turn_into_mime_is_rebuilt_and_does_not_stop_the_
         .filter(|(l, _)| l.contains("M0/$value"))
         .count();
     assert_eq!(before, after);
+}
+
+#[tokio::test]
+async fn a_folder_microsoft_365_cannot_read_does_not_stop_the_other_folders() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    {
+        let mut state = shared.lock().unwrap();
+        state.failing_folder = "sent";
+        state.messages.push(Msg {
+            id: "M9".into(),
+            folder: "junk",
+            read: false,
+            flagged: false,
+            categories: "",
+            raw: mail("Junky", "j@example.org"),
+        });
+    }
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    // The sync reports the folder, and every other folder was still read
+    // (Junk Email comes after the broken Sent Items).
+    let result = core.sync_now(Some(account.id)).await;
+    assert!(result.is_err(), "the broken folder is reported");
+    let subjects: Vec<String> = rows(&core).await.into_iter().map(|row| row.0).collect();
+    assert!(subjects.iter().any(|s| s == "One"), "{subjects:?}");
+    assert!(subjects.iter().any(|s| s == "Junky"), "{subjects:?}");
+    assert!(!subjects.iter().any(|s| s == "Three"), "{subjects:?}");
+    let error = core
+        .db
+        .read(move |conn| {
+            Ok(conn.query_row(
+                "SELECT sync_error FROM accounts WHERE id = ?1",
+                [account.id],
+                |row| row.get::<_, Option<String>>(0),
+            )?)
+        })
+        .await
+        .unwrap()
+        .unwrap_or_default();
+    assert!(
+        error.contains("reading folder \"Sent Items\"") || error.contains("Sent"),
+        "the failing folder is named: {error}"
+    );
+    // Once it reads again, the error goes away and its mail arrives.
+    shared.lock().unwrap().failing_folder = "";
+    core.sync_now(Some(account.id)).await.unwrap();
+    let subjects: Vec<String> = rows(&core).await.into_iter().map(|row| row.0).collect();
+    assert!(subjects.iter().any(|s| s == "Three"), "{subjects:?}");
 }
 
 #[tokio::test]
@@ -4033,7 +4098,19 @@ async fn an_event_the_server_refuses_is_shown_and_sent_again_when_it_works() {
             .all(|c| c.last_error.is_none())
     })
     .await;
-    assert!(seen(&shared, "POST /graph/v1.0/me/calendars/CAL1/events").len() >= 2);
+    let posts = seen(&shared, "POST /graph/v1.0/me/calendars/CAL1/events");
+    assert!(posts.len() >= 2);
+    // Every try carries the same transaction id, so a retry whose first answer
+    // was lost cannot make the event twice on the server.
+    let ids: Vec<&str> = posts
+        .iter()
+        .map(|body| {
+            let start = body.find("\"transactionId\":\"").expect("a transaction id") + 17;
+            &body[start..start + body[start..].find('"').unwrap()]
+        })
+        .collect();
+    assert!(ids[0].len() > 8, "{ids:?}");
+    assert!(ids.iter().all(|id| *id == ids[0]), "{ids:?}");
 }
 
 #[tokio::test]
@@ -4283,4 +4360,47 @@ async fn a_failed_calendar_read_names_the_calendar_and_a_chosen_colour_survives_
         .color
         .clone();
     assert_eq!(color.as_deref(), Some("#26a269"));
+}
+
+#[tokio::test]
+async fn a_denied_calendar_read_says_what_a_shared_calendar_needs() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().calendar_view_status = 403;
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the permission hint", async || {
+        core.list_calendar_connections()
+            .await
+            .unwrap()
+            .iter()
+            .any(|connection| {
+                connection.last_error.as_deref().is_some_and(|error| {
+                    error.contains("reading calendar \"Calendar\"")
+                        && error.contains("Calendars.ReadWrite.Shared")
+                })
+            })
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn contacts_that_cannot_be_read_are_shown_while_mail_still_syncs() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().contact_delta_status = 500;
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    let result = core.sync_now(Some(account.id)).await;
+    let error = result.expect_err("the contacts failure is reported");
+    assert!(error.to_string().contains("syncing contacts"), "{error}");
+    // Mail was read all the same.
+    let subjects: Vec<String> = rows(&core).await.into_iter().map(|row| row.0).collect();
+    assert!(subjects.iter().any(|s| s == "One"), "{subjects:?}");
+    // Once they can be read again the error is gone.
+    shared.lock().unwrap().contact_delta_status = 0;
+    core.sync_now(Some(account.id)).await.unwrap();
 }

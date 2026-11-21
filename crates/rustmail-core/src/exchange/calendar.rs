@@ -96,6 +96,18 @@ fn display_name(calendar: &crate::graph::GraphCalendar, own_address: &str) -> St
     }
 }
 
+/// What to try when Microsoft 365 denies the read of a calendar: a calendar
+/// someone shared with you needs the `.Shared` calendar permission, which the
+/// default sign-in does not ask for.
+fn shared_hint(error: &CoreError) -> &'static str {
+    match error {
+        CoreError::Other(message) if message.starts_with("Microsoft 365 denied this request") => {
+            " If this calendar was shared with you, add Calendars.ReadWrite.Shared to the permissions (Scopes) in this account's Microsoft 365 settings and sign in again."
+        }
+        _ => "",
+    }
+}
+
 /// One calendar cycle for the account. Returns whether anything changed.
 pub(crate) async fn sync_account(
     db: &Db,
@@ -132,8 +144,9 @@ pub(crate) async fn sync_account(
                 // Name what was being read, so the account list says where it failed.
                 failure.get_or_insert_with(|| {
                     format!(
-                        "reading calendar \"{}\": {error}",
-                        cal.display_name.as_deref().unwrap_or("Calendar")
+                        "reading calendar \"{}\": {error}{}",
+                        cal.display_name.as_deref().unwrap_or("Calendar"),
+                        shared_hint(&error)
                     )
                 });
             }
@@ -248,6 +261,10 @@ async fn push_row(
             {
                 let mut copy = payload.clone();
                 copy["subject"] = format!("{subject} (your edit)").into();
+                if !row.ical_uid.is_empty() {
+                    copy["transactionId"] =
+                        format!("{}-edit-{}", row.ical_uid, row.revision).into();
+                }
                 copy.as_object_mut()
                     .map(|object| object.remove("recurrence"));
                 let target = db
@@ -305,6 +322,13 @@ async fn push_row(
                     .await?
                     .ok_or_else(|| CoreError::CalDav("no calendar to write to".into()))?,
             };
+            // The same `transactionId` on every try: when an answer is lost
+            // (a timeout after Microsoft 365 made the event) the retry does not
+            // make a second one.
+            let mut payload = payload;
+            if !row.ical_uid.is_empty() {
+                payload["transactionId"] = row.ical_uid.clone().into();
+            }
             let id = client.create_event(Some(&default.url), &payload).await?;
             let calendar_id = default.id;
             let revision = row.revision;

@@ -125,14 +125,26 @@ async fn actor(
             Err(error) => Err(error),
         };
         match outcome {
-            Ok(remaining) => {
-                failures = 0;
+            Ok(pass) => {
                 if !ran_light {
                     last_full = Some(std::time::Instant::now());
                 }
-                more = remaining;
-                set_state(&ctx, config.id, "idle").await;
-                finish_waiters(&mut waiters, Ok(()));
+                more = pass.more;
+                match pass.failure {
+                    None => {
+                        failures = 0;
+                        set_state(&ctx, config.id, "idle").await;
+                        finish_waiters(&mut waiters, Ok(()));
+                    }
+                    // The rest of the mailbox synced; the folder that did not
+                    // stays in the account list until it reads again.
+                    Some(message) => {
+                        failures = failures.saturating_add(1);
+                        more = false;
+                        set_state_error(&ctx, config.id, "idle", &message).await;
+                        finish_waiters(&mut waiters, Err(message));
+                    }
+                }
             }
             Err(CoreError::Offline)
                 if super::is_work_offline(&config.settings.connection.exchange) =>
@@ -190,7 +202,7 @@ pub(crate) async fn light_cycle(
     ctx: &SyncCtx,
     config: &AccountConfig,
     client: &GraphMail,
-) -> Result<bool> {
+) -> Result<Pass> {
     let account_id = config.id;
     let inbox = ctx
         .db
@@ -214,12 +226,22 @@ pub(crate) async fn light_cycle(
         graph_id,
         folder_id,
         role: Some(roles::INBOX),
+        name: "Inbox".into(),
     };
     let mut budget = CYCLE_NEW_MESSAGES;
-    in_step(
+    let more = in_step(
         "reading folder inbox",
         sync_folder(ctx, config, client, &folder, &mut budget).await,
-    )
+    )?;
+    Ok(Pass {
+        more,
+        failure: None,
+    })
+}
+
+/// Whether Microsoft 365 refused a request for lack of a permission.
+fn is_denied(error: &CoreError) -> bool {
+    matches!(error, CoreError::Other(message) if message.starts_with("Microsoft 365 denied this request"))
 }
 
 /// Name the step that failed in the error the account list shows. Sign-in and
@@ -235,25 +257,43 @@ struct FolderMap {
     graph_id: String,
     folder_id: i64,
     role: Option<&'static str>,
+    /// The local folder path, for error messages.
+    name: String,
 }
 
-/// One sync cycle. Returns whether more mail is waiting on the server.
+/// What one sync pass found: whether more mail waits on the server, and the
+/// first folder that could not be read (the others were still read).
+pub(crate) struct Pass {
+    more: bool,
+    failure: Option<String>,
+}
+
+/// One sync cycle. A folder that cannot be read does not stop the others: the
+/// first such failure comes back in the pass, named by folder, and is shown in
+/// the account list while everything else is still synced.
 pub(crate) async fn cycle(
     ctx: &SyncCtx,
     config: &AccountConfig,
     client: &GraphMail,
-) -> Result<bool> {
+) -> Result<Pass> {
     let folders = in_step(
         "reading the folder list",
         sync_folders(ctx, config, client).await,
     )?;
     run_due_actions(ctx, config, client).await?;
+    let mut failure: Option<String> = None;
     // Contacts have their own permission; a failure there never stops mail.
     if let Err(error) = super::contacts::sync_contacts(ctx, config, client).await {
         if matches!(error, CoreError::NeedsReauth | CoreError::Auth(_)) {
             return Err(error);
         }
-        tracing::debug!(account_id = config.id, %error, "exchange contacts not synced");
+        tracing::warn!(account_id = config.id, %error, "exchange contacts not synced");
+        // A sign-in without the contacts permission is a choice, not a
+        // fault; anything else (a contact edit that cannot be sent, a folder
+        // that cannot be read) was invisible until now.
+        if !is_denied(&error) {
+            failure = Some(format!("syncing contacts: {error}"));
+        }
     }
     let mut budget = CYCLE_NEW_MESSAGES;
     let mut more = false;
@@ -265,12 +305,23 @@ pub(crate) async fn cycle(
             more = true;
             break;
         }
-        more |= in_step(
-            &format!("reading folder {}", folder.role.unwrap_or("(other)")),
-            sync_folder(ctx, config, client, folder, &mut budget).await,
-        )?;
+        match sync_folder(ctx, config, client, folder, &mut budget).await {
+            Ok(rest) => more |= rest,
+            // Sign-in and connection problems concern the whole account.
+            Err(error @ (CoreError::Auth(_) | CoreError::NeedsReauth | CoreError::Offline)) => {
+                return Err(error);
+            }
+            // One folder Microsoft 365 cannot give us (a damaged or
+            // just-deleted folder) must not keep every later folder from
+            // syncing on every cycle.
+            Err(error) => {
+                tracing::warn!(account_id = config.id, folder = %folder.name, %error, "exchange folder not read");
+                failure
+                    .get_or_insert_with(|| format!("reading folder \"{}\": {error}", folder.name));
+            }
+        }
     }
-    Ok(more)
+    Ok(Pass { more, failure })
 }
 
 /// The Graph id of a local folder.
@@ -469,6 +520,7 @@ async fn sync_folders(
                     graph_id,
                     folder_id,
                     role,
+                    name: path,
                 });
             }
             // A folder deleted on the server goes with its cached messages. An
@@ -700,6 +752,7 @@ pub(crate) async fn search_on_server(
                 .iter()
                 .map(|(_, known)| *known)
                 .find(|known| Some(*known) == role.as_deref()),
+            name: "search result".into(),
         };
         let mut budget = items.len();
         let plans = prepare(ctx, config, client, &folder, &items, &mut budget).await?;

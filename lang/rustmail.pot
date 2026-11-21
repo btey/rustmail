@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-19 17:23+0000\n"
+"POT-Creation-Date: 2026-11-21 23:05+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5715,6 +5715,14 @@ msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:1866
 msgid "Connected · JMAP"
+msgstr ""
+
+#: ui/dialogs/settings-dialog.slint:1866
+msgid "Connected · Microsoft 365"
+msgstr ""
+
+#: ui/dialogs/settings-dialog.slint:1866
+msgid "Connected · Microsoft 365 · synced {}"
 msgstr ""
 
 #: ui/dialogs/settings-dialog.slint:1866

@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-19 17:23+0000\n"
+"POT-Creation-Date: 2026-11-21 23:05+0000\n"
 "PO-Revision-Date: 2026-09-24 11:59+0000\n"
 "Last-Translator: Christoph Seibel <christoph_seibel@t-online.de>\n"
 "Language-Team: German <https://translate.rustmail.org/projects/rustmail/mail/"
@@ -5765,6 +5765,14 @@ msgstr "Offline · automatische Wiederholung"
 #: ui/dialogs/settings-dialog.slint:1866
 msgid "Connected · JMAP"
 msgstr "Verbunden · JMAP"
+
+#: ui/dialogs/settings-dialog.slint:1866
+msgid "Connected · Microsoft 365"
+msgstr "Verbunden · Microsoft 365"
+
+#: ui/dialogs/settings-dialog.slint:1866
+msgid "Connected · Microsoft 365 · synced {}"
+msgstr "Verbunden · Microsoft 365 · synchronisiert {}"
 
 #: ui/dialogs/settings-dialog.slint:1866
 msgid "Connected · IMAP + SMTP"

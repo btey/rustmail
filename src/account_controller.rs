@@ -328,6 +328,13 @@ pub(super) fn apply_connected_accounts(
     presentation: &AccountPresentationSettings,
 ) {
     app.set_mail_fetching(accounts.iter().any(|account| account.sync_state == "syncing"));
+    // The time of the last clean sync lives only in the rows (set by
+    // `apply_account_states`); keep it when the rows are built again.
+    let last_synced: HashMap<i32, slint::SharedString> = connected_account_rows(app)
+        .into_iter()
+        .filter(|row| !row.last_synced.is_empty())
+        .map(|row| (row.id, row.last_synced))
+        .collect();
     let configs: HashMap<i64, &AccountConfig> =
         configs.iter().map(|config| (config.id, config)).collect();
     let calendar_connections: HashMap<i64, &CalendarConnection> = calendar_connections
@@ -360,6 +367,10 @@ pub(super) fn apply_connected_accounts(
                 provider: account.provider.as_str().to_owned().into(),
                 mail_protocol: account.mail_protocol.as_str().to_owned().into(),
                 status: account.sync_state.clone().into(),
+                last_synced: i32::try_from(account.id)
+                    .ok()
+                    .and_then(|id| last_synced.get(&id).cloned())
+                    .unwrap_or_default(),
                 sync_error: account.sync_error.clone().unwrap_or_default().into(),
                 initials: avatar_initials(&name).into(),
                 avatar: avatar
@@ -572,6 +583,12 @@ fn failed_sync_text(
     }
 }
 
+/// Whether a sync that just ended counts as the account's "last synced" time:
+/// only a clean one (a folder or a calendar that failed keeps the old time).
+fn sync_ended_clean(error: Option<&str>) -> bool {
+    error.is_none()
+}
+
 pub(super) fn apply_account_states(
     app: &AppWindow,
     inbox_state: &Rc<RefCell<InboxState>>,
@@ -581,11 +598,18 @@ pub(super) fn apply_account_states(
     let mut changed = false;
     let mut finished_sync = false;
     let mut failed_sync = false;
+    // Accounts whose sync just ended without an error.
+    let mut synced_clean: Vec<i32> = Vec::new();
     for account in &mut state_guard.connected_accounts {
         if let Some((sync_state, sync_error)) = states.get(&account.id) {
             if account.sync_state != *sync_state {
                 if account.sync_state == "syncing" && sync_state == "idle" {
                     finished_sync = true;
+                    if sync_ended_clean(sync_error.as_deref())
+                        && let Ok(id) = i32::try_from(account.id)
+                    {
+                        synced_clean.push(id);
+                    }
                 }
                 account.sync_state.clone_from(sync_state);
                 changed = true;
@@ -619,6 +643,18 @@ pub(super) fn apply_account_states(
     drop(state_guard);
     if changed {
         refresh_connected_accounts(app, inbox_state);
+    }
+    if !synced_clean.is_empty() {
+        let at = slint::SharedString::from(chrono::Local::now().format("%H:%M").to_string());
+        let model = app.get_connected_accounts();
+        for index in 0..model.row_count() {
+            if let Some(mut row) = model.row_data(index)
+                && synced_clean.contains(&row.id)
+            {
+                row.last_synced = at.clone();
+                model.set_row_data(index, row);
+            }
+        }
     }
 }
 
@@ -875,5 +911,16 @@ mod failed_sync_text_tests {
         assert_eq!(failed_sync_text(false, false, "14:32", "14:40").as_deref(), Some(""));
         // Nothing wrong and nothing shown: nothing to do.
         assert_eq!(failed_sync_text(false, false, "", "14:40"), None);
+    }
+}
+
+#[cfg(test)]
+mod last_sync_tests {
+    use super::sync_ended_clean;
+
+    #[test]
+    fn only_a_clean_sync_moves_the_last_synced_time() {
+        assert!(sync_ended_clean(None));
+        assert!(!sync_ended_clean(Some("reading folder \"Sent Items\": boom")));
     }
 }
