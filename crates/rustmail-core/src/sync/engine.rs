@@ -249,6 +249,10 @@ pub struct SyncCtx {
     pub paths: Arc<Paths>,
     pub tokens: TokenProvider,
     pub credentials: CredentialStoreHandle,
+    /// Whether the mail view is open in a focused window (the app sets it
+    /// through `Core::set_mail_watching`); Microsoft 365 accounts then read
+    /// their Inbox about every minute.
+    pub mail_watching: Arc<std::sync::atomic::AtomicBool>,
 }
 
 pub fn spawn_account(ctx: SyncCtx, config: AccountConfig) -> AccountHandle {

@@ -155,6 +155,11 @@ pub(crate) fn calendar_sources(calendars: Vec<Calendar>) -> Vec<LocalCalendarSou
         .collect()
 }
 
+/// The four calendar colours the Calendar view draws (blue, violet, orange,
+/// green), as the `#RRGGBB` a chosen colour is stored with. Index `n` here is
+/// what `calendar_color_index` returns for it.
+pub(crate) const PALETTE_HEX: [&str; 4] = ["#3478f6", "#8b5cf6", "#e87924", "#26a269"];
+
 /// Map arbitrary provider colors onto the four event palettes currently used
 /// by the Slint calendar. This keeps Google's Birthdays/holiday colors
 /// visually consistent instead of assigning colors from database row ids.
@@ -1354,6 +1359,9 @@ mod tests {
 
     #[test]
     fn provider_colors_map_to_the_nearest_calendar_palette() {
+        for (index, hex) in PALETTE_HEX.iter().enumerate() {
+            assert_eq!(calendar_color_index(hex, 9), index as i32, "{hex}");
+        }
         assert_eq!(calendar_color_index("#4285f4", 9), 0);
         assert_eq!(calendar_color_index("#f6bf26", 9), 2);
         assert_eq!(calendar_color_index("#33b679", 9), 3);

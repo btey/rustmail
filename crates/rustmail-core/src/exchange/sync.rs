@@ -38,6 +38,36 @@ const WELL_KNOWN: [(&str, &str); 6] = [
     ("archive", roles::ARCHIVE),
 ];
 
+/// How often Microsoft 365 mail is read while the mail view is open in a
+/// focused window. Graph change notifications need a public endpoint, which
+/// Rustmail does not have, so the app asks for the (cheap) Inbox delta itself.
+pub(crate) const MAIL_WATCH_POLL_SECS: u64 = 60;
+/// The longest wait after repeated failures while watching.
+const MAIL_WATCH_MAX_BACKOFF_SECS: u64 = 10 * 60;
+
+/// Replaces the short poll's interval (milliseconds, no backoff) so tests can
+/// watch the poll work without waiting a minute. 0: the normal interval.
+static POLL_OVERRIDE_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+#[doc(hidden)]
+pub fn set_watch_poll_millis_for_tests(millis: u64) {
+    POLL_OVERRIDE_MS.store(millis, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Seconds to wait before the next cycle: the configured cadence, or while the
+/// mail view is watched the short poll (doubled after each failed cycle, never
+/// beyond ten minutes or the configured cadence).
+pub(crate) fn mail_poll_secs(configured_secs: u64, watching: bool, failures: u32) -> u64 {
+    if !watching {
+        return configured_secs;
+    }
+    MAIL_WATCH_POLL_SECS
+        .saturating_mul(1u64 << failures.min(10))
+        .min(MAIL_WATCH_MAX_BACKOFF_SECS)
+        .min(configured_secs.max(MAIL_WATCH_POLL_SECS))
+        .max(MAIL_WATCH_POLL_SECS)
+}
+
 pub(crate) fn spawn(
     ctx: SyncCtx,
     config: AccountConfig,
@@ -68,6 +98,11 @@ async fn actor(
     mut settings: watch::Receiver<crate::models::AccountSettings>,
 ) {
     let mut waiters = Vec::new();
+    let mut failures: u32 = 0;
+    let mut last_full: Option<std::time::Instant> = None;
+    // Set when the timer (not a command) woke the loop while watching: only
+    // the Inbox is read then, unless a full cycle is due.
+    let mut light = false;
     loop {
         while let Ok(cmd) = rx.try_recv() {
             match cmd {
@@ -83,12 +118,18 @@ async fn actor(
         config.settings = settings.borrow_and_update().clone();
         set_state(&ctx, config.id, "syncing").await;
         let mut more = false;
+        let ran_light = light;
         let outcome = match super::graph_for(&ctx, &config) {
+            Ok(client) if ran_light => light_cycle(&ctx, &config, &client).await,
             Ok(client) => cycle(&ctx, &config, &client).await,
             Err(error) => Err(error),
         };
         match outcome {
             Ok(remaining) => {
+                failures = 0;
+                if !ran_light {
+                    last_full = Some(std::time::Instant::now());
+                }
                 more = remaining;
                 set_state(&ctx, config.id, "idle").await;
                 finish_waiters(&mut waiters, Ok(()));
@@ -101,6 +142,7 @@ async fn actor(
                 finish_waiters(&mut waiters, Err("working offline".into()));
             }
             Err(error) => {
+                failures = failures.saturating_add(1);
                 let message = error.to_string();
                 tracing::warn!(account_id = config.id, %message, "exchange sync failed");
                 let state = if matches!(error, CoreError::Auth(_) | CoreError::NeedsReauth) {
@@ -112,11 +154,17 @@ async fn actor(
                 finish_waiters(&mut waiters, Err(message));
             }
         }
+        let configured = crate::sync::engine::configured_sync_interval(&ctx.db).await;
+        let watching = ctx.mail_watching.load(std::sync::atomic::Ordering::Relaxed);
+        let override_ms = POLL_OVERRIDE_MS.load(std::sync::atomic::Ordering::Relaxed);
         let wait = if more {
             Duration::from_secs(1)
+        } else if watching && override_ms > 0 {
+            Duration::from_millis(override_ms)
         } else {
-            crate::sync::engine::configured_sync_interval(&ctx.db).await
+            Duration::from_secs(mail_poll_secs(configured.as_secs(), watching, failures))
         };
+        light = false;
         tokio::select! {
             command = rx.recv() => match command {
                 None | Some(SyncCmd::Shutdown) => return,
@@ -124,9 +172,63 @@ async fn actor(
                 _ => {}
             },
             _ = settings.changed() => {},
-            _ = tokio::time::sleep(wait) => {},
+            _ = tokio::time::sleep(wait) => {
+                // A short poll only reads the Inbox; the whole mailbox is
+                // still read once per configured interval.
+                light = !more
+                    && watching
+                    && last_full.is_some_and(|at| at.elapsed() < configured);
+            },
         }
     }
+}
+
+/// The short poll while the mail view is watched: queued actions and the
+/// Inbox's delta. No folder tree, contacts or other folders (the next full
+/// cycle reads those). Falls back to a full cycle when the Inbox is unknown.
+pub(crate) async fn light_cycle(
+    ctx: &SyncCtx,
+    config: &AccountConfig,
+    client: &GraphMail,
+) -> Result<bool> {
+    let account_id = config.id;
+    let inbox = ctx
+        .db
+        .read(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT ef.graph_id, ef.folder_id FROM exchange_folders ef
+                       JOIN folders f ON f.id = ef.folder_id
+                      WHERE ef.account_id = ?1 AND f.role = ?2",
+                    params![account_id, roles::INBOX],
+                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+                )
+                .optional()?)
+        })
+        .await?;
+    let Some((graph_id, folder_id)) = inbox else {
+        return cycle(ctx, config, client).await;
+    };
+    run_due_actions(ctx, config, client).await?;
+    let folder = FolderMap {
+        graph_id,
+        folder_id,
+        role: Some(roles::INBOX),
+    };
+    let mut budget = CYCLE_NEW_MESSAGES;
+    in_step(
+        "reading folder inbox",
+        sync_folder(ctx, config, client, &folder, &mut budget).await,
+    )
+}
+
+/// Name the step that failed in the error the account list shows. Sign-in and
+/// offline errors keep their kind, because the sync loop acts on it.
+fn in_step<T>(step: &str, result: Result<T>) -> Result<T> {
+    result.map_err(|error| match error {
+        CoreError::Auth(_) | CoreError::NeedsReauth | CoreError::Offline => error,
+        other => CoreError::Other(format!("{step}: {other}")),
+    })
 }
 
 struct FolderMap {
@@ -141,7 +243,10 @@ pub(crate) async fn cycle(
     config: &AccountConfig,
     client: &GraphMail,
 ) -> Result<bool> {
-    let folders = sync_folders(ctx, config, client).await?;
+    let folders = in_step(
+        "reading the folder list",
+        sync_folders(ctx, config, client).await,
+    )?;
     run_due_actions(ctx, config, client).await?;
     // Contacts have their own permission; a failure there never stops mail.
     if let Err(error) = super::contacts::sync_contacts(ctx, config, client).await {
@@ -160,7 +265,10 @@ pub(crate) async fn cycle(
             more = true;
             break;
         }
-        more |= sync_folder(ctx, config, client, folder, &mut budget).await?;
+        more |= in_step(
+            &format!("reading folder {}", folder.role.unwrap_or("(other)")),
+            sync_folder(ctx, config, client, folder, &mut budget).await,
+        )?;
     }
     Ok(more)
 }
@@ -787,6 +895,117 @@ async fn prepare(
     Ok(plans)
 }
 
+/// The start of each note a cached copy that is not the whole message carries.
+/// The reading pane finds them to offer "Download message" (`stub_kind`).
+const NOTE_AGE: &str = "[This message is older than ";
+const NOTE_SIZE: &str = "[This message is larger than ";
+const NOTE_REBUILT: &str = "[Microsoft 365 could not provide this message in its original form";
+
+/// Why a cached message is not the whole one, from its text or HTML: `age` and
+/// `size` (past the account's offline limits: headers only) or `rebuilt`
+/// (Graph could not produce its MIME: made from Graph's JSON). `None` for a
+/// whole message.
+pub fn stub_kind(text: Option<&str>, html: Option<&str>) -> Option<&'static str> {
+    // The notes are the first thing in the text; looking only at its start
+    // keeps a mail that merely quotes one from matching.
+    for body in [text, html].into_iter().flatten() {
+        let head: String = body.chars().take(400).collect();
+        let head = head.trim_start().trim_start_matches("<p><i>");
+        for (note, kind) in [
+            (NOTE_AGE, "age"),
+            (NOTE_SIZE, "size"),
+            (NOTE_REBUILT, "rebuilt"),
+        ] {
+            if head.starts_with(note) {
+                return Some(kind);
+            }
+        }
+    }
+    None
+}
+
+/// Download the whole of a message that was cached as headers only (or rebuilt)
+/// and replace the cached copy: text, attachments, search entry. The account's
+/// offline limits do not apply to a message asked for by name.
+pub(crate) async fn download_message(
+    ctx: &SyncCtx,
+    config: &AccountConfig,
+    client: &GraphMail,
+    message_id: i64,
+) -> Result<()> {
+    let account_id = config.id;
+    let Some(graph_id) = graph_id_for(ctx, account_id, message_id).await? else {
+        return Err(CoreError::NotFound("message".into()));
+    };
+    let raw = client.message_mime(&graph_id).await.map_err(|error| {
+        if super::client::is_mime_conversion_failure(&error) {
+            CoreError::Other(
+                "Microsoft 365 cannot provide this message in its original form".into(),
+            )
+        } else {
+            error
+        }
+    })?;
+    let parsed = crate::mime::parse_message(&raw)?;
+    let cache_dir = ctx.paths.mail_dir(account_id);
+    let thread_id = ctx
+        .db
+        .write(move |conn| {
+            std::fs::create_dir_all(&cache_dir)?;
+            let tx = conn.transaction()?;
+            let (thread_id, raw_path): (i64, Option<String>) = tx
+                .query_row(
+                    "SELECT thread_id, raw_path FROM messages WHERE id=?1 AND account_id=?2",
+                    params![message_id, account_id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()?
+                .ok_or_else(|| CoreError::NotFound("message".into()))?;
+            let path = match raw_path {
+                Some(path) => std::path::PathBuf::from(path),
+                None => cache_dir.join(format!("{message_id}.local.eml")),
+            };
+            std::fs::write(&path, &raw)?;
+            let has_attachments = parsed.attachments.iter().any(|a| !a.is_inline);
+            repo::messages::store_body(
+                &tx,
+                message_id,
+                parsed.text.as_deref(),
+                parsed.html.as_deref(),
+                Some(&path.to_string_lossy()),
+                has_attachments,
+                Some(&parsed.snippet),
+            )?;
+            tx.execute(
+                "UPDATE messages SET size=?2 WHERE id=?1",
+                params![message_id, raw.len() as i64],
+            )?;
+            let attachments = parsed
+                .attachments
+                .iter()
+                .map(|attachment| repo::messages::NewAttachment {
+                    message_id,
+                    part_id: Some(&attachment.part_id),
+                    filename: attachment.filename.as_deref(),
+                    mime_type: attachment.mime_type.as_deref(),
+                    size: Some(attachment.size),
+                    content_id: attachment.content_id.as_deref(),
+                    is_inline: attachment.is_inline,
+                })
+                .collect::<Vec<_>>();
+            repo::messages::replace_attachments(&tx, message_id, &attachments)?;
+            repo::search::index_message(&tx, message_id)?;
+            repo::threads::recompute(&tx, thread_id)?;
+            tx.commit()?;
+            Ok(thread_id)
+        })
+        .await?;
+    ctx.bus.emit(CoreEvent::MailUpdated {
+        thread_ids: vec![thread_id],
+    });
+    Ok(())
+}
+
 /// The message as it is cached: whole, or (for a message past the account's
 /// offline limits) its headers with a note that the text stayed on the server.
 async fn fetch_text(
@@ -803,7 +1022,7 @@ async fn fetch_text(
         .then(|| usize::try_from(settings.message_limit_kb).unwrap_or(usize::MAX) * 1024);
     let note = if too_old {
         Some(format!(
-            "[This message is older than {} days, so its text was not downloaded. It is still in your Microsoft 365 mailbox.]",
+            "{NOTE_AGE}{} days, so its text was not downloaded. It is still in your Microsoft 365 mailbox.]",
             settings.body_days
         ))
     } else {
@@ -811,7 +1030,7 @@ async fn fetch_text(
             Some(limit) => match client.message_mime_within(&message.id, limit).await? {
                 Some(raw) => return Ok(raw),
                 None => Some(format!(
-                    "[This message is larger than {} KiB, so its text was not downloaded. It is still in your Microsoft 365 mailbox.]",
+                    "{NOTE_SIZE}{} KiB, so its text was not downloaded. It is still in your Microsoft 365 mailbox.]",
                     settings.message_limit_kb
                 )),
             },
@@ -844,7 +1063,10 @@ async fn fetch_text(
 /// A copy of a message whose MIME Graph cannot produce: its headers and body
 /// as Graph reports them, or (when even that fails) just its subject and a note.
 async fn rebuilt_text(client: &GraphMail, message: &GraphMessage) -> Result<Vec<u8>> {
-    let note = "[Microsoft 365 could not provide this message in its original form, so this copy was rebuilt from the information it gave. Attachments and some formatting may be missing. The original is still in your Microsoft 365 mailbox.]";
+    let note = format!(
+        "{NOTE_REBUILT}, so this copy was rebuilt from the information it gave. Attachments and some formatting may be missing. The original is still in your Microsoft 365 mailbox.]"
+    );
+    let note = note.as_str();
     match client.message_json_copy(&message.id).await {
         Ok(value) => Ok(mime_from_json(message, &value, note)),
         Err(error @ (CoreError::Auth(_) | CoreError::NeedsReauth | CoreError::Offline)) => {
@@ -1494,5 +1716,71 @@ async fn body_actor(ctx: SyncCtx, mut rx: mpsc::Receiver<PriorityFetchCmd>) {
                 let _ = complete.send(result);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_mail_poll_is_a_minute_backs_off_and_never_beats_the_normal_cadence_when_unwatched() {
+        // Unwatched: the configured cadence, whatever failed.
+        assert_eq!(mail_poll_secs(300, false, 0), 300);
+        assert_eq!(mail_poll_secs(300, false, 5), 300);
+        // Watched: a minute, doubled after each failure, capped by the cadence.
+        assert_eq!(mail_poll_secs(300, true, 0), 60);
+        assert_eq!(mail_poll_secs(300, true, 1), 120);
+        assert_eq!(mail_poll_secs(300, true, 2), 240);
+        assert_eq!(mail_poll_secs(300, true, 3), 300);
+        assert_eq!(mail_poll_secs(900, true, 10), 600);
+        // A cadence shorter than the poll (1 minute) is the poll.
+        assert_eq!(mail_poll_secs(60, true, 4), 60);
+    }
+
+    #[test]
+    fn a_failed_step_is_named_but_sign_in_and_offline_errors_keep_their_kind() {
+        let named = in_step::<()>(
+            "reading folder inbox",
+            Err(CoreError::Other("Microsoft Graph returned 500".into())),
+        )
+        .unwrap_err();
+        assert!(
+            named
+                .to_string()
+                .starts_with("reading folder inbox: Microsoft Graph returned 500"),
+            "{named}"
+        );
+        assert!(matches!(
+            in_step::<()>("x", Err(CoreError::NeedsReauth)),
+            Err(CoreError::NeedsReauth)
+        ));
+        assert!(matches!(
+            in_step::<()>("x", Err(CoreError::Offline)),
+            Err(CoreError::Offline)
+        ));
+        assert_eq!(in_step("x", Ok(3)).unwrap(), 3);
+    }
+
+    #[test]
+    fn only_the_start_of_a_text_marks_a_message_as_not_whole() {
+        let note = format!("{NOTE_SIZE}1 KiB, so its text was not downloaded.]");
+        assert_eq!(stub_kind(Some(&note), None), Some("size"));
+        assert_eq!(
+            stub_kind(
+                None,
+                Some(&format!("<p><i>{NOTE_REBUILT}, so ...]</i></p>"))
+            ),
+            Some("rebuilt")
+        );
+        assert_eq!(
+            stub_kind(Some(&format!("{NOTE_AGE}30 days")), None),
+            Some("age")
+        );
+        assert_eq!(
+            stub_kind(Some("hi\n> [This message is larger than 1 KiB"), None),
+            None
+        );
+        assert_eq!(stub_kind(None, None), None);
     }
 }

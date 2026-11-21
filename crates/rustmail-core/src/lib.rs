@@ -349,6 +349,7 @@ pub struct Core {
     cal_handles: Arc<RwLock<HashMap<i64, caldav::task::CalTaskHandle>>>,
     /// The Calendar view is open: Microsoft 365 calendars are read often.
     calendar_watching: Arc<std::sync::atomic::AtomicBool>,
+    mail_watching: Arc<std::sync::atomic::AtomicBool>,
     card_handles: Arc<RwLock<HashMap<i64, carddav::task::CardDavTaskHandle>>>,
     /// Per-attachment single-flight locks. Concurrent preview/open/save calls
     /// share one remote fetch and cannot race the same `.download.part` file.
@@ -455,6 +456,7 @@ impl Core {
             handles: Arc::new(RwLock::new(HashMap::new())),
             cal_handles: Arc::new(RwLock::new(HashMap::new())),
             calendar_watching: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            mail_watching: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             card_handles: Arc::new(RwLock::new(HashMap::new())),
             attachment_locks: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             #[cfg(feature = "local-embeddings")]
@@ -757,6 +759,7 @@ impl Core {
             paths: self.paths.clone(),
             tokens: self.tokens.clone(),
             credentials: self.credentials.clone(),
+            mail_watching: self.mail_watching.clone(),
         }
     }
 
@@ -7723,6 +7726,61 @@ impl Core {
             .swap(watching, std::sync::atomic::Ordering::Relaxed);
         if watching && !before {
             self.nudge_cal(None).await;
+        }
+    }
+
+    /// Download the whole of a Microsoft 365 message that was cached as headers
+    /// only (past the account's offline limits) or rebuilt, and replace the
+    /// cached copy. The thread is announced as updated.
+    pub async fn exchange_download_message(&self, message_id: i64) -> Result<()> {
+        let account_id = self
+            .db
+            .read(move |conn| {
+                Ok(conn
+                    .query_row(
+                        "SELECT account_id FROM messages WHERE id=?1",
+                        [message_id],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .optional()?)
+            })
+            .await?
+            .ok_or_else(|| CoreError::NotFound("message".into()))?;
+        let (config, client) = self.exchange_client(account_id).await?;
+        exchange::sync::download_message(&self.sync_ctx(), &config, &client, message_id).await
+    }
+
+    /// Tell the core whether the mail view is open in a focused window. While
+    /// it is, Microsoft 365 mail is read about every minute (the Inbox's delta
+    /// only; the whole mailbox still once per sync interval). Turning it on
+    /// reads at once, so coming back to the window shows new mail. The flag is
+    /// one per process, like the window.
+    pub async fn set_mail_watching(&self, watching: bool) {
+        let before = self
+            .mail_watching
+            .swap(watching, std::sync::atomic::Ordering::Relaxed);
+        if watching && !before {
+            self.sync_exchange_now().await;
+        }
+    }
+
+    /// Ask every Microsoft 365 account to sync now (no waiting for the result).
+    pub async fn sync_exchange_now(&self) {
+        let Ok(configs) = self
+            .db
+            .read(|conn| repo::accounts::list_configs(conn))
+            .await
+        else {
+            return;
+        };
+        let handles = self.handles.read().await;
+        for config in configs
+            .iter()
+            .filter(|config| config.mail_protocol == MailProtocol::Exchange)
+        {
+            if let Some(handle) = handles.get(&config.id) {
+                handle.send(SyncCmd::SyncNow { complete: None });
+            }
         }
     }
 

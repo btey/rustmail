@@ -458,6 +458,13 @@ export global EmailReader {
     in-out property <int> revision: -1;
     in-out property <int> message-id: -1;
     callback ensure-body(int);
+    // A Microsoft 365 message cached as headers only (age or size limit) or
+    // rebuilt from Graph's JSON: "age", "size", "rebuilt", or "" for a whole
+    // message. `download-full` fetches the whole message by its stored id.
+    in-out property <string> stub-kind;
+    in-out property <int> stub-message-id: 0;
+    in-out property <bool> stub-busy: false;
+    callback download-full(int);
     callback retry-images();
     in-out property <int> failed-images;
     pure callback link-at(float, float) -> string;

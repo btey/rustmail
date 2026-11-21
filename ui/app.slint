@@ -345,6 +345,8 @@ export global I18n {
 
     ui-message-list(key, argument, second-argument, third-argument) => {
         if (key == "Background mail refresh failed: {}") { return @tr("Background mail refresh failed: {}", argument); }
+        if (key == "Could not change the calendar colour: {}") { return @tr("Could not change the calendar colour: {}", argument); }
+        if (key == "Could not download the message: {}") { return @tr("Could not download the message: {}", argument); }
         if (key == "No conversations in this folder") { return @tr("No conversations in this folder"); }
         if (key == "No conversations match this search") { return @tr("No conversations match this search"); }
         if (key == "Mail core is ready for account synchronization and message actions.") { return @tr("Mail core is ready for account synchronization and message actions."); }
@@ -705,6 +707,7 @@ export component AppWindow inherits Window {
     callback save_account_mail_history(int, string);
     callback save_account_sent_copy_policy(int, string);
     callback connect_account_calendar(int);
+    callback sync_account_calendar(int);
     callback set_account_calendar_enabled(int, bool);
     callback connect_caldav(int, string, string, string);
     callback connect_carddav(int, string, string, string);
@@ -730,6 +733,7 @@ export component AppWindow inherits Window {
     callback calendar-select-date(string);
     callback calendar-set-view(string);
     callback calendar-set-source-enabled(int, bool);
+    callback calendar-set-source-color(int, int);
     callback calendar-toggle-agenda-filter(int, bool);
     callback calendar-clear-agenda-filters();
     callback calendar-today();
@@ -1655,6 +1659,7 @@ export component AppWindow inherits Window {
             select-date(date) => { root.calendar-select-date(date); }
             set-view(mode) => { root.calendar-set-view(mode); }
             set-source-enabled(calendar-id, enabled) => { root.calendar-set-source-enabled(calendar-id, enabled); }
+            set-source-color(calendar-id, index) => { root.calendar-set-source-color(calendar-id, index); }
             toggle-agenda-filter(id, checked) => { root.calendar-toggle-agenda-filter(id, checked); }
             clear-agenda-filters => { root.calendar-clear-agenda-filters(); }
             today => { root.calendar-today(); }
@@ -2058,6 +2063,7 @@ export component AppWindow inherits Window {
             save_account_mail_history(account-id, value) => { root.save_account_mail_history(account-id, value); }
             save_account_sent_copy_policy(account-id, value) => { root.save_account_sent_copy_policy(account-id, value); }
             connect_account_calendar(account-id) => { root.connect_account_calendar(account-id); }
+            sync_account_calendar(account-id) => { root.sync_account_calendar(account-id); }
             set_account_calendar_enabled(account-id, enabled) => { root.set_account_calendar_enabled(account-id, enabled); }
             connect_caldav(account-id, url, username, password) => { root.connect_caldav(account-id, url, username, password); }
             connect_carddav(account-id, url, username, password) => { root.connect_carddav(account-id, url, username, password); }

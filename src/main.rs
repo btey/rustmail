@@ -2742,6 +2742,49 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         }
     });
 
+    // A calendar's colour was chosen in its details: stored on this device
+    // (a Microsoft 365 colour is never sent back) and kept by later refreshes.
+    {
+        let color_app = app.as_weak();
+        let color_calendar = Rc::clone(&calendar_state);
+        let color_state = Rc::clone(&state);
+        let color_runtime = Rc::clone(&runtime);
+        app.on_calendar_set_source_color(move |calendar_id, index| {
+            let Some(app) = color_app.upgrade() else {
+                return;
+            };
+            let Some(core) = color_state.borrow().core.clone() else {
+                return;
+            };
+            let Some(hex) = usize::try_from(index)
+                .ok()
+                .and_then(|index| calendar::PALETTE_HEX.get(index))
+            else {
+                return;
+            };
+            let store = core.file_core();
+            match color_runtime.block_on(
+                store.set_calendar_color(i64::from(calendar_id), Some((*hex).to_owned())),
+            ) {
+                Ok(()) => {
+                    let today = Local::now().date_naive();
+                    let mut calendar = color_calendar.borrow_mut();
+                    let _ = refresh_calendar_events(
+                        &core,
+                        &color_runtime,
+                        &mut calendar,
+                        &color_state.borrow().connected_accounts,
+                    );
+                    apply_calendar(&app, &calendar, today);
+                }
+                Err(error) => app.set_sync_status(UiMessage::detail(
+                    "Could not change the calendar colour: {}",
+                    error,
+                )),
+            }
+        });
+    }
+
     let app_weak = app.as_weak();
     let calendar_for_today = Rc::clone(&calendar_state);
     let inbox_for_calendar_today = Rc::clone(&state);
@@ -3338,6 +3381,39 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             requests.send_replace(None);
         }
     });
+    // "Download message" on a Microsoft 365 message kept as headers only (or
+    // rebuilt): fetch the whole message; the core announces the updated thread
+    // and the reader shows the new text.
+    {
+        let download_app = app.as_weak();
+        let download_state = Rc::clone(&state);
+        let download_runtime = Rc::clone(&runtime);
+        app.global::<EmailReader>().on_download_full(move |message_id| {
+            let Some(app) = download_app.upgrade() else {
+                return;
+            };
+            let Some(core) = download_state.borrow().core.clone() else {
+                return;
+            };
+            app.global::<EmailReader>().set_stub_busy(true);
+            let core = core.file_core();
+            let weak = download_app.clone();
+            download_runtime.spawn(async move {
+                let result = core
+                    .exchange_download_message(i64::from(message_id))
+                    .await;
+                let _ = weak.upgrade_in_event_loop(move |app| {
+                    app.global::<EmailReader>().set_stub_busy(false);
+                    if let Err(error) = result {
+                        app.set_sync_status(UiMessage::detail(
+                            "Could not download the message: {}",
+                            error,
+                        ));
+                    }
+                });
+            });
+        });
+    }
     let (mail_list_raw_tx, mail_list_rx) = bounded_ui_channel::<MailListUpdate>();
     let mail_list_tx = UiSender::new(
         mail_list_raw_tx,
@@ -4483,6 +4559,28 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
     let product_body_generation = body_generation.clone();
     let product_body_pending = body_pending.clone();
     let product_body_requests = body_requests.clone();
+    // Coming back to the window refreshes what the open view shows, and
+    // losing focus stops the short polls (Microsoft 365 mail and calendars).
+    {
+        let focus_app = app.as_weak();
+        let focus_state = state.clone();
+        let focus_runtime = runtime.clone();
+        app.global::<WindowChrome>().on_focus_changed(move |focused| {
+            let Some(app) = focus_app.upgrade() else {
+                return;
+            };
+            let Some(core) = focus_state.borrow().core.clone() else {
+                return;
+            };
+            let view = app.get_active_view().to_string();
+            let core = core.file_core();
+            focus_runtime.spawn(async move {
+                core.set_calendar_watching(focused && view == "calendar")
+                    .await;
+                core.set_mail_watching(focused && view == "mail").await;
+            });
+        });
+    }
     let previous_product = Rc::new(RefCell::new(String::from("mail")));
     app.on_product_changed(move |view| {
         let Some(app) = product_app.upgrade() else {
@@ -4535,9 +4633,12 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         let store_core = core.file_core();
         let active = view.to_string();
         let watch_core = store_core.clone();
-        let watching = active == "calendar";
+        let focused = app.global::<WindowChrome>().get_active();
+        let watching_calendar = active == "calendar" && focused;
+        let watching_mail = active == "mail" && focused;
         product_runtime.spawn(async move {
-            watch_core.set_calendar_watching(watching).await;
+            watch_core.set_calendar_watching(watching_calendar).await;
+            watch_core.set_mail_watching(watching_mail).await;
         });
         product_runtime.spawn(async move {
             if active != "calendar" {
@@ -7635,6 +7736,20 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         }
     });
 
+    // "Sync calendar" on an account row: read the account's calendars now.
+    {
+        let sync_state = Rc::clone(&state);
+        let sync_runtime = Rc::clone(&runtime);
+        app.on_sync_account_calendar(move |account_id| {
+            let Some(core) = sync_state.borrow().core.clone() else {
+                return;
+            };
+            let core = core.file_core();
+            sync_runtime.spawn(async move {
+                core.calendar_sync_now(Some(i64::from(account_id))).await;
+            });
+        });
+    }
     let app_weak = app.as_weak();
     let state_for_calendar_connect = Rc::clone(&state);
     let runtime_for_calendar_connect = Rc::clone(&runtime);

@@ -180,6 +180,7 @@ async fn courier_cycle_applies_move_and_downloads_sparse_new_uid_without_uidnext
         db,
         calendar_db,
         bus: EventBus::new(),
+        mail_watching: Default::default(),
         paths,
         tokens,
         credentials,
@@ -353,6 +354,7 @@ async fn deleted_mail_context(port: u16) -> (tempfile::TempDir, SyncCtx, Account
         db: Db::open(&dir.path().join("mail.db")).unwrap(),
         calendar_db: Db::open_calendar(&dir.path().join("calendar.db")).unwrap(),
         bus: EventBus::new(),
+        mail_watching: Default::default(),
         paths: Arc::new(Paths::for_tests(dir.path())),
         tokens: TokenProvider::new(
             credentials.clone(),

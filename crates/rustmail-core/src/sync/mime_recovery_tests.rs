@@ -184,6 +184,7 @@ async fn fixture(behavior: Behavior) -> (Fixture, Option<Session>) {
         db,
         calendar_db,
         bus: EventBus::new(),
+        mail_watching: Default::default(),
         paths,
         tokens,
         credentials,

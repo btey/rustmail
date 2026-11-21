@@ -2141,6 +2141,16 @@ pub fn insert_headers(raw: Vec<u8>, headers: &[(String, String)]) -> Vec<u8> {
     out
 }
 
+/// A lone CR (no LF after it) becomes a line break, as a bare CR would be sent
+/// through as it is and Microsoft 365 refuses a message holding one. CRLF and a
+/// lone LF stay as they are (the builder writes both as CRLF).
+fn without_bare_cr(text: &str) -> std::borrow::Cow<'_, str> {
+    if !text.contains('\r') {
+        return std::borrow::Cow::Borrowed(text);
+    }
+    std::borrow::Cow::Owned(text.replace("\r\n", "\n").replace('\r', "\n"))
+}
+
 pub fn build_message_owned(mut out: OutgoingMessage<'_>) -> Result<(String, Vec<u8>)> {
     let attachments = std::mem::take(&mut out.attachments);
     build_message_with_attachments(
@@ -2199,6 +2209,8 @@ fn build_message_with_attachments<'a>(
         )
     };
 
+    let body_text = without_bare_cr(out.body_text);
+    let body_html = out.body_html.map(without_bare_cr);
     let mut builder = mail_builder::MessageBuilder::new()
         .message_id(msg_id.trim_matches(['<', '>']))
         .header(
@@ -2210,7 +2222,7 @@ fn build_message_with_attachments<'a>(
             out.from.email.as_str(),
         ))
         .subject(out.subject)
-        .text_body(out.body_text);
+        .text_body(body_text);
     if let Some(reply_to) = &out.reply_to {
         builder = builder.reply_to(mail_builder::headers::address::Address::new_address(
             reply_to
@@ -2221,7 +2233,7 @@ fn build_message_with_attachments<'a>(
         ));
     }
 
-    if let Some(html) = out.body_html
+    if let Some(html) = body_html.as_deref()
         && !html.trim().is_empty()
     {
         let (html, inline_images) = extract_data_uri_images(html);
@@ -2970,6 +2982,48 @@ mod tests {
                 .headers
                 .references
                 .contains(&"second@example.test".to_owned())
+        );
+    }
+
+    /// Microsoft 365 turns a posted MIME message into a draft or sends it only
+    /// when it is well formed: CRLF line ends throughout (a bare LF fails the
+    /// conversion), ASCII-only header lines, and lines within 998 bytes.
+    #[test]
+    fn outgoing_mime_is_strict_enough_for_microsoft_365() {
+        let to = [Address {
+            name: Some("Zoë Ångström 界".into()),
+            email: "to@example.test".into(),
+        }];
+        let mut message = outgoing("one\ntwo\r\nthree\rfour\n\n", Some("<p>a</p>\n<p>é</p>"));
+        message.to = &to;
+        message.subject = "Réunion — état\ndu projet";
+        message.attachments = vec![OutgoingAttachment {
+            mime_type: "application/octet-stream".into(),
+            filename: "résumé 界.bin".into(),
+            bytes: vec![b'x'; 5_000],
+        }];
+        let (_, raw) = build_message_owned(message).unwrap();
+        for (index, byte) in raw.iter().enumerate() {
+            if *byte == b'\n' {
+                assert!(
+                    index > 0 && raw[index - 1] == b'\r',
+                    "bare LF at byte {index}"
+                );
+            }
+            if *byte == b'\r' {
+                assert_eq!(raw.get(index + 1), Some(&b'\n'), "bare CR at byte {index}");
+            }
+        }
+        let text = String::from_utf8_lossy(&raw);
+        let (head, _) = text.split_once("\r\n\r\n").unwrap();
+        assert!(
+            head.is_ascii(),
+            "a header line carries raw non-ASCII text:\n{head}"
+        );
+        assert!(!head.contains("\r\n\n") && !head.contains("\n\r"));
+        assert!(
+            text.split("\r\n").all(|line| line.len() <= 998),
+            "a line is longer than 998 bytes"
         );
     }
 

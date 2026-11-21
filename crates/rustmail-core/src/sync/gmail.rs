@@ -3920,6 +3920,7 @@ mod tests {
             db: crate::db::Db::open(&dir.path().join("mail.db")).unwrap(),
             calendar_db: crate::db::Db::open_calendar(&dir.path().join("calendar.db")).unwrap(),
             bus: crate::events::EventBus::new(),
+            mail_watching: Default::default(),
             paths: std::sync::Arc::new(crate::Paths::for_tests(dir.path())),
             tokens: crate::oauth::tokens::TokenProvider::new(
                 credentials.clone(),

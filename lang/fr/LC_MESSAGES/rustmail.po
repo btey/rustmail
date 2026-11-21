@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-18 22:07+0000\n"
+"POT-Creation-Date: 2026-11-19 17:23+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -104,31 +104,31 @@ msgstr "déc."
 msgid "December"
 msgstr "décembre"
 
-#: ui/app.slint:110 ui/components/calendar.slint:712
+#: ui/app.slint:110 ui/components/calendar.slint:721
 msgid "Mon"
 msgstr "lun."
 
-#: ui/app.slint:111 ui/components/calendar.slint:712
+#: ui/app.slint:111 ui/components/calendar.slint:721
 msgid "Tue"
 msgstr "mar."
 
-#: ui/app.slint:112 ui/components/calendar.slint:712
+#: ui/app.slint:112 ui/components/calendar.slint:721
 msgid "Wed"
 msgstr "mer."
 
-#: ui/app.slint:113 ui/components/calendar.slint:712
+#: ui/app.slint:113 ui/components/calendar.slint:721
 msgid "Thu"
 msgstr "jeu."
 
-#: ui/app.slint:114 ui/components/calendar.slint:712
+#: ui/app.slint:114 ui/components/calendar.slint:721
 msgid "Fri"
 msgstr "ven."
 
-#: ui/app.slint:115 ui/components/calendar.slint:712
+#: ui/app.slint:115 ui/components/calendar.slint:721
 msgid "Sat"
 msgstr "sam."
 
-#: ui/app.slint:116 ui/components/calendar.slint:712
+#: ui/app.slint:116 ui/components/calendar.slint:721
 msgid "Sun"
 msgstr "dim."
 
@@ -184,7 +184,7 @@ msgstr "Historique de conversation disponible"
 msgid "New address-book entry"
 msgstr "Nouvelle entrée du carnet d’adresses"
 
-#: ui/app.slint:137 ui/app.slint:1025 ui/components/composer-fields.slint:80
+#: ui/app.slint:137 ui/app.slint:1029 ui/components/composer-fields.slint:80
 #: ui/dialogs/compose-dialog.slint:39
 msgid "No connected account"
 msgstr "Aucun compte connecté"
@@ -199,11 +199,11 @@ msgstr[1] "{n} interactions"
 msgid "Last contacted {} {}, {}"
 msgstr "Dernier contact : {} {}, {}"
 
-#: ui/app.slint:144 ui/app.slint:423
+#: ui/app.slint:144 ui/app.slint:425
 msgid "Loading local data…"
 msgstr "Chargement…"
 
-#: ui/app.slint:145 ui/app.slint:424
+#: ui/app.slint:145 ui/app.slint:426
 msgid "Local data ready."
 msgstr "Données locales prêtes."
 
@@ -755,11 +755,11 @@ msgstr "Importer une sauvegarde des comptes Rustmail"
 msgid "Rustmail backup"
 msgstr "Sauvegarde Rustmail"
 
-#: ui/app.slint:325 ui/dialogs/settings-dialog.slint:2173
+#: ui/app.slint:325 ui/dialogs/settings-dialog.slint:2188
 msgid "Export tasks"
 msgstr "Exporter les tâches"
 
-#: ui/app.slint:326 ui/dialogs/settings-dialog.slint:2174
+#: ui/app.slint:326 ui/dialogs/settings-dialog.slint:2189
 msgid "Import tasks"
 msgstr "Importer des tâches"
 
@@ -838,263 +838,271 @@ msgid "Background mail refresh failed: {}"
 msgstr "Échec de l’actualisation du courrier en arrière-plan : {}"
 
 #: ui/app.slint:348
+msgid "Could not change the calendar colour: {}"
+msgstr "Impossible de changer la couleur du calendrier : {}"
+
+#: ui/app.slint:349
+msgid "Could not download the message: {}"
+msgstr "Impossible de télécharger le message : {}"
+
+#: ui/app.slint:350
 msgid "No conversations in this folder"
 msgstr "Aucune conversation dans ce dossier"
 
-#: ui/app.slint:349
+#: ui/app.slint:351
 msgid "No conversations match this search"
 msgstr "Aucune conversation ne correspond à cette recherche"
 
-#: ui/app.slint:350
+#: ui/app.slint:352
 msgid "Mail core is ready for account synchronization and message actions."
 msgstr ""
 "Le moteur de courrier est prêt pour la synchronisation des comptes et les "
 "actions sur les messages."
 
-#: ui/app.slint:351
+#: ui/app.slint:353
 msgid "Large message rendered in compatibility mode."
 msgstr "Gros message affiché en mode de compatibilité."
 
-#: ui/app.slint:352
+#: ui/app.slint:354
 msgid "Software email render failed: {}"
 msgstr "Échec du rendu logiciel de l’e-mail : {}"
 
-#: ui/app.slint:353
+#: ui/app.slint:355
 msgid "Rendered with software fallback after GPU error: {}"
 msgstr "Affiché avec le rendu logiciel de secours après une erreur GPU : {}"
 
-#: ui/app.slint:354
+#: ui/app.slint:356
 msgid "Blitz render failed (GPU: {}; software: {})"
 msgstr "Échec du rendu Blitz (GPU : {} ; logiciel : {})"
 
-#: ui/app.slint:359
+#: ui/app.slint:361
 msgid "Add an email address, then save the contact."
 msgstr "Ajoutez une adresse e-mail, puis enregistrez le contact."
 
-#: ui/app.slint:360
+#: ui/app.slint:362
 msgid "Enter a valid email address before saving."
 msgstr "Saisissez une adresse e-mail valide avant d’enregistrer."
 
-#: ui/app.slint:361
+#: ui/app.slint:363
 msgid "Could not save: contact storage is unavailable."
 msgstr "Enregistrement impossible : le stockage des contacts est indisponible."
 
-#: ui/app.slint:362
+#: ui/app.slint:364
 msgid "Could not save contact: {}"
 msgstr "Impossible d’enregistrer le contact : {}"
 
-#: ui/app.slint:363
+#: ui/app.slint:365
 msgid "Contact saved."
 msgstr "Contact enregistré."
 
-#: ui/app.slint:364
+#: ui/app.slint:366
 msgid "Saved to contacts."
 msgstr "Enregistré dans les contacts."
 
-#: ui/app.slint:365
+#: ui/app.slint:367
 msgid "Could not delete: contact storage is unavailable."
 msgstr "Suppression impossible : le stockage des contacts est indisponible."
 
-#: ui/app.slint:366
+#: ui/app.slint:368
 msgid "Could not delete contact: {}"
 msgstr "Impossible de supprimer le contact : {}"
 
-#: ui/app.slint:367
+#: ui/app.slint:369
 msgid "Contact deleted."
 msgstr "Contact supprimé."
 
-#: ui/app.slint:368
+#: ui/app.slint:370
 msgid "Contact picture saved."
 msgstr "Photo du contact enregistrée."
 
-#: ui/app.slint:369
+#: ui/app.slint:371
 msgid "Contact picture removed."
 msgstr "Photo du contact supprimée."
 
-#: ui/app.slint:370
+#: ui/app.slint:372
 msgid "Could not set the picture: {}"
 msgstr "Impossible de définir la photo : {}"
 
-#: ui/app.slint:371
+#: ui/app.slint:373
 msgid "Choose a picture"
 msgstr "Choisir une image"
 
-#: ui/app.slint:372
+#: ui/app.slint:374
 msgid "Could not load contacts: {}"
 msgstr "Impossible de charger les contacts : {}"
 
-#: ui/app.slint:373
+#: ui/app.slint:375
 msgid "Local contact storage is still starting…"
 msgstr "Le stockage local des contacts démarre encore…"
 
-#: ui/app.slint:374
+#: ui/app.slint:376
 msgid "Loading contacts…"
 msgstr "Chargement des contacts…"
 
-#: ui/app.slint:379 ui/components/calendar-agenda.slint:235
+#: ui/app.slint:381 ui/components/calendar-agenda.slint:235
 #: ui/views/tasks-view.slint:324
 msgid "Local calendar"
 msgstr "Agenda local"
 
-#: ui/app.slint:380 ui/components/calendar.slint:272
-#: ui/components/calendar.slint:320 ui/components/calendar.slint:447
-#: ui/dialogs/settings-dialog.slint:2024
+#: ui/app.slint:382 ui/components/calendar.slint:272
+#: ui/components/calendar.slint:320 ui/components/calendar.slint:452
+#: ui/dialogs/settings-dialog.slint:2034
 msgid "Calendar"
 msgstr "Agenda"
 
-#: ui/app.slint:381
+#: ui/app.slint:383
 msgid "Could not load calendar: {}"
 msgstr "Impossible de charger le calendrier : {}"
 
-#: ui/app.slint:382
+#: ui/app.slint:384
 msgid "Calendar shown and syncing."
 msgstr "Calendrier affiché et en cours de synchronisation."
 
-#: ui/app.slint:383
+#: ui/app.slint:385
 msgid "Calendar hidden and sync paused."
 msgstr "Calendrier masqué, synchronisation suspendue."
 
-#: ui/app.slint:384
+#: ui/app.slint:386
 msgid "Calendar update failed: {}"
 msgstr "Échec de la mise à jour du calendrier : {}"
 
-#: ui/app.slint:385
+#: ui/app.slint:387
 msgid "Only events created in Rustmail can be edited."
 msgstr "Seuls les événements créés dans Rustmail peuvent être modifiés."
 
-#: ui/app.slint:386
+#: ui/app.slint:388
 msgid "Only events created in Rustmail can be deleted."
 msgstr "Seuls les événements créés dans Rustmail peuvent être supprimés."
 
-#: ui/app.slint:387
+#: ui/app.slint:389
 msgid "Calendar storage is unavailable."
 msgstr "Le stockage du calendrier est indisponible."
 
-#: ui/app.slint:388
+#: ui/app.slint:390
 msgid "Could not delete event: {}"
 msgstr "Impossible de supprimer l’événement : {}"
 
-#: ui/app.slint:389
+#: ui/app.slint:391
 msgid "That event is no longer in the calendar."
 msgstr "Cet événement n’est plus dans le calendrier."
 
-#: ui/app.slint:390
+#: ui/app.slint:392
 msgid "Task created from the event."
 msgstr "Tâche créée à partir de l’événement."
 
-#: ui/app.slint:391
+#: ui/app.slint:393
 msgid "Could not create the task: {}"
 msgstr "Impossible de créer la tâche : {}"
 
-#: ui/app.slint:392
+#: ui/app.slint:394
 msgid "Event deleted, but refresh failed: {}"
 msgstr "Événement supprimé, mais l’actualisation a échoué : {}"
 
-#: ui/app.slint:393
+#: ui/app.slint:395
 msgid "Event deleted."
 msgstr "Événement supprimé."
 
-#: ui/app.slint:394
+#: ui/app.slint:396
 msgid "Use YYYY-MM-DD and a 24-hour time such as 09:30."
 msgstr "Utilisez AAAA-MM-JJ et une heure sur 24 h, par exemple 09:30."
 
-#: ui/app.slint:395
+#: ui/app.slint:397
 msgid "Check this attendee address: {}"
 msgstr "Vérifiez cette adresse de participant : {}"
 
-#: ui/app.slint:396
+#: ui/app.slint:398
 msgid "Choose a connected calendar to invite attendees."
 msgstr "Choisissez un calendrier connecté pour inviter des participants."
 
-#: ui/app.slint:397
+#: ui/app.slint:399
 msgid "Event saved on this device only."
 msgstr "Événement enregistré uniquement sur cet appareil."
 
-#: ui/app.slint:398
+#: ui/app.slint:400
 msgid "Connecting the Microsoft 365 calendar..."
 msgstr "Connexion du calendrier Microsoft 365…"
 
-#: ui/app.slint:399
+#: ui/app.slint:401
 msgid "Connect a mail account before inviting attendees."
 msgstr "Connectez un compte de messagerie avant d'inviter des participants."
 
-#: ui/app.slint:400
+#: ui/app.slint:402
 msgid "Invite at most 50 people to one event."
 msgstr "Invitez au plus 50 personnes à un événement."
 
-#: ui/app.slint:401
+#: ui/app.slint:403
 msgid "Enter a valid date, time and duration to check availability."
 msgstr ""
 "Saisissez une date, une heure et une durée valides pour voir les "
 "disponibilités."
 
-#: ui/app.slint:402
+#: ui/app.slint:404
 msgid "Event duration must be a number of minutes."
 msgstr "La durée de l’événement doit être un nombre de minutes."
 
-#: ui/app.slint:403
+#: ui/app.slint:405
 msgid "Add a title and choose a duration from 15 to 1440 minutes."
 msgstr "Ajoutez un titre et choisissez une durée de 15 à 1440 minutes."
 
-#: ui/app.slint:404
+#: ui/app.slint:406
 msgid "That local time does not exist in the current time zone."
 msgstr "Cette heure locale n’existe pas dans le fuseau horaire actuel."
 
-#: ui/app.slint:405
+#: ui/app.slint:407
 msgid "Could not save event: {}"
 msgstr "Impossible d’enregistrer l’événement : {}"
 
-#: ui/app.slint:406
+#: ui/app.slint:408
 msgid "Event saved, but refresh failed: {}"
 msgstr "Événement enregistré, mais l’actualisation a échoué : {}"
 
-#: ui/app.slint:407
+#: ui/app.slint:409
 msgid "Event saved. Provider sync will run when enabled."
 msgstr ""
 "Événement enregistré. La synchronisation avec le fournisseur aura lieu si "
 "elle est activée."
 
-#: ui/app.slint:408
+#: ui/app.slint:410
 msgid "The repeat interval must be a number from 1 to 999."
 msgstr "L’intervalle de répétition doit être un nombre de 1 à 999."
 
-#: ui/app.slint:409
+#: ui/app.slint:411
 msgid "The number of events must be from 1 to 999."
 msgstr "Le nombre d’événements doit être compris entre 1 et 999."
 
-#: ui/app.slint:410
+#: ui/app.slint:412
 msgid "Use YYYY-MM-DD for the last day of the repeat."
 msgstr "Utilisez AAAA-MM-JJ pour le dernier jour de la répétition."
 
-#: ui/app.slint:411
+#: ui/app.slint:413
 msgid "Use day numbers from 1 to 31 separated by commas; -1 is the last day."
 msgstr ""
 "Utilisez des numéros de jour de 1 à 31 séparés par des virgules ; -1 est le "
 "dernier jour."
 
-#: ui/app.slint:412
+#: ui/app.slint:414
 msgid "The repeat must not end before the event starts."
 msgstr "La répétition ne peut pas se terminer avant le début de l’événement."
 
-#: ui/app.slint:413
+#: ui/app.slint:415
 msgid "Event saved, but its reminder or repeat could not be set: {}"
 msgstr ""
 "Événement enregistré, mais le rappel ou la répétition n’a pas pu être "
 "défini : {}"
 
-#: ui/app.slint:418
+#: ui/app.slint:420
 msgid "Email resource render failed: {}"
 msgstr "Échec du rendu de la ressource de l’e-mail : {}"
 
-#: ui/app.slint:419
+#: ui/app.slint:421
 msgid "Message refresh failed: {}"
 msgstr "Échec de l’actualisation du message : {}"
 
-#: ui/app.slint:420
+#: ui/app.slint:422
 msgid "Message load failed: {}"
 msgstr "Échec du chargement du message : {}"
 
-#: ui/app.slint:421
+#: ui/app.slint:423
 msgid ""
 "Your local mailbox could not be opened. No account operation was started. "
 "Retry, or copy the diagnostics for support."
@@ -1102,329 +1110,329 @@ msgstr ""
 "Votre boîte aux lettres locale n’a pas pu être ouverte. Aucune opération de "
 "compte n’a été lancée. Réessayez ou copiez les diagnostics pour l’assistance."
 
-#: ui/app.slint:422
+#: ui/app.slint:424
 msgid "Local storage startup failed."
 msgstr "Échec du démarrage du stockage local."
 
-#: ui/app.slint:429
+#: ui/app.slint:431
 msgid "Could not identify the dragged account."
 msgstr "Impossible d’identifier le compte déplacé."
 
-#: ui/app.slint:430
+#: ui/app.slint:432
 msgid "Account ordering requires local mail data."
 msgstr "Le classement des comptes nécessite des données de courrier locales."
 
-#: ui/app.slint:431
+#: ui/app.slint:433
 msgid "Could not find the account to reorder."
 msgstr "Compte à réordonner introuvable."
 
-#: ui/app.slint:432
+#: ui/app.slint:434
 msgid "Saving account order…"
 msgstr "Enregistrement de l’ordre des comptes…"
 
-#: ui/app.slint:433
+#: ui/app.slint:435
 msgid "Sent copy settings require local mail data."
 msgstr ""
 "Les paramètres des copies envoyées nécessitent des données de messagerie "
 "locales."
 
-#: ui/app.slint:434
+#: ui/app.slint:436
 msgid "Updating Sent copy settings…"
 msgstr "Mise à jour des paramètres des copies envoyées…"
 
-#: ui/app.slint:435
+#: ui/app.slint:437
 msgid "Sent copy settings updated."
 msgstr "Paramètres des copies envoyées mis à jour."
 
-#: ui/app.slint:436
+#: ui/app.slint:438
 msgid "Could not update Sent copy settings: {}"
 msgstr "Impossible de mettre à jour les paramètres des copies envoyées : {}"
 
-#: ui/app.slint:437
+#: ui/app.slint:439
 msgid "Mail history requires local mail data."
 msgstr "L’historique du courrier nécessite des données de courrier locales."
 
-#: ui/app.slint:438
+#: ui/app.slint:440
 msgid "Updating mail history…"
 msgstr "Mise à jour de l’historique du courrier…"
 
-#: ui/app.slint:439
+#: ui/app.slint:441
 msgid "Remote images are unavailable in this minimal build."
 msgstr "Les images distantes sont indisponibles dans cette version minimale."
 
-#: ui/app.slint:440
+#: ui/app.slint:442
 msgid "Could not save remote-image setting: {}"
 msgstr "Impossible d’enregistrer le réglage des images distantes : {}"
 
-#: ui/app.slint:441
+#: ui/app.slint:443
 msgid "Remote sender icons unavailable: {}"
 msgstr "Icônes d’expéditeur distantes indisponibles : {}"
 
-#: ui/app.slint:442
+#: ui/app.slint:444
 msgid "Remote images unavailable: {}"
 msgstr "Images distantes indisponibles : {}"
 
-#: ui/app.slint:443
+#: ui/app.slint:445
 msgid "Remote body images and sender favicons enabled."
 msgstr "Images distantes et favicons d’expéditeur activés."
 
-#: ui/app.slint:444
+#: ui/app.slint:446
 msgid "Remote images blocked."
 msgstr "Images distantes bloquées."
 
-#: ui/app.slint:445
+#: ui/app.slint:447
 msgid "Could not refresh message images: {}"
 msgstr "Impossible d’actualiser les images du message : {}"
 
-#: ui/app.slint:446
+#: ui/app.slint:448
 msgid "Remote-image loading is disabled."
 msgstr "Le chargement des images distantes est désactivé."
 
-#: ui/app.slint:447
+#: ui/app.slint:449
 msgid "Could not load message images: {}"
 msgstr "Impossible de charger les images du message : {}"
 
-#: ui/app.slint:448
+#: ui/app.slint:450
 msgid "Sync finished, refresh failed: {}"
 msgstr "Synchronisation terminée, échec de l’actualisation : {}"
 
-#: ui/app.slint:449
+#: ui/app.slint:451
 msgid "Sync complete."
 msgstr "Synchronisation terminée."
 
-#: ui/app.slint:450
+#: ui/app.slint:452
 msgid "Sync failed: {}"
 msgstr "Échec de la synchronisation : {}"
 
-#: ui/app.slint:451
+#: ui/app.slint:453
 msgid "Local mail data is unavailable; preview data is read-only."
 msgstr ""
 "Données de courrier locales indisponibles ; l’aperçu est en lecture seule."
 
-#: ui/app.slint:452
+#: ui/app.slint:454
 msgid "Synchronizing accounts…"
 msgstr "Synchronisation des comptes…"
 
-#: ui/app.slint:459
+#: ui/app.slint:461
 msgid "Select a message first."
 msgstr "Sélectionnez d’abord un message."
 
-#: ui/app.slint:460
+#: ui/app.slint:462
 msgid "Running action “{}”…"
 msgstr "Exécution de l’action « {} »…"
 
-#: ui/app.slint:461
+#: ui/app.slint:463
 msgid "Action “{}” finished."
 msgstr "Action « {} » terminée."
 
-#: ui/app.slint:462
+#: ui/app.slint:464
 msgid "Action “{}” finished: {}"
 msgstr "Action « {} » terminée : {}"
 
-#: ui/app.slint:463
+#: ui/app.slint:465
 msgid "Action “{}” failed: {}"
 msgstr "Échec de l’action « {} » : {}"
 
-#: ui/app.slint:464
+#: ui/app.slint:466
 msgid "Action “{}” failed (exit {}): {}"
 msgstr "Échec de l’action « {} » (code {}) : {}"
 
-#: ui/app.slint:465
+#: ui/app.slint:467
 msgid "Action “{}” ran on {} messages: {}"
 msgstr "Action « {} » exécutée sur {} messages : {}"
 
-#: ui/app.slint:466
+#: ui/app.slint:468
 msgid "Action “{}” could not run: {}"
 msgstr "Impossible d’exécuter l’action « {} » : {}"
 
-#: ui/app.slint:467
+#: ui/app.slint:469
 msgid ""
 "Editing in your external editor. Save and close it to bring the text back."
 msgstr ""
 "Modification dans votre éditeur externe. Enregistrez et fermez-le pour "
 "récupérer le texte."
 
-#: ui/app.slint:468
+#: ui/app.slint:470
 msgid "Text updated from your editor."
 msgstr "Texte mis à jour depuis votre éditeur."
 
-#: ui/app.slint:469
+#: ui/app.slint:471
 msgid "External editor: {}"
 msgstr "Éditeur externe : {}"
 
-#: ui/app.slint:470
+#: ui/app.slint:472
 msgid "Connection timeout must be between 1 and 600 seconds."
 msgstr "Le délai de connexion doit être compris entre 1 et 600 secondes."
 
-#: ui/app.slint:471
+#: ui/app.slint:473
 msgid "Maximum connections must be between 1 and 20."
 msgstr "Le nombre maximal de connexions doit être compris entre 1 et 20."
 
-#: ui/app.slint:472
+#: ui/app.slint:474
 msgid "Proxy port must be between 1 and 65535."
 msgstr "Le port du proxy doit être compris entre 1 et 65535."
 
-#: ui/app.slint:473
+#: ui/app.slint:475
 msgid "Enter the proxy host and port, or set the proxy to None."
 msgstr "Saisissez l’hôte et le port du proxy, ou réglez le proxy sur Aucun."
 
-#: ui/app.slint:478
+#: ui/app.slint:480
 msgid "Message action completed."
 msgstr "Action sur le message effectuée."
 
-#: ui/app.slint:479
+#: ui/app.slint:481
 msgid ""
 "Permanent deletion queued. Mail will disappear after the server confirms."
 msgstr ""
 "Suppression définitive en file d’attente. Le courrier disparaîtra après "
 "confirmation du serveur."
 
-#: ui/app.slint:480
+#: ui/app.slint:482
 msgid "Sent and linked to the task: {}"
 msgstr "Envoyé et lié à la tâche : {}"
 
-#: ui/app.slint:481
+#: ui/app.slint:483
 msgid "Undo send failed: {}"
 msgstr "Échec de l’annulation de l’envoi : {}"
 
-#: ui/app.slint:482
+#: ui/app.slint:484
 msgid "Message action failed: {}"
 msgstr "Échec de l’action sur le message : {}"
 
-#: ui/app.slint:483
+#: ui/app.slint:485
 msgid "Message action failed: message is no longer available"
 msgstr "Échec de l’action sur le message : message introuvable"
 
-#: ui/app.slint:484
+#: ui/app.slint:486
 msgid "Label added."
 msgstr "Libellé ajouté."
 
-#: ui/app.slint:485
+#: ui/app.slint:487
 msgid "Label removed."
 msgstr "Libellé retiré."
 
-#: ui/app.slint:486
+#: ui/app.slint:488
 msgid "Label created and added."
 msgstr "Libellé créé et ajouté."
 
-#: ui/app.slint:487
+#: ui/app.slint:489
 msgid "Label created."
 msgstr "Libellé créé."
 
-#: ui/app.slint:488
+#: ui/app.slint:490
 msgid "Label updated."
 msgstr "Libellé mis à jour."
 
-#: ui/app.slint:489
+#: ui/app.slint:491
 msgid "Label deleted."
 msgstr "Libellé supprimé."
 
-#: ui/app.slint:490
+#: ui/app.slint:492
 msgid "Could not update label: {}"
 msgstr "Impossible de mettre à jour le libellé : {}"
 
-#: ui/app.slint:491
+#: ui/app.slint:493
 msgid "Could not save label: {}"
 msgstr "Impossible d’enregistrer le libellé : {}"
 
-#: ui/app.slint:492
+#: ui/app.slint:494
 msgid "Could not delete label: {}"
 msgstr "Impossible de supprimer le libellé : {}"
 
-#: ui/app.slint:493
+#: ui/app.slint:495
 msgid "Folder created."
 msgstr "Dossier créé."
 
-#: ui/app.slint:494
+#: ui/app.slint:496
 msgid "Folder renamed."
 msgstr "Dossier renommé."
 
-#: ui/app.slint:495
+#: ui/app.slint:497
 msgid "Folder deleted."
 msgstr "Dossier supprimé."
 
-#: ui/app.slint:496
+#: ui/app.slint:498
 msgid "Could not create folder: {}"
 msgstr "Impossible de créer le dossier : {}"
 
-#: ui/app.slint:497
+#: ui/app.slint:499
 msgid "Could not rename folder: {}"
 msgstr "Impossible de renommer le dossier : {}"
 
-#: ui/app.slint:498
+#: ui/app.slint:500
 msgid "Could not delete folder: {}"
 msgstr "Impossible de supprimer le dossier : {}"
 
-#: ui/app.slint:499
+#: ui/app.slint:501
 msgid "Could not close preview: {}"
 msgstr "Impossible de fermer l’aperçu : {}"
 
-#: ui/app.slint:500
+#: ui/app.slint:502
 msgid "Opened the system print view."
 msgstr "Vue d’impression du système ouverte."
 
-#: ui/app.slint:501
+#: ui/app.slint:503
 msgid "Could not print message: {}"
 msgstr "Impossible d’imprimer le message : {}"
 
-#: ui/app.slint:502
+#: ui/app.slint:504
 msgid "Opened the message in your browser."
 msgstr "Message ouvert dans votre navigateur."
 
-#: ui/app.slint:503
+#: ui/app.slint:505
 msgid "Could not open message in browser: {}"
 msgstr "Impossible d’ouvrir le message dans le navigateur : {}"
 
-#: ui/app.slint:504
+#: ui/app.slint:506
 msgid "Connect an account before replying or forwarding."
 msgstr "Connectez un compte avant de répondre ou de transférer."
 
-#: ui/app.slint:505
+#: ui/app.slint:507
 msgid "Choose a message first."
 msgstr "Choisissez d’abord un message."
 
-#: ui/app.slint:506
+#: ui/app.slint:508
 msgid "Only drafts can be reopened for editing."
 msgstr "Seuls les brouillons peuvent être rouverts pour modification."
 
-#: ui/app.slint:507
+#: ui/app.slint:509
 msgid "Could not open draft: {}"
 msgstr "Impossible d’ouvrir le brouillon : {}"
 
-#: ui/app.slint:508
+#: ui/app.slint:510
 msgid "Could not open draft: invalid account identifier"
 msgstr "Impossible d’ouvrir le brouillon : identifiant de compte invalide"
 
-#: ui/app.slint:509
+#: ui/app.slint:511
 msgid "Connected account"
 msgstr "Compte connecté"
 
-#: ui/app.slint:510
+#: ui/app.slint:512
 msgid "Could not open composer: {}"
 msgstr "Impossible d’ouvrir l’éditeur de message : {}"
 
-#: ui/app.slint:511
+#: ui/app.slint:513
 msgid "Could not open composer: invalid account identifier"
 msgstr ""
 "Impossible d’ouvrir l’éditeur de message : identifiant de compte invalide"
 
-#: ui/app.slint:516
+#: ui/app.slint:518
 msgid "Attach files to this email"
 msgstr "Joindre des fichiers à cet e-mail"
 
-#: ui/app.slint:517
+#: ui/app.slint:519
 msgid "Could not add attachments: {}"
 msgstr "Impossible d’ajouter les pièces jointes : {}"
 
-#: ui/app.slint:518
+#: ui/app.slint:520
 msgid "Added 1 attachment."
 msgstr "1 pièce jointe ajoutée."
 
-#: ui/app.slint:519
+#: ui/app.slint:521
 msgid "Added {} attachments."
 msgstr "{} pièces jointes ajoutées."
 
-#: ui/app.slint:520
+#: ui/app.slint:522
 msgid ""
 "Attachments added: {}. Skipped: {} (duplicate, unreadable, or over the 25 MB "
 "total limit)."
@@ -1432,136 +1440,136 @@ msgstr ""
 "Pièces jointes ajoutées : {}. Ignorées : {} (doublon, illisible ou au-delà "
 "de la limite totale de 25 Mo)."
 
-#: ui/app.slint:521
+#: ui/app.slint:523
 msgid "Attachment removed."
 msgstr "Pièce jointe retirée."
 
-#: ui/app.slint:522
+#: ui/app.slint:524
 msgid "Choose the account this message should be sent from."
 msgstr "Choisissez le compte depuis lequel envoyer ce message."
 
-#: ui/app.slint:523
+#: ui/app.slint:525
 msgid "Choose a verified sender identity for this message."
 msgstr "Choisissez une identité d’expéditeur vérifiée pour ce message."
 
-#: ui/app.slint:524
+#: ui/app.slint:526
 msgid "Connect an account before saving or sending mail."
 msgstr "Connectez un compte avant d’enregistrer ou d’envoyer du courrier."
 
-#: ui/app.slint:525
+#: ui/app.slint:527
 msgid "Message queued for delivery (action {})."
 msgstr "Message mis en file d’envoi (action {})."
 
-#: ui/app.slint:526
+#: ui/app.slint:528
 msgid "Sending message…"
 msgstr "Envoi du message…"
 
-#: ui/app.slint:527
+#: ui/app.slint:529
 msgid "Message sent."
 msgstr "Message envoyé."
 
-#: ui/app.slint:528
+#: ui/app.slint:530
 msgid "Send cancelled."
 msgstr "Envoi annulé."
 
-#: ui/app.slint:529
+#: ui/app.slint:531
 msgid "Send cancelled. Your message is back in the editor."
 msgstr "Envoi annulé. Votre message est revenu dans l’éditeur."
 
-#: ui/app.slint:530
+#: ui/app.slint:532
 msgid "Message was not sent: {} Your draft is preserved."
 msgstr "Le message n’a pas été envoyé : {} Votre brouillon est conservé."
 
-#: ui/app.slint:531
+#: ui/app.slint:533
 msgid "Draft saved locally (#{})."
 msgstr "Brouillon enregistré localement (n° {})."
 
-#: ui/app.slint:532
+#: ui/app.slint:534
 msgid "Compose failed: {}"
 msgstr "Échec de la rédaction : {}"
 
-#: ui/app.slint:533
+#: ui/app.slint:535
 msgid "Connect an account before managing email templates."
 msgstr "Connectez un compte avant de gérer les modèles d’e-mail."
 
-#: ui/app.slint:534
+#: ui/app.slint:536
 msgid "Could not load email templates: {}"
 msgstr "Impossible de charger les modèles d’e-mail : {}"
 
-#: ui/app.slint:535
+#: ui/app.slint:537
 msgid "Enter a template name."
 msgstr "Saisissez un nom de modèle."
 
-#: ui/app.slint:536
+#: ui/app.slint:538
 msgid "Enter the send date as YYYY-MM-DD and the time as HH:MM."
 msgstr "Saisissez la date d’envoi (AAAA-MM-JJ) et l’heure (HH:MM)."
 
-#: ui/app.slint:537
+#: ui/app.slint:539
 msgid "That time has already passed."
 msgstr "Cette heure est déjà passée."
 
-#: ui/app.slint:538
+#: ui/app.slint:540
 msgid "Add a subject or message to the template."
 msgstr "Ajoutez un objet ou un message au modèle."
 
-#: ui/app.slint:539
+#: ui/app.slint:541
 msgid "Email template saved."
 msgstr "Modèle d’e-mail enregistré."
 
-#: ui/app.slint:540
+#: ui/app.slint:542
 msgid "Could not save email template: {}"
 msgstr "Impossible d’enregistrer le modèle d’e-mail : {}"
 
-#: ui/app.slint:541
+#: ui/app.slint:543
 msgid "Email template deleted."
 msgstr "Modèle d’e-mail supprimé."
 
-#: ui/app.slint:542
+#: ui/app.slint:544
 msgid "Could not delete email template: {}"
 msgstr "Impossible de supprimer le modèle d’e-mail : {}"
 
-#: ui/app.slint:543
+#: ui/app.slint:545
 msgid "Email template is no longer available."
 msgstr "Le modèle d’e-mail n’est plus disponible."
 
-#: ui/app.slint:544
+#: ui/app.slint:546
 msgid "Email template inserted."
 msgstr "Modèle d’e-mail inséré."
 
-#: ui/app.slint:545
+#: ui/app.slint:547
 msgid "Email template inserted, but its usage could not be saved: {}"
 msgstr ""
 "Modèle d’e-mail inséré, mais son utilisation n’a pas pu être enregistrée : {}"
 
-#: ui/app.slint:546
+#: ui/app.slint:548
 msgid "IMAP port must be between 1 and 65535."
 msgstr "Le port IMAP doit être compris entre 1 et 65535."
 
-#: ui/app.slint:547
+#: ui/app.slint:549
 msgid "News server port must be between 1 and 65535."
 msgstr "Le port du serveur de news doit être compris entre 1 et 65535."
 
-#: ui/app.slint:548
+#: ui/app.slint:550
 msgid "SMTP port must be between 1 and 65535."
 msgstr "Le port SMTP doit être compris entre 1 et 65535."
 
-#: ui/app.slint:549
+#: ui/app.slint:551
 msgid "Local mail data is unavailable. Retry startup."
 msgstr "Données de courrier locales indisponibles. Relancez le démarrage."
 
-#: ui/app.slint:550
+#: ui/app.slint:552
 msgid "Discovering JMAP and checking capabilities…"
 msgstr "Détection de JMAP et vérification des capacités…"
 
-#: ui/app.slint:551
+#: ui/app.slint:553
 msgid "Certificate imported. Connect to verify the server."
 msgstr "Certificat importé. Connectez-vous pour vérifier le serveur."
 
-#: ui/app.slint:552
+#: ui/app.slint:554
 msgid "Could not load account preferences: {}"
 msgstr "Impossible de charger les préférences du compte : {}"
 
-#: ui/app.slint:553
+#: ui/app.slint:555
 msgid ""
 "Your edited signature was preserved. Choose No signature to keep it as "
 "message text before inserting another."
@@ -1569,27 +1577,27 @@ msgstr ""
 "Votre signature modifiée a été conservée. Choisissez Aucune signature pour "
 "la garder comme texte du message avant d’en insérer une autre."
 
-#: ui/app.slint:554
+#: ui/app.slint:556
 msgid "Certificate import failed: {}"
 msgstr "Échec de l’importation du certificat : {}"
 
-#: ui/app.slint:555
+#: ui/app.slint:557
 msgid "Paste the PEM certificate into the certificate field."
 msgstr "Collez le certificat PEM dans le champ du certificat."
 
-#: ui/app.slint:556
+#: ui/app.slint:558
 msgid "Testing IMAP and SMTP connections…"
 msgstr "Test des connexions IMAP et SMTP…"
 
-#: ui/app.slint:557
+#: ui/app.slint:559
 msgid "Checking the mail folder…"
 msgstr "Vérification du dossier de courrier…"
 
-#: ui/app.slint:558
+#: ui/app.slint:560
 msgid "Connecting to the news server…"
 msgstr "Connexion au serveur de news…"
 
-#: ui/app.slint:563
+#: ui/app.slint:565
 msgid ""
 "Another browser authorization is already in progress; finish it or choose "
 "Cancel."
@@ -1597,231 +1605,231 @@ msgstr ""
 "Une autre autorisation par navigateur est déjà en cours ; terminez-la ou "
 "choisissez Annuler."
 
-#: ui/app.slint:564 ui/dialogs/settings-dialog.slint:1741
-#: ui/dialogs/settings-dialog.slint:1784 ui/views/onboarding-view.slint:164
+#: ui/app.slint:566 ui/dialogs/settings-dialog.slint:1742
+#: ui/dialogs/settings-dialog.slint:1785 ui/views/onboarding-view.slint:164
 msgid "Add app keys in Sign-in settings to enable this provider."
 msgstr ""
 "Ajoutez des clés d’application dans les réglages de connexion pour activer "
 "ce fournisseur."
 
-#: ui/app.slint:565
+#: ui/app.slint:567
 msgid "Choose Gmail or Outlook OAuth."
 msgstr "Choisissez OAuth Gmail ou Outlook."
 
-#: ui/app.slint:566 ui/components/exchange-setup.slint:394
+#: ui/app.slint:568 ui/components/exchange-setup.slint:394
 msgid "Complete sign-in in your browser, or choose Cancel here."
 msgstr ""
 "Terminez la connexion dans votre navigateur, ou choisissez Annuler ici."
 
-#: ui/app.slint:567
+#: ui/app.slint:569
 msgid "Enter the Exchange mailbox address first."
 msgstr "Saisissez d'abord l'adresse de la boîte Exchange."
 
-#: ui/app.slint:568
+#: ui/app.slint:570
 msgid "Open the sign-in address, then paste the address the browser ends on."
 msgstr ""
 "Ouvrez l'adresse de connexion, puis collez l'adresse sur laquelle le "
 "navigateur se termine."
 
-#: ui/app.slint:569
+#: ui/app.slint:571
 msgid "Enter the code at the sign-in address, then wait here."
 msgstr "Saisissez le code à l'adresse de connexion, puis attendez ici."
 
-#: ui/app.slint:570
+#: ui/app.slint:572
 msgid "Checking the sign-in with Microsoft Graph…"
 msgstr "Vérification de la connexion avec Microsoft Graph…"
 
-#: ui/app.slint:571
+#: ui/app.slint:573
 msgid "Exchange sign-in failed: {}"
 msgstr "Échec de la connexion Exchange : {}"
 
-#: ui/app.slint:572
+#: ui/app.slint:574
 msgid "Exchange sign-in cancelled."
 msgstr "Connexion Exchange annulée."
 
-#: ui/app.slint:573
+#: ui/app.slint:575
 msgid "Cancelling browser sign-in…"
 msgstr "Annulation de la connexion par navigateur…"
 
-#: ui/app.slint:574
+#: ui/app.slint:576
 msgid "Finishing browser sign-in…"
 msgstr "Fin de la connexion par navigateur…"
 
-#: ui/app.slint:575
+#: ui/app.slint:577
 msgid "Could not use that browser address: {}"
 msgstr "Impossible d’utiliser cette adresse de navigateur : {}"
 
-#: ui/app.slint:576
+#: ui/app.slint:578
 msgid "Calendar core is unavailable."
 msgstr "Le module calendrier est indisponible."
 
-#: ui/app.slint:577
+#: ui/app.slint:579
 msgid "Account no longer exists."
 msgstr "Ce compte n’existe plus."
 
-#: ui/app.slint:578
+#: ui/app.slint:580
 msgid "Authorize calendar access in your browser."
 msgstr "Autorisez l’accès au calendrier dans votre navigateur."
 
-#: ui/app.slint:579
+#: ui/app.slint:581
 msgid "OAuth app keys saved."
 msgstr "Clés d’application OAuth enregistrées."
 
-#: ui/app.slint:580
+#: ui/app.slint:582
 msgid "{} OAuth settings saved."
 msgstr "Réglages OAuth de {} enregistrés."
 
-#: ui/app.slint:581
+#: ui/app.slint:583
 msgid "OAuth settings failed: {}"
 msgstr "Échec des réglages OAuth : {}"
 
-#: ui/app.slint:582
+#: ui/app.slint:584
 msgid "Mail refresh failed: {}"
 msgstr "Échec de l’actualisation du courrier : {}"
 
-#: ui/app.slint:583 ui/views/mail-list-pane.slint:188
+#: ui/app.slint:585 ui/views/mail-list-pane.slint:188
 msgid "Searching Microsoft 365…"
 msgstr "Recherche dans Microsoft 365…"
 
-#: ui/app.slint:584
+#: ui/app.slint:586
 msgid "Microsoft 365 search finished."
 msgstr "La recherche dans Microsoft 365 est terminée."
 
-#: ui/app.slint:585
+#: ui/app.slint:587
 msgid "Microsoft 365 search added {} messages to the list."
 msgstr "La recherche dans Microsoft 365 a ajouté {} messages à la liste."
 
-#: ui/app.slint:586
+#: ui/app.slint:588
 msgid "Microsoft 365 search failed: {}"
 msgstr "Échec de la recherche dans Microsoft 365 : {}"
 
-#: ui/app.slint:587
+#: ui/app.slint:589
 msgid "Mail filter failed: {}"
 msgstr "Échec du filtre de courrier : {}"
 
-#: ui/app.slint:588
+#: ui/app.slint:590
 msgid "Mail pagination failed: {}"
 msgstr "Échec de la pagination du courrier : {}"
 
-#: ui/app.slint:589
+#: ui/app.slint:591
 msgid "Could not mark message as read: {}"
 msgstr "Impossible de marquer le message comme lu : {}"
 
-#: ui/app.slint:590 ui/views/mail-reading-pane.slint:297
+#: ui/app.slint:592 ui/views/mail-reading-pane.slint:297
 #: ui/views/mail-reading-pane.slint:1467
 msgid "Loading message…"
 msgstr "Chargement du message…"
 
-#: ui/app.slint:598 ui/components/workspace-navigation.slint:581
-#: ui/dialogs/settings-dialog.slint:2388 ui/tray.slint:13
+#: ui/app.slint:600 ui/components/workspace-navigation.slint:581
+#: ui/dialogs/settings-dialog.slint:2403 ui/tray.slint:13
 #: ui/views/onboarding-view.slint:130
 msgid "Rustmail"
 msgstr "Rustmail"
 
-#: ui/app.slint:1249 ui/app.slint:1262
+#: ui/app.slint:1253 ui/app.slint:1266
 msgid "Global Labels (local only)"
 msgstr "Libellés globaux (local uniquement)"
 
-#: ui/app.slint:2200
+#: ui/app.slint:2206
 msgid "Empty Trash?"
 msgstr "Vider la corbeille ?"
 
-#: ui/app.slint:2200 ui/views/files-view.slint:539
+#: ui/app.slint:2206 ui/views/files-view.slint:539
 msgid "Delete permanently?"
 msgstr "Supprimer définitivement ?"
 
-#: ui/app.slint:2204
+#: ui/app.slint:2210
 msgid ""
 "Permanently delete all messages in Trash across every connected account?"
 msgstr ""
 "Supprimer définitivement tous les messages de la corbeille de chaque compte "
 "connecté ?"
 
-#: ui/app.slint:2205
+#: ui/app.slint:2211
 msgid "Permanently delete all messages in this account’s Trash?"
 msgstr ""
 "Supprimer définitivement tous les messages de la corbeille de ce compte ?"
 
-#: ui/app.slint:2207
+#: ui/app.slint:2213
 msgid "Permanently delete the selected conversations from Trash?"
 msgstr ""
 "Supprimer définitivement les conversations sélectionnées de la corbeille ?"
 
-#: ui/app.slint:2208
+#: ui/app.slint:2214
 msgid "Permanently delete this conversation from Trash?"
 msgstr "Supprimer définitivement cette conversation de la corbeille ?"
 
-#: ui/app.slint:2209 ui/components/calendar.slint:988
+#: ui/app.slint:2215 ui/components/calendar.slint:1003
 msgid "This action cannot be undone."
 msgstr "Cette action est irréversible."
 
-#: ui/app.slint:2210
+#: ui/app.slint:2216
 msgid "Empty Trash"
 msgstr "Vider la corbeille"
 
-#: ui/app.slint:2210 ui/views/files-view.slint:621
+#: ui/app.slint:2216 ui/views/files-view.slint:621
 msgid "Delete permanently"
 msgstr "Supprimer définitivement"
 
-#: ui/app.slint:2392
+#: ui/app.slint:2398
 msgid "Mailbox startup failed"
 msgstr "Échec du démarrage de la boîte aux lettres"
 
-#: ui/app.slint:2398
+#: ui/app.slint:2404
 msgid "Rustmail could not open local storage"
 msgstr "Rustmail n’a pas pu ouvrir le stockage local"
 
-#: ui/app.slint:2411
+#: ui/app.slint:2417
 msgid "Diagnostic ID: {}"
 msgstr "ID de diagnostic : {}"
 
-#: ui/app.slint:2414
+#: ui/app.slint:2420
 msgid "Diagnostic ID {}"
 msgstr "ID de diagnostic {}"
 
-#: ui/app.slint:2419
+#: ui/app.slint:2425
 msgid "Retry"
 msgstr "Réessayer"
 
-#: ui/app.slint:2427 ui/components/copyable-diagnostic.slint:43
+#: ui/app.slint:2433 ui/components/copyable-diagnostic.slint:43
 msgid "Copy diagnostics"
 msgstr "Copier les diagnostics"
 
-#: ui/app.slint:2493 ui/app.slint:2578 ui/app.slint:2636
+#: ui/app.slint:2499 ui/app.slint:2584 ui/app.slint:2642
 msgid "Dismiss"
 msgstr "Fermer"
 
-#: ui/app.slint:2513 ui/app.slint:2518
+#: ui/app.slint:2519 ui/app.slint:2524
 msgid "Sent and linked"
 msgstr "Envoyé et lié"
 
-#: ui/app.slint:2536
+#: ui/app.slint:2542
 msgid "Task moved to Waiting for"
 msgstr "Tâche déplacée vers En attente"
 
-#: ui/app.slint:2536
+#: ui/app.slint:2542
 msgid "Task marked as done"
 msgstr "Tâche marquée comme terminée"
 
-#: ui/app.slint:2545
+#: ui/app.slint:2551
 msgid "Follow-up in {} days"
 msgstr "Relance dans {} jours"
 
-#: ui/app.slint:2554
+#: ui/app.slint:2560
 msgid "Follow-up added to the calendar"
 msgstr "Relance ajoutée au calendrier"
 
-#: ui/app.slint:2564
+#: ui/app.slint:2570
 msgid "Back to board"
 msgstr "Retour au tableau"
 
-#: ui/app.slint:2623 ui/components/linked-task-banner.slint:116
+#: ui/app.slint:2629 ui/components/linked-task-banner.slint:116
 #: ui/components/task-reply.slint:23
 msgid "Open task"
 msgstr "Ouvrir la tâche"
 
-#: ui/app.slint:2669 ui/components/workspace-navigation.slint:126
-#: ui/dialogs/settings-dialog.slint:2168
+#: ui/app.slint:2675 ui/components/workspace-navigation.slint:126
+#: ui/dialogs/settings-dialog.slint:2183
 msgid "Tasks"
 msgstr "Tâches"
 
@@ -1992,8 +2000,8 @@ msgstr "Ajouter l’adresse d’expéditeur"
 
 #: ui/components/account-mail-preferences.slint:184
 #: ui/components/filter-rules.slint:375 ui/dialogs/folder-dialog.slint:128
-#: ui/dialogs/settings-dialog.slint:2064 ui/dialogs/settings-dialog.slint:2777
-#: ui/dialogs/settings-dialog.slint:3012 ui/views/contacts-view.slint:592
+#: ui/dialogs/settings-dialog.slint:2079 ui/dialogs/settings-dialog.slint:2792
+#: ui/dialogs/settings-dialog.slint:3027 ui/views/contacts-view.slint:592
 #: ui/views/files-view.slint:620 ui/views/tasks-view.slint:2630
 msgid "Cancel"
 msgstr "Annuler"
@@ -2288,9 +2296,9 @@ msgid "Export decrypted message"
 msgstr "Exporter le message déchiffré"
 
 #: ui/components/account-mail-preferences.slint:296
-#: ui/dialogs/settings-dialog.slint:2593 ui/dialogs/settings-dialog.slint:2858
+#: ui/dialogs/settings-dialog.slint:2608 ui/dialogs/settings-dialog.slint:2873
 #: ui/views/files-view.slint:519 ui/views/files-view.slint:685
-#: ui/views/tasks-view.slint:2388 ui/window-chrome.slint:204
+#: ui/views/tasks-view.slint:2388 ui/window-chrome.slint:207
 msgid "Close"
 msgstr "Fermer"
 
@@ -2323,7 +2331,7 @@ msgid "name@example.com"
 msgstr "nom@example.com"
 
 #: ui/components/account-setup-form.slint:141
-#: ui/dialogs/settings-dialog.slint:2624
+#: ui/dialogs/settings-dialog.slint:2639
 msgid "Username"
 msgstr "Nom d’utilisateur"
 
@@ -2532,7 +2540,7 @@ msgstr "Filtrer les calendriers · {} masqués"
 msgid "Filter calendars"
 msgstr "Filtrer les calendriers"
 
-#: ui/components/calendar-agenda.slint:67 ui/components/calendar.slint:583
+#: ui/components/calendar-agenda.slint:67 ui/components/calendar.slint:592
 msgid "Show calendars"
 msgstr "Afficher les calendriers"
 
@@ -2544,13 +2552,13 @@ msgstr "Réinitialiser"
 msgid "Filters only affect this agenda."
 msgstr "Les filtres n’affectent que cet agenda."
 
-#: ui/components/calendar-agenda.slint:212 ui/components/calendar.slint:603
+#: ui/components/calendar-agenda.slint:212 ui/components/calendar.slint:612
 #: ui/dialogs/task-from-mail-dialog.slint:182 ui/views/tasks-view.slint:307
 #: ui/views/tasks-view.slint:480 ui/views/tasks-view.slint:1042
 msgid "Today"
 msgstr "Aujourd’hui"
 
-#: ui/components/calendar-agenda.slint:214 ui/components/calendar.slint:617
+#: ui/components/calendar-agenda.slint:214 ui/components/calendar.slint:626
 msgid "{n} event"
 msgid_plural "{n} events"
 msgstr[0] "{n} événement"
@@ -2561,7 +2569,7 @@ msgid "Cancelled"
 msgstr "Annulé"
 
 #: ui/components/calendar-agenda.slint:257 ui/components/calendar.slint:64
-#: ui/components/calendar.slint:746
+#: ui/components/calendar.slint:755
 msgid "View details for {}"
 msgstr "Voir les détails de {}"
 
@@ -2594,55 +2602,55 @@ msgid "Reset filters"
 msgstr "Réinitialiser les filtres"
 
 #: ui/components/calendar-agenda.slint:290 ui/components/calendar.slint:113
-#: ui/components/calendar.slint:774
+#: ui/components/calendar.slint:783
 msgid "New event"
 msgstr "Nouvel événement"
 
-#: ui/components/calendar.slint:142 ui/components/calendar.slint:772
+#: ui/components/calendar.slint:142 ui/components/calendar.slint:781
 msgid "Previous month"
 msgstr "Mois précédent"
 
-#: ui/components/calendar.slint:156 ui/components/calendar.slint:773
+#: ui/components/calendar.slint:156 ui/components/calendar.slint:782
 msgid "Next month"
 msgstr "Mois suivant"
 
-#: ui/components/calendar.slint:161 ui/components/calendar.slint:816
+#: ui/components/calendar.slint:161 ui/components/calendar.slint:825
 msgctxt "Monday initial"
 msgid "M"
 msgstr "L"
 
-#: ui/components/calendar.slint:162 ui/components/calendar.slint:816
+#: ui/components/calendar.slint:162 ui/components/calendar.slint:825
 msgctxt "Tuesday initial"
 msgid "T"
 msgstr "M"
 
-#: ui/components/calendar.slint:163 ui/components/calendar.slint:816
+#: ui/components/calendar.slint:163 ui/components/calendar.slint:825
 msgctxt "Wednesday initial"
 msgid "W"
 msgstr "M"
 
-#: ui/components/calendar.slint:164 ui/components/calendar.slint:816
+#: ui/components/calendar.slint:164 ui/components/calendar.slint:825
 msgctxt "Thursday initial"
 msgid "T"
 msgstr "J"
 
-#: ui/components/calendar.slint:165 ui/components/calendar.slint:816
+#: ui/components/calendar.slint:165 ui/components/calendar.slint:825
 msgctxt "Friday initial"
 msgid "F"
 msgstr "V"
 
-#: ui/components/calendar.slint:166 ui/components/calendar.slint:816
+#: ui/components/calendar.slint:166 ui/components/calendar.slint:825
 msgctxt "Saturday initial"
 msgid "S"
 msgstr "S"
 
-#: ui/components/calendar.slint:167 ui/components/calendar.slint:816
+#: ui/components/calendar.slint:167 ui/components/calendar.slint:825
 msgctxt "Sunday initial"
 msgid "S"
 msgstr "D"
 
-#: ui/components/calendar.slint:213 ui/components/calendar.slint:645
-#: ui/components/calendar.slint:846
+#: ui/components/calendar.slint:213 ui/components/calendar.slint:654
+#: ui/components/calendar.slint:855
 msgid "Select {}"
 msgstr "Sélectionner {}"
 
@@ -2665,107 +2673,107 @@ msgstr ""
 "Aucun calendrier de fournisseur pour l’instant. Connectez Google Agenda ou "
 "Outlook dans les Réglages."
 
-#: ui/components/calendar.slint:456
+#: ui/components/calendar.slint:461
 msgid "Read only"
 msgstr "Lecture seule"
 
-#: ui/components/calendar.slint:456
+#: ui/components/calendar.slint:461
 msgid "Read and write"
 msgstr "Lecture et écriture"
 
-#: ui/components/calendar.slint:457
+#: ui/components/calendar.slint:462
 msgid "Last synced {}"
 msgstr "Dernière synchro : {}"
 
-#: ui/components/calendar.slint:457
+#: ui/components/calendar.slint:462
 msgid "Not synced yet"
 msgstr "Pas encore synchronisé"
 
-#: ui/components/calendar.slint:458
+#: ui/components/calendar.slint:463
 msgid "Enabled"
 msgstr "Activé"
 
-#: ui/components/calendar.slint:458
+#: ui/components/calendar.slint:463
 msgid "Paused"
 msgstr "En pause"
 
-#: ui/components/calendar.slint:459 ui/components/calendar.slint:488
+#: ui/components/calendar.slint:464 ui/components/calendar.slint:497
 msgid "Default calendar"
 msgstr "Calendrier par défaut"
 
-#: ui/components/calendar.slint:485
+#: ui/components/calendar.slint:494
 msgid "Created in Rustmail"
 msgstr "Créé dans Rustmail"
 
-#: ui/components/calendar.slint:485
+#: ui/components/calendar.slint:494
 msgid "Synced provider event"
 msgstr "Événement synchronisé du fournisseur"
 
-#: ui/components/calendar.slint:518 ui/components/calendar.slint:638
+#: ui/components/calendar.slint:527 ui/components/calendar.slint:647
 msgid "LOCAL"
 msgstr "LOCAL"
 
-#: ui/components/calendar.slint:519 ui/components/calendar.slint:654
+#: ui/components/calendar.slint:528 ui/components/calendar.slint:663
 msgid "ALL DAY"
 msgstr "JOURNÉE"
 
-#: ui/components/calendar.slint:583
+#: ui/components/calendar.slint:592
 msgid "Hide calendars"
 msgstr "Masquer les calendriers"
 
-#: ui/components/calendar.slint:598
+#: ui/components/calendar.slint:607
 msgid "Previous period"
 msgstr "Période précédente"
 
-#: ui/components/calendar.slint:599
+#: ui/components/calendar.slint:608
 msgid "Next period"
 msgstr "Période suivante"
 
-#: ui/components/calendar.slint:600 ui/views/tasks-view.slint:714
+#: ui/components/calendar.slint:609 ui/views/tasks-view.slint:714
 msgid "Week"
 msgstr "Semaine"
 
-#: ui/components/calendar.slint:601 ui/components/calendar.slint:785
+#: ui/components/calendar.slint:610 ui/components/calendar.slint:794
 msgid "Month"
 msgstr "Mois"
 
-#: ui/components/calendar.slint:602 ui/components/calendar.slint:786
+#: ui/components/calendar.slint:611 ui/components/calendar.slint:795
 msgid "Agenda"
 msgstr "Agenda"
 
-#: ui/components/calendar.slint:616 ui/components/calendar.slint:798
+#: ui/components/calendar.slint:625 ui/components/calendar.slint:807
 msgid "Local time · {}"
 msgstr "Heure locale · {}"
 
-#: ui/components/calendar.slint:857
+#: ui/components/calendar.slint:866
 msgid "Agenda · {}"
 msgstr "Agenda · {}"
 
-#: ui/components/calendar.slint:892
+#: ui/components/calendar.slint:901
 msgid "No events for this date"
 msgstr "Aucun événement à cette date"
 
-#: ui/components/calendar.slint:970
+#: ui/components/calendar.slint:985
 msgid "Delete a repeating event"
 msgstr "Supprimer un événement récurrent"
 
-#: ui/components/calendar.slint:971
+#: ui/components/calendar.slint:986
 msgid "Choose which events to remove from your calendar."
 msgstr "Choisissez les événements à retirer de votre calendrier."
 
-#: ui/components/calendar.slint:986
+#: ui/components/calendar.slint:1001
 msgid "Delete this event?"
 msgstr "Supprimer cet événement ?"
 
-#: ui/components/calendar.slint:987
+#: ui/components/calendar.slint:1002
 msgid "This event will be removed from your calendar."
 msgstr "Cet événement sera retiré de votre calendrier."
 
-#: ui/components/calendar.slint:989
+#: ui/components/calendar.slint:1004
 msgid "Delete event"
 msgstr "Supprimer l’événement"
 
-#: ui/components/calendar.slint:990
+#: ui/components/calendar.slint:1005
 msgid "Keep event"
 msgstr "Garder l’événement"
 
@@ -2851,7 +2859,7 @@ msgid "After sending, move task to"
 msgstr "Après l’envoi, déplacer la tâche vers"
 
 #: ui/components/composer-actions.slint:355
-#: ui/dialogs/settings-dialog.slint:554 ui/views/tasks-view.slint:482
+#: ui/dialogs/settings-dialog.slint:555 ui/views/tasks-view.slint:482
 msgid "Waiting for"
 msgstr "En attente de"
 
@@ -3088,8 +3096,8 @@ msgstr "Confirmer"
 msgid "On"
 msgstr "Activé"
 
-#: ui/components/controls.slint:198 ui/dialogs/settings-dialog.slint:523
-#: ui/dialogs/settings-dialog.slint:2298
+#: ui/components/controls.slint:198 ui/dialogs/settings-dialog.slint:524
+#: ui/dialogs/settings-dialog.slint:2313
 msgid "Off"
 msgstr "Désactivé"
 
@@ -3481,7 +3489,7 @@ msgstr ""
 "sur laquelle vous arrivez et collez-la ci-dessous."
 
 #: ui/components/exchange-setup.slint:347 ui/views/mail-reading-pane.slint:550
-#: ui/views/mail-reading-pane.slint:2072
+#: ui/views/mail-reading-pane.slint:2088
 msgid "Open in browser"
 msgstr "Ouvrir dans le navigateur"
 
@@ -3642,11 +3650,11 @@ msgstr "Favori"
 msgid "Archive"
 msgstr "Archiver"
 
-#: ui/components/filter-rules.slint:161 ui/dialogs/settings-dialog.slint:2297
+#: ui/components/filter-rules.slint:161 ui/dialogs/settings-dialog.slint:2312
 msgid "Mark as spam"
 msgstr "Marquer comme spam"
 
-#: ui/components/filter-rules.slint:161 ui/dialogs/settings-dialog.slint:2299
+#: ui/components/filter-rules.slint:161 ui/dialogs/settings-dialog.slint:2314
 #: ui/views/mail-list-pane.slint:1033 ui/views/mail-reading-pane.slint:559
 #: ui/views/mail-reading-pane.slint:972
 msgid "Move to trash"
@@ -3682,11 +3690,11 @@ msgstr "Créer une tâche"
 msgid "Inbox"
 msgstr "Boîte de réception"
 
-#: ui/components/filter-rules.slint:170 ui/dialogs/settings-dialog.slint:553
+#: ui/components/filter-rules.slint:170 ui/dialogs/settings-dialog.slint:554
 msgid "Next actions"
 msgstr "Prochaines actions"
 
-#: ui/components/filter-rules.slint:170 ui/dialogs/settings-dialog.slint:555
+#: ui/components/filter-rules.slint:170 ui/dialogs/settings-dialog.slint:556
 msgid "Scheduled"
 msgstr "Planifiée"
 
@@ -3698,7 +3706,7 @@ msgstr "Valeur de l’action"
 msgid "Folder name, for example Receipts"
 msgstr "Nom du dossier, par exemple Reçus"
 
-#: ui/components/filter-rules.slint:199 ui/views/mail-reading-pane.slint:2165
+#: ui/components/filter-rules.slint:199 ui/views/mail-reading-pane.slint:2181
 #: ui/views/tasks-view.slint:2600
 msgid "Label name"
 msgstr "Nom du libellé"
@@ -4446,7 +4454,7 @@ msgid "thunderbird -file %f"
 msgstr "thunderbird -file %f"
 
 #: ui/components/workspace-navigation.slint:104
-#: ui/dialogs/settings-dialog.slint:2293 ui/views/tasks-view.slint:3097
+#: ui/dialogs/settings-dialog.slint:2308 ui/views/tasks-view.slint:3097
 msgid "Mail"
 msgstr "Courrier"
 
@@ -4455,7 +4463,7 @@ msgid "Files"
 msgstr "Fichiers"
 
 #: ui/components/workspace-navigation.slint:148
-#: ui/dialogs/settings-dialog.slint:1436 ui/dialogs/settings-dialog.slint:2449
+#: ui/dialogs/settings-dialog.slint:1437 ui/dialogs/settings-dialog.slint:2464
 #: ui/views/contacts-view.slint:246
 msgid "Contacts"
 msgstr "Contacts"
@@ -4508,79 +4516,95 @@ msgstr "Télécharger"
 msgid "Loading preview…"
 msgstr "Chargement de l’aperçu…"
 
-#: ui/dialogs/calendar-details-dialog.slint:82
+#: ui/dialogs/calendar-details-dialog.slint:86
 msgid "Close calendar details"
 msgstr "Fermer les détails du calendrier"
 
-#: ui/dialogs/calendar-details-dialog.slint:88
+#: ui/dialogs/calendar-details-dialog.slint:92
 msgid "Calendar details"
 msgstr "Détails du calendrier"
 
-#: ui/dialogs/calendar-details-dialog.slint:88
+#: ui/dialogs/calendar-details-dialog.slint:92
 msgid "Event details"
 msgstr "Détails de l’événement"
 
-#: ui/dialogs/calendar-details-dialog.slint:151
+#: ui/dialogs/calendar-details-dialog.slint:155
 msgid "Gmail"
 msgstr "Gmail"
 
-#: ui/dialogs/calendar-details-dialog.slint:152
+#: ui/dialogs/calendar-details-dialog.slint:156
 msgid "Outlook"
 msgstr "Outlook"
 
-#: ui/dialogs/calendar-details-dialog.slint:153
+#: ui/dialogs/calendar-details-dialog.slint:157
 msgid "CalDAV"
 msgstr "CalDAV"
 
-#: ui/dialogs/calendar-details-dialog.slint:177
+#: ui/dialogs/calendar-details-dialog.slint:181
 msgid "WHEN"
 msgstr "QUAND"
 
-#: ui/dialogs/calendar-details-dialog.slint:178
+#: ui/dialogs/calendar-details-dialog.slint:182
 msgid "CALENDAR"
 msgstr "CALENDRIER"
 
-#: ui/dialogs/calendar-details-dialog.slint:179
+#: ui/dialogs/calendar-details-dialog.slint:183
 msgid "ACCOUNT"
 msgstr "COMPTE"
 
-#: ui/dialogs/calendar-details-dialog.slint:180
+#: ui/dialogs/calendar-details-dialog.slint:184
 msgid "LOCATION"
 msgstr "LIEU"
 
-#: ui/dialogs/calendar-details-dialog.slint:181
+#: ui/dialogs/calendar-details-dialog.slint:185
 msgid "ORGANIZER"
 msgstr "ORGANISATEUR"
 
-#: ui/dialogs/calendar-details-dialog.slint:182
+#: ui/dialogs/calendar-details-dialog.slint:186
 msgid "ACCESS"
 msgstr "ACCÈS"
 
-#: ui/dialogs/calendar-details-dialog.slint:183
+#: ui/dialogs/calendar-details-dialog.slint:187
 msgid "SYNC"
 msgstr "SYNCHRO"
 
-#: ui/dialogs/calendar-details-dialog.slint:184
+#: ui/dialogs/calendar-details-dialog.slint:188
 msgid "STATUS"
 msgstr "STATUT"
 
-#: ui/dialogs/calendar-details-dialog.slint:185
+#: ui/dialogs/calendar-details-dialog.slint:189
 msgid "MY RESPONSE"
 msgstr "MA RÉPONSE"
 
-#: ui/dialogs/calendar-details-dialog.slint:186
+#: ui/dialogs/calendar-details-dialog.slint:190
 msgid "RECURRENCE"
 msgstr "RÉCURRENCE"
 
-#: ui/dialogs/calendar-details-dialog.slint:187
+#: ui/dialogs/calendar-details-dialog.slint:191
 msgid "ATTENDEES"
 msgstr "PARTICIPANTS"
 
-#: ui/dialogs/calendar-details-dialog.slint:188 ui/views/tasks-view.slint:2974
+#: ui/dialogs/calendar-details-dialog.slint:192 ui/views/tasks-view.slint:2974
 msgid "DESCRIPTION"
 msgstr "DESCRIPTION"
 
-#: ui/dialogs/calendar-details-dialog.slint:199
+#: ui/dialogs/calendar-details-dialog.slint:197
+msgid "COLOR"
+msgstr "COULEUR"
+
+#: ui/dialogs/calendar-details-dialog.slint:207
+msgid "Blue"
+msgstr "Bleu"
+
+#: ui/dialogs/calendar-details-dialog.slint:207
+msgid "Violet"
+msgstr "Violet"
+
+#: ui/dialogs/calendar-details-dialog.slint:207
+msgid "Orange"
+msgstr "Orange"
+
+#: ui/dialogs/calendar-details-dialog.slint:224
 msgid "Open meeting link"
 msgstr "Ouvrir le lien de la réunion"
 
@@ -4831,7 +4855,7 @@ msgstr "Créer au niveau supérieur"
 msgid "Inside “{}”"
 msgstr "Dans « {} »"
 
-#: ui/dialogs/folder-dialog.slint:133 ui/views/mail-reading-pane.slint:2158
+#: ui/dialogs/folder-dialog.slint:133 ui/views/mail-reading-pane.slint:2174
 msgid "Create label"
 msgstr "Créer un libellé"
 
@@ -4952,7 +4976,7 @@ msgid "Save settings"
 msgstr "Enregistrer les réglages"
 
 #: ui/dialogs/rendering-info-dialog.slint:25
-#: ui/views/mail-reading-pane.slint:551 ui/views/mail-reading-pane.slint:2079
+#: ui/views/mail-reading-pane.slint:551 ui/views/mail-reading-pane.slint:2095
 msgid "About email rendering"
 msgstr "À propos du rendu des e-mails"
 
@@ -5086,99 +5110,99 @@ msgstr ""
 msgid "Storage usage could not be refreshed. Try again."
 msgstr "Impossible d’actualiser l’utilisation du stockage. Réessayez."
 
-#: ui/dialogs/settings-dialog.slint:518
+#: ui/dialogs/settings-dialog.slint:519
 msgid "Every minute"
 msgstr "Toutes les minutes"
 
-#: ui/dialogs/settings-dialog.slint:519
+#: ui/dialogs/settings-dialog.slint:520
 msgid "Every 5 minutes"
 msgstr "Toutes les 5 minutes"
 
-#: ui/dialogs/settings-dialog.slint:520
+#: ui/dialogs/settings-dialog.slint:521
 msgid "Every 15 minutes"
 msgstr "Toutes les 15 minutes"
 
-#: ui/dialogs/settings-dialog.slint:524
+#: ui/dialogs/settings-dialog.slint:525
 msgid "Important mail"
 msgstr "Courrier important"
 
-#: ui/dialogs/settings-dialog.slint:525
+#: ui/dialogs/settings-dialog.slint:526
 msgid "All new mail"
 msgstr "Tout nouveau courrier"
 
-#: ui/dialogs/settings-dialog.slint:528
+#: ui/dialogs/settings-dialog.slint:529
 msgid "1 month"
 msgstr "1 mois"
 
-#: ui/dialogs/settings-dialog.slint:529
+#: ui/dialogs/settings-dialog.slint:530
 msgid "3 months"
 msgstr "3 mois"
 
-#: ui/dialogs/settings-dialog.slint:530
+#: ui/dialogs/settings-dialog.slint:531
 msgid "6 months · Recommended"
 msgstr "6 mois · Recommandé"
 
-#: ui/dialogs/settings-dialog.slint:531
+#: ui/dialogs/settings-dialog.slint:532
 msgid "1 year"
 msgstr "1 an"
 
-#: ui/dialogs/settings-dialog.slint:532 ui/views/mail-list-pane.slint:385
+#: ui/dialogs/settings-dialog.slint:533 ui/views/mail-list-pane.slint:385
 msgid "All mail"
 msgstr "Tout le courrier"
 
-#: ui/dialogs/settings-dialog.slint:535
+#: ui/dialogs/settings-dialog.slint:536
 msgid "Send immediately"
 msgstr "Envoyer immédiatement"
 
-#: ui/dialogs/settings-dialog.slint:536
+#: ui/dialogs/settings-dialog.slint:537
 msgid "5 seconds"
 msgstr "5 secondes"
 
-#: ui/dialogs/settings-dialog.slint:537
+#: ui/dialogs/settings-dialog.slint:538
 msgid "10 seconds"
 msgstr "10 secondes"
 
-#: ui/dialogs/settings-dialog.slint:538
+#: ui/dialogs/settings-dialog.slint:539
 msgid "20 seconds"
 msgstr "20 secondes"
 
-#: ui/dialogs/settings-dialog.slint:539
+#: ui/dialogs/settings-dialog.slint:540
 msgid "30 seconds"
 msgstr "30 secondes"
 
-#: ui/dialogs/settings-dialog.slint:558 ui/dialogs/settings-dialog.slint:2298
+#: ui/dialogs/settings-dialog.slint:559 ui/dialogs/settings-dialog.slint:2313
 msgid "Ctrl+Shift+K"
 msgstr "Ctrl+Shift+K"
 
-#: ui/dialogs/settings-dialog.slint:559 ui/dialogs/settings-dialog.slint:2298
+#: ui/dialogs/settings-dialog.slint:560 ui/dialogs/settings-dialog.slint:2313
 msgid "Ctrl+Shift+T"
 msgstr "Ctrl+Shift+T"
 
-#: ui/dialogs/settings-dialog.slint:563
+#: ui/dialogs/settings-dialog.slint:564
 msgid "All columns"
 msgstr "Toutes les colonnes"
 
-#: ui/dialogs/settings-dialog.slint:564
+#: ui/dialogs/settings-dialog.slint:565
 msgid "Simple (no Scheduled or Someday)"
 msgstr "Simple (sans Planifié ni Un jour)"
 
-#: ui/dialogs/settings-dialog.slint:567
+#: ui/dialogs/settings-dialog.slint:568
 msgid "System language"
 msgstr "Langue du système"
 
-#: ui/dialogs/settings-dialog.slint:568
+#: ui/dialogs/settings-dialog.slint:569
 msgid "English"
 msgstr "Anglais"
 
-#: ui/dialogs/settings-dialog.slint:569
+#: ui/dialogs/settings-dialog.slint:570
 msgid "Spanish"
 msgstr "Espagnol"
 
-#: ui/dialogs/settings-dialog.slint:570
+#: ui/dialogs/settings-dialog.slint:571
 msgid "Turkish"
 msgstr "Turc"
 
-#: ui/dialogs/settings-dialog.slint:602
+#: ui/dialogs/settings-dialog.slint:603
 msgid ""
 "general theme appearance palette language workspace layout window frameless "
 "title bar renderer privacy remote images sync group messages date inbox tray "
@@ -5189,7 +5213,7 @@ msgstr ""
 "synchro regrouper messages date boîte de réception zone de notification "
 "arrière-plan démarrage connexion"
 
-#: ui/dialogs/settings-dialog.slint:604
+#: ui/dialogs/settings-dialog.slint:605
 msgid ""
 "accounts profiles personal work colors providers gmail outlook imap jmap "
 "caldav carddav mail history oauth security signatures"
@@ -5197,7 +5221,7 @@ msgstr ""
 "comptes profils personnel travail couleurs fournisseurs gmail outlook imap "
 "jmap caldav carddav courrier historique oauth sécurité signatures"
 
-#: ui/dialogs/settings-dialog.slint:606
+#: ui/dialogs/settings-dialog.slint:607
 msgid ""
 "contacts people suggestions autocomplete recipients senders address book "
 "privacy clear"
@@ -5205,15 +5229,15 @@ msgstr ""
 "contacts personnes suggestions saisie automatique destinataires expéditeurs "
 "carnet d’adresses confidentialité effacer"
 
-#: ui/dialogs/settings-dialog.slint:608
+#: ui/dialogs/settings-dialog.slint:609
 msgid "notifications alerts sounds desktop new mail"
 msgstr "notifications alertes sons bureau nouveau courrier"
 
-#: ui/dialogs/settings-dialog.slint:610
+#: ui/dialogs/settings-dialog.slint:611
 msgid "shortcuts keyboard compose search archive spam trash"
 msgstr "raccourcis clavier rédiger rechercher archiver spam corbeille"
 
-#: ui/dialogs/settings-dialog.slint:612
+#: ui/dialogs/settings-dialog.slint:613
 msgid ""
 "filters rules mail incoming move label star archive trash spam sender "
 "subject automatic"
@@ -5221,14 +5245,14 @@ msgstr ""
 "filtres règles courrier entrant déplacer libellé favori archiver corbeille "
 "spam expéditeur objet automatique"
 
-#: ui/dialogs/settings-dialog.slint:614
+#: ui/dialogs/settings-dialog.slint:615
 msgid ""
 "actions external editor commands scripts run message open editor compose"
 msgstr ""
 "actions éditeur externe commandes scripts exécuter message ouvrir éditeur "
 "rédiger"
 
-#: ui/dialogs/settings-dialog.slint:616
+#: ui/dialogs/settings-dialog.slint:617
 msgid ""
 "storage data usage mail attachments files databases backup snapshot import "
 "export delete"
@@ -5236,174 +5260,174 @@ msgstr ""
 "stockage données utilisation courrier pièces jointes fichiers bases de "
 "données sauvegarde instantané importer exporter supprimer"
 
-#: ui/dialogs/settings-dialog.slint:617
+#: ui/dialogs/settings-dialog.slint:618
 msgid "about version credits contributors license rustmail"
 msgstr "à propos version crédits contributeurs licence rustmail"
 
-#: ui/dialogs/settings-dialog.slint:870 ui/dialogs/settings-dialog.slint:2516
+#: ui/dialogs/settings-dialog.slint:871 ui/dialogs/settings-dialog.slint:2531
 msgid "SETTINGS"
 msgstr "RÉGLAGES"
 
-#: ui/dialogs/settings-dialog.slint:873 ui/dialogs/settings-dialog.slint:2518
+#: ui/dialogs/settings-dialog.slint:874 ui/dialogs/settings-dialog.slint:2533
 msgid "No settings found"
 msgstr "Aucun réglage trouvé"
 
-#: ui/dialogs/settings-dialog.slint:874 ui/dialogs/settings-dialog.slint:905
-#: ui/dialogs/settings-dialog.slint:2519
+#: ui/dialogs/settings-dialog.slint:875 ui/dialogs/settings-dialog.slint:906
+#: ui/dialogs/settings-dialog.slint:2534
 msgid "General"
 msgstr "Général"
 
-#: ui/dialogs/settings-dialog.slint:875 ui/dialogs/settings-dialog.slint:1586
-#: ui/dialogs/settings-dialog.slint:2520
+#: ui/dialogs/settings-dialog.slint:876 ui/dialogs/settings-dialog.slint:1587
+#: ui/dialogs/settings-dialog.slint:2535
 msgid "Accounts"
 msgstr "Comptes"
 
-#: ui/dialogs/settings-dialog.slint:877 ui/dialogs/settings-dialog.slint:2241
-#: ui/dialogs/settings-dialog.slint:2522
+#: ui/dialogs/settings-dialog.slint:878 ui/dialogs/settings-dialog.slint:2256
+#: ui/dialogs/settings-dialog.slint:2537
 msgid "Notifications"
 msgstr "Notifications"
 
-#: ui/dialogs/settings-dialog.slint:878 ui/dialogs/settings-dialog.slint:2451
+#: ui/dialogs/settings-dialog.slint:879 ui/dialogs/settings-dialog.slint:2466
 msgid "Shortcuts"
 msgstr "Raccourcis"
 
-#: ui/dialogs/settings-dialog.slint:879 ui/dialogs/settings-dialog.slint:2083
-#: ui/dialogs/settings-dialog.slint:2524
+#: ui/dialogs/settings-dialog.slint:880 ui/dialogs/settings-dialog.slint:2098
+#: ui/dialogs/settings-dialog.slint:2539
 msgid "Filters"
 msgstr "Filtres"
 
-#: ui/dialogs/settings-dialog.slint:880 ui/dialogs/settings-dialog.slint:2114
-#: ui/dialogs/settings-dialog.slint:2525
+#: ui/dialogs/settings-dialog.slint:881 ui/dialogs/settings-dialog.slint:2129
+#: ui/dialogs/settings-dialog.slint:2540
 msgid "Actions"
 msgstr "Actions"
 
-#: ui/dialogs/settings-dialog.slint:881 ui/dialogs/settings-dialog.slint:2146
-#: ui/dialogs/settings-dialog.slint:2526
+#: ui/dialogs/settings-dialog.slint:882 ui/dialogs/settings-dialog.slint:2161
+#: ui/dialogs/settings-dialog.slint:2541
 msgid "Storage"
 msgstr "Stockage"
 
-#: ui/dialogs/settings-dialog.slint:882 ui/dialogs/settings-dialog.slint:2318
-#: ui/dialogs/settings-dialog.slint:2527
+#: ui/dialogs/settings-dialog.slint:883 ui/dialogs/settings-dialog.slint:2333
+#: ui/dialogs/settings-dialog.slint:2542
 msgid "About"
 msgstr "À propos"
 
-#: ui/dialogs/settings-dialog.slint:906
+#: ui/dialogs/settings-dialog.slint:907
 msgid "Manage appearance, privacy, and synchronization."
 msgstr "Gérez l’apparence, la confidentialité et la synchronisation."
 
-#: ui/dialogs/settings-dialog.slint:918
+#: ui/dialogs/settings-dialog.slint:919
 msgid "Message appearance"
 msgstr "Apparence des messages"
 
-#: ui/dialogs/settings-dialog.slint:919
+#: ui/dialogs/settings-dialog.slint:920
 msgid "Choose the background and text colors used to read messages."
 msgstr ""
 "Choisissez les couleurs de fond et de texte utilisées pour lire les messages."
 
-#: ui/dialogs/settings-dialog.slint:920
+#: ui/dialogs/settings-dialog.slint:921
 msgid "Follow app theme"
 msgstr "Suivre le thème de l’application"
 
-#: ui/dialogs/settings-dialog.slint:977
+#: ui/dialogs/settings-dialog.slint:978
 msgid "Interface"
 msgstr "Interface"
 
-#: ui/dialogs/settings-dialog.slint:980
+#: ui/dialogs/settings-dialog.slint:981
 msgid "Monochrome sidebar icons"
 msgstr "Icônes monochromes de la barre latérale"
 
-#: ui/dialogs/settings-dialog.slint:981
+#: ui/dialogs/settings-dialog.slint:982
 msgid "Use one neutral color for mailbox and folder icons."
 msgstr ""
 "Utilise une seule couleur neutre pour les icônes de boîtes et de dossiers."
 
-#: ui/dialogs/settings-dialog.slint:993
+#: ui/dialogs/settings-dialog.slint:994
 msgid "No avatars"
 msgstr "Pas d’avatars"
 
-#: ui/dialogs/settings-dialog.slint:994
+#: ui/dialogs/settings-dialog.slint:995
 msgid "Hide sender images in the message list and reader."
 msgstr "Masque les images d’expéditeur dans la liste et le lecteur."
 
-#: ui/dialogs/settings-dialog.slint:1006
+#: ui/dialogs/settings-dialog.slint:1007
 msgid "Reverse scroll direction"
 msgstr "Inverser le sens de défilement"
 
-#: ui/dialogs/settings-dialog.slint:1007
+#: ui/dialogs/settings-dialog.slint:1008
 msgid "Flip the mouse wheel and touchpad direction in this window."
 msgstr "Inverse le sens de la molette et du pavé tactile dans cette fenêtre."
 
-#: ui/dialogs/settings-dialog.slint:1019
+#: ui/dialogs/settings-dialog.slint:1020
 msgid "Frameless window"
 msgstr "Fenêtre sans cadre"
 
-#: ui/dialogs/settings-dialog.slint:1020
+#: ui/dialogs/settings-dialog.slint:1021
 msgid "Replace the system title bar with window controls in the toolbar."
 msgstr ""
 "Remplace la barre de titre du système par des commandes de fenêtre dans la "
 "barre d’outils."
 
-#: ui/dialogs/settings-dialog.slint:1027
+#: ui/dialogs/settings-dialog.slint:1028
 msgid "Workspace layout"
 msgstr "Disposition de l’espace de travail"
 
-#: ui/dialogs/settings-dialog.slint:1039
+#: ui/dialogs/settings-dialog.slint:1040
 msgid "Minimal"
 msgstr "Minimale"
 
-#: ui/dialogs/settings-dialog.slint:1059
+#: ui/dialogs/settings-dialog.slint:1060
 msgid "Language"
 msgstr "Langue"
 
-#: ui/dialogs/settings-dialog.slint:1062
+#: ui/dialogs/settings-dialog.slint:1063
 msgid "Display language"
 msgstr "Langue d’affichage"
 
-#: ui/dialogs/settings-dialog.slint:1063
+#: ui/dialogs/settings-dialog.slint:1064
 msgid "Follow your device language when a translation is available."
 msgstr "Suit la langue de l’appareil quand une traduction existe."
 
-#: ui/dialogs/settings-dialog.slint:1063
+#: ui/dialogs/settings-dialog.slint:1064
 msgid "Choose the language used throughout Rustmail."
 msgstr "Choisissez la langue utilisée dans tout Rustmail."
 
-#: ui/dialogs/settings-dialog.slint:1085
+#: ui/dialogs/settings-dialog.slint:1086
 msgid "Inbox behavior"
 msgstr "Comportement de la boîte de réception"
 
-#: ui/dialogs/settings-dialog.slint:1088
+#: ui/dialogs/settings-dialog.slint:1089
 msgid "Unified Inbox"
 msgstr "Boîte de réception unifiée"
 
-#: ui/dialogs/settings-dialog.slint:1089
+#: ui/dialogs/settings-dialog.slint:1090
 msgid "DEFAULT"
 msgstr "PAR DÉFAUT"
 
-#: ui/dialogs/settings-dialog.slint:1091
+#: ui/dialogs/settings-dialog.slint:1092
 msgid "Combines incoming messages from every connected account."
 msgstr "Regroupe les messages entrants de tous les comptes connectés."
 
-#: ui/dialogs/settings-dialog.slint:1095
+#: ui/dialogs/settings-dialog.slint:1096
 msgid "Group messages by date"
 msgstr "Regrouper les messages par date"
 
-#: ui/dialogs/settings-dialog.slint:1096
+#: ui/dialogs/settings-dialog.slint:1097
 msgid "Show collapsible date sections in the mail list."
 msgstr "Affiche des sections de date repliables dans la liste."
 
-#: ui/dialogs/settings-dialog.slint:1113
+#: ui/dialogs/settings-dialog.slint:1114
 msgid "Mark messages as read when opened"
 msgstr "Marquer les messages comme lus à l’ouverture"
 
-#: ui/dialogs/settings-dialog.slint:1114
+#: ui/dialogs/settings-dialog.slint:1115
 msgid "Turn this off to keep unread status until you change it manually."
 msgstr "Désactivez pour garder le statut non lu jusqu’à modification manuelle."
 
-#: ui/dialogs/settings-dialog.slint:1127
+#: ui/dialogs/settings-dialog.slint:1128
 msgid "Work offline"
 msgstr "Travailler hors ligne"
 
-#: ui/dialogs/settings-dialog.slint:1128
+#: ui/dialogs/settings-dialog.slint:1129
 msgid ""
 "Microsoft 365 accounts make no network request; changes wait and are sent "
 "when you turn this off."
@@ -5411,189 +5435,189 @@ msgstr ""
 "Les comptes Microsoft 365 n’envoient aucune requête réseau ; les "
 "modifications attendent et sont envoyées quand vous désactivez ce réglage."
 
-#: ui/dialogs/settings-dialog.slint:1140
+#: ui/dialogs/settings-dialog.slint:1141
 msgid "Undo send window"
 msgstr "Délai d'annulation de l'envoi"
 
-#: ui/dialogs/settings-dialog.slint:1141
+#: ui/dialogs/settings-dialog.slint:1142
 msgid "How long a sent message can be taken back before it leaves."
 msgstr "Combien de temps un message envoyé peut être rappelé avant son départ."
 
-#: ui/dialogs/settings-dialog.slint:1168
+#: ui/dialogs/settings-dialog.slint:1169
 msgid "Follow-up for task email"
 msgstr "Relance des e-mails de tâche"
 
-#: ui/dialogs/settings-dialog.slint:1169
+#: ui/dialogs/settings-dialog.slint:1170
 msgid "How long to wait for a reply before a task is flagged."
 msgstr "Combien de temps attendre une réponse avant de signaler la tâche."
 
-#: ui/dialogs/settings-dialog.slint:1179
+#: ui/dialogs/settings-dialog.slint:1180
 msgid "Archive the email when making a task"
 msgstr "Archiver l'e-mail en créant une tâche"
 
-#: ui/dialogs/settings-dialog.slint:1180
+#: ui/dialogs/settings-dialog.slint:1181
 msgid "Tick “Archive email once the task exists” by default."
 msgstr "Cocher « Archiver l'e-mail une fois la tâche créée » par défaut."
 
-#: ui/dialogs/settings-dialog.slint:1189
+#: ui/dialogs/settings-dialog.slint:1190
 msgid "Default list for a new task"
 msgstr "Liste par défaut d’une nouvelle tâche"
 
-#: ui/dialogs/settings-dialog.slint:1190
+#: ui/dialogs/settings-dialog.slint:1191
 msgid "Where “New task from email” puts the task."
 msgstr "Où « Nouvelle tâche depuis un e-mail » place la tâche."
 
-#: ui/dialogs/settings-dialog.slint:1200
+#: ui/dialogs/settings-dialog.slint:1201
 msgid "Default project"
 msgstr "Projet par défaut"
 
-#: ui/dialogs/settings-dialog.slint:1201
+#: ui/dialogs/settings-dialog.slint:1202
 msgid "The project a task made from email starts in."
 msgstr "Le projet dans lequel démarre une tâche créée depuis un e-mail."
 
-#: ui/dialogs/settings-dialog.slint:1211
+#: ui/dialogs/settings-dialog.slint:1212
 msgid "Default context"
 msgstr "Contexte par défaut"
 
-#: ui/dialogs/settings-dialog.slint:1212
+#: ui/dialogs/settings-dialog.slint:1213
 msgid "The context a task made from email starts with."
 msgstr "Le contexte avec lequel démarre une tâche créée depuis un e-mail."
 
-#: ui/dialogs/settings-dialog.slint:1222
+#: ui/dialogs/settings-dialog.slint:1223
 msgid "Shortcut for a new task from email"
 msgstr "Raccourci pour une nouvelle tâche depuis un courriel"
 
-#: ui/dialogs/settings-dialog.slint:1223
+#: ui/dialogs/settings-dialog.slint:1224
 msgid "Opens “New task from email” for the open conversation in Mail."
 msgstr ""
 "Ouvre « Nouvelle tâche depuis un courriel » pour la conversation ouverte "
 "dans Courrier."
 
-#: ui/dialogs/settings-dialog.slint:1233
+#: ui/dialogs/settings-dialog.slint:1234
 msgid "Columns of a new project"
 msgstr "Colonnes d’un nouveau projet"
 
-#: ui/dialogs/settings-dialog.slint:1234
+#: ui/dialogs/settings-dialog.slint:1235
 msgid "Which columns a project starts with when you create it."
 msgstr "Les colonnes d’un projet à sa création."
 
-#: ui/dialogs/settings-dialog.slint:1258
+#: ui/dialogs/settings-dialog.slint:1259
 msgid "Remote images"
 msgstr "Images distantes"
 
-#: ui/dialogs/settings-dialog.slint:1259
+#: ui/dialogs/settings-dialog.slint:1260
 msgid "Load sender favicons and images embedded in message bodies."
 msgstr "Charge les favicons d’expéditeur et les images intégrées aux messages."
 
-#: ui/dialogs/settings-dialog.slint:1259
+#: ui/dialogs/settings-dialog.slint:1260
 msgid "Unavailable in this minimal build."
 msgstr "Indisponible dans cette version minimale."
 
-#: ui/dialogs/settings-dialog.slint:1260
+#: ui/dialogs/settings-dialog.slint:1261
 msgid "Off by default to block tracking pixels and minimize memory use."
 msgstr ""
 "Désactivé par défaut pour bloquer les pixels espions et limiter la mémoire."
 
-#: ui/dialogs/settings-dialog.slint:1286
+#: ui/dialogs/settings-dialog.slint:1287
 msgid "Keep running in system tray"
 msgstr "Rester dans la zone de notification"
 
-#: ui/dialogs/settings-dialog.slint:1287
+#: ui/dialogs/settings-dialog.slint:1288
 msgid "Closing the window hides Rustmail while mail continues syncing."
 msgstr ""
 "Fermer la fenêtre masque Rustmail pendant que le courrier se synchronise."
 
-#: ui/dialogs/settings-dialog.slint:1288
+#: ui/dialogs/settings-dialog.slint:1289
 msgid "Disabled by default; Quit from the tray menu stops the app."
 msgstr ""
 "Désactivé par défaut ; Quitter dans le menu de la zone de notification "
 "arrête l’application."
 
-#: ui/dialogs/settings-dialog.slint:1314
+#: ui/dialogs/settings-dialog.slint:1315
 msgid "Start automatically"
 msgstr "Démarrer automatiquement"
 
-#: ui/dialogs/settings-dialog.slint:1315
+#: ui/dialogs/settings-dialog.slint:1316
 msgid "Starts Rustmail in the system tray when you sign in."
 msgstr "Lance Rustmail dans la zone de notification à l’ouverture de session."
 
-#: ui/dialogs/settings-dialog.slint:1315
+#: ui/dialogs/settings-dialog.slint:1316
 msgid "Opens Rustmail when you sign in."
 msgstr "Ouvre Rustmail à l’ouverture de session."
 
-#: ui/dialogs/settings-dialog.slint:1316
+#: ui/dialogs/settings-dialog.slint:1317
 msgid "Disabled by default; also listed in your system's startup apps."
 msgstr ""
 "Désactivé par défaut ; également listé dans les applications de démarrage du "
 "système."
 
-#: ui/dialogs/settings-dialog.slint:1340
+#: ui/dialogs/settings-dialog.slint:1341
 msgid "Sync and notifications"
 msgstr "Synchronisation et notifications"
 
-#: ui/dialogs/settings-dialog.slint:1343
+#: ui/dialogs/settings-dialog.slint:1344
 msgid "Check for new mail"
 msgstr "Rechercher du nouveau courrier"
 
-#: ui/dialogs/settings-dialog.slint:1344
+#: ui/dialogs/settings-dialog.slint:1345
 msgid "How often to refresh when an instant provider update is unavailable."
 msgstr ""
 "Fréquence d’actualisation quand les mises à jour instantanées du fournisseur "
 "sont indisponibles."
 
-#: ui/dialogs/settings-dialog.slint:1354 ui/dialogs/settings-dialog.slint:2258
+#: ui/dialogs/settings-dialog.slint:1355 ui/dialogs/settings-dialog.slint:2273
 msgid "Desktop notifications"
 msgstr "Notifications du bureau"
 
-#: ui/dialogs/settings-dialog.slint:1355 ui/dialogs/settings-dialog.slint:2259
+#: ui/dialogs/settings-dialog.slint:1356 ui/dialogs/settings-dialog.slint:2274
 msgid "Choose which incoming messages can alert you."
 msgstr "Choisissez quels messages entrants peuvent vous alerter."
 
-#: ui/dialogs/settings-dialog.slint:1368
+#: ui/dialogs/settings-dialog.slint:1369
 msgid "Provider synchronization is ready."
 msgstr "La synchronisation du fournisseur est prête."
 
-#: ui/dialogs/settings-dialog.slint:1376 ui/dialogs/settings-dialog.slint:1862
+#: ui/dialogs/settings-dialog.slint:1377 ui/dialogs/settings-dialog.slint:1866
 msgid "Syncing…"
 msgstr "Synchronisation…"
 
-#: ui/dialogs/settings-dialog.slint:1376
+#: ui/dialogs/settings-dialog.slint:1377
 msgid "Sync now"
 msgstr "Synchroniser"
 
-#: ui/dialogs/settings-dialog.slint:1395
+#: ui/dialogs/settings-dialog.slint:1396
 msgid "Renderer"
 msgstr "Moteur de rendu"
 
-#: ui/dialogs/settings-dialog.slint:1396
+#: ui/dialogs/settings-dialog.slint:1397
 msgid "Changes take effect after restarting Rustmail."
 msgstr "Les changements prennent effet après le redémarrage de Rustmail."
 
-#: ui/dialogs/settings-dialog.slint:1396
+#: ui/dialogs/settings-dialog.slint:1397
 msgid "GPU mode is unavailable in this build."
 msgstr "Le mode GPU est indisponible dans cette version."
 
-#: ui/dialogs/settings-dialog.slint:1397
+#: ui/dialogs/settings-dialog.slint:1398
 msgid "CPU — Low Memory"
 msgstr "CPU — Faible mémoire"
 
-#: ui/dialogs/settings-dialog.slint:1397
+#: ui/dialogs/settings-dialog.slint:1398
 msgid "GPU — WGPU"
 msgstr "GPU — WGPU"
 
-#: ui/dialogs/settings-dialog.slint:1411
+#: ui/dialogs/settings-dialog.slint:1412
 msgid "Restart required. Your current renderer is still active."
 msgstr "Redémarrage requis. Votre moteur de rendu actuel reste actif."
 
-#: ui/dialogs/settings-dialog.slint:1411
+#: ui/dialogs/settings-dialog.slint:1412
 msgid "Active: GPU — WGPU"
 msgstr "Actif : GPU — WGPU"
 
-#: ui/dialogs/settings-dialog.slint:1411
+#: ui/dialogs/settings-dialog.slint:1412
 msgid "Active: CPU — Low Memory"
 msgstr "Actif : CPU — Faible mémoire"
 
-#: ui/dialogs/settings-dialog.slint:1439
+#: ui/dialogs/settings-dialog.slint:1440
 msgid ""
 "Keep your address book clean while still making frequent recipients easy to "
 "find."
@@ -5601,11 +5625,11 @@ msgstr ""
 "Gardez votre carnet d’adresses propre tout en retrouvant facilement les "
 "destinataires fréquents."
 
-#: ui/dialogs/settings-dialog.slint:1461
+#: ui/dialogs/settings-dialog.slint:1462
 msgid "Remember people I email"
 msgstr "Mémoriser les personnes à qui j’écris"
 
-#: ui/dialogs/settings-dialog.slint:1462
+#: ui/dialogs/settings-dialog.slint:1463
 msgid ""
 "While enabled, remember To, Cc, and Bcc recipients from new sends and synced "
 "Sent mail."
@@ -5613,11 +5637,11 @@ msgstr ""
 "Si activé, mémorise les destinataires À, Cc et Cci des nouveaux envois et du "
 "courrier envoyé synchronisé."
 
-#: ui/dialogs/settings-dialog.slint:1477
+#: ui/dialogs/settings-dialog.slint:1478
 msgid "Remember incoming senders"
 msgstr "Mémoriser les expéditeurs entrants"
 
-#: ui/dialogs/settings-dialog.slint:1478
+#: ui/dialogs/settings-dialog.slint:1479
 msgid ""
 "Remember human senders from new mail. Automated, spam, trash, and existing "
 "mail are excluded."
@@ -5625,11 +5649,11 @@ msgstr ""
 "Mémorise les expéditeurs humains du nouveau courrier. Courrier automatique, "
 "spam, corbeille et courrier existant exclus."
 
-#: ui/dialogs/settings-dialog.slint:1493
+#: ui/dialogs/settings-dialog.slint:1494
 msgid "Use suggestions from all accounts"
 msgstr "Suggestions de tous les comptes"
 
-#: ui/dialogs/settings-dialog.slint:1494
+#: ui/dialogs/settings-dialog.slint:1495
 msgid ""
 "Include people emailed from any connected account. Turn off to keep learned "
 "recipients account-specific."
@@ -5637,11 +5661,11 @@ msgstr ""
 "Inclut les personnes contactées depuis n’importe quel compte connecté. "
 "Désactivez pour garder les destinataires appris propres à chaque compte."
 
-#: ui/dialogs/settings-dialog.slint:1509
+#: ui/dialogs/settings-dialog.slint:1510
 msgid "Use suggestions when composing"
 msgstr "Suggestions à la rédaction"
 
-#: ui/dialogs/settings-dialog.slint:1510
+#: ui/dialogs/settings-dialog.slint:1511
 msgid ""
 "Include learned people in recipient autocomplete. Saved and CardDAV contacts "
 "are always available."
@@ -5649,11 +5673,11 @@ msgstr ""
 "Inclut les personnes apprises dans la saisie automatique des destinataires. "
 "Les contacts enregistrés et CardDAV sont toujours disponibles."
 
-#: ui/dialogs/settings-dialog.slint:1531
+#: ui/dialogs/settings-dialog.slint:1532
 msgid "Suggested people"
 msgstr "Personnes suggérées"
 
-#: ui/dialogs/settings-dialog.slint:1534
+#: ui/dialogs/settings-dialog.slint:1535
 msgid ""
 "People you email remain available as local suggestions and never sync to "
 "CardDAV. Clear them any time to restart learning."
@@ -5662,15 +5686,15 @@ msgstr ""
 "locales et ne sont jamais synchronisées avec CardDAV. Effacez-les à tout "
 "moment pour relancer l’apprentissage."
 
-#: ui/dialogs/settings-dialog.slint:1552
+#: ui/dialogs/settings-dialog.slint:1553
 msgid "Clear now"
 msgstr "Effacer maintenant"
 
-#: ui/dialogs/settings-dialog.slint:1552
+#: ui/dialogs/settings-dialog.slint:1553
 msgid "Clear suggested people"
 msgstr "Effacer les personnes suggérées"
 
-#: ui/dialogs/settings-dialog.slint:1587
+#: ui/dialogs/settings-dialog.slint:1588
 msgid ""
 "Manage connected mailboxes and add providers. Drag an account to change its "
 "order everywhere."
@@ -5678,11 +5702,11 @@ msgstr ""
 "Gérez les boîtes connectées et ajoutez des fournisseurs. Faites glisser un "
 "compte pour changer son ordre partout."
 
-#: ui/dialogs/settings-dialog.slint:1604 ui/dialogs/settings-dialog.slint:2961
+#: ui/dialogs/settings-dialog.slint:1605 ui/dialogs/settings-dialog.slint:2976
 msgid "Profiles"
 msgstr "Profils"
 
-#: ui/dialogs/settings-dialog.slint:1614
+#: ui/dialogs/settings-dialog.slint:1615
 msgid ""
 "Group accounts as Personal or Work and identify them by color in the mail "
 "list."
@@ -5690,15 +5714,15 @@ msgstr ""
 "Regroupez les comptes en Personnel ou Travail et identifiez-les par couleur "
 "dans la liste."
 
-#: ui/dialogs/settings-dialog.slint:1623 ui/dialogs/settings-dialog.slint:1653
+#: ui/dialogs/settings-dialog.slint:1624 ui/dialogs/settings-dialog.slint:1654
 msgid "Add profile"
 msgstr "Ajouter un profil"
 
-#: ui/dialogs/settings-dialog.slint:1637 ui/dialogs/settings-dialog.slint:1645
+#: ui/dialogs/settings-dialog.slint:1638 ui/dialogs/settings-dialog.slint:1646
 msgid "Show account color at the left edge of each message"
 msgstr "Afficher la couleur du compte au bord gauche de chaque message"
 
-#: ui/dialogs/settings-dialog.slint:1667
+#: ui/dialogs/settings-dialog.slint:1668
 msgid ""
 "No profiles yet. Accounts keep their individual or generated colors until "
 "you create one."
@@ -5706,100 +5730,108 @@ msgstr ""
 "Aucun profil pour l’instant. Les comptes gardent leurs couleurs propres ou "
 "générées tant que vous n’en créez pas."
 
-#: ui/dialogs/settings-dialog.slint:1698
+#: ui/dialogs/settings-dialog.slint:1699
 msgid "No accounts"
 msgstr "Aucun compte"
 
-#: ui/dialogs/settings-dialog.slint:1699
+#: ui/dialogs/settings-dialog.slint:1700
 msgid "1 account"
 msgstr "1 compte"
 
-#: ui/dialogs/settings-dialog.slint:1700
+#: ui/dialogs/settings-dialog.slint:1701
 msgid "{} accounts"
 msgstr "{} comptes"
 
-#: ui/dialogs/settings-dialog.slint:1712 ui/dialogs/settings-dialog.slint:2801
+#: ui/dialogs/settings-dialog.slint:1713 ui/dialogs/settings-dialog.slint:2816
 msgid "Edit profile"
 msgstr "Modifier le profil"
 
-#: ui/dialogs/settings-dialog.slint:1722 ui/dialogs/settings-dialog.slint:3061
+#: ui/dialogs/settings-dialog.slint:1723 ui/dialogs/settings-dialog.slint:3076
 msgid "Delete profile"
 msgstr "Supprimer le profil"
 
-#: ui/dialogs/settings-dialog.slint:1738 ui/dialogs/settings-dialog.slint:1784
+#: ui/dialogs/settings-dialog.slint:1739 ui/dialogs/settings-dialog.slint:1785
 msgid "Add Gmail"
 msgstr "Ajouter Gmail"
 
-#: ui/dialogs/settings-dialog.slint:1751 ui/dialogs/settings-dialog.slint:1785
+#: ui/dialogs/settings-dialog.slint:1752 ui/dialogs/settings-dialog.slint:1786
 msgid "Add Outlook"
 msgstr "Ajouter Outlook"
 
-#: ui/dialogs/settings-dialog.slint:1764 ui/dialogs/settings-dialog.slint:1786
+#: ui/dialogs/settings-dialog.slint:1765 ui/dialogs/settings-dialog.slint:1787
 msgid "Add mail account"
 msgstr "Ajouter un compte de messagerie"
 
-#: ui/dialogs/settings-dialog.slint:1777 ui/dialogs/settings-dialog.slint:1787
+#: ui/dialogs/settings-dialog.slint:1778 ui/dialogs/settings-dialog.slint:1788
 msgid "Cancel sign-in"
 msgstr "Annuler la connexion"
 
-#: ui/dialogs/settings-dialog.slint:1862
-msgid "Offline · retrying automatically"
-msgstr "Hors ligne · nouvelle tentative automatique"
-
-#: ui/dialogs/settings-dialog.slint:1862
-msgid "Sign-in required"
-msgstr "Connexion requise"
-
-#: ui/dialogs/settings-dialog.slint:1862
-msgid "Connected · JMAP"
-msgstr "Connecté · JMAP"
-
-#: ui/dialogs/settings-dialog.slint:1862
-msgid "Connected · IMAP + SMTP"
-msgstr "Connecté · IMAP + SMTP"
-
-#: ui/dialogs/settings-dialog.slint:1862
-msgid "Account status: {}"
-msgstr "État du compte : {}"
-
-#: ui/dialogs/settings-dialog.slint:1865 ui/dialogs/settings-dialog.slint:2064
-msgid "Reconnect"
-msgstr "Reconnecter"
-
-#: ui/dialogs/settings-dialog.slint:1890 ui/dialogs/settings-dialog.slint:2020
-msgid "Add calendar"
-msgstr "Ajouter un calendrier"
-
-#: ui/dialogs/settings-dialog.slint:1890 ui/dialogs/settings-dialog.slint:2020
-msgid "Retry calendar"
-msgstr "Réessayer le calendrier"
-
-#: ui/dialogs/settings-dialog.slint:1897 ui/dialogs/settings-dialog.slint:2035
-#: ui/dialogs/settings-dialog.slint:2589
-msgid "Set up CalDAV"
-msgstr "Configurer CalDAV"
-
-#: ui/dialogs/settings-dialog.slint:1910 ui/views/files-view.slint:463
-msgid "Manage"
-msgstr "Gérer"
-
-#: ui/dialogs/settings-dialog.slint:1910
-msgid "Fix CardDAV"
-msgstr "Réparer CardDAV"
-
-#: ui/dialogs/settings-dialog.slint:1910
-msgid "CardDAV"
-msgstr "CardDAV"
-
-#: ui/dialogs/settings-dialog.slint:1925
+#: ui/dialogs/settings-dialog.slint:1799
 msgid "Mail synchronization error: {}"
 msgstr "Erreur de synchronisation du courrier : {}"
 
-#: ui/dialogs/settings-dialog.slint:1941
+#: ui/dialogs/settings-dialog.slint:1800
+msgid "Calendar synchronization error: {}"
+msgstr "Erreur de synchronisation du calendrier : {}"
+
+#: ui/dialogs/settings-dialog.slint:1800 ui/dialogs/settings-dialog.slint:1866
+msgid "Sign-in required"
+msgstr "Connexion requise"
+
+#: ui/dialogs/settings-dialog.slint:1866
+msgid "Offline · retrying automatically"
+msgstr "Hors ligne · nouvelle tentative automatique"
+
+#: ui/dialogs/settings-dialog.slint:1866
+msgid "Connected · JMAP"
+msgstr "Connecté · JMAP"
+
+#: ui/dialogs/settings-dialog.slint:1866
+msgid "Connected · IMAP + SMTP"
+msgstr "Connecté · IMAP + SMTP"
+
+#: ui/dialogs/settings-dialog.slint:1866
+msgid "Account status: {}"
+msgstr "État du compte : {}"
+
+#: ui/dialogs/settings-dialog.slint:1869 ui/dialogs/settings-dialog.slint:2079
+msgid "Reconnect"
+msgstr "Reconnecter"
+
+#: ui/dialogs/settings-dialog.slint:1889 ui/dialogs/settings-dialog.slint:2036
+msgid "Sync calendar"
+msgstr "Synchroniser"
+
+#: ui/dialogs/settings-dialog.slint:1900 ui/dialogs/settings-dialog.slint:2030
+msgid "Add calendar"
+msgstr "Ajouter un calendrier"
+
+#: ui/dialogs/settings-dialog.slint:1900 ui/dialogs/settings-dialog.slint:2030
+msgid "Retry calendar"
+msgstr "Réessayer le calendrier"
+
+#: ui/dialogs/settings-dialog.slint:1907 ui/dialogs/settings-dialog.slint:2050
+#: ui/dialogs/settings-dialog.slint:2604
+msgid "Set up CalDAV"
+msgstr "Configurer CalDAV"
+
+#: ui/dialogs/settings-dialog.slint:1920 ui/views/files-view.slint:463
+msgid "Manage"
+msgstr "Gérer"
+
+#: ui/dialogs/settings-dialog.slint:1920
+msgid "Fix CardDAV"
+msgstr "Réparer CardDAV"
+
+#: ui/dialogs/settings-dialog.slint:1920
+msgid "CardDAV"
+msgstr "CardDAV"
+
+#: ui/dialogs/settings-dialog.slint:1951
 msgid "Mail history"
 msgstr "Historique du courrier"
 
-#: ui/dialogs/settings-dialog.slint:1944
+#: ui/dialogs/settings-dialog.slint:1954
 msgid ""
 "Download the full mailbox. Large accounts can take considerable time and "
 "storage."
@@ -5807,134 +5839,134 @@ msgstr ""
 "Télécharge toute la boîte. Les gros comptes peuvent demander beaucoup de "
 "temps et d’espace."
 
-#: ui/dialogs/settings-dialog.slint:1945
+#: ui/dialogs/settings-dialog.slint:1955
 msgid "How far back to download. Mail already stored on this device is kept."
 msgstr ""
 "Jusqu’où remonter dans le téléchargement. Le courrier déjà stocké sur cet "
 "appareil est conservé."
 
-#: ui/dialogs/settings-dialog.slint:1958
+#: ui/dialogs/settings-dialog.slint:1968
 msgid "Sent copies"
 msgstr "Copies envoyées"
 
-#: ui/dialogs/settings-dialog.slint:1960
+#: ui/dialogs/settings-dialog.slint:1970
 msgid ""
 "Choose who saves sent mail. Use Rustmail if your server does not save a copy."
 msgstr ""
 "Choisissez qui enregistre les messages envoyés. Utilisez Rustmail si votre "
 "serveur ne conserve pas de copie."
 
-#: ui/dialogs/settings-dialog.slint:1961
+#: ui/dialogs/settings-dialog.slint:1971
 msgid "Provider default"
 msgstr "Par défaut du fournisseur"
 
-#: ui/dialogs/settings-dialog.slint:1961
+#: ui/dialogs/settings-dialog.slint:1971
 msgid "Server saves a copy"
 msgstr "Le serveur conserve une copie"
 
-#: ui/dialogs/settings-dialog.slint:1961
+#: ui/dialogs/settings-dialog.slint:1971
 msgid "Rustmail saves a copy"
 msgstr "Rustmail conserve une copie"
 
-#: ui/dialogs/settings-dialog.slint:1978
+#: ui/dialogs/settings-dialog.slint:1988
 msgid "Profile"
 msgstr "Profil"
 
-#: ui/dialogs/settings-dialog.slint:1988
+#: ui/dialogs/settings-dialog.slint:1998
 msgid "Uses the {} color in the mail list"
 msgstr "Utilise la couleur {} dans la liste"
 
-#: ui/dialogs/settings-dialog.slint:1990
+#: ui/dialogs/settings-dialog.slint:2000
 msgid "Uses a custom account color"
 msgstr "Utilise une couleur de compte personnalisée"
 
-#: ui/dialogs/settings-dialog.slint:1991
+#: ui/dialogs/settings-dialog.slint:2001
 msgid "Uses a generated account color"
 msgstr "Utilise une couleur de compte générée"
 
-#: ui/dialogs/settings-dialog.slint:2002
+#: ui/dialogs/settings-dialog.slint:2012
 msgid "No profile"
 msgstr "Aucun profil"
 
-#: ui/dialogs/settings-dialog.slint:2035 ui/dialogs/settings-dialog.slint:2540
+#: ui/dialogs/settings-dialog.slint:2050 ui/dialogs/settings-dialog.slint:2555
 msgid "CalDAV settings"
 msgstr "Réglages CalDAV"
 
-#: ui/dialogs/settings-dialog.slint:2046
+#: ui/dialogs/settings-dialog.slint:2061
 msgid "OAuth app credentials"
 msgstr "Identifiants d’application OAuth"
 
-#: ui/dialogs/settings-dialog.slint:2046
+#: ui/dialogs/settings-dialog.slint:2061
 msgid "Custom desktop app credentials are configured."
 msgstr ""
 "Des identifiants d’application de bureau personnalisés sont configurés."
 
-#: ui/dialogs/settings-dialog.slint:2046
+#: ui/dialogs/settings-dialog.slint:2061
 msgid "Advanced: use your own Gmail or Microsoft desktop app registration."
 msgstr ""
 "Avancé : utilisez votre propre enregistrement d’application de bureau Gmail "
 "ou Microsoft."
 
-#: ui/dialogs/settings-dialog.slint:2047
+#: ui/dialogs/settings-dialog.slint:2062
 msgid "Hide"
 msgstr "Masquer"
 
-#: ui/dialogs/settings-dialog.slint:2047
+#: ui/dialogs/settings-dialog.slint:2062
 msgid "Configure"
 msgstr "Configurer"
 
-#: ui/dialogs/settings-dialog.slint:2050 ui/dialogs/settings-dialog.slint:2051
+#: ui/dialogs/settings-dialog.slint:2065 ui/dialogs/settings-dialog.slint:2066
 msgid "Gmail desktop client ID"
 msgstr "ID client de bureau Gmail"
 
-#: ui/dialogs/settings-dialog.slint:2050 ui/dialogs/settings-dialog.slint:2051
+#: ui/dialogs/settings-dialog.slint:2065 ui/dialogs/settings-dialog.slint:2066
 msgid "Gmail client secret (optional)"
 msgstr "Secret client Gmail (facultatif)"
 
-#: ui/dialogs/settings-dialog.slint:2050
+#: ui/dialogs/settings-dialog.slint:2065
 msgid "Save Gmail"
 msgstr "Enregistrer Gmail"
 
-#: ui/dialogs/settings-dialog.slint:2051
+#: ui/dialogs/settings-dialog.slint:2066
 msgid "Save Gmail settings"
 msgstr "Enregistrer les réglages Gmail"
 
-#: ui/dialogs/settings-dialog.slint:2052
+#: ui/dialogs/settings-dialog.slint:2067
 msgid "Save Outlook"
 msgstr "Enregistrer Outlook"
 
-#: ui/dialogs/settings-dialog.slint:2053
+#: ui/dialogs/settings-dialog.slint:2068
 msgid ""
 "Outlook public desktop clients use PKCE and do not need a client secret."
 msgstr ""
 "Les clients de bureau publics Outlook utilisent PKCE et n’ont pas besoin de "
 "secret client."
 
-#: ui/dialogs/settings-dialog.slint:2059
+#: ui/dialogs/settings-dialog.slint:2074
 msgid "Connect CardDAV"
 msgstr "Connecter CardDAV"
 
-#: ui/dialogs/settings-dialog.slint:2059
+#: ui/dialogs/settings-dialog.slint:2074
 msgid "Sync contacts with a standards-compliant CardDAV server."
 msgstr "Synchronisez vos contacts avec un serveur CardDAV conforme aux normes."
 
-#: ui/dialogs/settings-dialog.slint:2062
+#: ui/dialogs/settings-dialog.slint:2077
 msgid "https://contacts.example.com/"
 msgstr "https://contacts.example.com/"
 
-#: ui/dialogs/settings-dialog.slint:2063 ui/dialogs/settings-dialog.slint:2633
+#: ui/dialogs/settings-dialog.slint:2078 ui/dialogs/settings-dialog.slint:2648
 msgid "App password"
 msgstr "Mot de passe d’application"
 
-#: ui/dialogs/settings-dialog.slint:2064
+#: ui/dialogs/settings-dialog.slint:2079
 msgid "Disconnect"
 msgstr "Déconnecter"
 
-#: ui/dialogs/settings-dialog.slint:2064 ui/dialogs/settings-dialog.slint:2653
+#: ui/dialogs/settings-dialog.slint:2079 ui/dialogs/settings-dialog.slint:2668
 msgid "Connect"
 msgstr "Connecter"
 
-#: ui/dialogs/settings-dialog.slint:2086
+#: ui/dialogs/settings-dialog.slint:2101
 msgid ""
 "Sort incoming mail automatically: mark, star, archive or move it by sender, "
 "recipient, subject or size."
@@ -5943,18 +5975,18 @@ msgstr ""
 "archivez ou déplacez-le selon l’expéditeur, le destinataire, l’objet ou la "
 "taille."
 
-#: ui/dialogs/settings-dialog.slint:2117
+#: ui/dialogs/settings-dialog.slint:2132
 msgid "Run your own commands on messages and write in the editor you prefer."
 msgstr ""
 "Exécutez vos propres commandes sur les messages et écrivez dans l’éditeur de "
 "votre choix."
 
-#: ui/dialogs/settings-dialog.slint:2149
+#: ui/dialogs/settings-dialog.slint:2164
 msgid "See what Rustmail stores locally and manage the data on this device."
 msgstr ""
 "Voyez ce que Rustmail stocke localement et gérez les données de cet appareil."
 
-#: ui/dialogs/settings-dialog.slint:2169
+#: ui/dialogs/settings-dialog.slint:2184
 msgid ""
 "Export tasks to a JSON file, or add the tasks of such a file. Tasks that "
 "already exist are skipped. Links to mail are not included."
@@ -5963,11 +5995,11 @@ msgstr ""
 "Les tâches déjà présentes sont ignorées. Les liens vers les e-mails ne sont "
 "pas inclus."
 
-#: ui/dialogs/settings-dialog.slint:2198
+#: ui/dialogs/settings-dialog.slint:2213
 msgid "Database snapshot"
 msgstr "Instantané de la base de données"
 
-#: ui/dialogs/settings-dialog.slint:2198
+#: ui/dialogs/settings-dialog.slint:2213
 msgid ""
 "Export verified copies of the mail and calendar databases with their schema "
 "versions."
@@ -5975,7 +6007,7 @@ msgstr ""
 "Exportez des copies vérifiées des bases de courrier et de calendrier avec "
 "leurs versions de schéma."
 
-#: ui/dialogs/settings-dialog.slint:2200
+#: ui/dialogs/settings-dialog.slint:2215
 msgid ""
 "The snapshot contains private local mail and settings, but not passwords or "
 "OAuth tokens. Store it securely."
@@ -5983,15 +6015,15 @@ msgstr ""
 "L’instantané contient du courrier et des réglages locaux privés, mais ni "
 "mots de passe ni jetons OAuth. Conservez-le en lieu sûr."
 
-#: ui/dialogs/settings-dialog.slint:2201
+#: ui/dialogs/settings-dialog.slint:2216
 msgid "Export snapshot"
 msgstr "Exporter l’instantané"
 
-#: ui/dialogs/settings-dialog.slint:2208
+#: ui/dialogs/settings-dialog.slint:2223
 msgid "Transfer account setup"
 msgstr "Transférer la configuration des comptes"
 
-#: ui/dialogs/settings-dialog.slint:2208
+#: ui/dialogs/settings-dialog.slint:2223
 msgid "Import a backup or export one connected account and your preferences."
 msgid_plural ""
 "Import a backup or export {n} connected accounts and your preferences."
@@ -6000,7 +6032,7 @@ msgstr[0] ""
 msgstr[1] ""
 "Importez une sauvegarde ou exportez {n} comptes connectés et vos préférences."
 
-#: ui/dialogs/settings-dialog.slint:2210
+#: ui/dialogs/settings-dialog.slint:2225
 msgid ""
 "Passwords and OAuth tokens stay in the system keyring. A restored device "
 "asks you to sign in securely."
@@ -6008,19 +6040,19 @@ msgstr ""
 "Les mots de passe et jetons OAuth restent dans le trousseau du système. Un "
 "appareil restauré vous demande de vous reconnecter en toute sécurité."
 
-#: ui/dialogs/settings-dialog.slint:2217
+#: ui/dialogs/settings-dialog.slint:2232
 msgid "Import"
 msgstr "Importer"
 
-#: ui/dialogs/settings-dialog.slint:2218
+#: ui/dialogs/settings-dialog.slint:2233
 msgid "Export"
 msgstr "Exporter"
 
-#: ui/dialogs/settings-dialog.slint:2225
+#: ui/dialogs/settings-dialog.slint:2240
 msgid "Delete all local data"
 msgstr "Supprimer toutes les données locales"
 
-#: ui/dialogs/settings-dialog.slint:2225
+#: ui/dialogs/settings-dialog.slint:2240
 msgid ""
 "Remove accounts, downloaded mail, calendars, contacts, preferences, and "
 "credentials from this device."
@@ -6028,92 +6060,92 @@ msgstr ""
 "Retire de cet appareil les comptes, le courrier téléchargé, les calendriers, "
 "les contacts, les préférences et les identifiants."
 
-#: ui/dialogs/settings-dialog.slint:2227
+#: ui/dialogs/settings-dialog.slint:2242
 msgid "This does not delete anything from Gmail, Outlook, or your IMAP server."
 msgstr "Rien n’est supprimé de Gmail, d’Outlook ni de votre serveur IMAP."
 
-#: ui/dialogs/settings-dialog.slint:2228 ui/dialogs/settings-dialog.slint:3023
+#: ui/dialogs/settings-dialog.slint:2243 ui/dialogs/settings-dialog.slint:3038
 msgid "Delete everything"
 msgstr "Tout supprimer"
 
-#: ui/dialogs/settings-dialog.slint:2242
+#: ui/dialogs/settings-dialog.slint:2257
 msgid "Choose how Rustmail gets your attention."
 msgstr "Choisissez comment Rustmail attire votre attention."
 
-#: ui/dialogs/settings-dialog.slint:2269
+#: ui/dialogs/settings-dialog.slint:2284
 msgid "Notification sounds"
 msgstr "Sons de notification"
 
-#: ui/dialogs/settings-dialog.slint:2270
+#: ui/dialogs/settings-dialog.slint:2285
 msgid "Play a sound for new mail and sent messages."
 msgstr "Joue un son pour le nouveau courrier et les messages envoyés."
 
-#: ui/dialogs/settings-dialog.slint:2290
+#: ui/dialogs/settings-dialog.slint:2305
 msgid "Keyboard shortcuts"
 msgstr "Raccourcis clavier"
 
-#: ui/dialogs/settings-dialog.slint:2291
+#: ui/dialogs/settings-dialog.slint:2306
 msgid "Move through mail without leaving the keyboard."
 msgstr "Parcourez le courrier sans quitter le clavier."
 
-#: ui/dialogs/settings-dialog.slint:2294
+#: ui/dialogs/settings-dialog.slint:2309
 msgid "Compose a new message"
 msgstr "Rédiger un nouveau message"
 
-#: ui/dialogs/settings-dialog.slint:2294
+#: ui/dialogs/settings-dialog.slint:2309
 msgid "C"
 msgstr "C"
 
-#: ui/dialogs/settings-dialog.slint:2295 ui/views/mail-list-pane.slint:383
+#: ui/dialogs/settings-dialog.slint:2310 ui/views/mail-list-pane.slint:383
 msgid "Search mail"
 msgstr "Rechercher dans le courrier"
 
-#: ui/dialogs/settings-dialog.slint:2295
+#: ui/dialogs/settings-dialog.slint:2310
 msgid "/"
 msgstr "/"
 
-#: ui/dialogs/settings-dialog.slint:2296 ui/views/mail-list-pane.slint:475
+#: ui/dialogs/settings-dialog.slint:2311 ui/views/mail-list-pane.slint:475
 msgid "Archive selected message"
 msgstr "Archiver le message sélectionné"
 
-#: ui/dialogs/settings-dialog.slint:2296
+#: ui/dialogs/settings-dialog.slint:2311
 msgid "E"
 msgstr "E"
 
-#: ui/dialogs/settings-dialog.slint:2297
+#: ui/dialogs/settings-dialog.slint:2312
 msgid "!"
 msgstr "!"
 
-#: ui/dialogs/settings-dialog.slint:2298
+#: ui/dialogs/settings-dialog.slint:2313
 msgid "New task from email"
 msgstr "Nouvelle tâche depuis un courriel"
 
-#: ui/dialogs/settings-dialog.slint:2299
+#: ui/dialogs/settings-dialog.slint:2314
 msgid "#"
 msgstr "#"
 
-#: ui/dialogs/settings-dialog.slint:2319
+#: ui/dialogs/settings-dialog.slint:2334
 msgid "Rustmail, its makers, and its community."
 msgstr "Rustmail, ses créateurs et sa communauté."
 
-#: ui/dialogs/settings-dialog.slint:2335 ui/views/onboarding-view.slint:124
+#: ui/dialogs/settings-dialog.slint:2350 ui/views/onboarding-view.slint:124
 msgid "Rustmail logo"
 msgstr "Logo de Rustmail"
 
-#: ui/dialogs/settings-dialog.slint:2355
+#: ui/dialogs/settings-dialog.slint:2370
 msgid "A native mail client for a calm, private inbox."
 msgstr ""
 "Un client de messagerie natif pour une boîte de réception calme et privée."
 
-#: ui/dialogs/settings-dialog.slint:2367
+#: ui/dialogs/settings-dialog.slint:2382
 msgid "Version {}"
 msgstr "Version {}"
 
-#: ui/dialogs/settings-dialog.slint:2378
+#: ui/dialogs/settings-dialog.slint:2393
 msgid "Credits"
 msgstr "Crédits"
 
-#: ui/dialogs/settings-dialog.slint:2378
+#: ui/dialogs/settings-dialog.slint:2393
 msgid ""
 "A modified version of Flectar Mail, copyright © Flectar and contributors. "
 "Changes by Rustmail contributors."
@@ -6121,42 +6153,42 @@ msgstr ""
 "Version modifiée de Flectar Mail, copyright © Flectar et contributeurs. "
 "Modifications par les contributeurs de Rustmail."
 
-#: ui/dialogs/settings-dialog.slint:2389
+#: ui/dialogs/settings-dialog.slint:2404
 msgid "Source code of this version"
 msgstr "Code source de cette version"
 
-#: ui/dialogs/settings-dialog.slint:2399
+#: ui/dialogs/settings-dialog.slint:2414
 msgid "Flectar Mail"
 msgstr "Flectar Mail"
 
-#: ui/dialogs/settings-dialog.slint:2400
+#: ui/dialogs/settings-dialog.slint:2415
 msgid "Original project, © Flectar and contributors"
 msgstr "Projet d’origine, © Flectar et contributeurs"
 
-#: ui/dialogs/settings-dialog.slint:2409
+#: ui/dialogs/settings-dialog.slint:2424
 msgid "Open-source contributors"
 msgstr "Contributeurs open source"
 
-#: ui/dialogs/settings-dialog.slint:2410
+#: ui/dialogs/settings-dialog.slint:2425
 msgid "Meet the people who have contributed on GitHub"
 msgstr "Découvrez les personnes qui ont contribué sur GitHub"
 
-#: ui/dialogs/settings-dialog.slint:2423
+#: ui/dialogs/settings-dialog.slint:2438
 msgid "License"
 msgstr "Licence"
 
-#: ui/dialogs/settings-dialog.slint:2423
+#: ui/dialogs/settings-dialog.slint:2438
 msgid "AGPL-3.0-only."
 msgstr "AGPL-3.0 uniquement."
 
-#: ui/dialogs/settings-dialog.slint:2423
+#: ui/dialogs/settings-dialog.slint:2438
 msgid ""
 "Rustmail is released under the GNU Affero General Public License v3.0 only."
 msgstr ""
 "Rustmail est publié sous la licence GNU Affero General Public License v3.0 "
 "uniquement."
 
-#: ui/dialogs/settings-dialog.slint:2429
+#: ui/dialogs/settings-dialog.slint:2444
 msgid ""
 "This program comes with ABSOLUTELY NO WARRANTY. Third-party components "
 "retain their own licenses and notices."
@@ -6164,23 +6196,23 @@ msgstr ""
 "Ce programme est fourni SANS AUCUNE GARANTIE. Les composants tiers "
 "conservent leurs propres licences et mentions."
 
-#: ui/dialogs/settings-dialog.slint:2458
+#: ui/dialogs/settings-dialog.slint:2473
 msgid "Settings sections"
 msgstr "Sections des réglages"
 
-#: ui/dialogs/settings-dialog.slint:2469
+#: ui/dialogs/settings-dialog.slint:2484
 msgid "Close settings"
 msgstr "Fermer les réglages"
 
-#: ui/dialogs/settings-dialog.slint:2491
+#: ui/dialogs/settings-dialog.slint:2506
 msgid "Close settings sections"
 msgstr "Fermer les sections des réglages"
 
-#: ui/dialogs/settings-dialog.slint:2590
+#: ui/dialogs/settings-dialog.slint:2605
 msgid "Discover new calendars."
 msgstr "Découvrir de nouveaux calendriers."
 
-#: ui/dialogs/settings-dialog.slint:2590
+#: ui/dialogs/settings-dialog.slint:2605
 msgid ""
 "Works with iCloud, Fastmail, Nextcloud, and standards-compliant CalDAV "
 "servers."
@@ -6188,135 +6220,135 @@ msgstr ""
 "Fonctionne avec iCloud, Fastmail, Nextcloud et les serveurs CalDAV conformes "
 "aux normes."
 
-#: ui/dialogs/settings-dialog.slint:2615
+#: ui/dialogs/settings-dialog.slint:2630
 msgid "Server address"
 msgstr "Adresse du serveur"
 
-#: ui/dialogs/settings-dialog.slint:2617
+#: ui/dialogs/settings-dialog.slint:2632
 msgid "https://calendar.example.com/"
 msgstr "https://calendar.example.com/"
 
-#: ui/dialogs/settings-dialog.slint:2633
+#: ui/dialogs/settings-dialog.slint:2648
 msgid "New app password · Optional"
 msgstr "Nouveau mot de passe d’application · Facultatif"
 
-#: ui/dialogs/settings-dialog.slint:2635
+#: ui/dialogs/settings-dialog.slint:2650
 msgid "Leave blank to keep the current password"
 msgstr "Laissez vide pour conserver le mot de passe actuel"
 
-#: ui/dialogs/settings-dialog.slint:2635
+#: ui/dialogs/settings-dialog.slint:2650
 msgid "Stored securely in your system keyring"
 msgstr "Stocké en toute sécurité dans le trousseau du système"
 
-#: ui/dialogs/settings-dialog.slint:2653 ui/dialogs/settings-dialog.slint:2780
+#: ui/dialogs/settings-dialog.slint:2668 ui/dialogs/settings-dialog.slint:2795
 msgid "Connecting…"
 msgstr "Connexion…"
 
-#: ui/dialogs/settings-dialog.slint:2671
+#: ui/dialogs/settings-dialog.slint:2686
 msgid "Edit mail account"
 msgstr "Modifier le compte de messagerie"
 
-#: ui/dialogs/settings-dialog.slint:2671 ui/dialogs/settings-dialog.slint:2719
+#: ui/dialogs/settings-dialog.slint:2686 ui/dialogs/settings-dialog.slint:2734
 msgid "Connect a mail account"
 msgstr "Connecter un compte de messagerie"
 
-#: ui/dialogs/settings-dialog.slint:2719
+#: ui/dialogs/settings-dialog.slint:2734
 msgid "Edit {}"
 msgstr "Modifier {}"
 
-#: ui/dialogs/settings-dialog.slint:2720
+#: ui/dialogs/settings-dialog.slint:2735
 msgid "Uses JMAP for mail sync and sending, with automatic discovery."
 msgstr ""
 "Utilise JMAP pour la synchronisation et l’envoi, avec détection automatique."
 
-#: ui/dialogs/settings-dialog.slint:2720
+#: ui/dialogs/settings-dialog.slint:2735
 msgid ""
 "Reads mail stored on this computer. An SMTP server is only needed to send."
 msgstr ""
 "Lit le courrier stocké sur cet ordinateur. Un serveur SMTP n’est nécessaire "
 "que pour envoyer."
 
-#: ui/dialogs/settings-dialog.slint:2720
+#: ui/dialogs/settings-dialog.slint:2735
 msgid "Uses separate IMAP and SMTP servers for mail sync and sending."
 msgstr ""
 "Utilise des serveurs IMAP et SMTP distincts pour la synchronisation et "
 "l’envoi."
 
-#: ui/dialogs/settings-dialog.slint:2780
+#: ui/dialogs/settings-dialog.slint:2795
 msgid "Save account"
 msgstr "Enregistrer le compte"
 
-#: ui/dialogs/settings-dialog.slint:2780 ui/views/onboarding-view.slint:314
+#: ui/dialogs/settings-dialog.slint:2795 ui/views/onboarding-view.slint:314
 msgid "Connect account"
 msgstr "Connecter le compte"
 
-#: ui/dialogs/settings-dialog.slint:2801 ui/dialogs/settings-dialog.slint:2854
+#: ui/dialogs/settings-dialog.slint:2816 ui/dialogs/settings-dialog.slint:2869
 msgid "Create profile"
 msgstr "Créer un profil"
 
-#: ui/dialogs/settings-dialog.slint:2855
+#: ui/dialogs/settings-dialog.slint:2870
 msgid "A local group for account colors and mail-list identification."
 msgstr ""
 "Un groupe local pour les couleurs de compte et l’identification dans la "
 "liste."
 
-#: ui/dialogs/settings-dialog.slint:2861
+#: ui/dialogs/settings-dialog.slint:2876
 msgid "Profile name"
 msgstr "Nom du profil"
 
-#: ui/dialogs/settings-dialog.slint:2863
+#: ui/dialogs/settings-dialog.slint:2878
 msgid "Personal or Work"
 msgstr "Personnel ou Travail"
 
-#: ui/dialogs/settings-dialog.slint:2867 ui/views/mail-reading-pane.slint:2173
+#: ui/dialogs/settings-dialog.slint:2882 ui/views/mail-reading-pane.slint:2189
 msgid "Color"
 msgstr "Couleur"
 
-#: ui/dialogs/settings-dialog.slint:2876
+#: ui/dialogs/settings-dialog.slint:2891
 msgid "Profile color {}"
 msgstr "Couleur du profil {}"
 
-#: ui/dialogs/settings-dialog.slint:2885 ui/dialogs/settings-dialog.slint:2992
+#: ui/dialogs/settings-dialog.slint:2900 ui/dialogs/settings-dialog.slint:3007
 msgid "Custom color…"
 msgstr "Couleur personnalisée…"
 
-#: ui/dialogs/settings-dialog.slint:2905
+#: ui/dialogs/settings-dialog.slint:2920
 msgid "Save profile"
 msgstr "Enregistrer le profil"
 
-#: ui/dialogs/settings-dialog.slint:2913
+#: ui/dialogs/settings-dialog.slint:2928
 msgid "Could not save this profile. Check the name and try again."
 msgstr "Impossible d’enregistrer ce profil. Vérifiez le nom et réessayez."
 
-#: ui/dialogs/settings-dialog.slint:2931
+#: ui/dialogs/settings-dialog.slint:2946
 msgid "Choose a profile for {}"
 msgstr "Choisir un profil pour {}"
 
-#: ui/dialogs/settings-dialog.slint:2951
+#: ui/dialogs/settings-dialog.slint:2966
 msgid "Choose profile"
 msgstr "Choisir un profil"
 
-#: ui/dialogs/settings-dialog.slint:2968
+#: ui/dialogs/settings-dialog.slint:2983
 msgid "No profile · Account color"
 msgstr "Aucun profil · Couleur du compte"
 
-#: ui/dialogs/settings-dialog.slint:2971
+#: ui/dialogs/settings-dialog.slint:2986
 msgid "Generated color"
 msgstr "Couleur générée"
 
-#: ui/dialogs/settings-dialog.slint:2986
+#: ui/dialogs/settings-dialog.slint:3001
 msgid "Account color {}"
 msgstr "Couleur du compte {}"
 
-#: ui/dialogs/settings-dialog.slint:3006
+#: ui/dialogs/settings-dialog.slint:3021
 msgid "Use custom color"
 msgstr "Utiliser une couleur personnalisée"
 
-#: ui/dialogs/settings-dialog.slint:3020
+#: ui/dialogs/settings-dialog.slint:3035
 msgid "Delete all local data?"
 msgstr "Supprimer toutes les données locales ?"
 
-#: ui/dialogs/settings-dialog.slint:3021
+#: ui/dialogs/settings-dialog.slint:3036
 msgid ""
 "This removes every account, downloaded message, calendar, contact, "
 "preference, and credential stored by Rustmail on this device."
@@ -6324,42 +6356,42 @@ msgstr ""
 "Cela retire de cet appareil tous les comptes, messages téléchargés, "
 "calendriers, contacts, préférences et identifiants stockés par Rustmail."
 
-#: ui/dialogs/settings-dialog.slint:3022
+#: ui/dialogs/settings-dialog.slint:3037
 msgid ""
 "Mail and events on Gmail, Outlook, and IMAP servers will not be deleted."
 msgstr ""
 "Le courrier et les événements sur Gmail, Outlook et les serveurs IMAP ne "
 "seront pas supprimés."
 
-#: ui/dialogs/settings-dialog.slint:3024
+#: ui/dialogs/settings-dialog.slint:3039
 msgid "Keep my data"
 msgstr "Garder mes données"
 
-#: ui/dialogs/settings-dialog.slint:3038
+#: ui/dialogs/settings-dialog.slint:3053
 msgid "Remove account?"
 msgstr "Retirer le compte ?"
 
-#: ui/dialogs/settings-dialog.slint:3040
+#: ui/dialogs/settings-dialog.slint:3055
 msgid "Remove this account and its downloaded mail from this device."
 msgstr "Retire ce compte et son courrier téléchargé de cet appareil."
 
-#: ui/dialogs/settings-dialog.slint:3041
+#: ui/dialogs/settings-dialog.slint:3056
 msgid "Messages on the mail server will not be deleted."
 msgstr "Les messages sur le serveur de courrier ne seront pas supprimés."
 
-#: ui/dialogs/settings-dialog.slint:3042
+#: ui/dialogs/settings-dialog.slint:3057
 msgid "Remove account"
 msgstr "Retirer le compte"
 
-#: ui/dialogs/settings-dialog.slint:3043
+#: ui/dialogs/settings-dialog.slint:3058
 msgid "Keep account"
 msgstr "Garder le compte"
 
-#: ui/dialogs/settings-dialog.slint:3057
+#: ui/dialogs/settings-dialog.slint:3072
 msgid "Delete profile?"
 msgstr "Supprimer le profil ?"
 
-#: ui/dialogs/settings-dialog.slint:3059
+#: ui/dialogs/settings-dialog.slint:3074
 msgid ""
 "Accounts assigned to this profile will return to their individual or "
 "generated account colors."
@@ -6367,11 +6399,11 @@ msgstr ""
 "Les comptes associés à ce profil retrouveront leurs couleurs individuelles "
 "ou générées."
 
-#: ui/dialogs/settings-dialog.slint:3060
+#: ui/dialogs/settings-dialog.slint:3075
 msgid "Accounts and provider data are not changed."
 msgstr "Les comptes et les données des fournisseurs ne sont pas modifiés."
 
-#: ui/dialogs/settings-dialog.slint:3062
+#: ui/dialogs/settings-dialog.slint:3077
 msgid "Keep profile"
 msgstr "Garder le profil"
 
@@ -7343,7 +7375,7 @@ msgstr "Copier toutes les adresses Cc"
 msgid "Copy all Bcc addresses"
 msgstr "Copier toutes les adresses Cci"
 
-#: ui/views/mail-reading-pane.slint:535 ui/views/mail-reading-pane.slint:2063
+#: ui/views/mail-reading-pane.slint:535 ui/views/mail-reading-pane.slint:2079
 msgid "Continue editing"
 msgstr "Continuer la modification"
 
@@ -7411,7 +7443,7 @@ msgstr "Libellés disponibles"
 msgid "Smart category"
 msgstr "Catégorie intelligente"
 
-#: ui/views/mail-reading-pane.slint:1132 ui/views/mail-reading-pane.slint:2158
+#: ui/views/mail-reading-pane.slint:1132 ui/views/mail-reading-pane.slint:2174
 #: ui/views/tasks-view.slint:2588
 msgid "Edit label"
 msgstr "Modifier le libellé"
@@ -7452,7 +7484,7 @@ msgstr "Fermer la recherche"
 msgid "Some images could not be loaded."
 msgstr "Certaines images n’ont pas pu être chargées."
 
-#: ui/views/mail-reading-pane.slint:1463 ui/views/mail-reading-pane.slint:1767
+#: ui/views/mail-reading-pane.slint:1463 ui/views/mail-reading-pane.slint:1783
 msgid "Retry images"
 msgstr "Réessayer les images"
 
@@ -7460,103 +7492,124 @@ msgstr "Réessayer les images"
 msgid "Reload message"
 msgstr "Recharger le message"
 
-#: ui/views/mail-reading-pane.slint:1527
+#: ui/views/mail-reading-pane.slint:1473
+msgid "Older than your offline age window: only the headers were kept."
+msgstr ""
+"Plus ancien que votre fenêtre hors ligne : seuls les en-têtes ont été "
+"conservés."
+
+#: ui/views/mail-reading-pane.slint:1474
+msgid "Larger than your offline size limit: only the headers were kept."
+msgstr ""
+"Plus volumineux que votre limite hors ligne : seuls les en-têtes ont été "
+"conservés."
+
+#: ui/views/mail-reading-pane.slint:1475
+msgid "Microsoft 365 could not give the original, so this copy was rebuilt."
+msgstr ""
+"Microsoft 365 n’a pas pu fournir l’original ; cette copie a été reconstruite."
+
+#: ui/views/mail-reading-pane.slint:1482
+msgid "Downloading…"
+msgstr "Téléchargement…"
+
+#: ui/views/mail-reading-pane.slint:1482
+msgid "Download message"
+msgstr "Télécharger le message"
+
+#: ui/views/mail-reading-pane.slint:1543
 msgid "Remote images were blocked to protect your privacy."
 msgstr "Les images distantes ont été bloquées pour protéger votre vie privée."
 
-#: ui/views/mail-reading-pane.slint:1536
+#: ui/views/mail-reading-pane.slint:1552
 msgid "Load images"
 msgstr "Charger les images"
 
-#: ui/views/mail-reading-pane.slint:1574
+#: ui/views/mail-reading-pane.slint:1590
 msgid "Loading image…"
 msgstr "Chargement de l’image…"
 
-#: ui/views/mail-reading-pane.slint:1574
+#: ui/views/mail-reading-pane.slint:1590
 msgid "Blocked image"
 msgstr "Image bloquée"
 
-#: ui/views/mail-reading-pane.slint:1574
+#: ui/views/mail-reading-pane.slint:1590
 msgid "Image exceeds limits"
 msgstr "Image hors limites"
 
-#: ui/views/mail-reading-pane.slint:1574
+#: ui/views/mail-reading-pane.slint:1590
 msgid "Image unavailable"
 msgstr "Image indisponible"
 
-#: ui/views/mail-reading-pane.slint:1716
+#: ui/views/mail-reading-pane.slint:1732
 msgid "Show rendered email"
 msgstr "Afficher l’e-mail rendu"
 
-#: ui/views/mail-reading-pane.slint:1739
+#: ui/views/mail-reading-pane.slint:1755
 msgid "Copy this HTML into your GitHub rendering issue."
 msgstr "Copiez ce HTML dans votre ticket GitHub sur le rendu."
 
-#: ui/views/mail-reading-pane.slint:1756
+#: ui/views/mail-reading-pane.slint:1772
 msgid "Show email"
 msgstr "Afficher l’e-mail"
 
-#: ui/views/mail-reading-pane.slint:1766
+#: ui/views/mail-reading-pane.slint:1782
 msgid "View original plain text"
 msgstr "Voir le texte brut d’origine"
 
-#: ui/views/mail-reading-pane.slint:1768
+#: ui/views/mail-reading-pane.slint:1784
 msgid "Copy formatted selection"
 msgstr "Copier la sélection mise en forme"
 
-#: ui/views/mail-reading-pane.slint:1769
+#: ui/views/mail-reading-pane.slint:1785
 msgid "Caret browsing"
 msgstr "Navigation au curseur"
 
-#: ui/views/mail-reading-pane.slint:1772
+#: ui/views/mail-reading-pane.slint:1788
 msgid "Copy selected text"
 msgstr "Copier le texte sélectionné"
 
-#: ui/views/mail-reading-pane.slint:1782
+#: ui/views/mail-reading-pane.slint:1798
 msgid "Copy all email text"
 msgstr "Copier tout le texte de l’e-mail"
 
-#: ui/views/mail-reading-pane.slint:1792
+#: ui/views/mail-reading-pane.slint:1808
 msgid "Select all email text"
 msgstr "Sélectionner tout le texte de l’e-mail"
 
-#: ui/views/mail-reading-pane.slint:1810
+#: ui/views/mail-reading-pane.slint:1826
 msgid "Link: {}"
 msgstr "Lien : {}"
 
-#: ui/views/mail-reading-pane.slint:2002
+#: ui/views/mail-reading-pane.slint:2018
 msgid "Heading: {}"
 msgstr "Titre : {}"
 
-#: ui/views/mail-reading-pane.slint:2122
+#: ui/views/mail-reading-pane.slint:2138
 msgid "No message selected"
 msgstr "Aucun message sélectionné"
 
-#: ui/views/mail-reading-pane.slint:2123
+#: ui/views/mail-reading-pane.slint:2139
 msgid "Choose an email to read it here."
 msgstr "Choisissez un e-mail pour le lire ici."
 
-#: ui/views/mail-reading-pane.slint:2183
-msgid "Blue"
-msgstr "Bleu"
-
-#: ui/views/mail-reading-pane.slint:2185
+#: ui/views/mail-reading-pane.slint:2201
 msgid "Pink"
 msgstr "Rose"
 
-#: ui/views/mail-reading-pane.slint:2186
+#: ui/views/mail-reading-pane.slint:2202
 msgid "Red"
 msgstr "Rouge"
 
-#: ui/views/mail-reading-pane.slint:2187
+#: ui/views/mail-reading-pane.slint:2203
 msgid "Amber"
 msgstr "Ambre"
 
-#: ui/views/mail-reading-pane.slint:2190
+#: ui/views/mail-reading-pane.slint:2206
 msgid "Slate"
 msgstr "Ardoise"
 
-#: ui/views/mail-reading-pane.slint:2195
+#: ui/views/mail-reading-pane.slint:2211
 msgid "Use across all accounts (local only)"
 msgstr "Utiliser pour tous les comptes (local uniquement)"
 
@@ -8347,14 +8400,14 @@ msgstr "Trier par {}"
 msgid "Task board"
 msgstr "Tableau des tâches"
 
-#: ui/window-chrome.slint:203 ui/window-chrome.slint:240
+#: ui/window-chrome.slint:206 ui/window-chrome.slint:243
 msgid "Minimize"
 msgstr "Réduire"
 
-#: ui/window-chrome.slint:205 ui/window-chrome.slint:242
+#: ui/window-chrome.slint:208 ui/window-chrome.slint:245
 msgid "Restore"
 msgstr "Restaurer"
 
-#: ui/window-chrome.slint:205 ui/window-chrome.slint:242
+#: ui/window-chrome.slint:208 ui/window-chrome.slint:245
 msgid "Maximize"
 msgstr "Agrandir"

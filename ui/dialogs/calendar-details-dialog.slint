@@ -62,6 +62,10 @@ export component CalendarDetailsDialog inherits Rectangle {
     in property <string> description;
     in property <string> join-url;
     in property <bool> editable: false;
+    // A calendar's colour can be chosen from the four the calendar uses.
+    in property <bool> color-editable: false;
+    in property <int> color-index: 0;
+    callback color-chosen(int);
     in property <color> accent;
     in property <color> accent-soft;
     in property <color> border;
@@ -186,6 +190,27 @@ export component CalendarDetailsDialog inherits Rectangle {
                 DetailField { label: @tr("RECURRENCE"); value: root.recurrence; label-color: root.muted-text; value-color: root.title-color; }
                 DetailField { label: @tr("ATTENDEES"); value: root.attendees; multiline: true; label-color: root.muted-text; value-color: root.title-color; }
                 DetailField { label: @tr("DESCRIPTION"); value: root.description; multiline: true; label-color: root.muted-text; value-color: root.title-color; }
+                if root.kind == "calendar" && root.color-editable : Rectangle {
+                    height: 56px;
+                    Text {
+                        x: 0px; y: 0px; width: parent.width; height: 20px;
+                        text: @tr("COLOR");
+                        color: root.muted-text; font-size: TypeScale.caption; font-weight: 700; letter-spacing: 0.4px;
+                    }
+                    for swatch[index] in [#3478f6, #8b5cf6, #e87924, #26a269] : Rectangle {
+                        x: index * 40px; y: 22px; width: 32px; height: 32px;
+                        border-radius: 16px;
+                        background: swatch;
+                        border-width: root.color-index == index ? 3px : 1px;
+                        border-color: root.color-index == index ? root.title-color : root.border;
+                        accessible-role: button;
+                        accessible-label: index == 0 ? @tr("Blue") : index == 1 ? @tr("Violet") : index == 2 ? @tr("Orange") : @tr("Green");
+                        accessible-checkable: true;
+                        accessible-checked: root.color-index == index;
+                        accessible-action-default => { root.color-chosen(index); }
+                        TouchArea { clicked => { root.color-chosen(index); } }
+                    }
+                }
             }
         }
 

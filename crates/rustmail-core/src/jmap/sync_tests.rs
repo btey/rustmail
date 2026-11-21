@@ -38,6 +38,7 @@ async fn fixture() -> (tempfile::TempDir, SyncCtx, AccountConfig) {
         db,
         calendar_db: Db::deferred_calendar(dir.path().join("calendar.db")),
         bus: EventBus::new(),
+        mail_watching: Default::default(),
         paths: Arc::new(Paths::for_tests(dir.path())),
         tokens,
         credentials,

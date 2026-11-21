@@ -129,7 +129,13 @@ pub(crate) async fn sync_account(
             Err(error @ (CoreError::NeedsReauth | CoreError::Auth(_))) => return Err(error),
             Err(error) => {
                 tracing::warn!("exchange calendar {} sync failed: {error}", cal.id);
-                failure.get_or_insert_with(|| error.to_string());
+                // Name what was being read, so the account list says where it failed.
+                failure.get_or_insert_with(|| {
+                    format!(
+                        "reading calendar \"{}\": {error}",
+                        cal.display_name.as_deref().unwrap_or("Calendar")
+                    )
+                });
             }
         }
     }

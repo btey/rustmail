@@ -499,6 +499,7 @@ export component SettingsDialog inherits Rectangle {
     callback save_account_mail_history(int, string);
     callback save_account_sent_copy_policy(int, string);
     callback connect_account_calendar(int);
+    callback sync_account_calendar(int);
     callback set_account_calendar_enabled(int, bool);
     callback connect_caldav(int, string, string, string);
     callback connect_carddav(int, string, string, string);
@@ -1794,7 +1795,10 @@ export component SettingsDialog inherits Rectangle {
                                 submit-redirect(address) => { root.submit_oauth_redirect(address); }
                             }
                             for account in root.connected_accounts : drop-target := DropArea {
-                                private property <length> divider-y: account.sync_error != "" ? sync-error.y + sync-error.height + 4px : account-header.height;
+                                private property <bool> has-note: account.sync_error != "" || (account.calendar_connected && account.calendar_status != "");
+                                private property <string> mail-note: account.sync_error == "" ? "" : @tr("Mail synchronization error: {}", account.sync_error);
+                                private property <string> calendar-note: (account.calendar_connected && account.calendar_status != "") ? @tr("Calendar synchronization error: {}", account.calendar_status == "needs_reauth" ? @tr("Sign-in required") : account.calendar_status) : "";
+                                private property <length> divider-y: self.has-note ? sync-error.y + sync-error.height + 4px : account-header.height;
                                 private property <bool> has-sent-copy: account.provider != "gmail" && account.mail_protocol == "imap";
                                 // Preference rows keep their designed gaps below the last select row.
                                 private property <length> profile-y: self.has-sent-copy
@@ -1819,7 +1823,7 @@ export component SettingsDialog inherits Rectangle {
                                         x: 0px;
                                         y: 0px;
                                         width: parent.width;
-                                        height: (account.sync_error != "" ? 27px : root.compact ? 41px : 37px) + account-name.height + account-email.height + account-state.height;
+                                        height: (drop-target.has-note ? 27px : root.compact ? 41px : 37px) + account-name.height + account-email.height + account-state.height;
                                         padding-left: 14px;
                                         padding-right: 16px;
                                         spacing: 12px;
@@ -1873,14 +1877,20 @@ export component SettingsDialog inherits Rectangle {
                                             width: 108px;
                                         }
                                         if !root.compact && account.calendar_connected : HorizontalBox {
-                                            width: 122px;
+                                            width: account.mail_protocol == "exchange" ? 170px : 122px;
                                             spacing: 8px;
                                             if account.provider == "imap" && account.mail_protocol != "exchange" : Button {
                                                 text: @tr("CalDAV");
                                                 height: 30px;
                                                 clicked => { root.open-caldav-settings(account); }
                                             }
-                                            if account.provider != "imap" || account.mail_protocol == "exchange" : Text { text: @tr("Calendar"); color: root.body-text; font-size: TypeScale.caption; vertical-alignment: center; }
+                                            if account.provider != "imap" && account.mail_protocol != "exchange" : Text { text: @tr("Calendar"); color: root.body-text; font-size: TypeScale.caption; vertical-alignment: center; }
+                                            if account.mail_protocol == "exchange" : Button {
+                                                text: @tr("Sync calendar");
+                                                height: 30px;
+                                                enabled: account.calendar_enabled && !root.account_setup_in_progress && !root.oauth_in_progress;
+                                                clicked => { root.sync_account_calendar(account.id); }
+                                            }
                                             Rectangle { horizontal-stretch: 1; }
                                             Switch { checked: account.calendar_enabled; toggled => { root.set_account_calendar_enabled(account.id, self.checked); } }
                                         }
@@ -1918,11 +1928,11 @@ export component SettingsDialog inherits Rectangle {
                                         }
                                     }
                                     sync-error := CopyableDiagnostic {
-                                        visible: account.sync_error != "";
+                                        visible: drop-target.has-note;
                                         x: root.compact ? 24px : 32px;
                                         y: account-header.height + 2px;
                                         width: parent.width - (root.compact ? 48px : 64px);
-                                        text: account.sync_error == "" ? "" : @tr("Mail synchronization error: {}", account.sync_error);
+                                        text: drop-target.mail-note + (drop-target.mail-note != "" && drop-target.calendar-note != "" ? "\n" : "") + drop-target.calendar-note;
                                         text-color: AppTheme.destructive;
                                         font-size: TypeScale.caption;
                                     }
@@ -2021,7 +2031,12 @@ export component SettingsDialog inherits Rectangle {
                                             enabled: !root.account_setup_in_progress && !root.oauth_settings_saving;
                                             clicked => { root.connect_account_calendar(account.id); }
                                         }
-                                        if account.calendar_connected : Text { text: @tr("Calendar"); color: root.body-text; font-size: TypeScale.caption; vertical-alignment: center; }
+                                        if account.calendar_connected && account.mail_protocol != "exchange" : Text { text: @tr("Calendar"); color: root.body-text; font-size: TypeScale.caption; vertical-alignment: center; }
+                                        if account.calendar_connected && account.mail_protocol == "exchange" : Button {
+                                            text: @tr("Sync calendar");
+                                            enabled: account.calendar_enabled && !root.account_setup_in_progress && !root.oauth_in_progress;
+                                            clicked => { root.sync_account_calendar(account.id); }
+                                        }
                                         Rectangle { horizontal-stretch: 1; }
                                         if account.calendar_connected : Switch { checked: account.calendar_enabled; toggled => { root.set_account_calendar_enabled(account.id, self.checked); } }
                                     }

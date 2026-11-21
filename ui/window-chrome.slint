@@ -13,6 +13,9 @@ export global WindowChrome {
     in property <string> preference: "system";
     in property <bool> integrated: false;
     in property <bool> active: true;
+    // The window gained or lost focus (Rust uses it to refresh mail and the
+    // calendar when the user comes back).
+    callback focus-changed(bool);
     // Reverse the vertical scroll direction in the whole window (a setting).
     in-out property <bool> reverse-scroll: false;
     callback save-reverse-scroll(bool);

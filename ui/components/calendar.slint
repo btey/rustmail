@@ -403,6 +403,8 @@ export component FunctionalCalendarView inherits Rectangle {
     callback new-event;
     callback open-link(string);
     callback set-source-enabled(int, bool);
+    // A calendar's colour was chosen: calendar id and palette index (0 to 3).
+    callback set-source-color(int, int);
     callback toggle-agenda-filter(int, bool);
     callback clear-agenda-filters;
     callback edit-event(int);
@@ -419,6 +421,9 @@ export component FunctionalCalendarView inherits Rectangle {
 
     private property <bool> detail-open: false;
     private property <string> detail-kind: "event";
+    private property <int> detail-calendar-id: 0;
+    private property <int> detail-color-index: 0;
+    private property <bool> detail-color-editable: false;
     private property <string> detail-title: "";
     private property <string> detail-subtitle: "";
     private property <string> detail-provider: "local";
@@ -465,6 +470,9 @@ export component FunctionalCalendarView inherits Rectangle {
         root.detail-join-url = "";
         root.detail-event-id = 0;
         root.detail-event-editable = false;
+        root.detail-calendar-id = source.id;
+        root.detail-color-index = source.color-index;
+        root.detail-color-editable = true;
         root.detail-open = true;
     }
 
@@ -481,6 +489,7 @@ export component FunctionalCalendarView inherits Rectangle {
 
     function show-event(event: CalendarEventRow) {
         root.detail-kind = "event";
+        root.detail-color-editable = false;
         root.detail-title = event.title;
         root.detail-subtitle = event.source == "local" ? @tr("Created in Rustmail") : @tr("Synced provider event");
         root.detail-provider = event.provider;
@@ -661,8 +670,8 @@ export component FunctionalCalendarView inherits Rectangle {
                     title: event.title;
                     detail: event.detail;
                     compact: true;
-                    fill-color: event.color-index == 0 ? (root.dark-mode ? #1b2e46 : #e9f3ff) : event.color-index == 1 ? (root.dark-mode ? #31234b : #f2eaff) : (root.dark-mode ? #352518 : #fff1df);
-                    event-border-color: event.color-index == 0 ? #3478f6 : event.color-index == 1 ? #8b5cf6 : #e87924;
+                    fill-color: event.color-index == 0 ? (root.dark-mode ? #1b2e46 : #e9f3ff) : event.color-index == 1 ? (root.dark-mode ? #31234b : #f2eaff) : event.color-index == 2 ? (root.dark-mode ? #352518 : #fff1df) : (root.dark-mode ? #173528 : #e7f8ef);
+                    event-border-color: event.color-index == 0 ? #3478f6 : event.color-index == 1 ? #8b5cf6 : event.color-index == 2 ? #e87924 : #26a269;
                     title-color: root.title-color;
                     detail-color: root.secondary-color;
                     clicked => { root.show-event(event); }
@@ -939,6 +948,12 @@ export component FunctionalCalendarView inherits Rectangle {
         description: root.detail-description;
         join-url: root.detail-join-url;
         editable: root.detail-event-editable;
+        color-editable: root.detail-color-editable;
+        color-index: root.detail-color-index;
+        color-chosen(index) => {
+            root.detail-color-index = index;
+            root.set-source-color(root.detail-calendar-id, index);
+        }
         accent: root.accent-color;
         accent-soft: root.accent-background;
         border: root.ui-border-color;

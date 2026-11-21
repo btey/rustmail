@@ -1467,6 +1467,22 @@ export component MailReadingPane inherits Rectangle {
                                         Text { text: @tr("Loading message…"); color: root.secondary-text; vertical-alignment: center; horizontal-stretch: 1; }
                                         ReaderControl { compact: root.compact; interactive: true; icon: @image-url("../icons/lucide/outline/sync.svg"); tooltip-text: @tr("Reload message"); clicked => { EmailReader.ensure-body(EmailReader.message-id); } }
                                     }
+                                    if EmailReader.stub-kind != "" && !EmailReader.body-pending : HorizontalBox {
+                                        height: root.compact ? 44px : 32px; padding: 0px; spacing: 8px;
+                                        Text {
+                                            text: EmailReader.stub-kind == "age" ? @tr("Older than your offline age window: only the headers were kept.")
+                                                : EmailReader.stub-kind == "size" ? @tr("Larger than your offline size limit: only the headers were kept.")
+                                                : @tr("Microsoft 365 could not give the original, so this copy was rebuilt.");
+                                            overflow: elide; color: root.secondary-text; vertical-alignment: center; horizontal-stretch: 1;
+                                        }
+                                        Button {
+                                            height: 26px;
+                                            width: max(120px, self.content-width + 28px);
+                                            enabled: !EmailReader.stub-busy && EmailReader.stub-message-id > 0;
+                                            text: EmailReader.stub-busy ? @tr("Downloading…") : @tr("Download message");
+                                            clicked => { EmailReader.download-full(EmailReader.stub-message-id); }
+                                        }
+                                    }
                                     if EmailReader.notice != "" : Text {
                                         height: self.preferred-height;
                                         text: EmailReader.notice; wrap: word-wrap; color: root.secondary-text; font-size: TypeScale.secondary;

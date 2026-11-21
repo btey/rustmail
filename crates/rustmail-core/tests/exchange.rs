@@ -70,6 +70,8 @@ struct State {
     calendars_denied: bool,
     /// Answer new events with this status (0: accept them).
     event_post_status: u16,
+    /// Answer the calendar CAL1's event reads with this status (0: answer them).
+    calendar_view_status: u16,
 }
 
 type Shared = Arc<Mutex<State>>;
@@ -622,6 +624,10 @@ fn route(
             format!(
                 r#"{{"value":[],"@odata.deltaLink":"{root}/graph/v1.0/me/calendars/CAL2/calendarView/delta?$deltatoken=S"}}"#
             ),
+        ),
+        ("GET", "/calendars/CAL1/calendarView/delta") if state.calendar_view_status != 0 => json(
+            state.calendar_view_status,
+            r#"{"error":{"code":"ErrorInternalServerError","message":"boom"}}"#.into(),
         ),
         ("GET", "/calendars/CAL1/calendarView/delta") => {
             let items: Vec<String> = if query.contains("deltatoken") {
@@ -4052,4 +4058,229 @@ async fn inviting_people_to_a_microsoft_365_event_sends_no_second_mail() {
     assert!(bodies[0].contains("ann@example.org"), "{bodies:?}");
     // Microsoft 365 sends the invitation; a mail from here would be a second.
     assert!(!log_has(&shared, "sendMail"));
+}
+
+async fn message_id_of(core: &Core, subject: &'static str) -> i64 {
+    core.db
+        .read(move |conn| {
+            Ok(
+                conn.query_row("SELECT id FROM messages WHERE subject=?1", [subject], |r| {
+                    r.get::<_, i64>(0)
+                })?,
+            )
+        })
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn while_the_mail_view_is_watched_new_inbox_mail_arrives_quickly_and_the_rest_waits() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    // A short poll for the test (a minute in the app).
+    rustmail_core::exchange::set_watch_poll_millis_for_tests(150);
+    core.set_mail_watching(true).await;
+    // A full cycle has run (the one watching asked for), so the next ones are short.
+    core.sync_now(Some(account.id)).await.unwrap();
+    let inbox_mail = Msg {
+        id: "M4".into(),
+        folder: "inbox",
+        read: false,
+        flagged: false,
+        categories: "",
+        raw: mail("Four", "d@example.org"),
+    };
+    let sent_mail = Msg {
+        id: "M5".into(),
+        folder: "sent",
+        read: true,
+        flagged: false,
+        categories: "",
+        raw: mail("Five", "me@example.org"),
+    };
+    {
+        let mut state = shared.lock().unwrap();
+        state.messages.push(inbox_mail.clone());
+        state.messages.push(sent_mail.clone());
+        state.pending.push(("inbox", message_json(&inbox_mail)));
+        state.pending.push(("sent", message_json(&sent_mail)));
+    }
+    wait_until("the new Inbox mail without a manual sync", async || {
+        rows(&core).await.iter().any(|row| row.0 == "Four")
+    })
+    .await;
+    // The short poll reads the Inbox only; Sent Items wait for the full cycle.
+    tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+    assert!(
+        !rows(&core).await.iter().any(|row| row.0 == "Five"),
+        "the short poll must not read other folders"
+    );
+    // Leaving the mail view stops the short poll...
+    core.set_mail_watching(false).await;
+    // A poll already waiting may still run once.
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    let seen_before = requests_seen(&shared);
+    tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+    assert_eq!(requests_seen(&shared), seen_before, "no requests unwatched");
+    // ...and a full sync still brings everything.
+    core.sync_now(Some(account.id)).await.unwrap();
+    assert!(rows(&core).await.iter().any(|row| row.0 == "Five"));
+    rustmail_core::exchange::set_watch_poll_millis_for_tests(0);
+}
+
+#[tokio::test]
+async fn a_message_kept_as_headers_is_downloaded_whole_on_request() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    let big = format!(
+        "{}uniquewordzed {}",
+        mail("Big one", "a@example.org"),
+        "x".repeat(3000)
+    );
+    shared.lock().unwrap().messages.push(Msg {
+        id: "MBIG".into(),
+        folder: "inbox",
+        read: false,
+        flagged: false,
+        categories: "",
+        raw: big,
+    });
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add_with(
+        &core,
+        ExchangeSettings {
+            message_limit_kb: 1,
+            ..settings(&base)
+        },
+    )
+    .await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let before = cached_text(&core, "Big one").await.unwrap();
+    assert_eq!(
+        rustmail_core::exchange::stub_kind(Some(&before), None),
+        Some("size")
+    );
+    // A whole message is not offered a download.
+    let whole = cached_text(&core, "One").await.unwrap();
+    assert_eq!(rustmail_core::exchange::stub_kind(Some(&whole), None), None);
+    // A mail that merely quotes the note further down is not taken for one.
+    let quoted = format!("Hello\n> {}", "[This message is larger than 1 KiB, so");
+    assert_eq!(
+        rustmail_core::exchange::stub_kind(Some(&quoted), None),
+        None
+    );
+
+    let id = message_id_of(&core, "Big one").await;
+    core.exchange_download_message(id).await.unwrap();
+    let after = cached_text(&core, "Big one").await.unwrap();
+    assert!(
+        after.contains("uniquewordzed"),
+        "the whole text is cached now"
+    );
+    assert_eq!(rustmail_core::exchange::stub_kind(Some(&after), None), None);
+    // Searching finds the text that was not there before.
+    assert!(
+        !core
+            .search("uniquewordzed".into(), None, 10)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn a_rebuilt_message_says_so_and_a_download_that_cannot_work_says_why() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().messages.insert(
+        0,
+        Msg {
+            id: "M0".into(),
+            folder: "inbox",
+            read: false,
+            flagged: false,
+            categories: "",
+            raw: format!("X-Test-No-Mime: 1\r\n{}", mail("Broken", "x@example.org")),
+        },
+    );
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    // The copy Rustmail made keeps the server's id; its subject is whatever
+    // Graph's JSON gave, so find it by that id.
+    let (id, text) = core
+        .db
+        .read(|conn| {
+            Ok(conn.query_row(
+                "SELECT m.id, COALESCE(b.text_body, '') FROM exchange_messages e
+                   JOIN messages m ON m.id = e.message_id
+                   LEFT JOIN message_bodies b ON b.message_id = m.id
+                  WHERE e.graph_id = 'M0'",
+                [],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        rustmail_core::exchange::stub_kind(Some(&text), None),
+        Some("rebuilt"),
+        "{text}"
+    );
+    let error = core.exchange_download_message(id).await.unwrap_err();
+    assert!(
+        error.to_string().contains("cannot provide this message"),
+        "{error}"
+    );
+}
+
+#[tokio::test]
+async fn a_failed_calendar_read_names_the_calendar_and_a_chosen_colour_survives_refreshes() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = seeded();
+    shared.lock().unwrap().calendar_view_status = 500;
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add(&core, &base).await;
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the calendar status", async || {
+        core.list_calendar_connections()
+            .await
+            .unwrap()
+            .iter()
+            .any(|connection| {
+                connection
+                    .last_error
+                    .as_deref()
+                    .is_some_and(|error| error.contains("reading calendar \"Calendar\""))
+            })
+    })
+    .await;
+    // The server recovers: the status clears and the colour a person chose
+    // stays through the next refreshes and a reconnect.
+    shared.lock().unwrap().calendar_view_status = 0;
+    let calendar = core.list_calendars(Some(account.id)).await.unwrap()[0].clone();
+    core.set_calendar_color(calendar.id, Some("#26a269".into()))
+        .await
+        .unwrap();
+    core.calendar_sync_now(Some(account.id)).await;
+    wait_until("the status to clear", async || {
+        core.list_calendar_connections()
+            .await
+            .unwrap()
+            .iter()
+            .all(|connection| connection.last_error.is_none())
+    })
+    .await;
+    core.connect_exchange_calendar(account.id).await.unwrap();
+    let color = core.list_calendars(Some(account.id)).await.unwrap()[0]
+        .color
+        .clone();
+    assert_eq!(color.as_deref(), Some("#26a269"));
 }

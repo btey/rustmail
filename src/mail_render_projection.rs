@@ -158,6 +158,11 @@ pub(super) fn apply_email(
     let reader = app.global::<EmailReader>();
     reader.set_body_pending(email.body_pending);
     reader.set_authored_text(email.text.clone().unwrap_or_default().into());
+    let stub = rustmail_core::exchange::stub_kind(email.text.as_deref(), email.html.as_deref());
+    reader.set_stub_kind(stub.unwrap_or("").into());
+    // Only a single message of an open conversation can be downloaded (a
+    // conversation row's id is the thread's).
+    reader.set_stub_message_id(i32::try_from(email.message_id.max(0)).unwrap_or(0));
     let same_message = reader.get_message_id() == email.id;
     let mut scroll = if same_message {
         app.get_email_scroll_y()
