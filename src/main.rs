@@ -1146,6 +1146,17 @@ impl InboxState {
     /// connected accounts.
     fn set_scope(&mut self, scope: Scope) {
         self.scope = scope.visible_for(&self.connected_accounts);
+        // The short poll of Microsoft 365 mail reads the folder this view shows.
+        let exchange_accounts: Vec<i64> = self
+            .account_configs
+            .iter()
+            .filter(|config| config.mail_protocol == rustmail_core::models::MailProtocol::Exchange)
+            .map(|config| config.id)
+            .collect();
+        rustmail_core::exchange::set_watched_folders(mail_scope::watched_folders(
+            self.scope,
+            &exchange_accounts,
+        ));
     }
 
     /// Replace the account inventory. Returns whether the selection moved to
@@ -7437,6 +7448,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             let mail_protocol = MailProtocol::from_storage(protocol.as_str());
             let is_local = mail_protocol == MailProtocol::Local;
             let is_news = mail_protocol == MailProtocol::News;
+            let is_pop3 = mail_protocol == MailProtocol::Pop3;
             let imap_port = if mail_protocol == MailProtocol::Jmap || is_local {
                 993
             } else {
@@ -7445,6 +7457,8 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                     _ => {
                         app.set_sync_status(if is_news {
                             UiMessage::plain("News server port must be between 1 and 65535.")
+                        } else if is_pop3 {
+                            UiMessage::plain("POP3 server port must be between 1 and 65535.")
                         } else {
                             UiMessage::plain("IMAP port must be between 1 and 65535.")
                         });
@@ -7454,7 +7468,7 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             };
             let smtp_port = if mail_protocol == MailProtocol::Jmap {
                 465
-            } else if is_news || (is_local && smtp_host.trim().is_empty()) {
+            } else if is_news || ((is_local || is_pop3) && smtp_host.trim().is_empty()) {
                 0
             } else {
                 match smtp_port.trim().parse::<u16>() {
@@ -7479,6 +7493,8 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 UiMessage::plain("Checking the mail folder…")
             } else if is_news {
                 UiMessage::plain("Connecting to the news server…")
+            } else if is_pop3 {
+                UiMessage::plain("Connecting to the POP3 server…")
             } else {
                 UiMessage::plain("Testing IMAP and SMTP connections…")
             });

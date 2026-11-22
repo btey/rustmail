@@ -230,6 +230,12 @@ export struct AdvancedOptions {
     local_format: string,
     // News accounts: subscribed newsgroups, separated by commas, spaces or new lines.
     news_groups: string,
+    // POP3 accounts: keep mail on the server, delete it after N days (empty or 0: never),
+    // skip messages larger than N KiB (empty or 0: no limit), log in to POP3 before sending.
+    pop3_leave_on_server: bool,
+    pop3_delete_after_days: string,
+    pop3_max_size_kb: string,
+    pop3_before_smtp: bool,
 }
 
 export struct AccountRow {

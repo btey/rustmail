@@ -7764,6 +7764,13 @@ impl Core {
         }
     }
 
+    /// Tell the core which folders besides the Inbox the open mail view shows,
+    /// so the short poll of Microsoft 365 mail reads them too. An empty list
+    /// (the Inbox, labels, split inboxes) reads the Inbox only.
+    pub fn set_mail_watched_folders(&self, folders: Vec<exchange::WatchedFolder>) {
+        exchange::set_watched_folders(folders);
+    }
+
     /// Ask every Microsoft 365 account to sync now (no waiting for the result).
     pub async fn sync_exchange_now(&self) {
         let Ok(configs) = self

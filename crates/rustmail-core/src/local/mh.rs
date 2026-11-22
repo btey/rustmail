@@ -172,10 +172,77 @@ fn format_set(set: &BTreeSet<u32>) -> String {
     parts.join(" ")
 }
 
+/// Claws Mail's per-folder mark file: a `u32` version, then `(message number,
+/// flags)` pairs of `u32`, in the byte order of the machine that wrote it.
+const CLAWS_MARK: &str = ".claws_mark";
+const CLAWS_MARK_VERSION: u32 = 2;
+/// Claws message flag bits (`MSG_NEW`, `MSG_UNREAD`, `MSG_MARKED`).
+const CLAWS_NEW: u32 = 1 << 0;
+const CLAWS_UNREAD: u32 = 1 << 1;
+const CLAWS_MARKED: u32 = 1 << 2;
+/// A mark file is 8 bytes per message; anything bigger is not read.
+const MAX_CLAWS_MARK_BYTES: u64 = 16 * 1024 * 1024;
+
+/// The read and starred marks of a folder that Claws Mail kept in its own
+/// `.claws_mark` file, as `unseen` and `flagged` sequences. Only used while the
+/// folder has no `.mh_sequences` yet; the first change made here writes one,
+/// which then takes over. A message the file does not mention counts as unread
+/// (Claws shows such a message as new). Replied, forwarded and deleted marks
+/// are not carried over. `None` when there is no readable mark file of the
+/// version this reads (2).
+fn claws_marks(dir: &Path) -> Option<Sequences> {
+    let path = dir.join(CLAWS_MARK);
+    if !is_regular(&path) || fs::metadata(&path).ok()?.len() > MAX_CLAWS_MARK_BYTES {
+        return None;
+    }
+    let bytes = fs::read(&path).ok()?;
+    let head: [u8; 4] = bytes.get(..4)?.try_into().ok()?;
+    let little = if u32::from_le_bytes(head) == CLAWS_MARK_VERSION {
+        true
+    } else if u32::from_be_bytes(head) == CLAWS_MARK_VERSION {
+        false
+    } else {
+        return None;
+    };
+    let word = |chunk: &[u8]| {
+        let raw: [u8; 4] = chunk.try_into().unwrap_or_default();
+        if little {
+            u32::from_le_bytes(raw)
+        } else {
+            u32::from_be_bytes(raw)
+        }
+    };
+    let mut flags: std::collections::BTreeMap<u32, u32> = std::collections::BTreeMap::new();
+    for pair in bytes[4..].as_chunks::<8>().0 {
+        flags.insert(word(&pair[..4]), word(&pair[4..]));
+    }
+    let mut unseen = BTreeSet::new();
+    for item in fs::read_dir(dir).ok()?.filter_map(|item| item.ok()) {
+        if !item.file_type().is_ok_and(|kind| kind.is_file()) {
+            continue;
+        }
+        let Some(number) = item.file_name().to_str().and_then(message_number) else {
+            continue;
+        };
+        if flags
+            .get(&number)
+            .is_none_or(|flags| flags & (CLAWS_NEW | CLAWS_UNREAD) != 0)
+        {
+            unseen.insert(number);
+        }
+    }
+    let flagged = flags
+        .iter()
+        .filter(|(_, flags)| **flags & CLAWS_MARKED != 0)
+        .map(|(number, _)| *number)
+        .collect();
+    Some(vec![("unseen".into(), unseen), ("flagged".into(), flagged)])
+}
+
 fn read_sequences(dir: &Path) -> Sequences {
     let path = dir.join(SEQUENCES);
     if !is_regular(&path) {
-        return Vec::new();
+        return claws_marks(dir).unwrap_or_default();
     }
     fs::read(&path)
         .map(|bytes| parse_sequences(&String::from_utf8_lossy(&bytes)))
@@ -583,6 +650,103 @@ mod tests {
                 .unwrap()
                 .contains('2')
         );
+    }
+
+    fn claws_marks_file(entries: &[(u32, u32)], little: bool) -> Vec<u8> {
+        let word = |value: u32| {
+            if little {
+                value.to_le_bytes()
+            } else {
+                value.to_be_bytes()
+            }
+        };
+        let mut bytes = word(2).to_vec();
+        for (number, flags) in entries {
+            bytes.extend(word(*number));
+            bytes.extend(word(*flags));
+        }
+        bytes
+    }
+
+    #[test]
+    fn claws_marks_give_the_read_and_starred_state_until_sequences_exist() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("Mail");
+        let inbox = root.join("inbox");
+        for number in ["1", "2", "3", "4"] {
+            put(&inbox, number, "Subject: x\n\nx\n");
+        }
+        // 1 read, 2 read and starred, 3 unread, 4 not in the file (new).
+        fs::write(
+            inbox.join(CLAWS_MARK),
+            claws_marks_file(&[(1, 0), (2, CLAWS_MARKED), (3, CLAWS_UNREAD)], true),
+        )
+        .unwrap();
+        let state = |dir: &Path, key: &str| {
+            let entry = locate(dir, key).unwrap();
+            (entry.flags.seen, entry.flags.flagged)
+        };
+        assert_eq!(state(&inbox, "1"), (true, false));
+        assert_eq!(state(&inbox, "2"), (true, true));
+        assert_eq!(state(&inbox, "3"), (false, false));
+        assert_eq!(state(&inbox, "4"), (false, false));
+        // Reading a message here writes .mh_sequences from the marks, so the
+        // other messages keep what Claws knew.
+        let third = locate(&inbox, "3").unwrap();
+        set_flags(
+            &root,
+            &third,
+            Flags {
+                seen: true,
+                ..Flags::default()
+            },
+        )
+        .unwrap();
+        assert!(inbox.join(SEQUENCES).exists());
+        assert_eq!(state(&inbox, "2"), (true, true));
+        assert_eq!(state(&inbox, "3"), (true, false));
+        assert_eq!(state(&inbox, "4"), (false, false));
+        // From now on the sequences win over the (older) mark file.
+        fs::write(
+            inbox.join(CLAWS_MARK),
+            claws_marks_file(&[(4, CLAWS_MARKED)], true),
+        )
+        .unwrap();
+        assert_eq!(state(&inbox, "4"), (false, false));
+    }
+
+    #[test]
+    fn claws_marks_of_another_byte_order_or_version_are_handled_safely() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("inbox");
+        put(&dir, "1", "Subject: x\n\nx\n");
+        put(&dir, "2", "Subject: x\n\nx\n");
+        // Written on a big-endian machine.
+        fs::write(
+            dir.join(CLAWS_MARK),
+            claws_marks_file(&[(1, CLAWS_MARKED), (2, 0)], false),
+        )
+        .unwrap();
+        let first = locate(&dir, "1").unwrap();
+        let second = locate(&dir, "2").unwrap();
+        assert!(first.flags.flagged && second.flags.seen);
+        // Another version, a truncated file and garbage are ignored.
+        let mut other = claws_marks_file(&[(1, CLAWS_MARKED)], true);
+        other[0] = 3;
+        for bytes in [other, vec![2, 0], b"not a mark file".to_vec(), Vec::new()] {
+            fs::write(dir.join(CLAWS_MARK), bytes).unwrap();
+            let entry = locate(&dir, "1").unwrap();
+            assert!(entry.flags.seen && !entry.flags.flagged);
+        }
+        // A symlinked mark file is never followed.
+        #[cfg(unix)]
+        {
+            let outside = temp.path().join("outside");
+            fs::write(&outside, claws_marks_file(&[(1, CLAWS_MARKED)], true)).unwrap();
+            fs::remove_file(dir.join(CLAWS_MARK)).unwrap();
+            std::os::unix::fs::symlink(&outside, dir.join(CLAWS_MARK)).unwrap();
+            assert!(!locate(&dir, "1").unwrap().flags.flagged);
+        }
     }
 
     #[test]

@@ -317,6 +317,14 @@ impl GraphMail {
                 self.tokens.invalidate().await;
                 continue;
             }
+            if status == 504 && uncertain_on_transport {
+                // A gateway timeout may come after Microsoft 365 took the
+                // message: repeating the send could deliver it twice.
+                return Err(CoreError::SendUncertain(
+                    "Microsoft 365 timed out while sending; check Sent Items before sending again"
+                        .into(),
+                ));
+            }
             if matches!(status, 429 | 503 | 504) {
                 let wait = response
                     .headers()
@@ -2764,6 +2772,26 @@ mod tests {
             .decode(sent.body_text())
             .unwrap();
         assert!(decoded.starts_with(b"From: a@b.c"));
+    }
+
+    #[tokio::test]
+    async fn a_gateway_timeout_while_sending_is_never_repeated() {
+        let server = FakeServer::start(|request| match request.path.as_str() {
+            "/graph/v1.0/me/sendMail" => Reply::empty(504),
+            "/graph/v1.0/me/mailFolders/inbox" => Reply::empty(504),
+            other => panic!("unexpected {other:?}"),
+        })
+        .await;
+        let client = client_for(&server, "");
+        let error = client
+            .send_mime(b"From: a@b.c\r\n\r\nhi")
+            .await
+            .unwrap_err();
+        assert!(matches!(error, CoreError::SendUncertain(_)), "{error}");
+        assert_eq!(server.requests().len(), 1, "a send is tried once");
+        // A read may be repeated.
+        client.probe().await.unwrap_err();
+        assert!(server.requests().len() > 2);
     }
 
     #[tokio::test]

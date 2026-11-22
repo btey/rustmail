@@ -18,6 +18,8 @@ export component MailSecurityFields inherits VerticalBox {
     in property <bool> local: false;
     // News accounts have a single server and no SMTP side.
     in property <bool> news: false;
+    // POP3 accounts use the IMAP encryption setting for the POP3 server.
+    in property <bool> pop3: false;
     callback import-certificate();
     private property <bool> certificate-expanded: false;
     spacing: 8px;
@@ -36,7 +38,7 @@ export component MailSecurityFields inherits VerticalBox {
                 min-width: 0px;
                 padding: 0px;
                 spacing: 4px;
-                Text { text: @tr("IMAP encryption"); color: AppTheme.secondary; font-size: TypeScale.caption; }
+                Text { text: root.pop3 ? @tr("POP3 encryption") : @tr("IMAP encryption"); color: AppTheme.secondary; font-size: TypeScale.caption; }
                 ComboBox {
                     height: 36px;
                     min-width: 0px;
@@ -65,7 +67,11 @@ export component MailSecurityFields inherits VerticalBox {
             text: @tr("Automatic: STARTTLS on port 119, SSL/TLS otherwise (usually 563).");
             color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
         }
-        if !root.news : Text {
+        if root.pop3 : Text {
+            text: @tr("Automatic: POP3 uses STLS on port 110, SSL/TLS otherwise (usually 995). SMTP uses SSL/TLS on 465, STARTTLS otherwise.");
+            color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+        }
+        if !root.news && !root.pop3 : Text {
             text: @tr("Automatic: IMAP uses STARTTLS on 143, SSL/TLS otherwise. SMTP uses SSL/TLS on 465, STARTTLS otherwise.");
             color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
         }
@@ -114,8 +120,8 @@ export component MailSecurityFields inherits VerticalBox {
         padding: 0px;
         spacing: 8px;
             if root.news : Text { text: @tr("News servers use the account login (AUTHINFO). Leave the username empty for anonymous access."); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
-            if !root.local && !root.news : Text { text: @tr("IMAP authentication"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
-            if !root.local && !root.news : ComboBox {
+            if !root.local && !root.news && !root.pop3 : Text { text: @tr("IMAP authentication"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            if !root.local && !root.news && !root.pop3 : ComboBox {
                 height: 36px;
                 min-width: 0px;
                 enabled: root.enabled;
@@ -169,8 +175,8 @@ export component MailSecurityFields inherits VerticalBox {
         spacing: 8px;
             Text { text: @tr("Connection timeout in seconds (empty = 30)"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
             LineEdit { height: 36px; enabled: root.enabled; input-type: number; text: root.advanced.timeout-secs; edited(value) => { root.advanced.timeout-secs = value; } }
-            if !root.local && !root.news : Text { text: @tr("Maximum simultaneous IMAP connections (empty = unlimited; 1–20)"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
-            if !root.local && !root.news : LineEdit { height: 36px; enabled: root.enabled; input-type: number; text: root.advanced.max-connections; edited(value) => { root.advanced.max-connections = value; } }
+            if !root.local && !root.news && !root.pop3 : Text { text: @tr("Maximum simultaneous IMAP connections (empty = unlimited; 1–20)"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
+            if !root.local && !root.news && !root.pop3 : LineEdit { height: 36px; enabled: root.enabled; input-type: number; text: root.advanced.max-connections; edited(value) => { root.advanced.max-connections = value; } }
             Text { text: @tr("Proxy"); color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height; }
             ComboBox {
                 height: 36px;

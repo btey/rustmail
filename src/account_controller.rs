@@ -71,6 +71,18 @@ pub(super) fn advanced_options(
         local_path: connection.local_path.clone().into(),
         local_format: connection.local_format.as_str().into(),
         news_groups: connection.news_groups.clone().into(),
+        pop3_leave_on_server: connection.pop3_leave_on_server,
+        pop3_delete_after_days: if connection.pop3_delete_after_days == 0 {
+            "".into()
+        } else {
+            connection.pop3_delete_after_days.to_string().into()
+        },
+        pop3_max_size_kb: if connection.pop3_max_size_kb == 0 {
+            "".into()
+        } else {
+            connection.pop3_max_size_kb.to_string().into()
+        },
+        pop3_before_smtp: connection.pop3_before_smtp,
     }
 }
 
@@ -81,6 +93,8 @@ pub(super) enum AdvancedOptionsError {
     Connections,
     ProxyPort,
     ProxyHost,
+    Pop3Days,
+    Pop3Size,
 }
 
 impl AdvancedOptionsError {
@@ -95,6 +109,8 @@ impl AdvancedOptionsError {
             Self::ProxyHost => {
                 UiMessage::plain("Enter the proxy host and port, or set the proxy to None.")
             }
+            Self::Pop3Days => UiMessage::plain("Delete after must be between 1 and 3650 days."),
+            Self::Pop3Size => UiMessage::plain("Size limit must be between 1 and 1000000 KiB."),
         }
     }
 }
@@ -159,6 +175,22 @@ pub(super) fn apply_advanced_options(
     connection.message_id_fqdn = options.message_id_fqdn.trim().to_owned();
     connection.local_path = options.local_path.trim().to_owned();
     connection.news_groups = options.news_groups.trim().to_owned();
+    connection.pop3_leave_on_server = options.pop3_leave_on_server;
+    connection.pop3_before_smtp = options.pop3_before_smtp;
+    connection.pop3_delete_after_days = match options.pop3_delete_after_days.trim() {
+        "" => 0,
+        value => match value.parse::<u32>() {
+            Ok(days) if (1..=3650).contains(&days) => days,
+            _ => return Err(AdvancedOptionsError::Pop3Days),
+        },
+    };
+    connection.pop3_max_size_kb = match options.pop3_max_size_kb.trim() {
+        "" => 0,
+        value => match value.parse::<u32>() {
+            Ok(size) if (1..=1_000_000).contains(&size) => size,
+            _ => return Err(AdvancedOptionsError::Pop3Size),
+        },
+    };
     connection.local_format = match options.local_format.as_str() {
         "mbox" => rustmail_core::models::LocalFormat::Mbox,
         "mh" => rustmail_core::models::LocalFormat::Mh,
@@ -845,6 +877,42 @@ mod mail_transport_suggestion_tests {
 #[cfg(test)]
 mod advanced_option_tests {
     use super::*;
+
+    #[test]
+    fn pop3_options_round_trip_and_reject_bad_numbers() {
+        let mut connection = rustmail_core::models::MailConnectionSettings::default();
+        let mut options = advanced_options(&connection, None);
+        assert!(!options.pop3_leave_on_server);
+        assert_eq!(options.pop3_delete_after_days.as_str(), "");
+        options.pop3_leave_on_server = true;
+        options.pop3_delete_after_days = " 14 ".into();
+        options.pop3_max_size_kb = "2048".into();
+        options.pop3_before_smtp = true;
+        apply_advanced_options(&options, &mut connection).unwrap();
+        assert!(connection.pop3_leave_on_server && connection.pop3_before_smtp);
+        assert_eq!(connection.pop3_delete_after_days, 14);
+        assert_eq!(connection.pop3_max_size_kb, 2048);
+        let shown = advanced_options(&connection, None);
+        assert_eq!(shown.pop3_delete_after_days.as_str(), "14");
+        assert_eq!(shown.pop3_max_size_kb.as_str(), "2048");
+        // Empty means "never" / "no limit"; nonsense is refused, not dropped.
+        options.pop3_delete_after_days = "".into();
+        options.pop3_max_size_kb = "".into();
+        apply_advanced_options(&options, &mut connection).unwrap();
+        assert_eq!(connection.pop3_delete_after_days, 0);
+        assert_eq!(connection.pop3_max_size_kb, 0);
+        options.pop3_delete_after_days = "0".into();
+        assert_eq!(
+            apply_advanced_options(&options, &mut connection),
+            Err(AdvancedOptionsError::Pop3Days)
+        );
+        options.pop3_delete_after_days = "".into();
+        options.pop3_max_size_kb = "many".into();
+        assert_eq!(
+            apply_advanced_options(&options, &mut connection),
+            Err(AdvancedOptionsError::Pop3Size)
+        );
+    }
 
     #[test]
     fn advanced_options_round_trip_and_reject_bad_numbers() {

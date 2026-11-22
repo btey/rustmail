@@ -229,14 +229,117 @@ pub(crate) async fn light_cycle(
         name: "Inbox".into(),
     };
     let mut budget = CYCLE_NEW_MESSAGES;
-    let more = in_step(
+    let mut more = in_step(
         "reading folder inbox",
         sync_folder(ctx, config, client, &folder, &mut budget).await,
     )?;
+    // The folder the open view shows (when it is not the Inbox) is read too.
+    for extra in watched_folders_of(ctx, account_id, folder_id).await? {
+        let name = extra.name.clone();
+        more |= in_step(
+            &format!("reading folder {name}"),
+            sync_folder(ctx, config, client, &extra, &mut budget).await,
+        )?;
+    }
     Ok(Pass {
         more,
         failure: None,
     })
+}
+
+/// A folder besides the Inbox that the open mail view shows. The app sets it
+/// when the scope changes, so the short poll also reads that folder (every
+/// scope maps to folders: one folder, one account's mailbox of a role, or the
+/// same role of every account; labels, tasks and split inboxes show the
+/// Inbox's mail and need nothing more). One list per process, like the window.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum WatchedFolder {
+    /// A folder by its local id.
+    Folder(i64),
+    /// An account's folder with this role (`models::roles`).
+    Role(i64, String),
+}
+
+static WATCHED_FOLDERS: std::sync::Mutex<Vec<WatchedFolder>> = std::sync::Mutex::new(Vec::new());
+
+/// How many extra folders one short poll reads (a scope never needs more
+/// than one folder per account; this bounds a bad caller).
+const MAX_WATCHED_FOLDERS: usize = 16;
+
+pub fn set_watched_folders(mut folders: Vec<WatchedFolder>) {
+    folders.truncate(MAX_WATCHED_FOLDERS);
+    if let Ok(mut current) = WATCHED_FOLDERS.lock() {
+        *current = folders;
+    }
+}
+
+fn watched_folders() -> Vec<WatchedFolder> {
+    WATCHED_FOLDERS
+        .lock()
+        .map(|folders| folders.clone())
+        .unwrap_or_default()
+}
+
+/// The watched folders that belong to this account and are mapped to Graph
+/// folders, except the Inbox (already read).
+async fn watched_folders_of(
+    ctx: &SyncCtx,
+    account_id: i64,
+    inbox_folder_id: i64,
+) -> Result<Vec<FolderMap>> {
+    let watched = watched_folders();
+    if watched.is_empty() {
+        return Ok(Vec::new());
+    }
+    ctx.db
+        .read(move |conn| {
+            let mut out: Vec<FolderMap> = Vec::new();
+            for entry in watched {
+                let (clause, key): (&str, rusqlite::types::Value) = match &entry {
+                    WatchedFolder::Folder(id) => ("f.id = ?2", (*id).into()),
+                    WatchedFolder::Role(account, role) if *account == account_id => {
+                        ("f.role = ?2", role.clone().into())
+                    }
+                    WatchedFolder::Role(..) => continue,
+                };
+                let row = conn
+                    .query_row(
+                        &format!(
+                            "SELECT x.graph_id, x.folder_id, f.role, f.imap_name
+                               FROM exchange_folders x
+                               JOIN folders f ON f.id = x.folder_id
+                              WHERE x.account_id = ?1 AND {clause}"
+                        ),
+                        params![account_id, key],
+                        |row| {
+                            Ok((
+                                row.get::<_, String>(0)?,
+                                row.get::<_, i64>(1)?,
+                                row.get::<_, Option<String>>(2)?,
+                                row.get::<_, String>(3)?,
+                            ))
+                        },
+                    )
+                    .optional()?;
+                let Some((graph_id, id, role, name)) = row else {
+                    continue;
+                };
+                if id == inbox_folder_id || out.iter().any(|known| known.folder_id == id) {
+                    continue;
+                }
+                out.push(FolderMap {
+                    graph_id,
+                    folder_id: id,
+                    role: WELL_KNOWN
+                        .iter()
+                        .map(|(_, known)| *known)
+                        .find(|known| Some(*known) == role.as_deref()),
+                    name,
+                });
+            }
+            Ok(out)
+        })
+        .await
 }
 
 /// Whether Microsoft 365 refused a request for lack of a permission.

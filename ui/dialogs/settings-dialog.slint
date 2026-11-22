@@ -699,8 +699,10 @@ export component SettingsDialog inherits Rectangle {
         && (root.account_protocol == "jmap" || root.account_protocol == "exchange" || (
             root.imap_host != ""
             && root.imap_port != ""
-            && root.smtp_host != ""
-            && root.smtp_port != ""));
+            // A POP3 account may only receive; the others also need SMTP.
+            && (root.account_protocol == "pop3"
+                ? (root.smtp_host == "" || root.smtp_port != "")
+                : (root.smtp_host != "" && root.smtp_port != ""))));
     // Local folders need only a location; the password is for optional SMTP.
     private property <bool> local_form_valid: root.account_email != ""
         && root.advanced.local_path != ""
@@ -1863,7 +1865,7 @@ export component SettingsDialog inherits Rectangle {
                                             spacing: 2px;
                                             account-name := Text { height: max(19px, self.preferred-height); text: account.name; color: root.heading; font-size: TypeScale.body-large; font-weight: 700; overflow: elide; }
                                             account-email := Text { height: max(16px, self.preferred-height); text: account.email; color: root.secondary-text; font-size: TypeScale.caption; overflow: elide; }
-                                            account-state := Text { height: max(16px, self.preferred-height); text: account.status == "offline" ? @tr("Offline · retrying automatically") : account.status == "needs_reauth" ? @tr("Sign-in required") : account.status == "syncing" ? @tr("Syncing…") : account.status == "idle" ? (account.mail_protocol == "jmap" ? @tr("Connected · JMAP") : account.mail_protocol == "exchange" ? (account.last_synced == "" ? @tr("Connected · Microsoft 365") : @tr("Connected · Microsoft 365 · synced {}", account.last_synced)) : @tr("Connected · IMAP + SMTP")) : @tr("Account status: {}", account.status); color: account.status == "needs_reauth" ? #c0392b : root.faint-text; font-size: TypeScale.caption; overflow: elide; }
+                                            account-state := Text { height: max(16px, self.preferred-height); text: account.status == "offline" ? @tr("Offline · retrying automatically") : account.status == "needs_reauth" ? @tr("Sign-in required") : account.status == "syncing" ? @tr("Syncing…") : account.status == "idle" ? (account.mail_protocol == "jmap" ? @tr("Connected · JMAP") : account.mail_protocol == "exchange" ? (account.last_synced == "" ? @tr("Connected · Microsoft 365") : @tr("Connected · Microsoft 365 · synced {}", account.last_synced)) : account.mail_protocol == "pop3" ? @tr("Connected · POP3") : account.mail_protocol == "local" ? @tr("Connected · Local folder") : account.mail_protocol == "news" ? @tr("Connected · News") : @tr("Connected · IMAP + SMTP")) : @tr("Account status: {}", account.status); color: account.status == "needs_reauth" ? #c0392b : root.faint-text; font-size: TypeScale.caption; overflow: elide; }
                                         }
                                         AccountActions {
                                             edit-label: account.provider == "imap" ? @tr("Edit") : @tr("Reconnect");

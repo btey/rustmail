@@ -4196,6 +4196,16 @@ async fn while_the_mail_view_is_watched_new_inbox_mail_arrives_quickly_and_the_r
         !rows(&core).await.iter().any(|row| row.0 == "Five"),
         "the short poll must not read other folders"
     );
+    // The view moved to Sent Items: the next short polls read that folder too.
+    core.set_mail_watched_folders(vec![rustmail_core::exchange::WatchedFolder::Role(
+        account.id,
+        "sent".into(),
+    )]);
+    wait_until("Sent mail once its folder is watched", async || {
+        rows(&core).await.iter().any(|row| row.0 == "Five")
+    })
+    .await;
+    core.set_mail_watched_folders(Vec::new());
     // Leaving the mail view stops the short poll...
     core.set_mail_watching(false).await;
     // A poll already waiting may still run once.

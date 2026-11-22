@@ -1,4 +1,4 @@
-import { VerticalBox, HorizontalBox, ScrollView, ComboBox } from "std-widgets.slint";
+import { VerticalBox, HorizontalBox, ScrollView, ComboBox, Switch } from "std-widgets.slint";
 import { Button } from "button.slint";
 import { FormField, SettingsNavItem } from "settings-components.slint";
 import { MailSecurityFields } from "mail-security-fields.slint";
@@ -52,6 +52,7 @@ export component AccountSetupForm inherits Rectangle {
     private property <bool> exchange: root.account-protocol == "exchange";
     private property <bool> local: root.account-protocol == "local";
     private property <bool> news: root.account-protocol == "news";
+    private property <bool> pop3: root.account-protocol == "pop3";
     private property <string> section: root.grouped ? root.picked : "account";
     private property <int> picked-index: root.section == "security" ? 1 : root.section == "sign-in" ? 2
         : root.limited ? (root.section == "network" ? 3 : 0)
@@ -186,15 +187,25 @@ export component AccountSetupForm inherits Rectangle {
                             label-color: root.label-color;
                             edited(value) => { root.account-password = value; }
                         }
-                        HorizontalBox {
+                        VerticalBox {
                             padding: 0px;
-                            height: 40px;
                             spacing: 8px;
-                            Button { horizontal-stretch: 1; height: 40px; text: @tr("IMAP"); enabled: root.enabled; primary: root.account-protocol == "imap"; clicked => { root.account-protocol = "imap"; if root.imap-port == "563" { root.imap-port = "993"; } } }
+                            HorizontalBox {
+                                padding: 0px;
+                                height: 40px;
+                                spacing: 8px;
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("IMAP"); enabled: root.enabled; primary: root.account-protocol == "imap"; clicked => { root.account-protocol = "imap"; if root.imap-port == "563" || root.imap-port == "995" { root.imap-port = "993"; } } }
                             Button { horizontal-stretch: 1; height: 40px; text: @tr("JMAP"); enabled: root.enabled; primary: root.account-protocol == "jmap"; clicked => { root.account-protocol = "jmap"; } }
                             Button { horizontal-stretch: 1; height: 40px; text: @tr("Local"); enabled: root.enabled; primary: root.local; clicked => { root.account-protocol = "local"; } }
-                            Button { horizontal-stretch: 1; height: 40px; text: @tr("News"); enabled: root.enabled; primary: root.news; clicked => { root.account-protocol = "news"; if root.imap-port == "993" { root.imap-port = "563"; } } }
+                            }
+                            HorizontalBox {
+                                padding: 0px;
+                                height: 40px;
+                                spacing: 8px;
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("News"); enabled: root.enabled; primary: root.news; clicked => { root.account-protocol = "news"; if root.imap-port == "993" || root.imap-port == "995" { root.imap-port = "563"; } } }
+                            Button { horizontal-stretch: 1; height: 40px; text: @tr("POP3"); enabled: root.enabled; primary: root.pop3; clicked => { root.account-protocol = "pop3"; if root.imap-port == "993" || root.imap-port == "563" { root.imap-port = "995"; } } }
                             Button { horizontal-stretch: 1; height: 40px; text: @tr("Exchange"); enabled: root.enabled; primary: root.exchange; clicked => { root.account-protocol = "exchange"; } }
+                            }
                         }
                         if root.exchange : ExchangeSetupFields {
                             enabled: root.enabled;
@@ -266,6 +277,45 @@ export component AccountSetupForm inherits Rectangle {
                             text: @tr("Separate groups with commas or spaces. To start a new discussion, address the message to group.name@news; replies go to the group they answer.");
                             color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
                         }
+                        if root.pop3 : HorizontalBox {
+                            padding: 0px;
+                            height: root.field-height;
+                            spacing: 10px;
+                            FormField { enabled: root.enabled; horizontal-stretch: 1; label: @tr("POP3 server"); value: root.imap-host; placeholder: @tr("pop.example.com"); label-color: root.label-color; edited(value) => { root.imap-host = value; } }
+                            FormField { enabled: root.enabled; width: max(88px, self.preferred-width); label: @tr("Port"); value: root.imap-port; input-type: number; placeholder: @tr("995"); label-color: root.label-color; edited(value) => { root.imap-port = value; } }
+                        }
+                        if root.pop3 : HorizontalBox {
+                            padding: 0px;
+                            height: root.field-height;
+                            spacing: 10px;
+                            FormField { enabled: root.enabled; horizontal-stretch: 1; label: @tr("SMTP server · Optional"); value: root.smtp-host; placeholder: @tr("smtp.example.com"); label-color: root.label-color; edited(value) => { root.smtp-host = value; } }
+                            FormField { enabled: root.enabled; width: max(88px, self.preferred-width); label: @tr("Port"); value: root.smtp-port; input-type: number; placeholder: @tr("465"); label-color: root.label-color; edited(value) => { root.smtp-port = value; } }
+                        }
+                        if root.pop3 : HorizontalBox {
+                            padding: 0px;
+                            height: 36px;
+                            spacing: 10px;
+                            Text { horizontal-stretch: 1; text: @tr("Keep mail on the server"); color: root.body-text; font-size: TypeScale.body; vertical-alignment: center; overflow: elide; }
+                            Switch { enabled: root.enabled; checked: root.advanced.pop3-leave-on-server; toggled => { root.advanced.pop3-leave-on-server = self.checked; } }
+                        }
+                        if root.pop3 : HorizontalBox {
+                            padding: 0px;
+                            height: root.field-height;
+                            spacing: 10px;
+                            FormField { enabled: root.enabled && root.advanced.pop3-leave-on-server; horizontal-stretch: 1; label: @tr("Delete after days · Optional"); value: root.advanced.pop3-delete-after-days; input-type: number; placeholder: @tr("Never"); label-color: root.label-color; edited(value) => { root.advanced.pop3-delete-after-days = value; } }
+                            FormField { enabled: root.enabled; horizontal-stretch: 1; label: @tr("Largest message, KiB · Optional"); value: root.advanced.pop3-max-size-kb; input-type: number; placeholder: @tr("No limit"); label-color: root.label-color; edited(value) => { root.advanced.pop3-max-size-kb = value; } }
+                        }
+                        if root.pop3 : HorizontalBox {
+                            padding: 0px;
+                            height: 36px;
+                            spacing: 10px;
+                            Text { horizontal-stretch: 1; text: @tr("Sign in to POP3 before sending"); color: root.body-text; font-size: TypeScale.body; vertical-alignment: center; overflow: elide; }
+                            Switch { enabled: root.enabled; checked: root.advanced.pop3-before-smtp; toggled => { root.advanced.pop3-before-smtp = self.checked; } }
+                        }
+                        if root.pop3 : Text {
+                            text: @tr("Without keeping mail on the server, each message is deleted there once it is stored here. Larger messages are fetched as headers only and stay on the server.");
+                            color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+                        }
                         if root.account-protocol == "jmap" : FormField {
                             enabled: root.enabled;
                             height: root.field-height;
@@ -303,6 +353,7 @@ export component AccountSetupForm inherits Rectangle {
                         section: root.section;
                         local: root.local;
                         news: root.news;
+                        pop3: root.pop3;
                         imap-security <=> root.imap-security;
                         smtp-security <=> root.smtp-security;
                         enabled: root.enabled;

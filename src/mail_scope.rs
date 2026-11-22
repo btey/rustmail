@@ -108,6 +108,26 @@ pub(crate) fn server_search_targets(
     }
 }
 
+/// The folders besides the Inbox that the short poll of Microsoft 365 mail
+/// must read while `scope` is open. Accounts' whole-mailbox views (labels,
+/// tasks, split inboxes, Starred) show mail the Inbox poll already reads.
+pub(crate) fn watched_folders(
+    scope: Scope,
+    exchange_accounts: &[i64],
+) -> Vec<rustmail_core::exchange::WatchedFolder> {
+    use rustmail_core::exchange::WatchedFolder;
+    server_search_targets(scope, exchange_accounts)
+        .into_iter()
+        .filter_map(|target| match target {
+            ServerSearchTarget::Account(_) => None,
+            ServerSearchTarget::Folder(id) => Some(WatchedFolder::Folder(id)),
+            ServerSearchTarget::Role(account, role) => {
+                Some(WatchedFolder::Role(account, role.to_owned()))
+            }
+        })
+        .collect()
+}
+
 /// Which sidebar section a label is listed in. The id alone selects the
 /// label; the kind keeps the key identical to the row that was clicked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -381,6 +401,31 @@ mod tests {
             vec![Account(7), Account(9)]
         );
         assert!(server_search_targets(Scope::Important, &[]).is_empty());
+    }
+
+    #[test]
+    fn the_short_poll_reads_the_folder_every_kind_of_scope_shows() {
+        use rustmail_core::exchange::WatchedFolder::{Folder, Role};
+        let exchange = [7, 9];
+        assert_eq!(
+            watched_folders(Scope::Unified(StandardMailbox::Sent), &exchange),
+            vec![Role(7, "sent".into()), Role(9, "sent".into())]
+        );
+        assert_eq!(
+            watched_folders(
+                Scope::Account {
+                    account_id: 9,
+                    mailbox: StandardMailbox::Archive
+                },
+                &exchange
+            ),
+            vec![Role(9, "archive".into())]
+        );
+        assert_eq!(watched_folders(Scope::Folder(41), &exchange), vec![Folder(41)]);
+        // Whole-mailbox views show mail the Inbox poll reads already.
+        assert!(watched_folders(Scope::Unified(StandardMailbox::Starred), &exchange).is_empty());
+        assert!(watched_folders(Scope::Important, &exchange).is_empty());
+        assert!(watched_folders(Scope::Folder(41), &[]).len() == 1);
     }
 
     fn account(id: i64) -> Account {

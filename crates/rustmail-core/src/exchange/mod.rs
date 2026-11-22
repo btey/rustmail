@@ -85,7 +85,7 @@ pub(crate) mod contacts;
 pub(crate) mod draft;
 pub mod recurrence;
 pub(crate) mod sync;
-pub use sync::{set_watch_poll_millis_for_tests, stub_kind};
+pub use sync::{WatchedFolder, set_watch_poll_millis_for_tests, set_watched_folders, stub_kind};
 
 use crate::accounts::secrets::CredentialStoreHandle;
 use crate::error::Result;
