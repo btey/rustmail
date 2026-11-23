@@ -1146,15 +1146,22 @@ impl InboxState {
     /// connected accounts.
     fn set_scope(&mut self, scope: Scope) {
         self.scope = scope.visible_for(&self.connected_accounts);
-        // The short poll of Microsoft 365 mail reads the folder this view shows.
+        self.publish_watched_folders();
+    }
+
+    /// The short poll of Microsoft 365 mail reads the folder this view shows
+    /// and the folders of mail views kept by inactive tabs.
+    fn publish_watched_folders(&self) {
         let exchange_accounts: Vec<i64> = self
             .account_configs
             .iter()
             .filter(|config| config.mail_protocol == rustmail_core::models::MailProtocol::Exchange)
             .map(|config| config.id)
             .collect();
-        rustmail_core::exchange::set_watched_folders(mail_scope::watched_folders(
-            self.scope,
+        let mut scopes = vec![self.scope];
+        scopes.extend(mail_scope::inactive_tab_scopes());
+        rustmail_core::exchange::set_watched_folders(mail_scope::watched_folders_of_scopes(
+            &scopes,
             &exchange_accounts,
         ));
     }
@@ -3914,13 +3921,17 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
             if let Some(core) = core {
                 let app_weak = mail_update_app.clone();
                 mail_update_runtime.spawn(async move {
-                    let Ok((offline, waiting)) = core.offline_status().await else {
-                        return;
-                    };
+                    let failed = core.failed_changes().await.unwrap_or(0);
+                    let status = core.offline_status().await.ok();
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(app) = app_weak.upgrade() {
-                            app.set_offline_active(offline);
-                            app.set_offline_waiting(i32::try_from(waiting).unwrap_or(i32::MAX));
+                            app.set_failed_changes(i32::try_from(failed).unwrap_or(i32::MAX));
+                            if let Some((offline, waiting)) = status {
+                                app.set_offline_active(offline);
+                                app.set_offline_waiting(
+                                    i32::try_from(waiting).unwrap_or(i32::MAX),
+                                );
+                            }
                         }
                     });
                 });
@@ -5430,6 +5441,49 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
     let state_for_sync = Rc::clone(&state);
     let runtime_for_sync = Rc::clone(&runtime);
     let sync_progress_for_click = Rc::clone(&sync_in_progress);
+    // Retry or discard the mail changes the server refused.
+    for retry in [true, false] {
+        let app_weak = app.as_weak();
+        let state_for_failed = Rc::clone(&state);
+        let runtime_for_failed = Rc::clone(&runtime);
+        let handler = move || {
+            let Some(core) = state_for_failed.borrow().core.clone() else {
+                return;
+            };
+            let app_weak = app_weak.clone();
+            runtime_for_failed.spawn(async move {
+                let done = if retry {
+                    core.retry_failed_changes().await
+                } else {
+                    core.discard_failed_changes().await
+                };
+                let remaining = core.failed_changes().await.unwrap_or(0);
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(app) = app_weak.upgrade() else {
+                        return;
+                    };
+                    app.set_failed_changes(i32::try_from(remaining).unwrap_or(i32::MAX));
+                    match done {
+                        Ok(_) if retry => {
+                            app.set_sync_status(UiMessage::plain("Trying the failed changes again…"));
+                        }
+                        Ok(_) => {
+                            app.set_sync_status(UiMessage::plain("Failed changes discarded."));
+                        }
+                        Err(error) => {
+                            app.set_sync_status(UiMessage::detail("Message action failed: {}", error));
+                        }
+                    }
+                });
+            });
+        };
+        if retry {
+            app.on_retry_failed_changes(handler);
+        } else {
+            app.on_discard_failed_changes(handler);
+        }
+    }
+
     app.on_sync_mail(move || {
         let Some(app) = app_weak.upgrade() else {
             return;

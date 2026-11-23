@@ -6440,7 +6440,7 @@ dependencies = [
 
 [[package]]
 name = "rustmail"
-version = "0.1.0-beta.6"
+version = "0.1.0-beta.7"
 dependencies = [
  "anyrender",
  "anyrender_vello",

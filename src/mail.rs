@@ -850,6 +850,28 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    /// Mail changes the server refused that wait for retry or discard.
+    pub async fn failed_changes(&self) -> Result<usize, String> {
+        self.core
+            .failed_changes(None)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    pub async fn retry_failed_changes(&self) -> Result<usize, String> {
+        self.core
+            .retry_failed_changes(None)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    pub async fn discard_failed_changes(&self) -> Result<usize, String> {
+        self.core
+            .discard_failed_changes(None)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn set_sync_interval_minutes(&self, minutes: i64) -> Result<(), String> {
         self.core
             .set_sync_interval_minutes(minutes)

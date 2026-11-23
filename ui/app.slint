@@ -452,6 +452,8 @@ export global I18n {
         if (key == "Sync failed: {}") { return @tr("Sync failed: {}", argument); }
         if (key == "Local mail data is unavailable; preview data is read-only.") { return @tr("Local mail data is unavailable; preview data is read-only."); }
         if (key == "Synchronizing accounts…") { return @tr("Synchronizing accounts…"); }
+        if (key == "Trying the failed changes again…") { return @tr("Trying the failed changes again…"); }
+        if (key == "Failed changes discarded.") { return @tr("Failed changes discarded."); }
         return "";
     }
 
@@ -635,6 +637,8 @@ export component AppWindow inherits Window {
     callback load_more();
     callback toggle_settings();
     callback sync_mail();
+    callback retry_failed_changes();
+    callback discard_failed_changes();
     callback sync_account(int);
     callback delete_account(int);
     callback message_action(string);
@@ -936,6 +940,8 @@ export component AppWindow inherits Window {
     in-out property <int> server_search_state: 0;
     in-out property <int> server_search_added: 0;
     in-out property <int> offline_waiting: 0;
+    // Mail changes the server refused, waiting for Retry or Discard.
+    in-out property <int> failed_changes: 0;
     // Local time (HH:MM) an account last finished fetching in this session.
     in-out property <string> last_sync_text: "";
     in-out property <string> last_sync_failed_text: "";
@@ -1510,6 +1516,7 @@ export component AppWindow inherits Window {
             server_search_state: root.server_search_state;
             server_search_added: root.server_search_added;
             offline_waiting: root.offline_waiting;
+            failed_changes: root.failed_changes;
             last_sync_text: root.last_sync_text;
             last_sync_failed_text: root.last_sync_failed_text;
             can_load_more: root.can_load_more;
@@ -1571,6 +1578,8 @@ export component AppWindow inherits Window {
             }
             load_more => { root.load_more(); }
             sync_mail => { root.sync_mail(); }
+            retry_failed_changes => { root.retry_failed_changes(); }
+            discard_failed_changes => { root.discard_failed_changes(); }
             message_action(action) => {
                 if action == "delete_permanently" { root.confirm-trash-deletion("selected", -1); }
                 else if action == "create_task" { root.open_task_from_mail(-1); }

@@ -111,21 +111,54 @@ pub(crate) fn server_search_targets(
 /// The folders besides the Inbox that the short poll of Microsoft 365 mail
 /// must read while `scope` is open. Accounts' whole-mailbox views (labels,
 /// tasks, split inboxes, Starred) show mail the Inbox poll already reads.
+#[cfg(test)]
 pub(crate) fn watched_folders(
     scope: Scope,
     exchange_accounts: &[i64],
 ) -> Vec<rustmail_core::exchange::WatchedFolder> {
+    watched_folders_of_scopes(&[scope], exchange_accounts)
+}
+
+/// The same for several open views at once: the shown one and the mail views
+/// kept by inactive tabs. Duplicates are dropped, so two tabs on one folder
+/// cost one read.
+pub(crate) fn watched_folders_of_scopes(
+    scopes: &[Scope],
+    exchange_accounts: &[i64],
+) -> Vec<rustmail_core::exchange::WatchedFolder> {
     use rustmail_core::exchange::WatchedFolder;
-    server_search_targets(scope, exchange_accounts)
-        .into_iter()
-        .filter_map(|target| match target {
-            ServerSearchTarget::Account(_) => None,
-            ServerSearchTarget::Folder(id) => Some(WatchedFolder::Folder(id)),
-            ServerSearchTarget::Role(account, role) => {
-                Some(WatchedFolder::Role(account, role.to_owned()))
+    let mut folders: Vec<WatchedFolder> = Vec::new();
+    for &scope in scopes {
+        for target in server_search_targets(scope, exchange_accounts) {
+            let folder = match target {
+                ServerSearchTarget::Account(_) => continue,
+                ServerSearchTarget::Folder(id) => WatchedFolder::Folder(id),
+                ServerSearchTarget::Role(account, role) => {
+                    WatchedFolder::Role(account, role.to_owned())
+                }
+            };
+            if !folders.contains(&folder) {
+                folders.push(folder);
             }
-        })
-        .collect()
+        }
+    }
+    folders
+}
+
+static INACTIVE_TAB_SCOPES: std::sync::Mutex<Vec<Scope>> = std::sync::Mutex::new(Vec::new());
+
+/// Remember the mail views of inactive tabs, so their folders stay fresh too.
+pub(crate) fn set_inactive_tab_scopes(scopes: Vec<Scope>) {
+    if let Ok(mut current) = INACTIVE_TAB_SCOPES.lock() {
+        *current = scopes;
+    }
+}
+
+pub(crate) fn inactive_tab_scopes() -> Vec<Scope> {
+    INACTIVE_TAB_SCOPES
+        .lock()
+        .map(|scopes| scopes.clone())
+        .unwrap_or_default()
 }
 
 /// Which sidebar section a label is listed in. The id alone selects the

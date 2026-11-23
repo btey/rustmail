@@ -414,6 +414,46 @@ pub fn jmap_reconciliation_guards(conn: &Connection, message_id: i64) -> Result<
     )?)
 }
 
+/// Failed mail changes the user can still act on, for one account or all.
+/// Sends stay out (a send that failed or was uncertain must be checked in the
+/// Sent folder, never replayed blindly) and so do calendar actions (the
+/// calendar task shows its own errors).
+const FAILED_CHANGES: &str =
+    "state = 'failed' AND kind <> 'send' AND kind NOT LIKE 'cal!_%' ESCAPE '!'
+     AND (?1 IS NULL OR account_id = ?1)";
+
+pub fn failed_count(conn: &Connection, account_id: Option<i64>) -> Result<i64> {
+    Ok(conn.query_row(
+        &format!("SELECT COUNT(*) FROM pending_actions WHERE {FAILED_CHANGES}"),
+        params![account_id],
+        |row| row.get(0),
+    )?)
+}
+
+/// Queue every failed change again with a fresh retry budget. Returns how many.
+pub fn retry_failed(conn: &Connection, account_id: Option<i64>) -> Result<usize> {
+    Ok(conn.execute(
+        &format!(
+            "UPDATE pending_actions SET state = 'pending', attempts = 0, not_before = NULL,
+                    last_error = NULL, finished_at = NULL
+             WHERE {FAILED_CHANGES}"
+        ),
+        params![account_id],
+    )?)
+}
+
+/// Give up on every failed change (kept as `cancelled` until garbage
+/// collection). Returns how many.
+pub fn discard_failed(conn: &Connection, account_id: Option<i64>) -> Result<usize> {
+    Ok(conn.execute(
+        &format!(
+            "UPDATE pending_actions SET state = 'cancelled', finished_at = ?2
+             WHERE {FAILED_CHANGES}"
+        ),
+        params![account_id, now_ms()],
+    )?)
+}
+
 pub fn gc(conn: &Connection, older_than_ms: i64) -> Result<()> {
     conn.execute(
         "DELETE FROM pending_actions
@@ -639,5 +679,49 @@ mod tests {
         )
         .unwrap();
         assert!(has_pending_remote_creation(&conn, message_id).unwrap());
+    }
+    #[test]
+    fn failed_changes_can_be_counted_retried_and_discarded_but_sends_and_calendar_stay() {
+        let conn = testutil::conn();
+        testutil::seed_account(&conn);
+        let payload = serde_json::json!({});
+        let make = |kind: &str, state: &str| {
+            let id = enqueue(&conn, 1, kind, None, None, &payload, Some(5)).unwrap();
+            conn.execute(
+                "UPDATE pending_actions SET state=?2, attempts=7, last_error='boom' WHERE id=?1",
+                params![id, state],
+            )
+            .unwrap();
+            id
+        };
+        let trash = make("trash", "failed");
+        let read = make("mark_read", "failed");
+        let send = make("send", "failed");
+        let calendar = make("cal_create", "failed");
+        let pending = make("trash", "pending");
+        assert_eq!(failed_count(&conn, None).unwrap(), 2);
+        assert_eq!(failed_count(&conn, Some(1)).unwrap(), 2);
+        assert_eq!(failed_count(&conn, Some(2)).unwrap(), 0);
+
+        assert_eq!(retry_failed(&conn, Some(2)).unwrap(), 0);
+        assert_eq!(retry_failed(&conn, None).unwrap(), 2);
+        for id in [trash, read] {
+            let action = get(&conn, id).unwrap().unwrap();
+            assert_eq!((action.state.as_str(), action.attempts), ("pending", 0));
+            assert_eq!(action.not_before, None);
+        }
+        for id in [send, calendar] {
+            assert_eq!(get(&conn, id).unwrap().unwrap().state, "failed");
+        }
+        assert_eq!(get(&conn, pending).unwrap().unwrap().state, "pending");
+
+        conn.execute(
+            "UPDATE pending_actions SET state='failed' WHERE id=?1",
+            [read],
+        )
+        .unwrap();
+        assert_eq!(discard_failed(&conn, None).unwrap(), 1);
+        assert_eq!(get(&conn, read).unwrap().unwrap().state, "cancelled");
+        assert_eq!(failed_count(&conn, None).unwrap(), 0);
     }
 }

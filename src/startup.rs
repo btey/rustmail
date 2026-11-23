@@ -710,10 +710,12 @@ pub(crate) fn spawn_core_event_listener(
                     error: Some(error),
                     ..
                 }) if state == "failed" => {
-                    pending
+                    let mut pending = pending
                         .lock()
-                        .unwrap_or_else(|poisoned| poisoned.into_inner())
-                        .action_error = Some(error);
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    pending.action_error = Some(error);
+                    // The count of failed changes under the list follows.
+                    pending.offline_check = true;
                     true
                 }
                 Ok(CoreEvent::CalendarUpdated { .. })

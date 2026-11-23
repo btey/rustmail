@@ -191,6 +191,10 @@ export component MailListPane inherits Rectangle {
         : root.server_search_state == 4 ? @tr("Microsoft 365 search failed")
         : "";
     in property <int> offline_waiting: 0;
+    // Mail changes the server refused ("N changes could not be sent").
+    in property <int> failed_changes: 0;
+    callback retry_failed_changes();
+    callback discard_failed_changes();
     private property <string> offline-text: root.offline_waiting == 0 ? @tr("Offline")
         : @tr("Offline · {n} change waiting" | "Offline · {n} changes waiting" % root.offline_waiting);
     in property <string> last_sync_text: "";
@@ -423,6 +427,50 @@ export component MailListPane inherits Rectangle {
                             font-size: TypeScale.caption;
                             vertical-alignment: center;
                             overflow: elide;
+                        }
+                    }
+                    // Changes the server refused stay until the user decides.
+                    if root.failed_changes > 0 : Rectangle {
+                        height: 26px;
+                        background: root.surface;
+                        z: 1;
+                        HorizontalLayout {
+                            padding-left: root.compact ? LayoutMetrics.compact-inset : LayoutMetrics.content-inset;
+                            padding-right: self.padding-left;
+                            spacing: 12px;
+                            Text {
+                                horizontal-stretch: 1;
+                                text: @tr("{n} change could not be sent" | "{n} changes could not be sent" % root.failed_changes);
+                                color: root.secondary-text;
+                                font-size: TypeScale.caption;
+                                vertical-alignment: center;
+                                overflow: elide;
+                                accessible-role: text;
+                            }
+                            Text {
+                                text: @tr("Retry");
+                                color: root.accent;
+                                font-size: TypeScale.caption;
+                                vertical-alignment: center;
+                                accessible-role: button;
+                                accessible-action-default => { root.retry_failed_changes(); }
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { root.retry_failed_changes(); }
+                                }
+                            }
+                            Text {
+                                text: @tr("Discard");
+                                color: root.accent;
+                                font-size: TypeScale.caption;
+                                vertical-alignment: center;
+                                accessible-role: button;
+                                accessible-action-default => { root.discard_failed_changes(); }
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { root.discard_failed_changes(); }
+                                }
+                            }
                         }
                     }
                     bulk-toolbar := Rectangle {

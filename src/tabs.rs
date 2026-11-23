@@ -782,6 +782,7 @@ impl Tabs {
         if let Some(app) = self.app() {
             self.publish(&app);
         }
+        self.watch_inactive_tabs();
         let saved = self.strip.borrow().saved();
         let path = self.context.path.clone();
         let runtime = Rc::clone(&self.context.runtime);
@@ -795,6 +796,19 @@ impl Tabs {
                     }
                 });
             });
+    }
+
+    /// Keep the folders of inactive mail tabs in the short poll of Microsoft
+    /// 365 mail, so switching back shows current mail.
+    fn watch_inactive_tabs(&self) {
+        let scopes = {
+            let strip = self.strip.borrow();
+            inactive_mail_scopes(&strip)
+        };
+        mail_scope::set_inactive_tab_scopes(scopes);
+        if let Ok(state) = self.context.state.try_borrow() {
+            state.publish_watched_folders();
+        }
     }
 
     fn publish(&self, app: &AppWindow) {
@@ -813,6 +827,20 @@ impl Tabs {
         app.global::<TabsUi>()
             .set_rows(slint::ModelRc::new(slint::VecModel::from(rows)));
     }
+}
+
+/// Mail views of the tabs that are not shown.
+fn inactive_mail_scopes(strip: &TabStrip) -> Vec<Scope> {
+    strip
+        .tabs
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| *index != strip.active)
+        .filter_map(|(_, tab)| match tab.location {
+            Location::Mail { scope, .. } => Some(scope),
+            _ => None,
+        })
+        .collect()
 }
 
 /// Copy the current list rows without message bodies.
@@ -875,6 +903,16 @@ mod tests {
         let a = strip.tabs[0].id;
         assert_eq!(strip.close(a), Closed::Missing, "the last tab stays");
         assert_eq!(strip.close(9999), Closed::Missing);
+    }
+
+    #[test]
+    fn inactive_mail_tabs_are_watched_but_the_shown_tab_is_not_counted_twice() {
+        let mut strip = TabStrip::new(mail(A));
+        strip.open(mail(B), String::new(), None);
+        strip.open(Location::Tasks, String::new(), None);
+        strip.open(mail(C), String::new(), None);
+        // Tabs sit as A, C, Tasks, B; A is shown.
+        assert_eq!(inactive_mail_scopes(&strip), [C, B]);
     }
 
     #[test]

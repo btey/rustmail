@@ -2742,6 +2742,40 @@ impl Core {
             .await
     }
 
+    /// How many mail changes (not sends, not calendar actions) the server
+    /// refused for good and are waiting for the user to retry or discard.
+    pub async fn failed_changes(&self, account_id: Option<i64>) -> Result<usize> {
+        let count = self
+            .db
+            .read(move |conn| repo::actions::failed_count(conn, account_id))
+            .await?;
+        Ok(usize::try_from(count).unwrap_or(0))
+    }
+
+    /// Queue every failed change again with a fresh retry budget and wake the
+    /// accounts. Returns how many were queued.
+    pub async fn retry_failed_changes(&self, account_id: Option<i64>) -> Result<usize> {
+        let queued = self
+            .db
+            .write(move |conn| repo::actions::retry_failed(conn, account_id))
+            .await?;
+        if queued > 0 {
+            for handle in self.handles.read().await.values() {
+                handle.send(SyncCmd::SyncNow { complete: None });
+            }
+        }
+        Ok(queued)
+    }
+
+    /// Give up on every failed change. The local copy keeps what the user did
+    /// until the next sync brings the server's state (flags follow the server;
+    /// a move or delete the server never saw is not redone). Returns how many.
+    pub async fn discard_failed_changes(&self, account_id: Option<i64>) -> Result<usize> {
+        self.db
+            .write(move |conn| repo::actions::discard_failed(conn, account_id))
+            .await
+    }
+
     /// Turn "Work offline" on or off for every account. Turning it off wakes
     /// the accounts so queued changes are sent at once.
     pub async fn set_work_offline(&self, offline: bool) -> Result<()> {

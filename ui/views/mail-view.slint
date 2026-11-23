@@ -65,6 +65,9 @@ export component MailView inherits FocusScope {
     in property <int> server_search_state: 0;
     in property <int> server_search_added: 0;
     in property <int> offline_waiting: 0;
+    in property <int> failed_changes: 0;
+    callback retry_failed_changes();
+    callback discard_failed_changes();
     in property <string> last_sync_text: "";
     in property <string> last_sync_failed_text: "";
     in property <bool> can_load_more: false;
@@ -313,6 +316,7 @@ export component MailView inherits FocusScope {
                 server_search_state: root.server_search_state;
                 server_search_added: root.server_search_added;
                 offline_waiting: root.offline_waiting;
+                failed_changes: root.failed_changes;
                 last_sync_text: root.last_sync_text;
                 last_sync_failed_text: root.last_sync_failed_text;
                 can_load_more: root.can_load_more;
@@ -342,6 +346,8 @@ export component MailView inherits FocusScope {
                 set_search_filter(filter) => { root.set_search_filter(filter); }
                 load_more => { root.load_more(); }
                 sync_mail => { root.sync_mail(); }
+                retry_failed_changes => { root.retry_failed_changes(); }
+                discard_failed_changes => { root.discard_failed_changes(); }
                 open_compose => { root.open_compose(); }
                 message_action_for_email(id, action) => {
                     root.message_action_for_email(id, action);
@@ -550,6 +556,7 @@ export component MailView inherits FocusScope {
                 server_search_state: root.server_search_state;
                 server_search_added: root.server_search_added;
                 offline_waiting: root.offline_waiting;
+                failed_changes: root.failed_changes;
                 last_sync_text: root.last_sync_text;
                 last_sync_failed_text: root.last_sync_failed_text;
                 can_load_more: root.can_load_more;
@@ -588,6 +595,8 @@ export component MailView inherits FocusScope {
                 set_search_filter(filter) => { root.set_search_filter(filter); }
                 load_more => { root.load_more(); }
                 sync_mail => { root.sync_mail(); }
+                retry_failed_changes => { root.retry_failed_changes(); }
+                discard_failed_changes => { root.discard_failed_changes(); }
                 open_folders => { root.folders-open = true; }
                 open_compose => { root.open_compose(); }
                 message_action_for_email(id, action) => {
