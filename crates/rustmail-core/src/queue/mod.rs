@@ -202,6 +202,8 @@ async fn execute_actions(
 fn is_permanent(error: &CoreError) -> bool {
     match error {
         CoreError::NotFound(_) => true,
+        // A send that may already have gone out is never repeated by itself.
+        CoreError::SendUncertain(_) => true,
         CoreError::Other(message) => message.starts_with(crate::nntp::PERMANENT_PREFIX),
         // Tagged NO/BAD responses reject the command itself. Async IMAP has
         // used both `NO ...` and `no: ...` display forms across versions.
@@ -1213,6 +1215,8 @@ mod tests {
             "554 transaction failed".into()
         )));
         assert!(is_permanent(&CoreError::NotFound("source mailbox".into())));
+        // A send that may already have gone out must not be repeated.
+        assert!(is_permanent(&CoreError::SendUncertain("lost".into())));
         assert!(!is_permanent(&CoreError::Imap(
             "connection timed out".into()
         )));

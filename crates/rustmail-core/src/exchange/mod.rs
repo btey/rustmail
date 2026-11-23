@@ -88,7 +88,7 @@ pub(crate) mod sync;
 pub use sync::{WatchedFolder, set_watch_poll_millis_for_tests, set_watched_folders, stub_kind};
 
 use crate::accounts::secrets::CredentialStoreHandle;
-use crate::error::Result;
+use crate::error::{CoreError, Result};
 use crate::models::AccountConfig;
 use crate::sync::engine::SyncCtx;
 use std::collections::HashMap;
@@ -215,6 +215,30 @@ pub(crate) fn graph_for(ctx: &SyncCtx, config: &AccountConfig) -> Result<client:
     client::GraphMail::new(&settings, tokens)
 }
 
+/// The value of a header in the head of a built message (unfolded, trimmed).
+fn header_value(raw: &[u8], name: &str) -> Option<String> {
+    let end = raw
+        .windows(4)
+        .position(|window| window == b"\r\n\r\n")
+        .unwrap_or(raw.len());
+    let head = String::from_utf8_lossy(&raw[..end]).into_owned();
+    let mut found: Option<String> = None;
+    for line in head.split("\r\n") {
+        if line.starts_with([' ', '\t']) {
+            if let Some(value) = found.as_mut() {
+                value.push_str(line.trim());
+            }
+        } else if found.is_some() {
+            break;
+        } else if let Some((key, value)) = line.split_once(':')
+            && key.trim().eq_ignore_ascii_case(name)
+        {
+            found = Some(value.trim().to_owned());
+        }
+    }
+    found.filter(|value| !value.is_empty())
+}
+
 /// Send a built message through Microsoft 365 (which files the Sent Items copy).
 pub(crate) async fn send_raw(
     ctx: &SyncCtx,
@@ -222,15 +246,34 @@ pub(crate) async fn send_raw(
     draft_id: i64,
     raw: &[u8],
 ) -> Result<()> {
-    if raw.len() > client::MAX_SIMPLE_MIME_BYTES {
-        draft::send_large(ctx, config, draft_id)
-            .await
-            .map_err(|error| client::during("sending a message", error))?;
+    let sent = if raw.len() > client::MAX_SIMPLE_MIME_BYTES {
+        draft::send_large(ctx, config, draft_id).await
     } else {
-        graph_for(ctx, config)?
-            .send_mime(raw)
-            .await
-            .map_err(|error| client::during("sending a message", error))?;
+        graph_for(ctx, config)?.send_mime(raw).await
+    };
+    match sent {
+        Ok(()) => {}
+        Err(CoreError::SendUncertain(note)) => {
+            // The request may have been processed. Sent Items tells: a copy
+            // there means Microsoft 365 took the message.
+            let delivered = match header_value(raw, "message-id") {
+                Some(id) => graph_for(ctx, config)?
+                    .sent_copy_exists(&id)
+                    .await
+                    .unwrap_or(false),
+                None => false,
+            };
+            if !delivered {
+                return Err(CoreError::SendUncertain(format!(
+                    "{note}; Sent Items holds no copy of it yet, so it is not sent again automatically"
+                )));
+            }
+            tracing::info!(
+                account_id = config.id,
+                "exchange send: the answer was lost but Sent Items holds the message"
+            );
+        }
+        Err(error) => return Err(client::during("sending a message", error)),
     }
     // The server copy of the draft (if one was pushed) is not wanted now.
     draft::discard_after_send(ctx, config, draft_id).await;
@@ -240,6 +283,19 @@ pub(crate) async fn send_raw(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_message_id_is_read_from_the_head_only() {
+        let raw = b"From: a@b.c\r\nMessage-ID:\r\n <abc@example.org>\r\nSubject: x\r\n\r\nMessage-ID: <body@x>\r\n";
+        assert_eq!(
+            header_value(raw, "message-id").as_deref(),
+            Some("<abc@example.org>")
+        );
+        assert_eq!(
+            header_value(b"Subject: x\r\n\r\nMessage-ID: <b@x>", "message-id"),
+            None
+        );
+    }
     use crate::models::{AccountSettings, AuthKind, MailProtocol, Provider, ProxyKind};
 
     fn config(proxy: ProxyKind, host: &str, port: u16) -> AccountConfig {

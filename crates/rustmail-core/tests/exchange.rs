@@ -1067,6 +1067,122 @@ async fn a_flag_with_a_future_due_date_becomes_one_task_when_the_account_asks_fo
 }
 
 #[tokio::test]
+async fn a_task_made_from_a_flag_follows_the_flag_but_a_task_made_by_hand_does_not() {
+    use rustmail_core::tasks::{ColumnKind, TaskDraft};
+    let due = |days: i64| {
+        (chrono::Utc::now() + chrono::Duration::days(days))
+            .format("%Y-%m-%dT%H:%M:%S.0000000")
+            .to_string()
+    };
+    let with_due = |subject: &str, due: &str| {
+        mail(subject, "a@example.org").replacen(
+            "Subject:",
+            &format!("X-Test-Flag-Due: {due}\r\nSubject:"),
+            1,
+        )
+    };
+    let flagged = |id: &str, raw: String| Msg {
+        id: id.into(),
+        folder: "inbox",
+        read: false,
+        flagged: true,
+        categories: "",
+        raw,
+    };
+    let temp = tempfile::tempdir().unwrap();
+    let shared: Shared = Arc::new(Mutex::new(State {
+        messages: vec![
+            flagged("F1", with_due("Soon", &due(3))),
+            flagged("F2", mail("By hand", "b@example.org")),
+        ],
+        ..State::default()
+    }));
+    let base = serve(shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = add_with(
+        &core,
+        ExchangeSettings {
+            flag_reminders: true,
+            ..settings(&base)
+        },
+    )
+    .await;
+    core.sync_now(Some(account.id)).await.unwrap();
+    let tasks = |core: &Core| {
+        let core = core.clone();
+        async move {
+            core.task_threads(None)
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|t| (t.title, t.due_at, t.status_kind))
+                .collect::<Vec<_>>()
+        }
+    };
+    let first = tasks(&core).await;
+    assert_eq!(first.len(), 1, "{first:?}");
+    assert_eq!(first[0].0, "Soon");
+
+    // A task made by hand for the other flagged mail.
+    let thread: i64 = core
+        .db
+        .read(|conn| {
+            Ok(conn.query_row(
+                "SELECT thread_id FROM messages WHERE subject='By hand'",
+                [],
+                |row| row.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    core.task_create_from_thread(
+        thread,
+        TaskDraft {
+            title: None,
+            project_id: None,
+            status: ColumnKind::Next,
+            due_at: None,
+            context_id: None,
+            label_ids: Vec::new(),
+        },
+    )
+    .await
+    .unwrap();
+
+    // The flag gets a later due date: the task follows.
+    let later = due(9);
+    {
+        let mut state = shared.lock().unwrap();
+        let changed = flagged("F1", with_due("Soon", &later));
+        state.pending.push(("inbox", message_json(&changed)));
+    }
+    core.sync_now(Some(account.id)).await.unwrap();
+    let moved = tasks(&core).await;
+    let soon = moved.iter().find(|t| t.0 == "Soon").unwrap();
+    let wanted = chrono::NaiveDateTime::parse_from_str(&later[..19], "%Y-%m-%dT%H:%M:%S")
+        .unwrap()
+        .and_utc()
+        .timestamp_millis();
+    assert_eq!(soon.1, Some(wanted), "{moved:?}");
+
+    // Both flags are marked complete in Outlook: only the flag's own task closes.
+    {
+        let mut state = shared.lock().unwrap();
+        for (id, subject) in [("F1", "Soon"), ("F2", "By hand")] {
+            let mut done = flagged(id, mail(subject, "a@example.org"));
+            done.flagged = false;
+            let json = message_json(&done).replace("notFlagged", "complete");
+            state.pending.push(("inbox", json));
+        }
+    }
+    core.sync_now(Some(account.id)).await.unwrap();
+    let after = tasks(&core).await;
+    let kind = |title: &str| after.iter().find(|t| t.0 == title).unwrap().2;
+    assert_eq!(kind("Soon"), ColumnKind::Done, "{after:?}");
+    assert_ne!(kind("By hand"), ColumnKind::Done, "{after:?}");
+}
+
+#[tokio::test]
 async fn first_sync_reads_folders_roles_flags_and_bodies() {
     let temp = tempfile::tempdir().unwrap();
     let shared = seeded();

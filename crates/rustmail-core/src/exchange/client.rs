@@ -69,6 +69,8 @@ pub struct GraphMessage {
     pub is_read: bool,
     pub is_draft: bool,
     pub flagged: bool,
+    /// The follow-up flag was marked complete (not merely cleared).
+    pub flag_complete: bool,
     pub categories: Vec<String>,
     pub received_ms: Option<i64>,
     /// When the follow-up flag says it is due (UTC), if it has a due date.
@@ -419,6 +421,28 @@ impl GraphMail {
             Err(CoreError::NotFound(_)) => Ok(None),
             Err(error) => Err(error),
         }
+    }
+
+    /// Whether Sent Items holds a message with this `Message-ID` header. Used
+    /// after an uncertain send to tell "Microsoft 365 took it" from "it did
+    /// not".
+    pub async fn sent_copy_exists(&self, internet_message_id: &str) -> Result<bool> {
+        let id = internet_message_id.trim();
+        if id.is_empty() || id.len() > 998 || id.chars().any(char::is_control) {
+            return Ok(false);
+        }
+        let mut url = self.endpoint(&["mailFolders", "sentitems", "messages"]);
+        url.query_pairs_mut()
+            .append_pair(
+                "$filter",
+                &format!("internetMessageId eq '{}'", id.replace('\'', "''")),
+            )
+            .append_pair("$select", "id")
+            .append_pair("$top", "1");
+        let value = self.json(reqwest::Method::GET, url, None, &[]).await?;
+        Ok(value["value"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()))
     }
 
     /// Every mail folder, parents before children.
@@ -2122,6 +2146,7 @@ fn parse_message(item: &Value, id: &str) -> GraphMessage {
         is_read: item["isRead"].as_bool().unwrap_or(false),
         is_draft: item["isDraft"].as_bool().unwrap_or(false),
         flagged: item.pointer("/flag/flagStatus").and_then(Value::as_str) == Some("flagged"),
+        flag_complete: item.pointer("/flag/flagStatus").and_then(Value::as_str) == Some("complete"),
         categories: item["categories"]
             .as_array()
             .into_iter()
@@ -2792,6 +2817,27 @@ mod tests {
         // A read may be repeated.
         client.probe().await.unwrap_err();
         assert!(server.requests().len() > 2);
+    }
+
+    #[tokio::test]
+    async fn sent_items_is_asked_for_the_message_id_of_an_uncertain_send() {
+        let server = FakeServer::start(|request| {
+            if request.path.ends_with("/mailFolders/sentitems/messages") {
+                let query = request.query.clone();
+                assert!(
+                    query.contains("internetMessageId") && query.contains("it%27%27s")
+                        || query.contains("it''s"),
+                    "{query}"
+                );
+                return Reply::json(200, r#"{"value":[{"id":"m1"}]}"#);
+            }
+            panic!("unexpected {:?}", request.path)
+        })
+        .await;
+        let client = client_for(&server, "");
+        assert!(client.sent_copy_exists("<it's@example.org>").await.unwrap());
+        assert!(!client.sent_copy_exists("").await.unwrap());
+        assert_eq!(server.requests().len(), 1);
     }
 
     #[tokio::test]

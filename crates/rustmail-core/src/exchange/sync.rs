@@ -1364,7 +1364,7 @@ async fn apply(
     let role = folder.role;
     let cache_dir = ctx.paths.mail_dir(account_id);
     let remind = config.settings.connection.exchange.flag_reminders;
-    let (threads, reminders) = ctx
+    let (threads, reminders, settled) = ctx
         .db
         .write(move |conn| {
             let tx = conn.transaction()?;
@@ -1372,6 +1372,8 @@ async fn apply(
             let mut threads: HashSet<i64> = HashSet::new();
             // Flagged messages with a due date: (thread, due, subject).
             let mut reminders: Vec<(i64, i64)> = Vec::new();
+            // Threads whose flag changed: (thread, completed, due now).
+            let mut settled: Vec<(i64, bool, Option<i64>)> = Vec::new();
             let now = now_ms();
             for plan in &plans {
                 match plan {
@@ -1445,6 +1447,13 @@ async fn apply(
                             if let Some(due) = reminder_due(remind, message, now) {
                                 reminders.push((thread_id, due));
                             }
+                            if remind && (message.flag_complete || message.flagged) {
+                                settled.push((
+                                    thread_id,
+                                    message.flag_complete,
+                                    message.flag_due_ms,
+                                ));
+                            }
                         }
                     }
                     Plan::New(new) => {
@@ -1509,9 +1518,12 @@ async fn apply(
                 }
             }
             tx.commit()?;
-            Ok((threads, reminders))
+            Ok((threads, reminders, settled))
         })
         .await?;
+    if !settled.is_empty() {
+        settle_reminder_tasks(ctx, settled).await;
+    }
     if !reminders.is_empty() {
         make_reminder_tasks(ctx, reminders).await;
     }
@@ -1543,7 +1555,7 @@ async fn make_reminder_tasks(ctx: &SyncCtx, reminders: Vec<(i64, i64)>) {
                 if !store.threads_with_tasks(Some(&[thread_id]))?.is_empty() {
                     continue;
                 }
-                store.create_from_thread(
+                let created = store.create_from_thread(
                     thread_id,
                     TaskDraft {
                         title: None,
@@ -1554,6 +1566,12 @@ async fn make_reminder_tasks(ctx: &SyncCtx, reminders: Vec<(i64, i64)>) {
                         label_ids: Vec::new(),
                     },
                 )?;
+                // Remember where the task came from and which due date the
+                // flag had, so a later change of the flag can follow it.
+                conn.execute(
+                    "INSERT INTO task_activity (task_id, kind, text, at) VALUES (?1, ?2, ?3, ?4)",
+                    params![created.id, FLAG_MARKER, due.to_string(), now_ms()],
+                )?;
                 made += 1;
             }
             Ok(made)
@@ -1563,6 +1581,72 @@ async fn make_reminder_tasks(ctx: &SyncCtx, reminders: Vec<(i64, i64)>) {
         Ok(made) if made > 0 => ctx.bus.emit(CoreEvent::TasksChanged),
         Ok(_) => {}
         Err(error) => tracing::warn!(%error, "exchange: could not make a task from a flag"),
+    }
+}
+
+/// Task activity kind that marks a task made from a follow-up flag; its text
+/// is the flag's due time (UTC ms) the task last followed.
+const FLAG_MARKER: &str = "flag_reminder";
+
+/// A flag marked complete finishes the task that was made from it; a flag that
+/// got a new due date moves the task's due date, unless the flag still has the
+/// date the task already followed (then a date changed by hand stays). Tasks
+/// made by hand, or from other mail, are never touched.
+async fn settle_reminder_tasks(ctx: &SyncCtx, settled: Vec<(i64, bool, Option<i64>)>) {
+    use crate::tasks::{ColumnKind, SqliteTaskStore, TaskPatch, TaskStore};
+    let result = ctx
+        .db
+        .write(move |conn| {
+            let mut changed = false;
+            for (thread_id, complete, due) in settled {
+                let tasks = SqliteTaskStore::new(conn).threads_with_tasks(Some(&[thread_id]))?;
+                for task in tasks {
+                    if task.status_kind == ColumnKind::Done {
+                        continue;
+                    }
+                    let followed: Option<i64> = conn
+                        .query_row(
+                            "SELECT text FROM task_activity WHERE task_id=?1 AND kind=?2
+                             ORDER BY id DESC LIMIT 1",
+                            params![task.task_id, FLAG_MARKER],
+                            |row| row.get::<_, String>(0),
+                        )
+                        .optional()?
+                        .map(|text| text.parse().unwrap_or(0));
+                    let Some(followed) = followed else {
+                        continue;
+                    };
+                    let mut store = SqliteTaskStore::new(conn);
+                    if complete {
+                        store.complete_task(task.task_id)?;
+                        changed = true;
+                    } else if let Some(due) = due
+                        && due != followed
+                        && due >= now_ms()
+                    {
+                        store.update_task(
+                            task.task_id,
+                            TaskPatch {
+                                due_at: Some(Some(due)),
+                                ..Default::default()
+                            },
+                        )?;
+                        conn.execute(
+                            "INSERT INTO task_activity (task_id, kind, text, at)
+                             VALUES (?1, ?2, ?3, ?4)",
+                            params![task.task_id, FLAG_MARKER, due.to_string(), now_ms()],
+                        )?;
+                        changed = true;
+                    }
+                }
+            }
+            Ok(changed)
+        })
+        .await;
+    match result {
+        Ok(true) => ctx.bus.emit(CoreEvent::TasksChanged),
+        Ok(false) => {}
+        Err(error) => tracing::warn!(%error, "exchange: could not follow a flag change"),
     }
 }
 
