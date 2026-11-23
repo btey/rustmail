@@ -490,23 +490,54 @@ fn cache_ttl(headers: &reqwest::header::HeaderMap) -> Duration {
         .min(MAX_KEY_TTL)
 }
 
-fn oidc_http_client() -> Result<&'static reqwest::Client> {
-    static HTTP: Lazy<std::result::Result<reqwest::Client, String>> = Lazy::new(|| {
+fn oidc_http_client() -> Result<reqwest::Client> {
+    fn builder() -> reqwest::ClientBuilder {
         reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(30))
             .redirect(reqwest::redirect::Policy::none())
             .user_agent(concat!("Rustmail/", env!("CARGO_PKG_VERSION")))
+    }
+    static HTTP: Lazy<std::result::Result<reqwest::Client, String>> = Lazy::new(|| {
+        builder()
             .build()
             .map_err(|error| format!("identity HTTP client configuration failed: {error}"))
     });
+    // A sign-in that runs through a proxy fetches the signing keys through it
+    // too (the keys are cached, so this client is built rarely).
+    if crate::proxy_url::current().is_some() {
+        return crate::proxy_url::apply_scoped(builder())?
+            .build()
+            .map_err(|error| {
+                CoreError::Network(format!(
+                    "identity HTTP client configuration failed: {error}"
+                ))
+            });
+    }
     HTTP.as_ref()
+        .cloned()
         .map_err(|message| CoreError::Network(message.clone()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn the_signing_key_fetch_uses_the_scoped_proxy() {
+        let (port, heads) = crate::proxy_url::test_proxy::http_proxy("{}").await;
+        let proxy = format!("http://127.0.0.1:{port}/");
+        // The fake proxy cannot speak TLS, so the fetch fails after CONNECT.
+        let keys = crate::proxy_url::scoped(Some(proxy), signing_keys(Provider::Gmail, true)).await;
+        assert!(keys.is_err());
+        let heads = heads.lock().unwrap();
+        assert!(
+            heads
+                .iter()
+                .any(|head| head.starts_with("CONNECT www.googleapis.com:443 ")),
+            "{heads:?}"
+        );
+    }
 
     fn google_claims(now: i64) -> Value {
         serde_json::json!({

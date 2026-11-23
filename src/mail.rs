@@ -858,6 +858,16 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    /// Why the latest failed change failed (empty when nothing failed).
+    pub async fn failed_change_reason(&self) -> String {
+        self.core
+            .failed_change_reason(None)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_default()
+    }
+
     pub async fn retry_failed_changes(&self) -> Result<usize, String> {
         self.core
             .retry_failed_changes(None)
@@ -1693,9 +1703,10 @@ impl CoreMailSource {
         &self,
         google: Option<(String, String)>,
         microsoft: Option<String>,
+        sign_in_proxy: Option<String>,
     ) -> Result<rustmail_core::models::Settings, String> {
         self.core
-            .set_oauth_apps(google, microsoft)
+            .set_oauth_apps_with_proxy(google, microsoft, sign_in_proxy)
             .await
             .map_err(|error| error.to_string())
     }

@@ -3922,10 +3922,12 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                 let app_weak = mail_update_app.clone();
                 mail_update_runtime.spawn(async move {
                     let failed = core.failed_changes().await.unwrap_or(0);
+                    let failed_reason = core.failed_change_reason().await;
                     let status = core.offline_status().await.ok();
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(app) = app_weak.upgrade() {
                             app.set_failed_changes(i32::try_from(failed).unwrap_or(i32::MAX));
+                            app.set_failed_changes_reason(failed_reason.into());
                             if let Some((offline, waiting)) = status {
                                 app.set_offline_active(offline);
                                 app.set_offline_waiting(
@@ -5458,11 +5460,13 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
                     core.discard_failed_changes().await
                 };
                 let remaining = core.failed_changes().await.unwrap_or(0);
+                let reason = core.failed_change_reason().await;
                 let _ = slint::invoke_from_event_loop(move || {
                     let Some(app) = app_weak.upgrade() else {
                         return;
                     };
                     app.set_failed_changes(i32::try_from(remaining).unwrap_or(i32::MAX));
+                    app.set_failed_changes_reason(reason.into());
                     match done {
                         Ok(_) if retry => {
                             app.set_sync_status(UiMessage::plain("Trying the failed changes again…"));

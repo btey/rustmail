@@ -430,6 +430,26 @@ pub fn failed_count(conn: &Connection, account_id: Option<i64>) -> Result<i64> {
     )?)
 }
 
+/// The reason the most recent failed change gave (the server's own words, one
+/// line, cut to 160 characters), so the failed-changes line can say why.
+pub fn failed_reason(conn: &Connection, account_id: Option<i64>) -> Result<Option<String>> {
+    let reason: Option<Option<String>> = conn
+        .query_row(
+            &format!(
+                "SELECT last_error FROM pending_actions
+                 WHERE {FAILED_CHANGES} AND last_error IS NOT NULL AND last_error <> ''
+                 ORDER BY COALESCE(finished_at, 0) DESC, id DESC LIMIT 1"
+            ),
+            params![account_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(reason.flatten().map(|text| {
+        let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        line.chars().take(160).collect()
+    }))
+}
+
 /// Queue every failed change again with a fresh retry budget. Returns how many.
 pub fn retry_failed(conn: &Connection, account_id: Option<i64>) -> Result<usize> {
     Ok(conn.execute(
@@ -723,5 +743,35 @@ mod tests {
         assert_eq!(discard_failed(&conn, None).unwrap(), 1);
         assert_eq!(get(&conn, read).unwrap().unwrap().state, "cancelled");
         assert_eq!(failed_count(&conn, None).unwrap(), 0);
+    }
+
+    #[test]
+    fn the_reason_of_the_latest_failed_change_is_kept_on_one_line() {
+        let conn = testutil::conn();
+        testutil::seed_account(&conn);
+        assert_eq!(failed_reason(&conn, None).unwrap(), None);
+        let payload = serde_json::json!({});
+        let make = |kind: &str, state: &str, error: &str, finished: i64| {
+            let id = enqueue(&conn, 1, kind, None, None, &payload, Some(5)).unwrap();
+            conn.execute(
+                "UPDATE pending_actions SET state=?2, last_error=?3, finished_at=?4 WHERE id=?1",
+                params![id, state, error, finished],
+            )
+            .unwrap();
+        };
+        make("trash", "failed", "old refusal", 10);
+        make("mark_read", "failed", "folder is\n  read only  ", 20);
+        make("send", "failed", "a send is not listed", 30);
+        make("trash", "pending", "waiting", 40);
+        assert_eq!(
+            failed_reason(&conn, None).unwrap().as_deref(),
+            Some("folder is read only")
+        );
+        assert_eq!(failed_reason(&conn, Some(2)).unwrap(), None);
+        make("trash", "failed", &"x".repeat(500), 50);
+        assert_eq!(
+            failed_reason(&conn, None).unwrap().unwrap().chars().count(),
+            160
+        );
     }
 }

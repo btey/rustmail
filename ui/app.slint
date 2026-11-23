@@ -707,7 +707,7 @@ export component AppWindow inherits Window {
     callback reauth_account(int);
     callback cancel_oauth();
     callback save_oauth_app(string, string, string);
-    callback save_oauth_apps(string, string, string);
+    callback save_oauth_apps(string, string, string, string);
     pure callback make_account_transfer(string) -> data-transfer;
     pure callback read_account_transfer(data-transfer) -> string;
     pure callback settings-search-matches(string, string) -> bool;
@@ -942,6 +942,7 @@ export component AppWindow inherits Window {
     in-out property <int> offline_waiting: 0;
     // Mail changes the server refused, waiting for Retry or Discard.
     in-out property <int> failed_changes: 0;
+    in-out property <string> failed_changes_reason: "";
     // Local time (HH:MM) an account last finished fetching in this session.
     in-out property <string> last_sync_text: "";
     in-out property <string> last_sync_failed_text: "";
@@ -1113,6 +1114,7 @@ export component AppWindow inherits Window {
     in-out property <string> google_client_id: "";
     in-out property <string> google_client_secret: "";
     in-out property <string> ms_client_id: "";
+    in-out property <string> sign_in_proxy: "";
     in-out property <bool> custom_oauth_open: false;
     in property <bool> custom_oauth_configured: false;
     in property <bool> google_oauth_available: false;
@@ -1517,6 +1519,7 @@ export component AppWindow inherits Window {
             server_search_added: root.server_search_added;
             offline_waiting: root.offline_waiting;
             failed_changes: root.failed_changes;
+            failed_changes_reason: root.failed_changes_reason;
             last_sync_text: root.last_sync_text;
             last_sync_failed_text: root.last_sync_failed_text;
             can_load_more: root.can_load_more;
@@ -1997,6 +2000,7 @@ export component AppWindow inherits Window {
             google_client_id <=> root.google_client_id;
             google_client_secret <=> root.google_client_secret;
             ms_client_id <=> root.ms_client_id;
+            sign_in_proxy <=> root.sign_in_proxy;
             custom_oauth_open <=> root.custom_oauth_open;
             save_theme(mode) => { root.save_theme(mode); }
             save_theme_preset(preset) => { root.save_theme_preset(preset); }
@@ -2328,9 +2332,10 @@ export component AppWindow inherits Window {
         google-client-id: root.google_client_id;
         google-client-secret: root.google_client_secret;
         ms-client-id: root.ms_client_id;
+        sign-in-proxy: root.sign_in_proxy;
         oauth-setup-open <=> root.oauth_setup_open;
-        save-oauth-apps(google-id, google-secret, microsoft-id) => {
-            root.save_oauth_apps(google-id, google-secret, microsoft-id);
+        save-oauth-apps(google-id, google-secret, microsoft-id, proxy) => {
+            root.save_oauth_apps(google-id, google-secret, microsoft-id, proxy);
         }
         status: root.sync_status;
         page-bg: root.page-bg;

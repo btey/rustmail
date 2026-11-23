@@ -932,7 +932,12 @@ fn states() -> Vec<State> {
             app.set_offline_active(true);
             app.set_offline_waiting(12);
         }),
-        state("mail failed changes", |app| app.set_failed_changes(12)),
+        state("mail failed changes", |app| {
+            app.set_failed_changes(12);
+            app.set_failed_changes_reason(
+                "The folder is read only and cannot take new messages".into(),
+            );
+        }),
         state("mail grouped", |app| {
             app.set_mail_list_entries(model(mail_entries(true)))
         }),

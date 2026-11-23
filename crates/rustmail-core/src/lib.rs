@@ -2099,12 +2099,12 @@ impl Core {
         open_url: impl FnOnce(String) -> std::result::Result<(), String> + Send,
     ) -> Result<exchange::auth::TokenSet> {
         tokio::select! {
-            r = exchange::auth::authorize_browser(
+            r = proxy_url::with_sign_in_proxy(exchange::auth::authorize_browser(
                 settings,
                 login_hint,
                 self.oauth_redirects.clone(),
                 open_url,
-            ) => r,
+            )) => r,
             _ = self.oauth_cancel.notified() => Err(CoreError::Auth("sign-in cancelled".into())),
         }
     }
@@ -2114,7 +2114,7 @@ impl Core {
         &self,
         settings: &exchange::ExchangeSettings,
     ) -> Result<exchange::auth::DeviceCode> {
-        exchange::auth::start_device_code(settings).await
+        proxy_url::with_sign_in_proxy(exchange::auth::start_device_code(settings)).await
     }
 
     /// Device-code sign-in, step 2: wait until the user has finished.
@@ -2124,7 +2124,7 @@ impl Core {
         device: &exchange::auth::DeviceCode,
     ) -> Result<exchange::auth::TokenSet> {
         tokio::select! {
-            r = exchange::auth::poll_device_code(settings, device, None) => r,
+            r = proxy_url::with_sign_in_proxy(exchange::auth::poll_device_code(settings, device, None)) => r,
             _ = self.oauth_cancel.notified() => Err(CoreError::Auth("sign-in cancelled".into())),
         }
     }
@@ -2152,8 +2152,13 @@ impl Core {
         pasted: &str,
     ) -> Result<exchange::auth::TokenSet> {
         let code = exchange::auth::code_from_pasted(pasted, &request.state)?;
-        exchange::auth::exchange_code(settings, &code, &request.verifier, &request.redirect_uri)
-            .await
+        proxy_url::with_sign_in_proxy(exchange::auth::exchange_code(
+            settings,
+            &code,
+            &request.verifier,
+            &request.redirect_uri,
+        ))
+        .await
     }
 
     /// Add (or reconnect) an Exchange Online account after a successful
@@ -2752,6 +2757,13 @@ impl Core {
         Ok(usize::try_from(count).unwrap_or(0))
     }
 
+    /// Why the latest failed change failed, in the server's words (one line).
+    pub async fn failed_change_reason(&self, account_id: Option<i64>) -> Result<Option<String>> {
+        self.db
+            .read(move |conn| repo::actions::failed_reason(conn, account_id))
+            .await
+    }
+
     /// Queue every failed change again with a fresh retry budget and wake the
     /// accounts. Returns how many were queued.
     pub async fn retry_failed_changes(&self, account_id: Option<i64>) -> Result<usize> {
@@ -3309,13 +3321,13 @@ impl Core {
         self.recover_incomplete_account_credentials().await?;
 
         let outcome = tokio::select! {
-            r = oauth::flow::authorize_with_broker(
+            r = proxy_url::with_sign_in_proxy(oauth::flow::authorize_with_broker(
                 provider,
                 consent_extra,
                 None,
                 self.oauth_redirects.clone(),
                 open_url,
-            ) => r?,
+            )) => r?,
             _ = self.oauth_cancel.notified() => {
                 return Err(CoreError::Auth("sign-in cancelled".into()));
             }
@@ -9312,7 +9324,7 @@ impl Core {
         self.db.read(|conn| repo::settings::get(conn)).await
     }
 
-    pub async fn set_settings(&self, settings: Settings) -> Result<()> {
+    pub async fn set_settings(&self, mut settings: Settings) -> Result<()> {
         let oauth_settings = settings.clone();
         let now_ms = chrono::Utc::now().timestamp_millis();
         self.db
@@ -9332,6 +9344,10 @@ impl Core {
                         Provider::Microsoft,
                         &settings.ms_client_id,
                     )?;
+                }
+                if settings.sign_in_proxy != previous.sign_in_proxy {
+                    settings.sign_in_proxy =
+                        proxy_url::validate_sign_in_proxy(&settings.sign_in_proxy)?;
                 }
                 repo::contacts::advance_learning_boundaries(
                     &tx,
@@ -9546,6 +9562,23 @@ impl Core {
         google: Option<(String, String)>,
         microsoft: Option<String>,
     ) -> Result<Settings> {
+        self.set_oauth_apps_with_proxy(google, microsoft, None)
+            .await
+    }
+
+    /// [`Core::set_oauth_apps`] that can also set the proxy of sign-ins made
+    /// before an account exists (`Some("")` clears it). A bad proxy is refused
+    /// before anything is written.
+    pub async fn set_oauth_apps_with_proxy(
+        &self,
+        google: Option<(String, String)>,
+        microsoft: Option<String>,
+        sign_in_proxy: Option<String>,
+    ) -> Result<Settings> {
+        let sign_in_proxy = sign_in_proxy
+            .as_deref()
+            .map(proxy_url::validate_sign_in_proxy)
+            .transpose()?;
         // Reject a bad registration before either provider is written. Empty
         // IDs remain the explicit way to clear a custom registration.
         if let Some((id, _)) = &google {
@@ -9569,6 +9602,9 @@ impl Core {
                     settings.ms_client_id = id.trim().to_owned();
                     // Public desktop clients use PKCE, without a secret.
                     settings.ms_client_secret.clear();
+                }
+                if let Some(proxy) = sign_in_proxy {
+                    settings.sign_in_proxy = proxy;
                 }
                 repo::settings::set(conn, &settings)?;
                 apply_oauth_settings(&settings);
@@ -9959,6 +9995,7 @@ fn apply_oauth_settings(settings: &Settings) {
         &settings.ms_client_id,
         &settings.ms_client_secret,
     );
+    proxy_url::set_sign_in_proxy(&settings.sign_in_proxy);
 }
 
 /// Validate a model-selected route against current local rows. The model only

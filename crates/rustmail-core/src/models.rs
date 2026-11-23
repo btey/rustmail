@@ -2104,6 +2104,10 @@ pub struct Settings {
     /// leave this empty or Microsoft rejects the token request.
     #[serde(default)]
     pub ms_client_secret: String,
+    /// Proxy for sign-ins that start before an account exists (`http://host:port`
+    /// or `socks5://host:port`, no login). Empty: connect directly.
+    #[serde(default)]
+    pub sign_in_proxy: String,
     /// Semantic-search embedding backend: "local" | "off". Local runs a small
     /// model on-device; off disables vector indexing (keyword search only).
     #[serde(default = "default_embedding_backend")]
@@ -2426,6 +2430,7 @@ impl Default for Settings {
             google_client_secret: String::new(),
             ms_client_id: String::new(),
             ms_client_secret: String::new(),
+            sign_in_proxy: String::new(),
             embedding_backend: default_embedding_backend(),
             embedding_model: default_embedding_model(),
             voice_drafting: false,

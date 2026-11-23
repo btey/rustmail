@@ -14,13 +14,15 @@ export component OAuthSetupDialog inherits Rectangle {
     in property <string> google-client-id;
     in property <string> google-client-secret;
     in property <string> ms-client-id;
-    callback save(string, string, string);
+    in property <string> sign-in-proxy;
+    callback save(string, string, string, string);
     in property <bool> saving: false;
     in-out property <string> save-error: "";
     private property <bool> google: true;
     private property <string> draft-google-id;
     private property <string> draft-google-secret;
     private property <string> draft-ms-id;
+    private property <string> draft-proxy;
 
     visible: root.open;
     background: #00000066;
@@ -31,6 +33,7 @@ export component OAuthSetupDialog inherits Rectangle {
             root.draft-google-id = root.google-client-id;
             root.draft-google-secret = root.google-client-secret;
             root.draft-ms-id = root.ms-client-id;
+            root.draft-proxy = root.sign-in-proxy;
             root.save-error = "";
             dialog-focus.focus();
         } else {
@@ -114,6 +117,19 @@ export component OAuthSetupDialog inherits Rectangle {
                             text: @tr("Leave the client ID blank to use default keys, if available. Keys are shared with Settings.");
                             color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap;
                         }
+                        Text { text: @tr("Sign-in proxy (optional)"); color: AppTheme.heading; font-size: TypeScale.body; }
+                        LineEdit {
+                            height: 40px;
+                            enabled: !root.saving;
+                            input-label: @tr("Sign-in proxy");
+                            text <=> root.draft-proxy;
+                            placeholder-text: @tr("http://host:3128 or socks5://host:1080");
+                            edited(value) => { root.save-error = ""; }
+                        }
+                        Text {
+                            text: @tr("Used to sign in to Gmail or Outlook when this network needs a proxy. It cannot carry a login.");
+                            color: AppTheme.secondary; font-size: TypeScale.caption; wrap: word-wrap;
+                        }
                         if root.save-error != "" : Text {
                             text: root.save-error;
                             color: AppTheme.destructive; font-size: TypeScale.caption; wrap: word-wrap;
@@ -129,7 +145,7 @@ export component OAuthSetupDialog inherits Rectangle {
                         primary: true;
                         enabled: !root.saving;
                         clicked => {
-                            root.save(root.draft-google-id, root.draft-google-secret, root.draft-ms-id);
+                            root.save(root.draft-google-id, root.draft-google-secret, root.draft-ms-id, root.draft-proxy);
                         }
                     }
                 }

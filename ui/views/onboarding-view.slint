@@ -20,8 +20,9 @@ export component OnboardingView inherits Rectangle {
     in property <string> google-client-id;
     in property <string> google-client-secret;
     in property <string> ms-client-id;
+    in property <string> sign-in-proxy;
     in-out property <bool> oauth-setup-open: false;
-    callback save-oauth-apps(string, string, string);
+    callback save-oauth-apps(string, string, string, string);
     in property <bool> oauth-settings-saving: false;
     in-out property <string> oauth-settings-error: "";
     in property <bool> startup-ready: false;
@@ -363,8 +364,9 @@ export component OnboardingView inherits Rectangle {
         google-client-id: root.google-client-id;
         google-client-secret: root.google-client-secret;
         ms-client-id: root.ms-client-id;
-        save(google-id, google-secret, microsoft-id) => {
-            root.save-oauth-apps(google-id, google-secret, microsoft-id);
+        sign-in-proxy: root.sign-in-proxy;
+        save(google-id, google-secret, microsoft-id, proxy) => {
+            root.save-oauth-apps(google-id, google-secret, microsoft-id, proxy);
         }
     }
 }

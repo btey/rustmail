@@ -59,6 +59,73 @@ pub(crate) async fn for_account(
     for_connection(&config.settings.connection)
 }
 
+/// The proxy for sign-ins that start before an account exists (Gmail and
+/// Outlook add-account, Microsoft 365 sign-in without its own proxy). Set
+/// from the settings when they load or change.
+static SIGN_IN_PROXY: std::sync::RwLock<Option<String>> = std::sync::RwLock::new(None);
+
+pub(crate) fn set_sign_in_proxy(value: &str) {
+    let proxy = validate_sign_in_proxy(value)
+        .ok()
+        .filter(|url| !url.is_empty());
+    if let Ok(mut slot) = SIGN_IN_PROXY.write() {
+        *slot = proxy;
+    }
+}
+
+pub(crate) fn sign_in_proxy() -> Option<String> {
+    SIGN_IN_PROXY.read().ok().and_then(|slot| slot.clone())
+}
+
+/// Run a sign-in future through the sign-in proxy, when one is set.
+pub(crate) async fn with_sign_in_proxy<F: std::future::Future>(future: F) -> F::Output {
+    match sign_in_proxy() {
+        Some(url) => scoped(Some(url), future).await,
+        None => future.await,
+    }
+}
+
+/// Check the setting of the sign-in proxy and return it in the form the HTTP
+/// clients take: empty for none, otherwise `http://host:port` or
+/// `socks5h://host:port` (`socks5` is read as `socks5h`, so the proxy resolves
+/// names). A login in the URL is refused: this setting is stored with the
+/// other settings, not in the credential store.
+pub fn validate_sign_in_proxy(value: &str) -> Result<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Ok(String::new());
+    }
+    let invalid = || {
+        CoreError::Other(
+            "The sign-in proxy must look like http://host:port or socks5://host:port.".into(),
+        )
+    };
+    let url = url::Url::parse(value).map_err(|_| invalid())?;
+    let scheme = match url.scheme() {
+        "http" => "http",
+        "socks5" | "socks5h" => "socks5h",
+        _ => return Err(invalid()),
+    };
+    if url.host_str().is_none_or(str::is_empty) || url.port_or_known_default().is_none() {
+        return Err(invalid());
+    }
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err(CoreError::Other(
+            "The sign-in proxy cannot carry a login. Use a proxy that needs none.".into(),
+        ));
+    }
+    if !matches!(url.path(), "" | "/") || url.query().is_some() || url.fragment().is_some() {
+        return Err(invalid());
+    }
+    let host = url.host_str().unwrap_or_default();
+    let port = url.port_or_known_default().unwrap_or_default();
+    Ok(if host.contains(':') {
+        format!("{scheme}://[{}]:{port}", host.trim_matches(['[', ']']))
+    } else {
+        format!("{scheme}://{host}:{port}")
+    })
+}
+
 tokio::task_local! {
     static SCOPED: Option<String>;
 }
@@ -170,6 +237,38 @@ mod tests {
         let mut bad = connection(ProxyKind::Http, "");
         bad.proxy_port = 0;
         assert!(for_connection(&bad).is_err());
+    }
+
+    #[test]
+    fn the_sign_in_proxy_setting_is_checked_and_normalised() {
+        assert_eq!(validate_sign_in_proxy("  ").unwrap(), "");
+        assert_eq!(
+            validate_sign_in_proxy(" http://proxy.example.org:3128 ").unwrap(),
+            "http://proxy.example.org:3128"
+        );
+        assert_eq!(
+            validate_sign_in_proxy("http://proxy.example.org").unwrap(),
+            "http://proxy.example.org:80"
+        );
+        assert_eq!(
+            validate_sign_in_proxy("socks5://127.0.0.1:9050").unwrap(),
+            "socks5h://127.0.0.1:9050"
+        );
+        assert_eq!(
+            validate_sign_in_proxy("socks5h://[::1]:1080").unwrap(),
+            "socks5h://[::1]:1080"
+        );
+        for bad in [
+            "proxy.example.org:3128",
+            "ftp://proxy.example.org:21",
+            "https://proxy.example.org:443",
+            "socks5://proxy.example.org",
+            "http://ben:secret@proxy.example.org:3128",
+            "http://proxy.example.org:3128/path",
+            "http://:3128",
+        ] {
+            assert!(validate_sign_in_proxy(bad).is_err(), "{bad}");
+        }
     }
 
     /// The recorded head of the first request the fake proxy saw: HTTPS

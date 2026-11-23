@@ -787,6 +787,18 @@ pub(super) fn register_oauth_settings_callbacks(
                 None,
             ),
             "microsoft" => (None, Some(client_id.to_string())),
+            "proxy" => {
+                save_oauth_settings(
+                    &app,
+                    &single_state,
+                    &single_runtime,
+                    None,
+                    None,
+                    Some(client_id.to_string()),
+                    false,
+                );
+                return;
+            }
             _ => return,
         };
         save_oauth_settings(
@@ -795,6 +807,7 @@ pub(super) fn register_oauth_settings_callbacks(
             &single_runtime,
             google,
             microsoft,
+            None,
             false,
         );
     });
@@ -802,7 +815,7 @@ pub(super) fn register_oauth_settings_callbacks(
     let weak = app.as_weak();
     let state = Rc::clone(state);
     let runtime = Rc::clone(runtime);
-    app.on_save_oauth_apps(move |google_id, google_secret, microsoft_id| {
+    app.on_save_oauth_apps(move |google_id, google_secret, microsoft_id, sign_in_proxy| {
         let Some(app) = weak.upgrade() else { return };
         save_oauth_settings(
             &app,
@@ -810,6 +823,7 @@ pub(super) fn register_oauth_settings_callbacks(
             &runtime,
             Some((google_id.to_string(), google_secret.to_string())),
             Some(microsoft_id.to_string()),
+            Some(sign_in_proxy.to_string()),
             true,
         );
     });
@@ -821,6 +835,7 @@ fn save_oauth_settings(
     runtime: &tokio::runtime::Runtime,
     google: Option<(String, String)>,
     microsoft: Option<String>,
+    sign_in_proxy: Option<String>,
     close_dialog: bool,
 ) {
     if app.get_oauth_settings_saving() || app.get_oauth_in_progress() {
@@ -834,11 +849,12 @@ fn save_oauth_settings(
     };
     let update_google = google.is_some();
     let update_microsoft = microsoft.is_some();
+    let update_proxy = sign_in_proxy.is_some();
     app.set_oauth_settings_error("".into());
     app.set_oauth_settings_saving(true);
     let weak = app.as_weak();
     runtime.spawn(async move {
-        let result = core.set_oauth_apps(google, microsoft).await;
+        let result = core.set_oauth_apps(google, microsoft, sign_in_proxy).await;
         let _ = weak.upgrade_in_event_loop(move |app| {
             app.set_oauth_settings_saving(false);
             match result {
@@ -849,6 +865,9 @@ fn save_oauth_settings(
                     }
                     if update_microsoft {
                         app.set_ms_client_id(settings.ms_client_id.clone().into());
+                    }
+                    if update_proxy {
+                        app.set_sign_in_proxy(settings.sign_in_proxy.clone().into());
                     }
                     app.set_custom_oauth_configured(
                         !settings.google_client_id.is_empty() || !settings.ms_client_id.is_empty(),

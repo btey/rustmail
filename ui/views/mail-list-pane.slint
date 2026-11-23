@@ -193,6 +193,7 @@ export component MailListPane inherits Rectangle {
     in property <int> offline_waiting: 0;
     // Mail changes the server refused ("N changes could not be sent").
     in property <int> failed_changes: 0;
+    in property <string> failed_changes_reason: "";
     callback retry_failed_changes();
     callback discard_failed_changes();
     private property <string> offline-text: root.offline_waiting == 0 ? @tr("Offline")
@@ -439,8 +440,17 @@ export component MailListPane inherits Rectangle {
                             padding-right: self.padding-left;
                             spacing: 12px;
                             Text {
-                                horizontal-stretch: 1;
                                 text: @tr("{n} change could not be sent" | "{n} changes could not be sent" % root.failed_changes);
+                                color: root.secondary-text;
+                                font-size: TypeScale.caption;
+                                vertical-alignment: center;
+                                overflow: elide;
+                                accessible-role: text;
+                            }
+                            // The server's own words for the latest refusal.
+                            Text {
+                                horizontal-stretch: 1;
+                                text: root.failed_changes_reason;
                                 color: root.secondary-text;
                                 font-size: TypeScale.caption;
                                 vertical-alignment: center;

@@ -434,6 +434,7 @@ export component SettingsDialog inherits Rectangle {
     in-out property <string> google_client_id: "";
     in-out property <string> google_client_secret: "";
     in-out property <string> ms_client_id: "";
+    in-out property <string> sign_in_proxy: "";
     in-out property <bool> custom_oauth_open: false;
     in-out property <bool> imap_form_open: false;
     in-out property <string> account_form_section: "account";
@@ -2068,6 +2069,8 @@ export component SettingsDialog inherits Rectangle {
                                     if root.custom_oauth_open && root.compact : VerticalBox { spacing: 8px; LineEdit { enabled: !root.account_setup_in_progress && !root.oauth_in_progress && !root.oauth_settings_saving; text: root.google_client_id; placeholder-text: @tr("Gmail desktop client ID"); edited(text) => { root.google_client_id = text; } } LineEdit { enabled: !root.account_setup_in_progress && !root.oauth_in_progress && !root.oauth_settings_saving; text: root.google_client_secret; input-type: password; placeholder-text: @tr("Gmail client secret (optional)"); edited(text) => { root.google_client_secret = text; } } Button { enabled: !root.account_setup_in_progress && !root.oauth_in_progress && !root.oauth_settings_saving; text: @tr("Save Gmail settings"); clicked => { root.save_oauth_app("gmail", root.google_client_id, root.google_client_secret); } } }
                                     if root.custom_oauth_open : HorizontalBox { spacing: 8px; LineEdit { enabled: !root.account_setup_in_progress && !root.oauth_in_progress && !root.oauth_settings_saving; text: root.ms_client_id; placeholder-text: @tr("Microsoft Entra desktop client ID"); edited(text) => { root.ms_client_id = text; } } Button { enabled: !root.account_setup_in_progress && !root.oauth_in_progress && !root.oauth_settings_saving; text: @tr("Save Outlook"); clicked => { root.save_oauth_app("microsoft", root.ms_client_id, ""); } } }
                                     if root.custom_oauth_open : Text { text: @tr("Outlook public desktop clients use PKCE and do not need a client secret."); color: root.faint-text; font-size: TypeScale.caption; wrap: word-wrap; }
+                                    if root.custom_oauth_open : HorizontalBox { spacing: 8px; LineEdit { enabled: !root.account_setup_in_progress && !root.oauth_in_progress && !root.oauth_settings_saving; text: root.sign_in_proxy; placeholder-text: @tr("Sign-in proxy, e.g. http://host:3128"); edited(text) => { root.sign_in_proxy = text; } } Button { enabled: !root.account_setup_in_progress && !root.oauth_in_progress && !root.oauth_settings_saving; text: @tr("Save proxy"); clicked => { root.save_oauth_app("proxy", root.sign_in_proxy, ""); } } }
+                                    if root.custom_oauth_open : Text { text: @tr("Used when adding a Gmail or Outlook account, before it has proxy settings of its own."); color: root.faint-text; font-size: TypeScale.caption; wrap: word-wrap; }
                                 }
                             }
                             Rectangle {
