@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: rustmail 0.1.0\n"
-"POT-Creation-Date: 2026-11-23 16:41+0000\n"
+"POT-Creation-Date: 2026-11-23 19:34+0000\n"
 "PO-Revision-Date: 2026-09-20 23:21+0000\n"
 "Last-Translator: Admin <admin@rustmail.org>\n"
 "Language-Team: Spanish <https://translate.rustmail.org/projects/rustmail/"
@@ -2517,12 +2517,13 @@ msgstr "comp.lang.rust, alt.test"
 
 #: ui/components/account-setup-form.slint:277
 msgid ""
-"Separate groups with commas or spaces. To start a new discussion, address "
-"the message to group.name@news; replies go to the group they answer."
+"Separate groups with commas or spaces; a pasted .newsrc works too. To start "
+"a new discussion, address the message to group.name@news; replies go to the "
+"group they answer."
 msgstr ""
-"Separa los grupos con comas o espacios. Para iniciar una discusión nueva, "
-"dirige el mensaje a nombre.del.grupo@news; las respuestas van al grupo al "
-"que responden."
+"Separa los grupos con comas o espacios; también sirve pegar un .newsrc. Para "
+"iniciar una discusión nueva, dirige el mensaje a nombre.del.grupo@news; las "
+"respuestas van al grupo al que responden."
 
 #: ui/components/account-setup-form.slint:284
 msgid "POP3 server"

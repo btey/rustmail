@@ -964,6 +964,91 @@ async fn posting_without_a_newsgroup_fails_permanently() {
 }
 
 #[tokio::test]
+async fn a_reply_to_followup_to_poster_is_not_posted_unless_addressed_to_the_group() {
+    let temp = tempfile::tempdir().unwrap();
+    let private = article("Ask me", "p1@example.org", "", "mail me").replacen(
+        "Subject:",
+        "Followup-To: poster\r\nSubject:",
+        1,
+    );
+    let shared = server_with(&[("test.group", vec![(1, private)])]);
+    let port = serve(Wire::Plain, shared.clone()).await;
+    let core = start(temp.path()).await;
+    let account = core
+        .add_account_password(args(port, "test.group", ConnectionSecurity::None))
+        .await
+        .unwrap();
+    settle(&core, account.id).await;
+    let parent = rows(&core)
+        .await
+        .into_iter()
+        .find(|r| r.subject == "Ask me")
+        .unwrap()
+        .id;
+    let reply = |to: Vec<Address>| SaveDraftArgs {
+        draft_id: None,
+        account_id: account.id,
+        from: None,
+        to,
+        cc: vec![],
+        bcc: vec![],
+        subject: "Re: Ask me".into(),
+        body_text: "answer".into(),
+        body_html: None,
+        mode: "new".into(),
+        in_reply_to_message_id: Some(parent),
+        attachments: vec![],
+    };
+    let send = |draft_id: i64| {
+        let core = core.clone();
+        async move {
+            core.queue_send(QueueSendArgs {
+                draft_id,
+                send_at: Some(chrono::Utc::now().timestamp_millis()),
+            })
+            .await
+            .unwrap()
+        }
+    };
+
+    // No addressee: the author asked for mail, so nothing is posted.
+    let id = core.save_draft(reply(vec![])).await.unwrap();
+    let queued = send(id).await;
+    let mut state = (String::new(), String::new());
+    for _ in 0..100 {
+        state = core
+            .db
+            .read(move |conn| {
+                Ok(conn.query_row(
+                    "SELECT state, COALESCE(last_error,'') FROM pending_actions WHERE id=?1",
+                    [queued.action_id],
+                    |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+                )?)
+            })
+            .await
+            .unwrap();
+        if state.0 == "failed" {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert_eq!(state.0, "failed", "{state:?}");
+    assert!(state.1.contains("Followup-To: poster"), "{state:?}");
+    assert!(shared.lock().unwrap().posted.is_empty());
+
+    // Addressed to the group on purpose: it is posted.
+    let id = core
+        .save_draft(reply(vec![Address {
+            name: None,
+            email: "test.group@news".into(),
+        }]))
+        .await
+        .unwrap();
+    send(id).await;
+    wait_posted(&shared, 1).await;
+}
+
+#[tokio::test]
 async fn the_group_list_can_be_browsed() {
     let temp = tempfile::tempdir().unwrap();
     let shared = basic_server();

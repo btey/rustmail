@@ -1565,6 +1565,12 @@ fn states() -> Vec<State> {
         }),
         state("rendering info", |app| app.set_rendering_info_open(true)),
         state("oauth setup", |app| app.set_oauth_setup_open(true)),
+        state("settings oauth app credentials", |app| {
+            app.set_settings_tab("Accounts".into());
+            app.set_settings_open(true);
+            app.set_custom_oauth_open(true);
+            app.set_sign_in_proxy("socks5://proxy.internal.example.org:1080".into());
+        }),
         state("settings custom theme", |app| {
             app.global::<AppTheme>().set_preset("custom".into());
             app.set_settings_tab("General".into());

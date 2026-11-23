@@ -865,6 +865,29 @@ pub(crate) async fn resolve_groups(
         return Ok(groups);
     };
     let head = &bytes[..bytes.len().min(256 * 1024)];
+    match followup_target(head) {
+        Followup::Groups(found) => groups = found,
+        Followup::Poster => {
+            return Err(permanent(
+                "the author asked for replies by e-mail (Followup-To: poster), so this reply was not posted to the group; \
+                 write to the author's address instead, or address it to group.name@news to post anyway",
+            ));
+        }
+    }
+    Ok(groups)
+}
+
+/// Where a reply to an article should go, read from its headers.
+#[derive(Debug, PartialEq)]
+enum Followup {
+    Groups(Vec<String>),
+    /// `Followup-To: poster`: the author wants a private reply, not a posting.
+    Poster,
+}
+
+/// The groups of a reply (the article's `Followup-To`, falling back to its
+/// `Newsgroups`), or `Poster` when `Followup-To` says so.
+fn followup_target(head: &[u8]) -> Followup {
     let mut followup = None;
     let mut newsgroups = None;
     for (name, value) in unfolded_headers(head) {
@@ -874,11 +897,14 @@ pub(crate) async fn resolve_groups(
             _ => {}
         }
     }
-    // `Followup-To: poster` asks for a private reply, not a posting.
-    let chosen = followup
-        .filter(|value| !value.trim().eq_ignore_ascii_case("poster"))
-        .or(newsgroups);
-    if let Some(value) = chosen {
+    if followup
+        .as_deref()
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case("poster"))
+    {
+        return Followup::Poster;
+    }
+    let mut groups: Vec<String> = Vec::new();
+    if let Some(value) = followup.or(newsgroups) {
         for token in value.split([',', ' ']) {
             let token = token.trim();
             if client::valid_group_name(token)
@@ -888,7 +914,7 @@ pub(crate) async fn resolve_groups(
             }
         }
     }
-    Ok(groups)
+    Followup::Groups(groups)
 }
 
 /// Header `(name, value)` pairs of a raw message, with folded lines joined.
@@ -927,4 +953,28 @@ pub(crate) async fn post_article(
     session.post(&raw).await?;
     session.quit().await;
     Ok(raw)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_reply_goes_to_followup_to_then_newsgroups_and_poster_means_mail() {
+        let head = |lines: &str| format!("From: a@example.org\r\n{lines}Subject: x\r\n\r\nbody");
+        let target = |lines: &str| followup_target(head(lines).as_bytes());
+        assert_eq!(
+            target("Newsgroups: a.one,a.two\r\n"),
+            Followup::Groups(vec!["a.one".into(), "a.two".into()])
+        );
+        assert_eq!(
+            target("Newsgroups: a.one,a.two\r\nFollowup-To: a.two\r\n"),
+            Followup::Groups(vec!["a.two".into()])
+        );
+        assert_eq!(
+            target("Newsgroups: a.one\r\nFollowup-To: Poster\r\n"),
+            Followup::Poster
+        );
+        assert_eq!(target("Subject-less: 1\r\n"), Followup::Groups(Vec::new()));
+    }
 }

@@ -82,24 +82,54 @@ pub fn valid_group_name(name: &str) -> bool {
 
 /// Split a subscription list (commas, spaces, new lines) into unique, valid
 /// group names, preserving order. Returns the valid names and the rejected ones.
+///
+/// A pasted `.newsrc` (the file of Claws Mail, tin, slrn and others) works as
+/// well: `group: 1-4500,4600` lines are subscribed and the read ranges are
+/// ignored, `group! 1-20` lines (unsubscribed) are skipped without being
+/// reported as invalid.
 pub fn parse_group_list(text: &str) -> (Vec<String>, Vec<String>) {
+    let tokens: Vec<&str> = text
+        .split(|c: char| c == ',' || c == ';' || c.is_whitespace())
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+        .collect();
+    // Pasted into a one-line field a `.newsrc` loses its line breaks, so the
+    // marks, not the lines, tell it from a plain list.
+    let newsrc = tokens.iter().any(|token| newsrc_mark(token).is_some());
     let mut seen = HashSet::new();
     let mut valid = Vec::new();
     let mut invalid = Vec::new();
-    for token in text.split(|c: char| c == ',' || c == ';' || c.is_whitespace()) {
-        let token = token.trim();
-        if token.is_empty() {
-            continue;
-        }
-        if valid_group_name(token) {
-            if seen.insert(token.to_ascii_lowercase()) {
-                valid.push(token.to_owned());
+    for token in tokens {
+        let name = match newsrc_mark(token) {
+            Some((_, false)) => continue,
+            Some((name, true)) => name,
+            // The read ranges of a `.newsrc` line.
+            None if newsrc && token.bytes().all(|b| b.is_ascii_digit() || b == b'-') => continue,
+            None => token,
+        };
+        if valid_group_name(name) {
+            if seen.insert(name.to_ascii_lowercase()) {
+                valid.push(name.to_owned());
             }
         } else {
             invalid.push(token.to_owned());
         }
     }
     (valid, invalid)
+}
+
+/// The first token of a `.newsrc` line: `name:` (subscribed) or `name!`
+/// (unsubscribed), optionally with the first read range stuck to it
+/// (`name:1-9`). Anything else is `None`.
+fn newsrc_mark(token: &str) -> Option<(&str, bool)> {
+    let end = token.find([':', '!'])?;
+    let name = &token[..end];
+    token[end + 1..]
+        .bytes()
+        .all(|b| b.is_ascii_digit() || b == b'-')
+        .then_some(())
+        .filter(|()| valid_group_name(name))?;
+    Some((name, token.as_bytes()[end] == b':'))
 }
 
 /// Parse a `LIST ACTIVE` line: `group high low status`.
@@ -653,6 +683,27 @@ mod tests {
             parse_group_list("comp.lang.rust, alt.test\nCOMP.LANG.RUST;bad/name  gmane.org");
         assert_eq!(valid, vec!["comp.lang.rust", "alt.test", "gmane.org"]);
         assert_eq!(invalid, vec!["bad/name"]);
+    }
+
+    #[test]
+    fn a_pasted_newsrc_subscribes_to_its_groups() {
+        let (valid, invalid) = parse_group_list(
+            "comp.lang.rust: 1-4500,4600-4700\nalt.test! 1-20\n\
+             gmane.org:\nCOMP.LANG.RUST: 1\nbad/name: 1\nsci.math:1-9\n",
+        );
+        assert_eq!(valid, vec!["comp.lang.rust", "gmane.org", "sci.math"]);
+        assert_eq!(invalid, vec!["bad/name:"]);
+        // A plain list next to newsrc lines still works.
+        let (valid, invalid) = parse_group_list("alt.a: 1-2\nalt.b, alt.c");
+        assert_eq!(valid, vec!["alt.a", "alt.b", "alt.c"]);
+        assert!(invalid.is_empty());
+        // An unsubscribed line alone adds nothing.
+        let (valid, _) = parse_group_list("alt.test! 1-20");
+        assert!(valid.is_empty());
+        // Pasted into a one-line field the line breaks are gone.
+        let (valid, invalid) = parse_group_list("alt.a: 1-5,7 alt.b! 1-3 alt.c: 1-9");
+        assert_eq!(valid, vec!["alt.a", "alt.c"]);
+        assert!(invalid.is_empty());
     }
 
     #[test]

@@ -274,7 +274,7 @@ export component AccountSetupForm inherits Rectangle {
                             edited(value) => { root.advanced.news-groups = value; }
                         }
                         if root.news : Text {
-                            text: @tr("Separate groups with commas or spaces. To start a new discussion, address the message to group.name@news; replies go to the group they answer.");
+                            text: @tr("Separate groups with commas or spaces; a pasted .newsrc works too. To start a new discussion, address the message to group.name@news; replies go to the group they answer.");
                             color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
                         }
                         if root.pop3 : HorizontalBox {
