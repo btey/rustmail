@@ -868,6 +868,24 @@ impl CoreMailSource {
             .unwrap_or_default()
     }
 
+    /// The failed changes one by one (newest first, at most 50).
+    pub async fn failed_change_rows(&self) -> Vec<rustmail_core::db::repo::actions::FailedChange> {
+        self.core
+            .failed_change_list(None, 50)
+            .await
+            .unwrap_or_default()
+    }
+
+    /// Retry (`true`) or discard (`false`) one failed change.
+    pub async fn decide_failed_change(&self, id: i64, retry: bool) -> Result<bool, String> {
+        if retry {
+            self.core.retry_failed_change(id).await
+        } else {
+            self.core.discard_failed_change(id).await
+        }
+        .map_err(|error| error.to_string())
+    }
+
     pub async fn retry_failed_changes(&self) -> Result<usize, String> {
         self.core
             .retry_failed_changes(None)

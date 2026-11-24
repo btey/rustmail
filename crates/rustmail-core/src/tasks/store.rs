@@ -925,6 +925,18 @@ impl SqliteTaskStore<'_> {
                     )?;
                     tx.commit()?;
                     moved_back = true;
+                } else {
+                    // Without this note the task would stay in Waiting for
+                    // with no hint of why "move back" did nothing.
+                    self.conn.execute(
+                        "INSERT INTO task_activity (task_id, kind, text, at)
+                         VALUES (?1, 'note', ?2, ?3)",
+                        params![
+                            task_id,
+                            "Not moved back: this project has no Next actions column",
+                            crate::models::now_ms()
+                        ],
+                    )?;
                 }
             }
             touched.push(RepliedTask {

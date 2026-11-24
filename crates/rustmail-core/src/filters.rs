@@ -7,6 +7,7 @@ use crate::{
     Core,
     db::repo,
     error::{CoreError, Result},
+    events::CoreEvent,
     models::{
         ActionKind, ActionParams, Address, FilterAction, FilterCondition, FilterField, FilterOp,
         FilterRule, PerformActionArgs,
@@ -688,6 +689,10 @@ impl Core {
             }
         }
         let mut forwards = 0usize;
+        // What did not run, so one notice at the end tells the person (a
+        // forward that failed or a folder that is gone would otherwise only
+        // reach the log).
+        let mut problems: Vec<(i64, String)> = Vec::new();
         for (message_id, thread_id, account_id, facts, actions) in plans {
             for action in actions {
                 if is_message_action(&action.kind) {
@@ -695,6 +700,10 @@ impl Core {
                         forwards += 1;
                         if forwards > MAX_FORWARDS_PER_PASS {
                             tracing::warn!("filter forward skipped: too many forwards in one pass");
+                            problems.push((
+                                account_id,
+                                "a forward was skipped (too many forwards in one pass)".into(),
+                            ));
                             continue;
                         }
                     }
@@ -706,6 +715,7 @@ impl Core {
                             "filter action {} failed for message {message_id}: {error}",
                             action.kind
                         );
+                        problems.push((account_id, format!("{}: {error}", action.kind)));
                     }
                     continue;
                 }
@@ -715,6 +725,7 @@ impl Core {
                         tracing::warn!(
                             "filter action create_task failed for thread {thread_id}: {error}"
                         );
+                        problems.push((account_id, format!("create_task: {error}")));
                     }
                     continue;
                 }
@@ -725,6 +736,13 @@ impl Core {
                         action.kind,
                         action.value
                     );
+                    problems.push((
+                        account_id,
+                        format!(
+                            "{} {:?}: no such folder or label",
+                            action.kind, action.value
+                        ),
+                    ));
                     continue;
                 };
                 if let Err(error) = self
@@ -739,10 +757,33 @@ impl Core {
                         "filter action {} failed for thread {thread_id}: {error}",
                         action.kind
                     );
+                    problems.push((account_id, format!("{}: {error}", action.kind)));
                 }
             }
         }
+        self.announce_filter_problems(&problems);
         Ok(matched)
+    }
+
+    /// One notice for a whole pass: how many actions did not run and the
+    /// first reason (a pass over a big folder must not flood the screen).
+    fn announce_filter_problems(&self, problems: &[(i64, String)]) {
+        let Some((account_id, first)) = problems.first() else {
+            return;
+        };
+        let first: String = first.replace(['\r', '\n'], " ").chars().take(160).collect();
+        let message = if problems.len() == 1 {
+            format!("A filter action did not run: {first}")
+        } else {
+            format!(
+                "{} filter actions did not run. First: {first}",
+                problems.len()
+            )
+        };
+        self.bus.emit(CoreEvent::Notice {
+            account_id: *account_id,
+            message,
+        });
     }
 
     /// Copy, forward and run-command act on the matched message itself.
@@ -764,6 +805,13 @@ impl Core {
                         outcome.code,
                         outcome.output
                     );
+                    let output: String = outcome.output.chars().take(120).collect();
+                    return Err(CoreError::Other(format!(
+                        "the command failed (exit {}): {output}",
+                        outcome
+                            .code
+                            .map_or_else(|| "none".to_owned(), |code| code.to_string())
+                    )));
                 }
                 Ok(())
             }

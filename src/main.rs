@@ -5488,6 +5488,64 @@ pub fn run(platform: PlatformContext) -> Result<(), Box<dyn std::error::Error>> 
         }
     }
 
+    // The same, one change at a time, from the list the "Details" button opens.
+    {
+        let failed_ui = app.global::<FailedChangesUi>();
+        let rows_for = |app_weak: slint::Weak<AppWindow>,
+                        core: CoreMailSource,
+                        decision: Option<(i64, bool)>| {
+            async move {
+                let done = match decision {
+                    Some((id, retry)) => core.decide_failed_change(id, retry).await.map(|_| ()),
+                    None => Ok(()),
+                };
+                let rows = core.failed_change_rows().await;
+                let remaining = core.failed_changes().await.unwrap_or(0);
+                let reason = core.failed_change_reason().await;
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(app) = app_weak.upgrade() else {
+                        return;
+                    };
+                    let model: Vec<FailedChangeRow> = rows
+                        .into_iter()
+                        .map(|row| FailedChangeRow {
+                            id: i32::try_from(row.id).unwrap_or(i32::MAX),
+                            kind: row.kind.into(),
+                            subject: row.subject.into(),
+                            reason: row.reason.into(),
+                        })
+                        .collect();
+                    app.global::<FailedChangesUi>()
+                        .set_rows(slint::ModelRc::new(slint::VecModel::from(model)));
+                    app.set_failed_changes(i32::try_from(remaining).unwrap_or(i32::MAX));
+                    app.set_failed_changes_reason(reason.into());
+                    if let Err(error) = done {
+                        app.set_sync_status(UiMessage::detail("Message action failed: {}", error));
+                    }
+                });
+            }
+        };
+        let rows_for = Rc::new(rows_for);
+        for (kind, retry) in [("refresh", None), ("retry", Some(true)), ("discard", Some(false))] {
+            let app_weak = app.as_weak();
+            let state_for_failed = Rc::clone(&state);
+            let runtime_for_failed = Rc::clone(&runtime);
+            let rows_for = Rc::clone(&rows_for);
+            let handler = move |id: i32| {
+                let Some(core) = state_for_failed.borrow().core.clone() else {
+                    return;
+                };
+                let decision = retry.map(|retry| (i64::from(id), retry));
+                runtime_for_failed.spawn(rows_for(app_weak.clone(), core, decision));
+            };
+            match kind {
+                "retry" => failed_ui.on_retry(handler),
+                "discard" => failed_ui.on_discard(handler),
+                _ => failed_ui.on_refresh(move || handler(0)),
+            }
+        }
+    }
+
     app.on_sync_mail(move || {
         let Some(app) = app_weak.upgrade() else {
             return;

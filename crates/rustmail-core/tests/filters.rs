@@ -1,6 +1,7 @@
 use rustmail_core::{
     Core,
     config::Paths,
+    events::CoreEvent,
     models::{FilterAction, FilterCondition, FilterField, FilterOp, FilterRule},
 };
 
@@ -273,4 +274,49 @@ async fn the_create_task_action_makes_one_linked_task_per_conversation() {
     assert!(core.save_filter_rules(vec![bad]).await.is_err());
     let none = rule("None", "eve@", &[("create_task", "")], false);
     assert!(core.save_filter_rules(vec![none]).await.is_err());
+}
+
+#[tokio::test]
+async fn actions_that_did_not_run_are_announced_once_per_pass() {
+    let (_temp, core) = setup(Vec::new()).await;
+    // The background filter loop (it reacts to mailbox changes) must find
+    // nothing to do, or its own passes would add notices to the count.
+    core.db
+        .write(|conn| Ok(conn.execute("UPDATE messages SET filter_state = 1", [])?))
+        .await
+        .unwrap();
+    core.save_filter_rules(vec![
+        rule("Missing", "eve@", &[("move", "No such folder")], false),
+        rule("Fails", "eve@", &[("run_command", "exit 3")], false),
+        rule("Fine", "bob@", &[("star", "")], false),
+    ])
+    .await
+    .unwrap();
+    let mut events = core.bus.subscribe();
+    core.run_filters_now(1).await.unwrap();
+    let mut notices = Vec::new();
+    while let Ok(event) = events.try_recv() {
+        if let CoreEvent::Notice { message, .. } = event {
+            notices.push(message);
+        }
+    }
+    assert_eq!(
+        notices.len(),
+        1,
+        "one notice for the whole pass: {notices:?}"
+    );
+    assert!(
+        notices[0].starts_with("2 filter actions did not run"),
+        "{notices:?}"
+    );
+
+    // A pass where everything ran says nothing.
+    core.save_filter_rules(vec![rule("Fine", "bob@", &[("star", "")], false)])
+        .await
+        .unwrap();
+    let mut events = core.bus.subscribe();
+    core.run_filters_now(1).await.unwrap();
+    while let Ok(event) = events.try_recv() {
+        assert!(!matches!(event, CoreEvent::Notice { .. }), "{event:?}");
+    }
 }

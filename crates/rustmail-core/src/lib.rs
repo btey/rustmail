@@ -2788,6 +2788,41 @@ impl Core {
             .await
     }
 
+    /// The failed mail changes one by one (newest first, at most `limit`),
+    /// for a list that lets a person retry or discard each. Sends and
+    /// calendar actions are not in it, see `failed_changes`.
+    pub async fn failed_change_list(
+        &self,
+        account_id: Option<i64>,
+        limit: usize,
+    ) -> Result<Vec<repo::actions::FailedChange>> {
+        self.db
+            .read(move |conn| repo::actions::failed_list(conn, account_id, limit))
+            .await
+    }
+
+    /// Queue one failed change again. False when it is no longer a failed
+    /// change. Wakes the accounts like `retry_failed_changes`.
+    pub async fn retry_failed_change(&self, id: i64) -> Result<bool> {
+        let retried = self
+            .db
+            .write(move |conn| repo::actions::retry_failed_one(conn, id))
+            .await?;
+        if retried {
+            for handle in self.handles.read().await.values() {
+                handle.send(SyncCmd::SyncNow { complete: None });
+            }
+        }
+        Ok(retried)
+    }
+
+    /// Give up on one failed change. False when it is no longer a failed change.
+    pub async fn discard_failed_change(&self, id: i64) -> Result<bool> {
+        self.db
+            .write(move |conn| repo::actions::discard_failed_one(conn, id))
+            .await
+    }
+
     /// Turn "Work offline" on or off for every account. Turning it off wakes
     /// the accounts so queued changes are sent at once.
     pub async fn set_work_offline(&self, offline: bool) -> Result<()> {

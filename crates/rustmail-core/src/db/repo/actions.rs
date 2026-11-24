@@ -474,6 +474,77 @@ pub fn discard_failed(conn: &Connection, account_id: Option<i64>) -> Result<usiz
     )?)
 }
 
+/// One failed mail change, for the list that lets a person decide each one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FailedChange {
+    pub id: i64,
+    /// The action kind (`move`, `archive`, ...), for the host to name.
+    pub kind: String,
+    /// Subject of the message it was for, when that message is still known.
+    pub subject: String,
+    /// The server's own words, one line, cut to 160 characters.
+    pub reason: String,
+}
+
+/// The newest failed changes first, at most `limit`.
+pub fn failed_list(
+    conn: &Connection,
+    account_id: Option<i64>,
+    limit: usize,
+) -> Result<Vec<FailedChange>> {
+    let mut statement = conn.prepare(&format!(
+        "SELECT id, kind,
+                COALESCE((SELECT m.subject FROM messages m
+                           WHERE m.id = pending_actions.message_id), ''),
+                COALESCE(last_error, '')
+         FROM pending_actions
+         WHERE {FAILED_CHANGES} ORDER BY COALESCE(finished_at, 0) DESC, id DESC LIMIT ?2"
+    ))?;
+    let rows = statement.query_map(
+        params![account_id, i64::try_from(limit).unwrap_or(i64::MAX)],
+        |row| {
+            let reason: String = row.get(3)?;
+            Ok(FailedChange {
+                id: row.get(0)?,
+                kind: row.get(1)?,
+                subject: row.get(2)?,
+                reason: reason
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+                    .chars()
+                    .take(160)
+                    .collect(),
+            })
+        },
+    )?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+/// Queue one failed change again with a fresh retry budget. False when it is
+/// not a failed change any more (already retried, discarded or sent).
+pub fn retry_failed_one(conn: &Connection, id: i64) -> Result<bool> {
+    Ok(conn.execute(
+        &format!(
+            "UPDATE pending_actions SET state = 'pending', attempts = 0, not_before = NULL,
+                    last_error = NULL, finished_at = NULL
+             WHERE id = ?2 AND {FAILED_CHANGES}"
+        ),
+        params![Option::<i64>::None, id],
+    )? > 0)
+}
+
+/// Give up on one failed change. False when it is not a failed change.
+pub fn discard_failed_one(conn: &Connection, id: i64) -> Result<bool> {
+    Ok(conn.execute(
+        &format!(
+            "UPDATE pending_actions SET state = 'cancelled', finished_at = ?3
+             WHERE id = ?2 AND {FAILED_CHANGES}"
+        ),
+        params![Option::<i64>::None, id, now_ms()],
+    )? > 0)
+}
+
 pub fn gc(conn: &Connection, older_than_ms: i64) -> Result<()> {
     conn.execute(
         "DELETE FROM pending_actions
@@ -743,6 +814,64 @@ mod tests {
         assert_eq!(discard_failed(&conn, None).unwrap(), 1);
         assert_eq!(get(&conn, read).unwrap().unwrap().state, "cancelled");
         assert_eq!(failed_count(&conn, None).unwrap(), 0);
+    }
+
+    #[test]
+    fn failed_changes_are_listed_and_decided_one_by_one() {
+        let conn = testutil::conn();
+        testutil::seed_account(&conn);
+        let payload = serde_json::json!({});
+        let (_, message) =
+            testutil::seed_message(&conn, "me@example.org", "Quarterly report", false);
+        let make = |kind: &str, state: &str, message: Option<i64>, error: &str| {
+            let id = enqueue(&conn, 1, kind, message, None, &payload, Some(5)).unwrap();
+            conn.execute(
+                "UPDATE pending_actions SET state=?2, attempts=7, last_error=?3,
+                        finished_at=?1 WHERE id=?1",
+                params![id, state, error],
+            )
+            .unwrap();
+            id
+        };
+        let move_id = make("move", "failed", Some(message), "folder\n  not found");
+        let star = make("star", "failed", None, "");
+        let send = make("send", "failed", Some(message), "never listed");
+        let listed = failed_list(&conn, None, 10).unwrap();
+        assert_eq!(
+            listed,
+            vec![
+                FailedChange {
+                    id: star,
+                    kind: "star".into(),
+                    subject: String::new(),
+                    reason: String::new(),
+                },
+                FailedChange {
+                    id: move_id,
+                    kind: "move".into(),
+                    subject: "Quarterly report".into(),
+                    reason: "folder not found".into(),
+                },
+            ],
+            "newest first, sends left out, the reason on one line"
+        );
+        assert_eq!(failed_list(&conn, None, 1).unwrap().len(), 1);
+        assert!(failed_list(&conn, Some(2), 10).unwrap().is_empty());
+
+        assert!(retry_failed_one(&conn, move_id).unwrap());
+        let retried = get(&conn, move_id).unwrap().unwrap();
+        assert_eq!((retried.state.as_str(), retried.attempts), ("pending", 0));
+        assert!(
+            !retry_failed_one(&conn, move_id).unwrap(),
+            "no longer failed"
+        );
+        assert!(discard_failed_one(&conn, star).unwrap());
+        assert_eq!(get(&conn, star).unwrap().unwrap().state, "cancelled");
+        assert!(!discard_failed_one(&conn, star).unwrap());
+        // A failed send is never replayed or dropped from here.
+        assert!(!retry_failed_one(&conn, send).unwrap());
+        assert!(!discard_failed_one(&conn, send).unwrap());
+        assert_eq!(get(&conn, send).unwrap().unwrap().state, "failed");
     }
 
     #[test]

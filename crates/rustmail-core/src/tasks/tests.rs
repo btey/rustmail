@@ -701,6 +701,60 @@ fn threads_report_their_task_status_and_whether_a_reply_is_awaited() {
 }
 
 #[test]
+fn a_reply_without_a_next_actions_column_leaves_the_task_and_says_why() {
+    let (mut c, p) = setup();
+    seed_mail(&c, "Invoice", 1, "<a@x>");
+    let waiting = col(&mut c, p, ColumnKind::Waiting);
+    let mut s = SqliteTaskStore::new(&mut c);
+    let task = s
+        .create_from_thread(
+            1,
+            TaskDraft {
+                title: None,
+                project_id: None,
+                status: ColumnKind::Waiting,
+                due_at: None,
+                context_id: None,
+                label_ids: vec![],
+            },
+        )
+        .unwrap();
+    s.update_task(
+        task.id,
+        TaskPatch {
+            move_back_on_reply: Some(true),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    s.conn
+        .execute(
+            "UPDATE task_columns SET deleted_at = 1 WHERE kind = 'next'",
+            [],
+        )
+        .unwrap();
+    s.conn
+        .execute(
+            "INSERT INTO messages (account_id, thread_id, folder_id, uid, message_id, subject,
+                from_addr, to_json, cc_json, date, snippet)
+             VALUES (1, 1, 1, 11, '<r1@x>', 'Re: x', 'a@x.dev', '[]', '[]', ?1, '')",
+            rusqlite::params![crate::models::now_ms() + 60_000],
+        )
+        .unwrap();
+    let replies = s.note_replies_detailed(&[1]).unwrap();
+    assert_eq!(replies.len(), 1);
+    assert!(!replies[0].moved_back);
+    assert_eq!(s.get_task(task.id).unwrap().column_id, waiting.id);
+    let log = s.list_activity(task.id).unwrap();
+    assert!(
+        log.iter()
+            .any(|a| a.text.contains("no Next actions column"))
+    );
+    // Noted once: the same reply adds nothing the next time.
+    assert!(s.note_replies(&[1]).unwrap().is_empty());
+}
+
+#[test]
 fn a_reply_is_noted_once_and_moves_a_waiting_task_back_when_asked() {
     let (mut c, p) = setup();
     seed_mail(&c, "Invoice", 1, "<a@x>");

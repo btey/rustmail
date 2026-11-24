@@ -12,6 +12,7 @@ import { WorkspaceSearchToolbar } from "../components/workspace-layout.slint";
 import { WorkspaceListLoadingRow, WorkspaceListTransition } from "../components/workspace-list.slint";
 import { TabsUi } from "../components/workspace-navigation.slint";
 import { TaskBadge, TaskChips } from "../components/linked-task-banner.slint";
+import { FailedChangesUi } from "../components/failed-changes.slint";
 
 component MailListLabelChip inherits Rectangle {
     in property <string> name;
@@ -458,6 +459,18 @@ export component MailListPane inherits Rectangle {
                                 accessible-role: text;
                             }
                             Text {
+                                text: @tr("Details");
+                                color: root.accent;
+                                font-size: TypeScale.caption;
+                                vertical-alignment: center;
+                                accessible-role: button;
+                                accessible-action-default => { FailedChangesUi.refresh(); failed-popup.show(); }
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { FailedChangesUi.refresh(); failed-popup.show(); }
+                                }
+                            }
+                            Text {
                                 text: @tr("Retry");
                                 color: root.accent;
                                 font-size: TypeScale.caption;
@@ -479,6 +492,84 @@ export component MailListPane inherits Rectangle {
                                 TouchArea {
                                     mouse-cursor: pointer;
                                     clicked => { root.discard_failed_changes(); }
+                                }
+                            }
+                        }
+                        // One row per failed change, each with its own Retry and Discard.
+                        failed-popup := PopupWindow {
+                            x: 8px;
+                            y: parent.height + 2px;
+                            width: max(260px, min(560px, root.width - 16px));
+                            height: min(320px, 44px * FailedChangesUi.rows.length + 44px);
+                            close-policy: close-on-click-outside;
+                            Rectangle {
+                                background: root.surface;
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: root.border;
+                                clip: true;
+                                accessible-role: groupbox;
+                                accessible-label: @tr("Changes that could not be sent");
+                                VerticalLayout {
+                                    padding: 8px;
+                                    spacing: 4px;
+                                    Text {
+                                        height: 28px;
+                                        text: @tr("Changes that could not be sent");
+                                        color: root.heading;
+                                        font-size: TypeScale.body;
+                                        font-weight: 600;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+                                    ListView {
+                                        for change in FailedChangesUi.rows : Rectangle {
+                                            height: 44px;
+                                            HorizontalLayout {
+                                                spacing: 10px;
+                                                VerticalLayout {
+                                                    horizontal-stretch: 1;
+                                                    alignment: center;
+                                                    Text {
+                                                        text: change.subject == "" ? FailedChangesUi.kind-text(change.kind) : FailedChangesUi.kind-text(change.kind) + " · " + change.subject;
+                                                        color: root.body-text;
+                                                        font-size: TypeScale.caption;
+                                                        overflow: elide;
+                                                    }
+                                                    Text {
+                                                        text: change.reason;
+                                                        color: root.secondary-text;
+                                                        font-size: TypeScale.caption;
+                                                        overflow: elide;
+                                                    }
+                                                }
+                                                Text {
+                                                    text: @tr("Retry");
+                                                    color: root.accent;
+                                                    font-size: TypeScale.caption;
+                                                    vertical-alignment: center;
+                                                    accessible-role: button;
+                                                    accessible-action-default => { FailedChangesUi.retry(change.id); }
+                                                    TouchArea {
+                                                        mouse-cursor: pointer;
+                                                        clicked => { FailedChangesUi.retry(change.id); }
+                                                    }
+                                                }
+                                                Text {
+                                                    text: @tr("Discard");
+                                                    color: root.accent;
+                                                    font-size: TypeScale.caption;
+                                                    vertical-alignment: center;
+                                                    accessible-role: button;
+                                                    accessible-action-default => { FailedChangesUi.discard(change.id); }
+                                                    TouchArea {
+                                                        mouse-cursor: pointer;
+                                                        clicked => { FailedChangesUi.discard(change.id); }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

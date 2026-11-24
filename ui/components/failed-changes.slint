@@ -1,0 +1,36 @@
+// Mail changes the server refused, one row each, so a person can retry or
+// discard them one by one (the list pane's "N changes could not be sent" line
+// opens it). The host fills `rows` and answers the three callbacks.
+export struct FailedChangeRow {
+    id: int,
+    // The action kind (`move`, `archive`, ...); `FailedChangesUi.kind-text` names it.
+    kind: string,
+    subject: string,
+    reason: string,
+}
+
+export global FailedChangesUi {
+    in-out property <[FailedChangeRow]> rows;
+    callback refresh();
+    callback retry(int);
+    callback discard(int);
+
+    pure public function kind-text(kind: string) -> string {
+        if kind == "mark_read" { return @tr("Mark read"); }
+        if kind == "mark_unread" { return @tr("Mark unread"); }
+        if kind == "star" { return @tr("Star"); }
+        if kind == "unstar" { return @tr("Unstar"); }
+        if kind == "archive" { return @tr("Archive"); }
+        if kind == "unarchive" { return @tr("Unarchive"); }
+        if kind == "trash" { return @tr("Move to trash"); }
+        if kind == "delete_permanently" { return @tr("Delete"); }
+        if kind == "spam" { return @tr("Mark as spam"); }
+        if kind == "not_spam" { return @tr("Not spam"); }
+        if kind == "move" { return @tr("Move"); }
+        if kind == "snooze" { return @tr("Snooze"); }
+        if kind == "unsnooze" { return @tr("Unsnooze"); }
+        if kind == "add_label" { return @tr("Add label"); }
+        if kind == "remove_label" { return @tr("Remove label"); }
+        return kind;
+    }
+}
