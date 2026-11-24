@@ -495,7 +495,8 @@ pub fn failed_list(
     let mut statement = conn.prepare(&format!(
         "SELECT id, kind,
                 COALESCE((SELECT m.subject FROM messages m
-                           WHERE m.id = pending_actions.message_id), ''),
+                           WHERE m.id = pending_actions.message_id),
+                         json_extract(payload, '$.subject'), ''),
                 COALESCE(last_error, '')
          FROM pending_actions
          WHERE {FAILED_CHANGES} ORDER BY COALESCE(finished_at, 0) DESC, id DESC LIMIT ?2"

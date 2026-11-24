@@ -2119,6 +2119,11 @@ async fn body_actor(ctx: SyncCtx, config: AccountConfig, mut rx: mpsc::Receiver<
                         .await;
                 }
             }
+            PriorityFetchCmd::Original { complete, .. } => {
+                let _ = complete.send(Err(
+                    "this kind of account cannot download the original message directly".into(),
+                ));
+            }
             PriorityFetchCmd::Attachment {
                 attachment_id,
                 complete,

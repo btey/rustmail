@@ -25,6 +25,7 @@ mod http_body;
 pub mod imap;
 pub mod jmap;
 pub mod local;
+mod local_transfer;
 pub mod mail_security;
 pub mod mime;
 pub mod models;
@@ -148,6 +149,7 @@ fn validate_folder_leaf(value: &str) -> Result<String> {
 
 pub use crate::db::repo::notifications::{NotificationOutboxItem, RoutedTab};
 pub use crate::db::snapshot::DatabaseSnapshotManifest;
+pub use crate::local_transfer::{CopyReport, LocalBackupReport};
 
 /// Read the presentation state needed to lay out the first application frame.
 ///
@@ -1203,7 +1205,7 @@ impl Core {
             return Err(CoreError::Other("choose the mail folder".into()));
         }
         let format = args.connection.local_format;
-        let (root, count) = tokio::task::spawn_blocking(move || -> Result<_> {
+        let (root, count, empty) = tokio::task::spawn_blocking(move || -> Result<_> {
             let root = std::fs::canonicalize(&configured)
                 .map_err(|error| CoreError::Other(format!("cannot open {configured}: {error}")))?;
             let count = match format {
@@ -1211,11 +1213,14 @@ impl Core {
                 LocalFormat::Mbox => local::mbox::discover(&root)?.len(),
                 LocalFormat::Mh => local::mh::discover(&root)?.len(),
             };
-            Ok((root, count))
+            let empty = local::is_empty_dir(&root);
+            Ok((root, count, empty))
         })
         .await
         .map_err(|error| CoreError::Other(error.to_string()))??;
-        if count == 0 {
+        // An empty folder is not an error: the account starts a new, empty
+        // mail store there (`add_local_account` creates the structure).
+        if count == 0 && !empty {
             return Err(CoreError::Other(match format {
                 LocalFormat::Maildir => {
                     "no Maildir folders (directories with cur, new and tmp) were found there".into()
@@ -1284,6 +1289,16 @@ impl Core {
             ..args.clone()
         };
         let (root, _) = self.check_local(&checked).await?;
+        if local::is_empty_dir(&root) {
+            let new_root = root.clone();
+            let format = args.connection.local_format;
+            tokio::task::spawn_blocking(move || local::init_empty_root(&new_root, format))
+                .await
+                .map_err(|error| CoreError::Other(error.to_string()))?
+                .map_err(|error| {
+                    CoreError::Other(format!("could not start a new mail folder there: {error}"))
+                })?;
+        }
         let mut connection = args.connection.clone();
         connection.local_path = root.to_string_lossy().into_owned();
         connection.client_key_pem = models::SecretString::default();

@@ -526,6 +526,33 @@ impl GmailApi {
         )
     }
 
+    /// The complete original message (`format=raw`).
+    async fn raw_message(&self, message_id: &str) -> Result<Vec<u8>> {
+        const LIMIT: usize = 128 * 1024 * 1024;
+        let value = self
+            .get_json(&format!(
+                "{GMAIL_API}/messages/{}?format=raw",
+                urlencode(message_id)
+            ))
+            .await?;
+        let encoded = value
+            .get("raw")
+            .and_then(Value::as_str)
+            .ok_or_else(|| CoreError::Other("Gmail omitted the message source".into()))?;
+        if encoded.len() > LIMIT.saturating_mul(4).div_ceil(3) + 4 {
+            return Err(CoreError::Other(
+                "the Gmail message is larger than 128 MiB".into(),
+            ));
+        }
+        let bytes = decode_gmail_data(encoded)?;
+        if bytes.len() > LIMIT {
+            return Err(CoreError::Other(
+                "the Gmail message is larger than 128 MiB".into(),
+            ));
+        }
+        Ok(bytes)
+    }
+
     async fn attachment(&self, message_id: &str, attachment_id: &str) -> Result<Vec<u8>> {
         let value = self
             .get_json(&format!(
@@ -3820,6 +3847,15 @@ async fn run_reader(ctx: SyncCtx, config: AccountConfig, mut rx: mpsc::Receiver<
                     .map_err(|error| error.to_string());
                 let _ = complete.send(result);
             }
+            PriorityFetchCmd::Original {
+                message_id,
+                complete,
+            } => {
+                let result = fetch_original(&ctx, &api, message_id)
+                    .await
+                    .map_err(|error| error.to_string());
+                let _ = complete.send(result);
+            }
             PriorityFetchCmd::Body(first_message_id) => {
                 let mut message_ids = vec![first_message_id];
                 tokio::time::sleep(Duration::from_millis(40)).await;
@@ -3832,15 +3868,26 @@ async fn run_reader(ctx: SyncCtx, config: AccountConfig, mut rx: mpsc::Receiver<
                 }
                 // Attachment responses must never be stranded behind hydration.
                 for command in deferred {
-                    if let PriorityFetchCmd::Attachment {
-                        attachment_id,
-                        complete,
-                    } = command
-                    {
-                        let result = fetch_attachment(&ctx, &api, attachment_id)
-                            .await
-                            .map_err(|error| error.to_string());
-                        let _ = complete.send(result);
+                    match command {
+                        PriorityFetchCmd::Attachment {
+                            attachment_id,
+                            complete,
+                        } => {
+                            let result = fetch_attachment(&ctx, &api, attachment_id)
+                                .await
+                                .map_err(|error| error.to_string());
+                            let _ = complete.send(result);
+                        }
+                        PriorityFetchCmd::Original {
+                            message_id,
+                            complete,
+                        } => {
+                            let result = fetch_original(&ctx, &api, message_id)
+                                .await
+                                .map_err(|error| error.to_string());
+                            let _ = complete.send(result);
+                        }
+                        PriorityFetchCmd::Body(_) => {}
                     }
                 }
                 message_ids.sort_unstable();
@@ -3882,6 +3929,24 @@ async fn run_reader(ctx: SyncCtx, config: AccountConfig, mut rx: mpsc::Receiver<
             }
         }
     }
+}
+
+async fn fetch_original(ctx: &SyncCtx, api: &GmailApi, message_id: i64) -> Result<Vec<u8>> {
+    let gmail_id: Option<String> = ctx
+        .db
+        .read(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT gm_msgid FROM messages WHERE id = ?1",
+                    params![message_id],
+                    |row| row.get(0),
+                )
+                .optional()?
+                .flatten())
+        })
+        .await?;
+    let gmail_id = gmail_id.ok_or_else(|| CoreError::NotFound("Gmail message".into()))?;
+    api.raw_message(&gmail_id).await
 }
 
 async fn fetch_attachment(ctx: &SyncCtx, api: &GmailApi, attachment_id: i64) -> Result<Vec<u8>> {

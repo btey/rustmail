@@ -1139,6 +1139,82 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    /// Back every Local folders account up into its own folder below
+    /// `destination`. Returns how many accounts and files were saved.
+    pub async fn backup_local_accounts(
+        &self,
+        destination: std::path::PathBuf,
+    ) -> Result<(usize, u64), String> {
+        let accounts: Vec<_> = self
+            .core
+            .list_accounts()
+            .await
+            .map_err(|error| error.to_string())?
+            .into_iter()
+            .filter(|account| account.mail_protocol == rustmail_core::models::MailProtocol::Local)
+            .collect();
+        if accounts.is_empty() {
+            return Err("none".into());
+        }
+        let mut files = 0;
+        for account in &accounts {
+            let name: String = account
+                .email
+                .chars()
+                .map(|c| if c.is_alphanumeric() || "@.-_".contains(c) { c } else { '_' })
+                .collect();
+            let report = self
+                .core
+                .backup_local_account(account.id, destination.join(name))
+                .await
+                .map_err(|error| format!("{}: {error}", account.email))?;
+            files += report.files;
+        }
+        Ok((accounts.len(), files))
+    }
+
+    /// Restore a local-account backup into a new or empty folder.
+    pub async fn restore_local_account(
+        &self,
+        backup: std::path::PathBuf,
+        target: std::path::PathBuf,
+    ) -> Result<String, String> {
+        self.core
+            .restore_local_account(backup, target)
+            .await
+            .map(|account| account.email)
+            .map_err(|error| error.to_string())
+    }
+
+    pub async fn set_cross_account_drop_moves(&self, enabled: bool) -> Result<(), String> {
+        let mut settings = self.load_settings().await?;
+        settings.cross_account_drop_moves = enabled;
+        self.core
+            .set_settings(settings)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    /// Copy, or move when the preference says so, a conversation into a folder
+    /// of a Local folders account. Anything that was not copied is an error,
+    /// so the list restores the row and says why.
+    pub async fn copy_thread_to_folder(
+        &self,
+        thread_id: i64,
+        target_folder_id: i64,
+    ) -> Result<(), String> {
+        let moves = self.load_settings().await?.cross_account_drop_moves;
+        let report = self
+            .core
+            .copy_threads_to_folder(vec![thread_id], target_folder_id, moves)
+            .await
+            .map_err(|error| error.to_string())?;
+        match report.problem() {
+            Some(problem) => Err(problem),
+            None => Ok(()),
+        }
+    }
+
     pub async fn set_show_avatars(&self, enabled: bool) -> Result<(), String> {
         let mut settings = self.load_settings().await?;
         settings.show_avatars = enabled;

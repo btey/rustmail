@@ -510,6 +510,26 @@ pub(super) fn register_settings_preference_callbacks(
     });
 
     let app_weak = app.as_weak();
+    let state_for_drop = Rc::clone(state);
+    let runtime_for_drop = Rc::clone(runtime);
+    app.global::<crate::WindowChrome>()
+        .on_save_cross_account_drop_moves(move |enabled| {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let Some(core) = state_for_drop.borrow().core.clone() else {
+                return;
+            };
+            match runtime_for_drop.block_on(core.set_cross_account_drop_moves(enabled)) {
+                Ok(()) => app.set_sync_status(UiMessage::plain("Drop preference saved.")),
+                Err(error) => app.set_sync_status(UiMessage::detail(
+                    "Could not save the drop preference: {}",
+                    error,
+                )),
+            }
+        });
+
+    let app_weak = app.as_weak();
     let state_for_avatars = Rc::clone(state);
     let runtime_for_avatars = Rc::clone(runtime);
     app.on_save_avatar_visibility(move |enabled| {

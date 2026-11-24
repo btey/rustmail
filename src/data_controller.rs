@@ -426,6 +426,12 @@ fn import_account_backup_document(
                 settings.reverse_scroll = enabled;
             }
             if let Some(enabled) = preferences
+                .get("crossAccountDropMoves")
+                .and_then(|value| value.as_bool())
+            {
+                settings.cross_account_drop_moves = enabled;
+            }
+            if let Some(enabled) = preferences
                 .get("showAvatars")
                 .and_then(|value| value.as_bool())
             {
@@ -624,6 +630,8 @@ fn import_account_backup_document(
             app.global::<crate::WindowChrome>()
                 .set_reverse_scroll(settings.reverse_scroll);
             crate::window_chrome::set_reverse_scroll(settings.reverse_scroll);
+            app.global::<crate::WindowChrome>()
+                .set_cross_account_drop_moves(settings.cross_account_drop_moves);
             app.global::<MessageColors>()
                 .set_preference(settings.message_appearance.as_str().into());
             app.set_show_avatars(settings.show_avatars);
@@ -866,6 +874,7 @@ pub(super) fn register_data_management_callbacks(
                     "workspaceListPaneWidth": settings.workspace_list_pane_width,
                     "monochromeSidebarIcons": settings.monochrome_sidebar_icons,
                     "reverseScroll": settings.reverse_scroll,
+                    "crossAccountDropMoves": settings.cross_account_drop_moves,
                     "language": settings.language,
                     "calendarWeekStart": settings.calendar_week_start,
                     "loadRemoteImages": settings.load_remote_images,
@@ -1017,6 +1026,123 @@ pub(super) fn register_data_management_callbacks(
         }
         // Staging runs on the runtime; only the export picker goes through
         // the shared document request path.
+    });
+
+    let app_weak = app.as_weak();
+    let state_for_local_backup = Rc::clone(state);
+    let runtime_for_local_backup = Rc::clone(runtime);
+    let local_backup_busy = std::sync::Arc::new(AtomicBool::new(false));
+    let busy_for_local_backup = std::sync::Arc::clone(&local_backup_busy);
+    app.on_backup_local_mail(move || {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        if busy_for_local_backup.load(Ordering::Relaxed) {
+            return;
+        }
+        let Some(core) = state_for_local_backup.borrow().core.clone() else {
+            app.set_sync_status(UiMessage::plain(
+                "Local data storage is unavailable. Retry startup.",
+            ));
+            return;
+        };
+        let busy = std::sync::Arc::clone(&busy_for_local_backup);
+        busy.store(true, Ordering::Relaxed);
+        app.set_sync_status(UiMessage::plain("Choose a new or empty folder for the backup."));
+        let weak = app.as_weak();
+        runtime_for_local_backup.spawn(async move {
+            let picked = rfd::AsyncFileDialog::new()
+                .set_title("Choose a new or empty folder for the local mail backup")
+                .pick_folder()
+                .await;
+            let message = match picked {
+                None => None,
+                Some(folder) => Some(
+                    match core.backup_local_accounts(folder.path().to_path_buf()).await {
+                        Ok((accounts, files)) => UiMessage::arguments(
+                            "Local mail backed up: {} accounts, {} files.",
+                            accounts.to_string(),
+                            files.to_string(),
+                        ),
+                        Err(error) if error == "none" => {
+                            UiMessage::plain("You have no Local folders account to back up.")
+                        }
+                        Err(error) => {
+                            UiMessage::detail("Could not back up local mail: {}", error)
+                        }
+                    },
+                ),
+            };
+            let _ = weak.upgrade_in_event_loop(move |app| {
+                busy.store(false, Ordering::Relaxed);
+                match message {
+                    Some(message) => app.set_sync_status(message),
+                    None => app.set_sync_status(UiMessage::plain("Backup cancelled.")),
+                }
+            });
+        });
+    });
+
+    let app_weak = app.as_weak();
+    let state_for_local_restore = Rc::clone(state);
+    let runtime_for_local_restore = Rc::clone(runtime);
+    let busy_for_local_restore = std::sync::Arc::clone(&local_backup_busy);
+    app.on_restore_local_mail(move || {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        if busy_for_local_restore.load(Ordering::Relaxed) {
+            return;
+        }
+        let Some(core) = state_for_local_restore.borrow().core.clone() else {
+            app.set_sync_status(UiMessage::plain(
+                "Local data storage is unavailable. Retry startup.",
+            ));
+            return;
+        };
+        let busy = std::sync::Arc::clone(&busy_for_local_restore);
+        busy.store(true, Ordering::Relaxed);
+        app.set_sync_status(UiMessage::plain("Choose the local mail backup folder."));
+        let weak = app.as_weak();
+        runtime_for_local_restore.spawn(async move {
+            let backup = rfd::AsyncFileDialog::new()
+                .set_title("Choose the local mail backup folder")
+                .pick_folder()
+                .await;
+            let target = match &backup {
+                Some(_) => {
+                    rfd::AsyncFileDialog::new()
+                        .set_title("Choose a new or empty folder to restore the mail into")
+                        .pick_folder()
+                        .await
+                }
+                None => None,
+            };
+            let message = match (backup, target) {
+                (Some(backup), Some(target)) => Some(
+                    match core
+                        .restore_local_account(
+                            backup.path().to_path_buf(),
+                            target.path().to_path_buf(),
+                        )
+                        .await
+                    {
+                        Ok(email) => UiMessage::detail("Local mail restored as {}.", email),
+                        Err(error) => {
+                            UiMessage::detail("Could not restore local mail: {}", error)
+                        }
+                    },
+                ),
+                _ => None,
+            };
+            let _ = weak.upgrade_in_event_loop(move |app| {
+                busy.store(false, Ordering::Relaxed);
+                match message {
+                    Some(message) => app.set_sync_status(message),
+                    None => app.set_sync_status(UiMessage::plain("Restore cancelled.")),
+                }
+            });
+        });
     });
 
     let app_weak = app.as_weak();
@@ -1257,6 +1383,8 @@ pub(super) fn register_data_management_callbacks(
                     app.set_monochrome_sidebar_icons(false);
                     app.global::<crate::WindowChrome>().set_reverse_scroll(false);
                     crate::window_chrome::set_reverse_scroll(false);
+                    app.global::<crate::WindowChrome>()
+                        .set_cross_account_drop_moves(false);
                     app.set_show_avatars(true);
                     app.set_show_account_markers(false);
                     app.set_workspace_layout("default".into());

@@ -502,10 +502,13 @@ async fn mbox_trash_moves_between_files_and_delete_removes() {
 async fn invalid_roots_are_rejected_before_anything_is_stored() {
     let temp = tempfile::tempdir().unwrap();
     let core = start(temp.path()).await;
-    let empty = temp.path().join("empty");
-    std::fs::create_dir_all(&empty).unwrap();
+    // A folder with files in it that is no mail store is refused (an empty one
+    // becomes a new store, see `tests/local_transfer.rs`).
+    let notes = temp.path().join("notes");
+    std::fs::create_dir_all(&notes).unwrap();
+    std::fs::write(notes.join("todo.txt"), "buy milk").unwrap();
     let error = core
-        .add_account_password(args(&empty, LocalFormat::Maildir))
+        .add_account_password(args(&notes, LocalFormat::Maildir))
         .await
         .unwrap_err();
     assert!(error.to_string().contains("no Maildir"), "{error}");

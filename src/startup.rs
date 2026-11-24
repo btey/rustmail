@@ -877,6 +877,8 @@ pub(crate) fn apply_settings(app: &AppWindow, settings: &Settings) {
     app.global::<crate::WindowChrome>()
         .set_reverse_scroll(settings.reverse_scroll);
     crate::window_chrome::set_reverse_scroll(settings.reverse_scroll);
+    app.global::<crate::WindowChrome>()
+        .set_cross_account_drop_moves(settings.cross_account_drop_moves);
     app.set_show_avatars(settings.show_avatars);
     app.set_group_mail_by_date(settings.group_mail_by_date);
     app.set_show_account_markers(settings.show_account_badges);

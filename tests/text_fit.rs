@@ -990,6 +990,10 @@ fn states() -> Vec<State> {
             app.set_connected_accounts(model(Vec::new()));
             app.set_account_protocol("pop3".into());
         }),
+        state("onboarding local account", |app| {
+            app.set_connected_accounts(model(Vec::new()));
+            app.set_account_protocol("local".into());
+        }),
         state("onboarding exchange account", |app| {
             app.set_connected_accounts(model(Vec::new()));
             app.set_account_protocol("exchange".into());

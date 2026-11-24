@@ -42,6 +42,7 @@ mod tests {
         assert!(!d.load_remote_images);
         assert!(!d.monochrome_sidebar_icons);
         assert!(!d.reverse_scroll);
+        assert!(!d.cross_account_drop_moves);
         assert!(d.show_avatars);
         assert!(d.group_mail_by_date);
         assert!(d.collect_outgoing_contacts);
@@ -74,6 +75,7 @@ mod tests {
         s.task_compact_cards = true;
         s.task_timeline_hidden_calendars = vec![0, 7];
         s.reverse_scroll = true;
+        s.cross_account_drop_moves = true;
         s.show_avatars = false;
         s.group_mail_by_date = false;
         s.workspace_layout = "minimal".into();
@@ -131,6 +133,7 @@ mod tests {
         assert!(back.task_hide_completed && back.task_compact_cards);
         assert_eq!(back.task_timeline_hidden_calendars, vec![0, 7]);
         assert!(back.reverse_scroll);
+        assert!(back.cross_account_drop_moves);
         assert!(!back.show_avatars);
         assert!(!back.group_mail_by_date);
         assert!(back.contact_suggest_all_accounts);

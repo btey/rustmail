@@ -647,6 +647,8 @@ struct MailDragItem {
 enum MailDropDestination {
     Action(&'static str),
     Folder(i64),
+    /// A folder of another account: copy (or move) into a local account.
+    CopyTo(i64),
     Label(i64),
     Route(String),
 }
@@ -778,7 +780,22 @@ fn resolve_single_mail_drop(
         }
         Scope::Folder(_) | Scope::Account { .. } => {
             if i64::from(target_account_id) != message.account_id {
-                return Err("messages cannot be moved between accounts".to_owned());
+                // Another account: only a Local folders account can keep a
+                // copy; the core refuses any other target with the reason.
+                let target = state
+                    .mailboxes
+                    .iter()
+                    .find(|mailbox| {
+                        !mailbox.is_account
+                            && mailbox.account_id == i64::from(target_account_id)
+                            && mailbox.scope == Some(target_scope)
+                            && mailbox.folder_id == i64::from(target_folder_id)
+                    })
+                    .ok_or_else(|| "mailbox destination is no longer available".to_owned())?;
+                if !target.is_selectable || target.folder_id < 0 {
+                    return Err("this mailbox is not a drop destination".to_owned());
+                }
+                return Ok((thread_id, MailDropDestination::CopyTo(target.folder_id)));
             }
             let target = state
                 .mailboxes

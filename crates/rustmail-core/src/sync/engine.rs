@@ -127,6 +127,11 @@ pub(crate) enum PriorityFetchCmd {
         attachment_id: i64,
         complete: oneshot::Sender<std::result::Result<Vec<u8>, String>>,
     },
+    /// The complete original message (every part), for copying it elsewhere.
+    Original {
+        message_id: i64,
+        complete: oneshot::Sender<std::result::Result<Vec<u8>, String>>,
+    },
 }
 
 impl AccountHandle {
@@ -191,6 +196,27 @@ impl AccountHandle {
     pub fn update_settings(&self, settings: crate::models::AccountSettings) {
         self.settings_tx.send_replace(settings);
         self.send(SyncCmd::SyncNow { complete: None });
+    }
+
+    /// Download the complete original of a message through the account's
+    /// reader. Accounts that cannot answer return an error at once.
+    pub async fn fetch_original(&self, message_id: i64) -> Result<Vec<u8>> {
+        let (tx, rx) = oneshot::channel();
+        tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            self.body_tx.send(PriorityFetchCmd::Original {
+                message_id,
+                complete: tx,
+            }),
+        )
+        .await
+        .map_err(|_| CoreError::Other("the message reader is busy".into()))?
+        .map_err(|_| CoreError::Other("the message reader stopped".into()))?;
+        tokio::time::timeout(std::time::Duration::from_secs(120), rx)
+            .await
+            .map_err(|_| CoreError::Other("downloading the message timed out".into()))?
+            .map_err(|_| CoreError::Other("the message reader stopped".into()))?
+            .map_err(CoreError::Other)
     }
 
     pub async fn fetch_attachment(&self, attachment_id: i64) -> Result<Vec<u8>> {
@@ -527,6 +553,40 @@ async fn run_body_fetcher(
                 let _ = complete.send(result.map_err(|error| error.to_string()));
                 continue;
             }
+            PriorityFetchCmd::Original {
+                message_id,
+                complete,
+            } => {
+                let mut result = Err(CoreError::Other("message download did not run".into()));
+                for _ in 0..2 {
+                    if session.is_none() {
+                        match connect(&ctx, &config).await {
+                            Ok(value) => session = Some(value),
+                            Err(error) => {
+                                result = Err(error);
+                                break;
+                            }
+                        }
+                    }
+                    let Some(active_session) = session.as_mut() else {
+                        break;
+                    };
+                    match fetch_original_bytes(&ctx, active_session, message_id).await {
+                        Ok(bytes) => {
+                            result = Ok(bytes);
+                            break;
+                        }
+                        Err(error) => {
+                            result = Err(error);
+                            if let Some(value) = session.take() {
+                                imap::logout(value).await;
+                            }
+                        }
+                    }
+                }
+                let _ = complete.send(result.map_err(|error| error.to_string()));
+                continue;
+            }
             PriorityFetchCmd::Body(first) => first,
         };
         // Coalesce every request already queued (plus a brief window for the
@@ -587,6 +647,37 @@ async fn run_body_fetcher(
             reset_bodies_none(&ctx, ids.into_iter()).await;
         }
     }
+}
+
+/// The whole message (BODY.PEEK[]) at its current remote location.
+async fn fetch_original_bytes(
+    ctx: &SyncCtx,
+    session: &mut Session,
+    message_id: i64,
+) -> Result<Vec<u8>> {
+    let message = ctx
+        .db
+        .read(move |conn| repo::messages::get_row(conn, message_id))
+        .await?
+        .ok_or_else(|| CoreError::NotFound(format!("message {message_id}")))?;
+    let (folder_id, uid) = message
+        .folder_id
+        .zip(message.uid)
+        .ok_or_else(|| CoreError::NotFound("remote message location".into()))?;
+    let folder = ctx
+        .db
+        .read(move |conn| repo::folders::get(conn, folder_id))
+        .await?
+        .ok_or_else(|| CoreError::NotFound(format!("folder {folder_id}")))?;
+    select_folder_for_remote_read(ctx, session, &folder).await?;
+    if !remote_location_is_current(ctx, message_id, folder_id, uid).await? {
+        return Err(CoreError::NotFound(
+            "the message moved while it was being downloaded".into(),
+        ));
+    }
+    imap::fetch_full(session, uid as u32)
+        .await?
+        .ok_or_else(|| CoreError::NotFound(format!("remote message UID {uid}")))
 }
 
 async fn fetch_attachment_bytes(

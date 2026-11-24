@@ -19,6 +19,10 @@ export global WindowChrome {
     // Reverse the vertical scroll direction in the whole window (a setting).
     in-out property <bool> reverse-scroll: false;
     callback save-reverse-scroll(bool);
+    // Dropping mail on a folder of a local account moves it instead of copying
+    // it (a setting).
+    in-out property <bool> cross-account-drop-moves: false;
+    callback save-cross-account-drop-moves(bool);
     // Linux button order from the GTK or KWin decoration layout. Entries are
     // "minimize", "maximize" and "close".
     in property <[string]> leading-controls: [];

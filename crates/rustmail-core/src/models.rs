@@ -2024,6 +2024,10 @@ pub struct Settings {
     /// whole window, for devices whose own setting cannot be changed.
     #[serde(default)]
     pub reverse_scroll: bool,
+    /// Dropping mail on a Local folders account's folder moves it there (the
+    /// original goes to Trash once the copy is filed) instead of copying it.
+    #[serde(default)]
+    pub cross_account_drop_moves: bool,
     /// UI language: "system" follows the OS locale, otherwise a code like "en".
     #[serde(default = "default_language")]
     pub language: String,
@@ -2402,6 +2406,7 @@ impl Default for Settings {
             window_frame: default_window_frame(),
             monochrome_sidebar_icons: false,
             reverse_scroll: false,
+            cross_account_drop_moves: false,
             language: "system".into(),
             calendar_week_start: default_calendar_week_start(),
             undo_send_seconds: 10,

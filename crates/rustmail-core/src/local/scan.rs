@@ -856,6 +856,27 @@ fn restore_meta(tx: &Transaction, account_id: i64, message_id: i64) -> Result<()
     Ok(())
 }
 
+/// Apply the kept labels and snoozes to the messages of this account that are
+/// already imported (a restored backup stores them after the first scan may
+/// have run). Later imports pick the rest up on their own.
+pub(crate) fn restore_all_kept(tx: &Transaction, account_id: i64) -> Result<usize> {
+    let ids: Vec<i64> = {
+        let mut statement = tx.prepare(
+            "SELECT m.id FROM messages m JOIN local_messages l ON l.message_id = m.id
+             WHERE m.account_id = ?1 AND m.message_id IN (
+               SELECT header_id FROM local_kept_labels WHERE account_id = ?1
+               UNION SELECT header_id FROM local_kept_snoozes WHERE account_id = ?1)",
+        )?;
+        statement
+            .query_map(params![account_id], |row| row.get(0))?
+            .collect::<std::result::Result<_, _>>()?
+    };
+    for id in &ids {
+        restore_meta(tx, account_id, *id)?;
+    }
+    Ok(ids.len())
+}
+
 /// A parsed message ready to be stored as a cached mail row.
 pub(crate) struct ParsedMessage<'a> {
     pub account_id: i64,

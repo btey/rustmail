@@ -546,6 +546,11 @@ async fn body_actor(
                     .write(move |conn| repo::messages::cancel_body_fetch(conn, message_id))
                     .await;
             }
+            PriorityFetchCmd::Original { complete, .. } => {
+                let _ = complete.send(Err(
+                    "this kind of account cannot download the original message directly".into(),
+                ));
+            }
             PriorityFetchCmd::Attachment {
                 attachment_id,
                 complete,

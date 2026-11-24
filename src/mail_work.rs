@@ -58,6 +58,9 @@ impl Operation {
             Self::Drop(MailDropDestination::Folder(id)) => {
                 core.move_thread_to_folder(thread, *id).await
             }
+            Self::Drop(MailDropDestination::CopyTo(id)) => {
+                core.copy_thread_to_folder(thread, *id).await
+            }
             Self::Drop(MailDropDestination::Label(id)) => {
                 core.perform_label_action(thread, *id, true).await
             }

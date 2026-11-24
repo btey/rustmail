@@ -459,6 +459,9 @@ cargo run --bin rustmail
 RustRover users can select the shared **Rustmail (isolated profile)** run
 configuration. It runs the desktop app with a separate profile under
 `.rustrover-profile/`; do not use real account credentials with this profile.
+The configuration lets Cargo run up to eight build jobs in parallel. On a
+memory-constrained machine, lower `CARGO_BUILD_JOBS` in the run configuration.
+The repository default remains one job for builds without an override.
 
 Linux desktop OAuth uses the system browser through the desktop portal and
 stores refresh credentials through the freedesktop Secret Service. A normal

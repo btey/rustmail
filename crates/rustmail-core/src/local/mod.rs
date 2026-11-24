@@ -234,6 +234,9 @@ async fn execute(
     root: &Path,
     action: &repo::actions::PendingAction,
 ) -> Result<()> {
+    if action.kind == IMPORT_RAW {
+        return import_raw(ctx, config, root, action).await;
+    }
     if is_mbox(config) {
         return execute_mbox(ctx, config, root, action).await;
     }
@@ -539,6 +542,129 @@ async fn mbox_ref(
         .await
 }
 
+/// Queue kind of "write this staged message into one of this account's
+/// folders" (a copy or move made from another account).
+pub(crate) const IMPORT_RAW: &str = "import_raw";
+
+/// Directory (below the app's temp folder) where a message to be copied into
+/// a local account waits until the account's worker has filed it.
+pub(crate) fn staging_dir(paths: &crate::config::Paths) -> PathBuf {
+    paths.temp_dir().join("local-import")
+}
+
+/// Largest message a copy into a local folder will carry.
+const MAX_IMPORT_BYTES: usize = 128 * 1024 * 1024;
+
+/// A directory with nothing in it (not even hidden files).
+pub(crate) fn is_empty_dir(path: &Path) -> bool {
+    std::fs::symlink_metadata(path)
+        .map(|meta| meta.is_dir())
+        .unwrap_or(false)
+        && std::fs::read_dir(path)
+            .map(|mut entries| entries.next().is_none())
+            .unwrap_or(false)
+}
+
+/// Turn an empty directory into a new, empty mail store of `format` with an
+/// INBOX (Trash, Sent and Drafts follow with the first scan).
+pub(crate) fn init_empty_root(root: &Path, format: LocalFormat) -> std::io::Result<()> {
+    if !is_empty_dir(root) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "the folder is not empty",
+        ));
+    }
+    match format {
+        LocalFormat::Maildir => maildir::ensure_maildir(root),
+        LocalFormat::Mh => mh::ensure_folder(root),
+        LocalFormat::Mbox => mbox::create_folder(root, "INBOX"),
+    }
+}
+
+/// File a message staged by `Core::copy_threads_to_folder` into its folder.
+/// The staged file must sit in the staging directory (a queue row cannot make
+/// this read any other file) and is removed once the message is filed. The
+/// next scan, which follows in the same cycle, imports it like any message.
+async fn import_raw(
+    ctx: &SyncCtx,
+    config: &AccountConfig,
+    root: &Path,
+    action: &repo::actions::PendingAction,
+) -> Result<()> {
+    let payload = &action.payload;
+    let folder_id = payload["folderId"]
+        .as_i64()
+        .ok_or_else(|| CoreError::NotFound("target folder of a copy".into()))?;
+    let staged = payload["path"]
+        .as_str()
+        .map(PathBuf::from)
+        .ok_or_else(|| CoreError::NotFound("staged message of a copy".into()))?;
+    let staging = staging_dir(&ctx.paths);
+    let inside = staged.parent().is_some_and(|parent| parent == staging)
+        && std::fs::symlink_metadata(&staged)
+            .map(|meta| meta.is_file())
+            .unwrap_or(false);
+    if !inside {
+        return Err(CoreError::Other(
+            "the staged message is missing (copy it again)".into(),
+        ));
+    }
+    let flags = maildir::Flags {
+        seen: payload["seen"].as_bool().unwrap_or(false),
+        flagged: payload["flagged"].as_bool().unwrap_or(false),
+        ..Default::default()
+    };
+    let account_id = config.id;
+    let root_owned = root.to_path_buf();
+    let target = ctx
+        .db
+        .read(move |conn| {
+            let owner: Option<i64> = conn
+                .query_row(
+                    "SELECT f.account_id FROM folders f JOIN local_folders l ON l.folder_id = f.id
+                     WHERE f.id = ?1",
+                    params![folder_id],
+                    |row| row.get(0),
+                )
+                .ok();
+            if owner != Some(account_id) {
+                return Err(CoreError::NotFound("target folder of a copy".into()));
+            }
+            folder_location(conn, &root_owned, folder_id)
+        })
+        .await?;
+    let raw = crate::file_io::read(&staged, MAX_IMPORT_BYTES, "staged message").await?;
+    let root_owned = root.to_path_buf();
+    let format = config.settings.connection.local_format;
+    tokio::task::spawn_blocking(move || -> std::io::Result<()> {
+        match format {
+            LocalFormat::Mbox => {
+                let rel = target.strip_prefix(&root_owned).unwrap_or(&target);
+                let file = mbox_file(&root_owned, rel);
+                mbox::deliver(
+                    &file,
+                    &raw,
+                    &mbox::Flags {
+                        seen: flags.seen,
+                        flagged: flags.flagged,
+                        ..Default::default()
+                    },
+                )
+                .map(drop)
+            }
+            LocalFormat::Mh => mh::deliver(&root_owned, &target, &raw, flags).map(drop),
+            LocalFormat::Maildir => maildir::deliver(&root_owned, &target, &raw, flags).map(drop),
+        }
+    })
+    .await
+    .map_err(|error| CoreError::Other(error.to_string()))?
+    .map_err(io_error)?;
+    // Filed. A leftover staged file is only wasted space, so a failure to
+    // remove it must not fail (and so repeat) the copy.
+    let _ = tokio::fs::remove_file(&staged).await;
+    Ok(())
+}
+
 fn blocking<T>(
     result: std::result::Result<std::io::Result<T>, tokio::task::JoinError>,
 ) -> Result<T> {
@@ -840,6 +966,15 @@ async fn body_actor(ctx: SyncCtx, config: AccountConfig, mut rx: mpsc::Receiver<
         match command {
             // Bodies are cached when the message is imported.
             PriorityFetchCmd::Body(_) => {}
+            PriorityFetchCmd::Original {
+                message_id,
+                complete,
+            } => {
+                let result = source_bytes(&ctx, &config, message_id)
+                    .await
+                    .map_err(|error| error.to_string());
+                let _ = complete.send(result);
+            }
             PriorityFetchCmd::Attachment {
                 attachment_id,
                 complete,

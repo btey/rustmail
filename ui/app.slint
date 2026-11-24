@@ -228,6 +228,8 @@ export global I18n {
         if (key == "Could not save sidebar icon preference: {}") { return @tr("Could not save sidebar icon preference: {}", argument); }
         if (key == "Message scheduled for {}.") { return @tr("Message scheduled for {}.", argument); }
         if (key == "Scroll direction saved.") { return @tr("Scroll direction saved."); }
+        if (key == "Drop preference saved.") { return @tr("Drop preference saved."); }
+        if (key == "Could not save the drop preference: {}") { return @tr("Could not save the drop preference: {}", argument); }
         if (key == "Scroll direction changed for this session.") { return @tr("Scroll direction changed for this session."); }
         if (key == "Could not save the scroll direction: {}") { return @tr("Could not save the scroll direction: {}", argument); }
         if (key == "Avatar preference updated for this session.") { return @tr("Avatar preference updated for this session."); }
@@ -327,6 +329,15 @@ export global I18n {
         if (key == "Import tasks") { return @tr("Import tasks"); }
         if (key == "Rustmail tasks") { return @tr("Rustmail tasks"); }
         if (key == "Tasks exported.") { return @tr("Tasks exported."); }
+        if (key == "Choose a new or empty folder for the backup.") { return @tr("Choose a new or empty folder for the backup."); }
+        if (key == "Choose the local mail backup folder.") { return @tr("Choose the local mail backup folder."); }
+        if (key == "Backup cancelled.") { return @tr("Backup cancelled."); }
+        if (key == "Restore cancelled.") { return @tr("Restore cancelled."); }
+        if (key == "You have no Local folders account to back up.") { return @tr("You have no Local folders account to back up."); }
+        if (key == "Local mail backed up: {} accounts, {} files.") { return @tr("Local mail backed up: {} accounts, {} files.", argument, second-argument); }
+        if (key == "Could not back up local mail: {}") { return @tr("Could not back up local mail: {}", argument); }
+        if (key == "Local mail restored as {}.") { return @tr("Local mail restored as {}.", argument); }
+        if (key == "Could not restore local mail: {}") { return @tr("Could not restore local mail: {}", argument); }
         if (key == "Could not export tasks: {}") { return @tr("Could not export tasks: {}", argument); }
         if (key == "Could not import tasks: {}") { return @tr("Could not import tasks: {}", argument); }
         if (key == "Imported {} tasks; {} skipped as already present; {} projects added.") { return @tr("Imported {} tasks; {} skipped as already present; {} projects added.", argument, second-argument, third-argument); }
@@ -727,6 +738,8 @@ export component AppWindow inherits Window {
     callback export_database_snapshot();
     callback export_tasks();
     callback import_tasks();
+    callback backup_local_mail();
+    callback restore_local_mail();
     callback delete_all_data();
     callback load_storage_usage();
     callback cancel_storage_usage();
@@ -2092,6 +2105,8 @@ export component AppWindow inherits Window {
             export_database_snapshot => { root.export_database_snapshot(); }
             export_tasks => { root.export_tasks(); }
             import_tasks => { root.import_tasks(); }
+            backup_local_mail => { root.backup_local_mail(); }
+            restore_local_mail => { root.restore_local_mail(); }
             delete_all_data => { root.delete_all_data(); }
             load_storage_usage => { root.load_storage_usage(); }
             open-link(url) => { root.open_email_link(url); }

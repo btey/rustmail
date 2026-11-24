@@ -245,8 +245,11 @@ async fn mh_rescan_picks_up_new_and_removed_mail() {
 async fn mh_invalid_roots_are_rejected() {
     let temp = tempfile::tempdir().unwrap();
     let core = start(temp.path()).await;
-    let empty = temp.path().join("empty");
+    // A folder with other files in it is refused (an empty one becomes a new
+    // store, see `tests/local_transfer.rs`).
+    let empty = temp.path().join("notes");
     std::fs::create_dir_all(&empty).unwrap();
+    std::fs::write(empty.join("todo.txt"), "buy milk").unwrap();
     let error = core
         .add_account_password(args(&empty, LocalFormat::Mh))
         .await

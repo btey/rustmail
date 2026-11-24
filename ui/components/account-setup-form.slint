@@ -230,7 +230,7 @@ export component AccountSetupForm inherits Rectangle {
                             VerticalBox {
                                 padding: 0px;
                                 alignment: end;
-                                width: 156px;
+                                width: 200px;
                                 browse := Button { height: 36px; text: root.advanced.local-format == "mbox" ? @tr("Choose file…") : @tr("Choose folder…"); enabled: root.enabled; clicked => { root.browse-local-folder(root.advanced.local-format == "mbox"); } }
                             }
                         }
@@ -244,6 +244,10 @@ export component AccountSetupForm inherits Rectangle {
                         }
                         if root.local : Text {
                             text: root.advanced.local-format == "mbox" ? @tr("mbox files. Read and starred marks, moves and deletions rewrite the whole file, so close other mail programs that use it first.") : root.advanced.local-format == "mh" ? @tr("MH folders with numbered message files. Moves and deletions are written to the files; read and starred marks go in each folder's .mh_sequences file.") : @tr("Maildir or Maildir++ folders. Flags, moves and deletions are written back to the files, so other mail programs stay in sync.");
+                            color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
+                        }
+                        if root.local : Text {
+                            text: @tr("An empty folder starts a new, empty mail store there, to keep copies of mail from your other accounts.");
                             color: root.muted-text; font-size: TypeScale.caption; wrap: word-wrap; height: self.preferred-height;
                         }
                         if root.local : Text {

@@ -511,6 +511,8 @@ export component SettingsDialog inherits Rectangle {
     callback export_database_snapshot();
     callback export_tasks();
     callback import_tasks();
+    callback backup_local_mail();
+    callback restore_local_mail();
     callback delete_all_data();
     callback load_storage_usage();
     pure callback settings-search-matches(string, string) -> bool;
@@ -1015,6 +1017,19 @@ export component SettingsDialog inherits Rectangle {
                                         toggled(checked) => {
                                             WindowChrome.reverse-scroll = checked;
                                             WindowChrome.save-reverse-scroll(checked);
+                                        }
+                                    }
+                                    Rectangle { height: 1px; background: root.border-subtle; }
+                                    SettingsSwitchRow {
+                                        compact: root.compact;
+                                        title: @tr("Move mail dropped on a local folder");
+                                        description: @tr("Mail dropped on a folder of a local account is moved there; the original goes to Trash. Off keeps the original.");
+                                        checked: WindowChrome.cross-account-drop-moves;
+                                        title-color: root.body-text;
+                                        description-color: root.faint-text;
+                                        toggled(checked) => {
+                                            WindowChrome.cross-account-drop-moves = checked;
+                                            WindowChrome.save-cross-account-drop-moves(checked);
                                         }
                                     }
                                     Rectangle { height: 1px; background: root.border-subtle; }
@@ -2192,6 +2207,29 @@ export component SettingsDialog inherits Rectangle {
                                         alignment: start;
                                         Button { text: @tr("Export tasks"); width: max(130px, self.content-width + 28px); clicked => { root.export_tasks(); } }
                                         Button { text: @tr("Import tasks"); width: max(130px, self.content-width + 28px); clicked => { root.import_tasks(); } }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                height: max(root.compact ? 230px : 170px, self.preferred-height);
+                                background: root.surface;
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: root.border-subtle;
+                                VerticalBox {
+                                    padding-top: 15px;
+                                    padding-right: 20px;
+                                    padding-bottom: 15px;
+                                    padding-left: 20px;
+                                    spacing: 8px;
+                                    Text { text: @tr("Local mail"); color: root.heading; font-size: TypeScale.subtitle; font-weight: 700; wrap: word-wrap; }
+                                    Text { text: @tr("Back up the mail of your Local folders accounts to a folder you can copy to another computer, or restore such a backup into a new empty folder. Labels and snoozes go with it; passwords, tasks and links to mail do not."); color: root.faint-text; font-size: TypeScale.caption; wrap: word-wrap; }
+                                    HorizontalBox {
+                                        spacing: 8px;
+                                        alignment: start;
+                                        Button { text: @tr("Back up local mail"); width: max(150px, self.content-width + 28px); clicked => { root.backup_local_mail(); } }
+                                        Button { text: @tr("Restore local mail"); width: max(150px, self.content-width + 28px); clicked => { root.restore_local_mail(); } }
                                     }
                                 }
                             }
