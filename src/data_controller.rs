@@ -1146,6 +1146,67 @@ pub(super) fn register_data_management_callbacks(
     });
 
     let app_weak = app.as_weak();
+    let state_for_newsrc = Rc::clone(state);
+    let runtime_for_newsrc = Rc::clone(runtime);
+    let documents_for_newsrc = documents.clone();
+    let paths_for_newsrc = paths.clone();
+    app.on_export_newsrc(move || {
+        let Some(app) = app_weak.upgrade() else {
+            return;
+        };
+        let Some(core) = state_for_newsrc.borrow().core.clone() else {
+            app.set_sync_status(UiMessage::plain(
+                "Local data storage is unavailable. Retry startup.",
+            ));
+            return;
+        };
+        let text = match runtime_for_newsrc.block_on(core.export_newsrc()) {
+            Ok(Some(text)) => text,
+            Ok(None) => {
+                app.set_sync_status(UiMessage::plain(
+                    "You have no newsgroup subscriptions to export.",
+                ));
+                return;
+            }
+            Err(error) => {
+                app.set_sync_status(UiMessage::detail(
+                    "Could not export newsgroups: {}",
+                    error,
+                ));
+                return;
+            }
+        };
+        let dialog = documents::DocumentDialog {
+            title: translated(&app, &UiMessage::plain("Export newsgroups")).to_string(),
+            filter: Some((
+                translated(&app, &UiMessage::plain("Newsgroup list")).to_string(),
+                &["newsrc"],
+            )),
+        };
+        let request = export_document_bytes(
+            documents_for_newsrc.clone(),
+            paths_for_newsrc.temp_dir(),
+            text.into_bytes(),
+            "rustmail.newsrc".to_owned(),
+            dialog,
+        );
+        let app_weak = app.as_weak();
+        documents::run_request(&runtime_for_newsrc, request, move |result| {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            match result {
+                Ok(true) => app.set_sync_status(UiMessage::plain("Newsgroups exported.")),
+                Ok(false) => {}
+                Err(error) => app.set_sync_status(UiMessage::detail(
+                    "Could not export newsgroups: {}",
+                    error,
+                )),
+            }
+        });
+    });
+
+    let app_weak = app.as_weak();
     let state_for_task_export = Rc::clone(state);
     let runtime_for_task_export = Rc::clone(runtime);
     let documents_for_task_export = documents.clone();

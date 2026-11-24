@@ -329,6 +329,11 @@ export global I18n {
         if (key == "Import tasks") { return @tr("Import tasks"); }
         if (key == "Rustmail tasks") { return @tr("Rustmail tasks"); }
         if (key == "Tasks exported.") { return @tr("Tasks exported."); }
+        if (key == "Export newsgroups") { return @tr("Export newsgroups"); }
+        if (key == "Newsgroup list") { return @tr("Newsgroup list"); }
+        if (key == "Newsgroups exported.") { return @tr("Newsgroups exported."); }
+        if (key == "You have no newsgroup subscriptions to export.") { return @tr("You have no newsgroup subscriptions to export."); }
+        if (key == "Could not export newsgroups: {}") { return @tr("Could not export newsgroups: {}", argument); }
         if (key == "Choose a new or empty folder for the backup.") { return @tr("Choose a new or empty folder for the backup."); }
         if (key == "Choose the local mail backup folder.") { return @tr("Choose the local mail backup folder."); }
         if (key == "Backup cancelled.") { return @tr("Backup cancelled."); }
@@ -740,6 +745,7 @@ export component AppWindow inherits Window {
     callback import_tasks();
     callback backup_local_mail();
     callback restore_local_mail();
+    callback export_newsrc();
     callback delete_all_data();
     callback load_storage_usage();
     callback cancel_storage_usage();
@@ -2107,6 +2113,7 @@ export component AppWindow inherits Window {
             import_tasks => { root.import_tasks(); }
             backup_local_mail => { root.backup_local_mail(); }
             restore_local_mail => { root.restore_local_mail(); }
+            export_newsrc => { root.export_newsrc(); }
             delete_all_data => { root.delete_all_data(); }
             load_storage_usage => { root.load_storage_usage(); }
             open-link(url) => { root.open_email_link(url); }

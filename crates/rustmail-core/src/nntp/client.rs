@@ -118,6 +118,13 @@ pub fn parse_group_list(text: &str) -> (Vec<String>, Vec<String>) {
     (valid, invalid)
 }
 
+/// The groups as the text of a `.newsrc` file, one `group:` line each. The
+/// read ranges are not kept (Rustmail marks articles read in its own database),
+/// so every article shows as unread in a program that reads the file.
+pub fn format_newsrc(groups: &[String]) -> String {
+    groups.iter().map(|group| format!("{group}:\n")).collect()
+}
+
 /// The first token of a `.newsrc` line: `name:` (subscribed) or `name!`
 /// (unsubscribed), optionally with the first read range stuck to it
 /// (`name:1-9`). Anything else is `None`.
@@ -683,6 +690,17 @@ mod tests {
             parse_group_list("comp.lang.rust, alt.test\nCOMP.LANG.RUST;bad/name  gmane.org");
         assert_eq!(valid, vec!["comp.lang.rust", "alt.test", "gmane.org"]);
         assert_eq!(invalid, vec!["bad/name"]);
+    }
+
+    #[test]
+    fn an_exported_newsrc_reads_back_the_same_groups() {
+        let groups = vec!["comp.lang.rust".to_owned(), "alt.test".to_owned()];
+        let text = format_newsrc(&groups);
+        assert_eq!(text, "comp.lang.rust:\nalt.test:\n");
+        let (valid, invalid) = parse_group_list(&text);
+        assert_eq!(valid, groups);
+        assert!(invalid.is_empty());
+        assert_eq!(format_newsrc(&[]), "");
     }
 
     #[test]

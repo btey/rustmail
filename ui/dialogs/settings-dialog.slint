@@ -513,6 +513,7 @@ export component SettingsDialog inherits Rectangle {
     callback import_tasks();
     callback backup_local_mail();
     callback restore_local_mail();
+    callback export_newsrc();
     callback delete_all_data();
     callback load_storage_usage();
     pure callback settings-search-matches(string, string) -> bool;
@@ -2230,6 +2231,7 @@ export component SettingsDialog inherits Rectangle {
                                         alignment: start;
                                         Button { text: @tr("Back up local mail"); width: max(150px, self.content-width + 28px); clicked => { root.backup_local_mail(); } }
                                         Button { text: @tr("Restore local mail"); width: max(150px, self.content-width + 28px); clicked => { root.restore_local_mail(); } }
+                                        Button { text: @tr("Export .newsrc"); width: max(130px, self.content-width + 28px); clicked => { root.export_newsrc(); } }
                                     }
                                 }
                             }

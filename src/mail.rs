@@ -1186,6 +1186,11 @@ impl CoreMailSource {
             .map_err(|error| error.to_string())
     }
 
+    /// The subscriptions of all news accounts as `.newsrc` text, if any.
+    pub async fn export_newsrc(&self) -> Result<Option<String>, String> {
+        self.core.export_newsrc().await.map_err(|error| error.to_string())
+    }
+
     pub async fn set_cross_account_drop_moves(&self, enabled: bool) -> Result<(), String> {
         let mut settings = self.load_settings().await?;
         settings.cross_account_drop_moves = enabled;

@@ -1509,6 +1509,25 @@ impl Core {
         }
     }
 
+    /// The subscriptions of every news account as one `.newsrc` text (groups
+    /// of several accounts are listed once). `None` when there is no news
+    /// account or no subscription.
+    pub async fn export_newsrc(&self) -> Result<Option<String>> {
+        let configs = self.list_account_configs().await?;
+        let mut seen = std::collections::HashSet::new();
+        let mut groups = Vec::new();
+        for config in configs.iter().filter(|c| c.settings.connection.news) {
+            let (found, _) =
+                nntp::client::parse_group_list(&config.settings.connection.news_groups);
+            for group in found {
+                if seen.insert(group.to_ascii_lowercase()) {
+                    groups.push(group);
+                }
+            }
+        }
+        Ok((!groups.is_empty()).then(|| nntp::client::format_newsrc(&groups)))
+    }
+
     /// Newsgroups the server offers (`LIST ACTIVE` with descriptions from
     /// `LIST NEWSGROUPS` when available), for choosing subscriptions. `pattern`
     /// is an optional wildmat such as `comp.lang.*`. At most 5000 are returned.
